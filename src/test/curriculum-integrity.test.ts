@@ -346,8 +346,9 @@ describe('ukuran kurikulum yang dijanjikan dokumen', () => {
   it('jumlah sub-bab yang sudah ditulis tercatat, agar progres penulisan tidak diklaim asal', () => {
     const written = allLessons.filter((location) => location.lesson.status === 'written').length;
     // Naikkan angka ini setiap satu bab selesai ditulis. Turun = regresi yang harus dijelaskan.
-    // Frontend Basic 76 + Frontend Intermediate 100 + Backend Basic 58 = 234.
-    expect(written).toBeGreaterThanOrEqual(234);
+    // Seluruh kurikulum: 76 + 100 + 58 + 58 + 38 = 330. TUNTAS.
+    // Angka ini tidak boleh turun — penurunan berarti materi hilang.
+    expect(written).toBe(330);
   });
 });
 
