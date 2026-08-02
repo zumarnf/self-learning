@@ -1,0 +1,489 @@
+@import 'tailwindcss';
+
+/*
+  Ruang Belajar Fullstack — design tokens.
+
+  Locked by ADR-0005 ("Ink & Amber"). Every colour, radius, shadow and duration used anywhere in
+  the app comes from this file. Components must never write a raw hex value or a one-off spacing
+  number — that rule is what keeps theming possible and stops the palette from drifting
+  (.claude/rules/frontend.md → design tokens are the source of truth).
+
+  Contrast ratios were computed before locking these values; see docs/adr/0005 for the table.
+  The signature amber never carries text on a light background, because it measures ~2.2:1
+  there. Accessibility beats aesthetics, always.
+*/
+
+/* Theme is class-driven, not media-driven, because the user gets an explicit
+   system/light/dark choice that must win over the OS setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+
+  /* Surfaces — warm neutrals, never pure grey */
+  --bg: #faf7f1;
+  --surface: #ffffff;
+  --raised: #f4efe6;
+  --sunken: #f0eade;
+  --border: #e5ddcf;
+  --border-strong: #d3c8b4;
+
+  /* Text */
+  --text: #191713;
+  --muted: #6b6357;
+  --faint: #918878;
+
+  /* Accents */
+  --primary: #8f5314;
+  --primary-hover: #7a460f;
+  --primary-fill: #e5a13c; /* fill only — dark text sits on top of it */
+  --on-primary-fill: #2b1c05;
+  --accent: #3f6f58;
+  --accent-fill: #dce8e1;
+  --danger: #a63d28;
+  --danger-fill: #f6e5e0;
+  --success: #3f6f58;
+  --warning: #8a5a00;
+  --warning-fill: #f8eed6;
+
+  /* Code surfaces — slightly deeper than the page so blocks read as inset */
+  --code-bg: #f6f2ea;
+  --code-border: #e3dacb;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --bg: #0e0d0b;
+  --surface: #1a1814;
+  --raised: #221f1a;
+  --sunken: #131210;
+  --border: #2e2a24;
+  --border-strong: #423c33;
+
+  --text: #ede6da;
+  --muted: #a39a8b;
+  --faint: #7d7565;
+
+  --primary: #e5a13c;
+  --primary-hover: #f0b258;
+  --primary-fill: #e5a13c;
+  --on-primary-fill: #2b1c05;
+  --accent: #6fa88a;
+  --accent-fill: #1d2b24;
+  --danger: #d9694a;
+  --danger-fill: #2e1a15;
+  --success: #6fa88a;
+  --warning: #d9a441;
+  --warning-fill: #2b2113;
+
+  --code-bg: #16150f;
+  --code-border: #2a2721;
+}
+
+@theme inline {
+  /* Colours are referenced through the variables above so a theme switch is a pure CSS swap. */
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-sunken: var(--sunken);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-fill: var(--primary-fill);
+  --color-on-primary-fill: var(--on-primary-fill);
+  --color-accent: var(--accent);
+  --color-accent-fill: var(--accent-fill);
+  --color-danger: var(--danger);
+  --color-danger-fill: var(--danger-fill);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-warning-fill: var(--warning-fill);
+  --color-code-bg: var(--code-bg);
+  --color-code-border: var(--code-border);
+
+  /* Typography — three roles, deliberately different families.
+     Sans carries the UI, serif carries what you read for a long time, mono carries code. */
+  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-source-serif), ui-serif, Georgia, serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, monospace;
+
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1.4;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.45;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.55;
+  --text-body: 1.0625rem; /* lesson prose — 17px */
+  --text-body--line-height: 1.75;
+  --text-lg: 1.175rem;
+  --text-lg--line-height: 1.4;
+  --text-xl: 1.5rem;
+  --text-xl--line-height: 1.25;
+  --text-2xl: 1.875rem;
+  --text-2xl--line-height: 1.18;
+  --text-3xl: 2.25rem;
+  --text-3xl--line-height: 1.1;
+  --text-4xl: 3rem;
+  --text-4xl--line-height: 1.05;
+
+  /* Radii — crisp, never pill-shaped on containers */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+
+  /* Elevation — three barely-there steps. Depth exists; weight does not. */
+  --shadow-xs: 0 1px 2px rgb(24 19 12 / 0.04);
+  --shadow-sm: 0 2px 8px rgb(24 19 12 / 0.05);
+  --shadow-md: 0 8px 24px rgb(24 19 12 / 0.07);
+
+  /* Reading measure */
+  --container-prose: 68ch;
+  --container-code: 82ch;
+
+  /*
+    Motion — fast, purposeful, interruptible. No decorative easing.
+
+    Two curves, because they are not interchangeable: `--ease-out-ui` is the strong ease-out for
+    things entering or leaving in place (built-in `ease-out` is too weak to read as deliberate),
+    while `--ease-drawer` is the iOS-style curve that only suits a panel sliding in from an edge.
+    Using the drawer curve everywhere makes ordinary UI feel sluggish.
+  */
+  --ease-out-ui: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --duration-fast: 120ms;
+  --duration-normal: 180ms;
+  --duration-slow: 300ms;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+    /* Sticky header must not cover the heading we just jumped to. */
+    scroll-padding-top: 5.5rem;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* One visible focus style for the whole app. Never removed without a replacement
+     (.claude/rules/frontend.md → accessibility baseline). */
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  ::selection {
+    background-color: var(--primary-fill);
+    color: var(--on-primary-fill);
+  }
+
+  /* Removes the ~300ms tap delay some mobile browsers still apply while waiting to see
+     whether a tap was a double-tap, and replaces the default blue flash with our own
+     token-based feedback. */
+  button,
+  a,
+  label,
+  summary,
+  [role='button'] {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: color-mix(in oklab, var(--primary) 14%, transparent);
+  }
+
+  /* Press feedback on anything pressable. Subtle by design — 0.97, not 0.9. */
+  button:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  button {
+    transition: transform 140ms var(--ease-out-ui);
+  }
+
+  /* Headings should not leave a single orphaned word on the last line. */
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Numbers that change in place must not shift the layout around them. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Long code and tables scroll inside their own container; the page body never does. */
+  .scroll-x {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+
+  /*
+    Mobile drawer.
+
+    Entry and exit are asymmetric on purpose: opening is the moment the user is watching and
+    deserves a little weight; closing is the system getting out of the way and should be quick.
+    Both are CSS transitions rather than keyframes, so a fast open-close-open stays smooth
+    instead of restarting from zero. `@starting-style` gives the entry animation without any
+    mount-flag bookkeeping in React.
+  */
+  .drawer-panel {
+    overscroll-behavior: contain;
+    transform: translateX(0);
+    opacity: 1;
+    transition:
+      transform 220ms var(--ease-drawer),
+      opacity 220ms var(--ease-drawer);
+  }
+
+  @starting-style {
+    .drawer-panel {
+      transform: translateX(-100%);
+      opacity: 0;
+    }
+  }
+
+  .drawer-scrim {
+    opacity: 1;
+    transition: opacity 160ms var(--ease-out-ui);
+  }
+
+  @starting-style {
+    .drawer-scrim {
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .drawer-panel,
+    .drawer-scrim {
+      transition: opacity 120ms var(--ease-out-ui);
+    }
+
+    @starting-style {
+      .drawer-panel {
+        transform: translateX(0);
+        opacity: 0;
+      }
+    }
+  }
+
+  /*
+    Reduced motion means fewer and gentler animations, not none.
+
+    Movement is what causes discomfort, so transforms and scroll animation are removed entirely.
+    Colour and opacity transitions stay: they carry meaning (hover, focus, "saved") and removing
+    them would make the interface feel broken rather than calm.
+  */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      transition-property:
+        color, background-color, border-color, opacity, box-shadow, text-decoration-color,
+        outline-color !important;
+      transition-duration: 120ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+    }
+
+    button:active:not(:disabled) {
+      transform: none;
+    }
+  }
+}
+
+@layer components {
+  /*
+    Lesson prose. The vertical rhythm is deliberately uneven: space before a section heading is
+    twice the space between paragraphs, so hierarchy comes from rhythm rather than from rules
+    and boxes.
+  */
+  .prose-lesson {
+    font-family: var(--font-serif);
+    font-size: var(--text-body);
+    line-height: 1.75;
+    color: var(--text);
+    max-width: var(--container-prose);
+  }
+
+  .prose-lesson > * + * {
+    margin-top: 1.5rem;
+  }
+
+  .prose-lesson > * + h2 {
+    margin-top: 3rem;
+  }
+
+  .prose-lesson > * + h3 {
+    margin-top: 2rem;
+  }
+
+  .prose-lesson h2,
+  .prose-lesson h3 {
+    font-family: var(--font-sans);
+    color: var(--text);
+    scroll-margin-top: 6rem;
+  }
+
+  .prose-lesson h2 {
+    font-size: var(--text-xl);
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    font-weight: 600;
+  }
+
+  /* The amber mark beside a section heading: x-height tall, 3px wide. This is the one place
+     the signature colour appears in the reading column. */
+  .prose-lesson h2::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 0.72em;
+    margin-right: 0.6rem;
+    vertical-align: baseline;
+    background-color: var(--primary-fill);
+    border-radius: 1px;
+  }
+
+  .prose-lesson h3 {
+    font-size: var(--text-lg);
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+
+  .prose-lesson a {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+    text-decoration-thickness: 1px;
+    text-decoration-color: color-mix(in oklab, var(--primary) 40%, transparent);
+    transition: text-decoration-color var(--duration-fast) var(--ease-out-ui);
+  }
+
+  .prose-lesson a:hover {
+    text-decoration-color: var(--primary);
+  }
+
+  .prose-lesson strong {
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  /* Inline code inside serif prose needs to be a touch smaller or it looks oversized. */
+  .prose-lesson code {
+    font-family: var(--font-mono);
+    font-size: 0.86em;
+    background-color: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: var(--radius-sm);
+    padding: 0.1em 0.35em;
+    white-space: nowrap;
+  }
+
+  .prose-lesson ul,
+  .prose-lesson ol {
+    padding-left: 1.5rem;
+  }
+
+  .prose-lesson ul {
+    list-style: none;
+  }
+
+  .prose-lesson ul > li {
+    position: relative;
+  }
+
+  .prose-lesson ul > li::before {
+    content: '';
+    position: absolute;
+    left: -1rem;
+    top: 0.72em;
+    width: 5px;
+    height: 1px;
+    background-color: var(--faint);
+  }
+
+  .prose-lesson ol {
+    list-style: decimal;
+  }
+
+  .prose-lesson ol > li::marker {
+    color: var(--faint);
+    font-family: var(--font-sans);
+    font-size: 0.85em;
+  }
+
+  .prose-lesson li + li {
+    margin-top: 0.5rem;
+  }
+
+  /*
+    Shiki dual-theme output. The highlighter emits both palettes as CSS variables on every token
+    (ADR-0004); these two rules decide which one is visible. Switching theme therefore costs one
+    class change and no re-highlight.
+  */
+  .shiki {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    line-height: 1.7;
+    background-color: var(--code-bg) !important;
+    padding: 1rem 1.1rem;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    tab-size: 2;
+  }
+
+  .shiki code {
+    display: block;
+    width: fit-content;
+    min-width: 100%;
+  }
+
+  .shiki,
+  .shiki span {
+    color: var(--shiki-light);
+  }
+
+  .dark .shiki,
+  .dark .shiki span {
+    color: var(--shiki-dark);
+  }
+
+  .shiki .line {
+    display: block;
+    min-height: 1.7em;
+  }
+
+  .shiki-plain code {
+    white-space: pre;
+    color: var(--text);
+  }
+}

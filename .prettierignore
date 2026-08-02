@@ -1,0 +1,12 @@
+.next/
+node_modules/
+out/
+coverage/
+package-lock.json
+
+# Shared tooling folder, copied between projects — not ours to reformat.
+.claude/
+
+# Prose documents. Prettier reflows Markdown in ways that fight hand-formatted tables and
+# ASCII wireframes, so they are formatted by hand and reviewed by reading.
+**/*.md

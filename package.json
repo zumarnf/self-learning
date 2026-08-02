@@ -1,0 +1,62 @@
+{
+  "name": "website-learning-fullstack",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run lint && npm run type-check && npm run test && npm run build"
+  },
+  "//overrides": [
+    "Security fix for transitive dependencies of Next 16.2.12, which is already the latest",
+    "release — there is no newer Next to upgrade to. npm's automatic remedy would downgrade",
+    "Next to 9.3.3 (a 2020 release, seven majors back), which introduces far more risk than it",
+    "removes, so it is refused deliberately.",
+    "postcss <=8.5.17: three CVEs that all require attacker-controlled CSS at build time.",
+    "sharp <0.35.0: libvips CVEs that require processing attacker-supplied images.",
+    "Neither is reachable here (this app has no user-supplied CSS and never processes images),",
+    "but pinning the patched versions costs nothing and removes the finding rather than",
+    "explaining it away. Re-check with `npm audit` after any dependency change."
+  ],
+  "overrides": {
+    "postcss": "8.5.25",
+    "sharp": "0.35.3"
+  },
+  "dependencies": {
+    "next": "16.2.12",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "shiki": "4.4.1"
+  },
+  "devDependencies": {
+    "@codesandbox/sandpack-react": "2.20.0",
+    "@tailwindcss/postcss": "4.3.3",
+    "@testing-library/jest-dom": "7.0.0",
+    "@testing-library/react": "16.3.2",
+    "@testing-library/user-event": "14.6.1",
+    "@types/node": "26.1.2",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "@vitejs/plugin-react": "6.0.5",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.2.12",
+    "jsdom": "30.0.1",
+    "prettier": "3.9.6",
+    "prettier-plugin-tailwindcss": "0.8.1",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  }
+}
