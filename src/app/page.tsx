@@ -1,4 +1,5 @@
 import { DashboardClient } from './dashboard-client';
+import { stripInline } from '@/lib/content/parse-inline';
 import {
   buildLessonIndex,
   categoryLessonCount,
@@ -43,7 +44,7 @@ export default function DashboardPage() {
       lessons: chapter.lessons.map((lesson) => ({
         slug: lesson.slug,
         index: lesson.index,
-        title: lesson.title,
+        title: stripInline(lesson.title),
       })),
     })),
   }));

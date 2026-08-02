@@ -34,6 +34,33 @@ function isExternal(href: string): boolean {
   return href.startsWith('http://') || href.startsWith('https://');
 }
 
+/**
+ * The same syntax, reduced to plain text.
+ *
+ * Lesson and chapter titles are written with the same inline syntax as body text (`useRef`,
+ * *Kenapa*), but they are consumed in two very different places: as a heading, where the markup
+ * should render, and as a `<title>` / `aria-label` / truncated list item, where React nodes are
+ * either impossible or visually noisy. This gives the second group the author's words without the
+ * syntax characters leaking through to the reader.
+ *
+ * Kept in sync with `parseInline` by a test — the two must recognise the same patterns, or a title
+ * would render one way in the heading and another in the tab.
+ */
+export function stripInline(text: string): string {
+  const pattern = new RegExp(INLINE_PATTERN.source, 'g');
+
+  return text.replace(pattern, (full, codeText, boldText, italicText, linkText, linkHref) => {
+    if (codeText !== undefined) return codeText;
+    if (boldText !== undefined) return stripInline(boldText);
+    if (italicText !== undefined) return stripInline(italicText);
+    // A disallowed href keeps its characters here too, matching parseInline's behaviour.
+    if (linkText !== undefined && linkHref !== undefined) {
+      return isAllowedHref(linkHref) ? stripInline(linkText) : full;
+    }
+    return full;
+  });
+}
+
 export function parseInline(text: string, depth = 0): ReactNode[] {
   if (text.length === 0) return [];
   if (depth >= MAX_DEPTH) return [text];

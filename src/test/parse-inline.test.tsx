@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { parseInline } from '@/lib/content/parse-inline';
+import { parseInline, stripInline } from '@/lib/content/parse-inline';
+import { flattenLessons } from '@/lib/curriculum/queries';
 
 /**
  * The inline parser is the only thing standing between lesson text and the DOM, so its unhappy
@@ -96,5 +97,70 @@ describe('parseInline — jalur tidak bahagia', () => {
     expect(container.querySelector('strong')?.textContent).toBe('b');
     expect(container.querySelector('em')?.textContent).toBe('c');
     expect(container.querySelector('a')?.textContent).toBe('d');
+  });
+});
+
+/**
+ * `stripInline` is the plain-text counterpart used for `<title>`, truncated list items, and any
+ * place a React node cannot go. It must recognise exactly the same patterns as `parseInline` —
+ * a title that renders as code in the heading but shows a raw backtick in the browser tab is the
+ * defect this pair exists to prevent.
+ */
+describe('stripInline', () => {
+  it('membuang backtick tapi mempertahankan isinya', () => {
+    expect(stripInline('`useRef`: nilai mutable')).toBe('useRef: nilai mutable');
+  });
+
+  it('membuang penanda tebal dan miring', () => {
+    expect(stripInline('Pesan Commit yang Menjelaskan *Kenapa*')).toBe(
+      'Pesan Commit yang Menjelaskan Kenapa',
+    );
+    expect(stripInline('ini **tebal** dan *miring*')).toBe('ini tebal dan miring');
+  });
+
+  it('menyisakan teks tautan, membuang alamatnya', () => {
+    expect(stripInline('lihat [panduan](/kelas/deployment)')).toBe('lihat panduan');
+  });
+
+  it('mempertahankan tautan berskema terlarang apa adanya, sama seperti parseInline', () => {
+    const jahat = '[klik](javascript:alert(1))';
+    expect(stripInline(jahat)).toBe(jahat);
+  });
+
+  it('membiarkan sintaks yang tidak lengkap sebagai teks biasa', () => {
+    expect(stripInline('backtick `sendirian')).toBe('backtick `sendirian');
+    expect(stripInline('kurung [tanpa tutup')).toBe('kurung [tanpa tutup');
+  });
+
+  it('menghasilkan teks yang sama dengan textContent parseInline', () => {
+    // Inilah jaminan bahwa keduanya tidak akan menyimpang.
+    const contoh = [
+      '`useState`: dasar dan aturannya',
+      'Optimasi: `next/image`, `next/font`, dynamic import',
+      'Pesan Commit yang Menjelaskan *Kenapa*',
+      'ini **tebal** dengan `kode` di dalamnya',
+      'teks polos tanpa apa pun',
+    ];
+
+    for (const teks of contoh) {
+      const { container, unmount } = render(<p>{parseInline(teks)}</p>);
+      expect(container.textContent, teks).toBe(stripInline(teks));
+      unmount();
+    }
+  });
+});
+
+describe('judul kurikulum', () => {
+  it('setiap judul sub-bab bebas sintaks yang tidak lengkap', () => {
+    // Sintaks tidak lengkap akan tampil apa adanya ke pembaca — backtick ganjil,
+    // atau kurung siku yang tidak pernah ditutup.
+    for (const { lesson, key } of flattenLessons()) {
+      const jumlahBacktick = (lesson.title.match(/`/g) ?? []).length;
+      expect(jumlahBacktick % 2, `${key}: backtick ganjil di "${lesson.title}"`).toBe(0);
+
+      const buka = (lesson.title.match(/\[/g) ?? []).length;
+      const tutup = (lesson.title.match(/\]/g) ?? []).length;
+      expect(buka, `${key}: kurung siku tidak seimbang di "${lesson.title}"`).toBe(tutup);
+    }
   });
 });

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { stripInline } from '@/lib/content/parse-inline';
 import { ChecklistBlock } from '@/components/learning/checklist-block';
 import { QuizBlock } from '@/components/learning/quiz-block';
 import { ChapterProgressNote, LessonStatusMark } from '@/components/learning/chapter-widgets';
@@ -137,7 +138,9 @@ export default async function ChapterPage({ params }: Params) {
                   {chapter.number}.{lesson.index}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="text-text block truncate text-sm">{lesson.title}</span>
+                  <span className="text-text block truncate text-sm">
+                    {stripInline(lesson.title)}
+                  </span>
                   <span className="text-faint mt-0.5 block truncate text-xs">{lesson.summary}</span>
                 </span>
                 {lesson.status === 'outline' ? (

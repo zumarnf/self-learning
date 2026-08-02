@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { RoadmapClient } from './roadmap-client';
+import { stripInline } from '@/lib/content/parse-inline';
 import {
   categoryLessonCount,
   categoryMinutes,
@@ -37,7 +38,7 @@ export default function RoadmapPage() {
       lessons: chapter.lessons.map((lesson) => ({
         slug: lesson.slug,
         index: lesson.index,
-        title: lesson.title,
+        title: stripInline(lesson.title),
       })),
     })),
   }));

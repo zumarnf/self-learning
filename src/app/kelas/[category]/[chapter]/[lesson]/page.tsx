@@ -5,6 +5,7 @@ import { BlockRenderer, headingId } from '@/components/content/block-renderer';
 import { LessonActions, NoteEditor } from '@/components/learning/lesson-actions';
 import { TableOfContents } from '@/components/layout/table-of-contents';
 import { ChevronLeftIcon, ChevronRightIcon, PencilIcon } from '@/components/ui/icons';
+import { parseInline, stripInline } from '@/lib/content/parse-inline';
 import { allLessonParams, findLesson, getNeighbours } from '@/lib/curriculum/queries';
 import { formatDate } from '@/lib/utils/format';
 
@@ -19,7 +20,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const found = findLesson(category, chapter, lesson);
   if (!found) return { title: 'Sub-bab tidak ditemukan' };
   return {
-    title: `${found.number} ${found.lesson.title}`,
+    title: `${found.number} ${stripInline(found.lesson.title)}`,
     description: found.lesson.summary,
   };
 }
@@ -71,7 +72,7 @@ export default async function LessonPage({ params }: Params) {
               {number}
             </span>
             <h1 className="text-text font-sans text-2xl leading-tight font-semibold tracking-tight md:text-[1.75rem]">
-              {lesson.title}
+              {parseInline(lesson.title)}
             </h1>
           </div>
           <p className="tabular text-faint mt-3 text-xs">
@@ -111,7 +112,7 @@ export default async function LessonPage({ params }: Params) {
               <span className="min-w-0">
                 <span className="text-2xs text-faint block">Sebelumnya</span>
                 <span className="tabular block truncate">
-                  {previous.number} {previous.lesson.title}
+                  {previous.number} {stripInline(previous.lesson.title)}
                 </span>
               </span>
             </Link>
@@ -129,7 +130,7 @@ export default async function LessonPage({ params }: Params) {
               <span className="min-w-0">
                 <span className="text-2xs text-faint block">Berikutnya</span>
                 <span className="tabular block truncate">
-                  {next.number} {next.lesson.title}
+                  {next.number} {stripInline(next.lesson.title)}
                 </span>
               </span>
               <ChevronRightIcon size={15} className="text-faint shrink-0" />

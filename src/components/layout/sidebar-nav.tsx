@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import { stripInline } from '@/lib/content/parse-inline';
 import { CheckIcon, ChevronDownIcon } from '@/components/ui/icons';
 import type { NavCategory } from '@/lib/curriculum/queries';
 import { lessonKey } from '@/lib/curriculum/types';
@@ -208,7 +209,7 @@ function ChapterBranch({
                   <span className="tabular text-faint shrink-0">
                     {chapter.number}.{lesson.index}
                   </span>
-                  <span className="flex-1 truncate">{lesson.title}</span>
+                  <span className="flex-1 truncate">{stripInline(lesson.title)}</span>
                   {lesson.done ? (
                     <>
                       <CheckIcon size={11} className="text-accent shrink-0" />
