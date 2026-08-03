@@ -7,7 +7,9 @@ import {
   h2,
   ol,
   p,
+  references,
   table,
+  terms,
   ul,
 } from '@/lib/content/builders';
 import { type LessonDraft, written } from '@/lib/curriculum/authoring';
@@ -27,6 +29,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Reaksi pertama hampir semua orang terhadap Tailwind sama: "markup-nya kotor". Keberatan itu masuk akal, dan layak dijawab dengan serius — bukan dengan mengatakan "nanti juga terbiasa".',
+      ),
+
+      terms(
+        {
+          term: 'utility class',
+          meaning:
+            'Terjemahannya **class serbaguna**. Class CSS yang mengerjakan **satu hal saja** dan namanya menyebutkan hal itu: `p-4` untuk padding, `flex` untuk display, `text-sm` untuk ukuran huruf. Bedanya dengan class bernama seperti `.kartu` bukan soal panjang tulisan — melainkan bahwa artinya **tidak pernah berubah** di mana pun ia dipakai.',
+        },
+        {
+          term: 'utility-first',
+          meaning:
+            'Pendekatan menyusun tampilan **terutama dari utility class** alih-alih menulis CSS bernama sendiri. Perlu ditegaskan: ini pertukaran yang sadar, bukan kemenangan tanpa biaya — markup jadi lebih panjang, ditukar dengan empat masalah CSS yang hilang.',
+        },
+        {
+          term: 'CSS mati',
+          meaning:
+            'Terjemahan dari *dead CSS*. Aturan style yang sudah tidak dipakai siapa pun tapi **tidak berani dihapus**, karena tidak ada cara memastikannya. Ini masalah CSS bernama yang paling mahal, dan utility-first menutupnya secara struktural: style yang menempel di elemen ikut terhapus bersama elemennya.',
+        },
+        {
+          term: 'jangkauan perubahan',
+          meaning:
+            'Terjemahan dari *blast radius*. Seberapa jauh akibat sebuah perubahan menyebar. Mengubah `.kartu` bisa merusak halaman yang tidak kamu buka sejak bulan lalu; mengubah `p-4` menjadi `p-6` pada satu elemen **tidak mungkin** menyentuh apa pun di luar elemen itu.',
+        },
+        {
+          term: 'separation of concerns',
+          meaning:
+            'Terjemahannya **pemisahan urusan** — keberatan paling sering terhadap Tailwind. Jawaban jujurnya: yang dipisahkan CSS bernama sebenarnya **berkas**, bukan urusan. Style sebuah tombol dan markup tombol itu berubah bersamaan, jadi menaruhnya di dua berkas berbeda justru memaksamu membuka keduanya setiap kali.',
+        },
+        {
+          term: 'purge',
+          meaning:
+            'Terjemahannya **membuang**. Proses Tailwind memindai kodemu lalu **hanya menghasilkan CSS untuk class yang benar-benar dipakai**. Akibatnya berkas CSS akhir biasanya kecil dan **berhenti tumbuh** seiring aplikasi membesar — kebalikan dari CSS bernama yang selalu bertambah.',
+        },
+        {
+          term: 'skala',
+          meaning:
+            'Deretan nilai yang sudah ditetapkan — `p-1`, `p-2`, `p-4`, `p-8`. Manfaat tersembunyinya bukan kemudahan mengetik, melainkan bahwa ia **menghalangi nilai ad-hoc masuk**: tidak ada `p-13`, sehingga tampilan tetap konsisten tanpa perlu disiplin siapa pun.',
+        },
+        {
+          term: 'markup',
+          meaning:
+            'Struktur HTML atau JSX sebuah tampilan. Keberatan "markup jadi kotor" adalah biaya yang nyata dan tidak perlu disangkal — yang layak diperdebatkan adalah apakah biaya itu sepadan dengan empat masalah yang hilang.',
+        },
       ),
 
       h2('Masalah yang dipecahkannya'),
@@ -126,6 +171,32 @@ export const lessons: LessonDraft[] = [
         'Berbeda dari style inline: terikat token, mendukung state dan breakpoint.',
         'Pengulangan diselesaikan dengan komponen, bukan dengan class CSS baru.',
       ),
+      references(
+        {
+          label: 'Styling with utility classes',
+          href: 'https://tailwindcss.com/docs/styling-with-utility-classes',
+          source: 'Tailwind CSS',
+          note: 'Argumen resmi di balik utility-first, termasuk jawaban atas keberatan yang paling sering.',
+        },
+        {
+          label: 'Optimizing for production',
+          href: 'https://tailwindcss.com/docs/optimizing-for-production',
+          source: 'Tailwind CSS',
+          note: 'Alasan berkas CSS akhir tetap kecil dan berhenti tumbuh seiring aplikasi membesar.',
+        },
+        {
+          label: 'CSS cascade',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_cascade/Cascade',
+          source: 'MDN',
+          note: 'Mekanisme yang membuat perubahan CSS bernama berjangkauan luas dan sulit diprediksi.',
+        },
+        {
+          label: 'Specificity',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_cascade/Specificity',
+          source: 'MDN',
+          note: 'Sumber perang `!important` yang justru dihindari utility-first karena semuanya setara.',
+        },
+      ),
     ],
   ),
 
@@ -135,6 +206,49 @@ export const lessons: LessonDraft[] = [
     9,
     'Setup versi 4 yang berbeda jauh dari v3 — dan kenapa perubahannya masuk akal.',
     [
+      terms(
+        {
+          term: 'CSS-first',
+          meaning:
+            'Perubahan terbesar Tailwind v4: konfigurasi ditulis **di dalam berkas CSS** memakai `@theme`, bukan lagi di `tailwind.config.js`. Alasannya masuk akal — design token pada dasarnya memang CSS variable, jadi menaruhnya di CSS menghapus satu lapisan penerjemahan yang sebelumnya harus ada.',
+        },
+        {
+          term: 'PostCSS',
+          meaning:
+            'Alat yang memproses CSS lewat rangkaian plugin sebelum berkas akhirnya dihasilkan. Tailwind berjalan sebagai salah satu plugin di dalamnya. Kamu jarang menyentuhnya langsung — tapi berguna tahu bahwa `@import "tailwindcss"` sebenarnya diproses oleh alat ini.',
+        },
+        {
+          term: '@import',
+          meaning:
+            'Satu baris yang menggantikan tiga arahan `@tailwind base/components/utilities` di v3. Perubahan ini bukan sekadar kosmetik — ia membuat Tailwind memakai mekanisme impor CSS yang standar, bukan sintaks khusus miliknya sendiri.',
+        },
+        {
+          term: 'zero-config',
+          meaning:
+            'Terjemahannya **tanpa konfigurasi**. Tailwind v4 bisa langsung bekerja tanpa berkas konfigurasi sama sekali — pemindaian berkas dilakukan otomatis. Kamu hanya perlu menulis konfigurasi ketika benar-benar ingin mengubah sesuatu.',
+        },
+        {
+          term: 'content detection',
+          meaning:
+            'Terjemahannya **pendeteksian isi**. Cara Tailwind menemukan class mana yang kamu pakai. Di v4 ini otomatis, tapi batasnya tetap sama dan wajib diingat: **ia memindai teks, bukan menjalankan kode**. Class yang dirangkai seperti `` `text-${warna}-500` `` tidak akan pernah terdeteksi.',
+        },
+        {
+          term: 'Lightning CSS',
+          meaning:
+            'Mesin pemroses CSS berbasis Rust yang dipakai Tailwind v4 di balik layar. Ia yang menangani prefix vendor, penggabungan berkas, dan pemadatan — pekerjaan yang di v3 membutuhkan beberapa plugin terpisah.',
+        },
+        {
+          term: 'breaking change',
+          meaning:
+            'Terjemahannya **perubahan yang memutus kompatibilitas**. Perpindahan v3 ke v4 mengandung beberapa di antaranya, jadi tutorial dan jawaban Stack Overflow yang ditulis untuk v3 sering **tidak berlaku lagi**. Selalu periksa versi yang dibahas sebelum menyalin apa pun.',
+        },
+        {
+          term: 'IntelliSense',
+          meaning:
+            'Ekstensi editor resmi Tailwind yang memberi autocomplete nama class, pratinjau warna, dan peringatan saat ada class yang saling bertabrakan. Manfaatnya besar dan sering diremehkan — ia menghapus sebagian besar keluhan "class-nya terlalu banyak untuk dihafal".',
+        },
+      ),
+
       h2('Pemasangan'),
       code(
         'bash',
@@ -221,6 +335,32 @@ export const lessons: LessonDraft[] = [
         '`tailwind.config.js` masih bisa dipakai lewat `@config` untuk migrasi.',
         'Nama class yang disusun dinamis tidak akan terdeteksi — pakai peta nama lengkap.',
       ),
+      references(
+        {
+          label: 'Installing Tailwind CSS with PostCSS',
+          href: 'https://tailwindcss.com/docs/installation/using-postcss',
+          source: 'Tailwind CSS',
+          note: 'Langkah pemasangan resmi v4 — satu plugin dan satu baris `@import`.',
+        },
+        {
+          label: 'Upgrade guide (v3 to v4)',
+          href: 'https://tailwindcss.com/docs/upgrade-guide',
+          source: 'Tailwind CSS',
+          note: 'Daftar perubahan yang memutus kompatibilitas — wajib dibaca sebelum menyalin tutorial v3.',
+        },
+        {
+          label: 'Detecting classes in source files',
+          href: 'https://tailwindcss.com/docs/detecting-classes-in-source-files',
+          source: 'Tailwind CSS',
+          note: 'Penegasan resmi bahwa nama class harus utuh di sumber — dasar larangan string dinamis.',
+        },
+        {
+          label: 'Editor setup',
+          href: 'https://tailwindcss.com/docs/editor-setup',
+          source: 'Tailwind CSS',
+          note: 'Memasang IntelliSense yang menghapus sebagian besar keluhan "class-nya terlalu banyak".',
+        },
+      ),
     ],
   ),
 
@@ -230,6 +370,54 @@ export const lessons: LessonDraft[] = [
     11,
     'Skala bawaan, cara membacanya, dan kenapa memakai skala mengalahkan angka bebas.',
     [
+      terms(
+        {
+          term: 'rem',
+          meaning:
+            'Singkatan *root em*. Satuan ukuran yang **relatif terhadap ukuran huruf akar** halaman — biasanya 16px. Inilah alasan Tailwind memakainya alih-alih px: kalau pengguna memperbesar ukuran huruf di pengaturan browser demi keterbacaan, **seluruh tata letak ikut membesar secara proporsional**. Dengan px, teksnya membesar tapi kotaknya tidak, dan tulisannya jadi meluber.',
+        },
+        {
+          term: 'skala spacing',
+          meaning:
+            'Deretan nilai jarak yang sudah ditetapkan, semuanya **kelipatan 4px**. Angka pada nama class adalah pengalinya: `p-4` berarti 4 × 4px = 16px. Menghafal satu titik acuan sudah cukup — `p-4` = 16px — sisanya bisa dihitung dari situ.',
+        },
+        {
+          term: 'gap vs space-y',
+          meaning:
+            '`gap-4` memberi jarak antar-anak pada wadah **flex atau grid**, sementara `space-y-4` menyisipkan margin pada tiap anak kecuali yang pertama. `gap` lebih bersih dan lebih jarang mengejutkan; `space-y` berguna untuk wadah yang bukan flex maupun grid.',
+        },
+        {
+          term: 'skala warna',
+          meaning:
+            'Deretan `50` sampai `950` untuk tiap warna, dari paling terang ke paling gelap. Angka `500` adalah warna dasarnya. Perlu diketahui, **angkanya bukan persentase apa pun** — ia sekadar penomoran berurutan yang membuat pemilihan tingkat kecerahan bisa ditebak.',
+        },
+        {
+          term: 'opacity modifier',
+          meaning:
+            'Garis miring di belakang nama warna: `bg-red-500/50` berarti merah dengan tembus pandang 50%. Ini menggantikan kebiasaan lama menulis nilai `rgba` sendiri, dan bekerja pada hampir semua utility yang berhubungan dengan warna.',
+        },
+        {
+          term: 'palet bawaan',
+          meaning:
+            'Warna-warna siap pakai Tailwind seperti `slate`, `indigo`, dan `blue`. Berguna untuk mencoba-coba, tapi **jangan dipakai di project sungguhan** — palet bawaan yang sama dipakai ribuan situs lain, dan hasilnya langsung terbaca sebagai tampilan template. Project ini memakai tokennya sendiri.',
+        },
+        {
+          term: 'line-height',
+          meaning:
+            'Terjemahannya **tinggi baris** — jarak vertikal antar baris teks. Di Tailwind ia sudah menempel pada utility ukuran huruf: `text-sm` sekaligus menetapkan tinggi baris yang serasi. Kamu hanya perlu mengubahnya lewat `leading-*` kalau memang ada alasan khusus.',
+        },
+        {
+          term: 'measure',
+          meaning:
+            'Istilah tipografi untuk **panjang satu baris teks**. Baris yang terlalu panjang membuat mata sulit menemukan awal baris berikutnya; yang ideal sekitar 45–75 karakter. Utility `max-w-prose` sudah menetapkan batas itu untukmu.',
+        },
+        {
+          term: 'font stack',
+          meaning:
+            'Daftar font berurutan yang dicoba browser dari kiri: kalau yang pertama tidak tersedia, ia turun ke berikutnya. Yang terakhir harus font generik seperti `sans-serif`, agar selalu ada yang bisa dipakai apa pun perangkatnya.',
+        },
+      ),
+
       h2('Spacing'),
       code(
         'html',
@@ -330,6 +518,32 @@ export const lessons: LessonDraft[] = [
         'Ukuran teks sudah membawa line-height yang wajar.',
         'Nilai sembarang untuk pengecualian nyata; kalau berulang, jadikan token.',
       ),
+      references(
+        {
+          label: 'Padding',
+          href: 'https://tailwindcss.com/docs/padding',
+          source: 'Tailwind CSS',
+          note: 'Tabel lengkap skala spacing beserta padanan rem dan px-nya.',
+        },
+        {
+          label: 'Colors',
+          href: 'https://tailwindcss.com/docs/colors',
+          source: 'Tailwind CSS',
+          note: 'Skala 50–950, opacity modifier, dan cara mendefinisikan warna sendiri.',
+        },
+        {
+          label: 'Font size',
+          href: 'https://tailwindcss.com/docs/font-size',
+          source: 'Tailwind CSS',
+          note: 'Menegaskan bahwa tinggi baris sudah menempel pada tiap utility ukuran huruf.',
+        },
+        {
+          label: 'CSS values and units',
+          href: 'https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Styling_basics/Values_and_units',
+          source: 'MDN',
+          note: 'Alasan `rem` lebih baik daripada `px` bagi pengguna yang memperbesar ukuran huruf.',
+        },
+      ),
     ],
   ),
 
@@ -339,6 +553,59 @@ export const lessons: LessonDraft[] = [
     13,
     'Dua sistem layout, kapan memilih yang mana, dan pola yang paling sering dipakai.',
     [
+      terms(
+        {
+          term: 'Flexbox',
+          meaning:
+            'Sistem tata letak **satu dimensi** — ia mengatur elemen dalam satu baris **atau** satu kolom, bukan keduanya sekaligus. Kekuatannya ada pada pembagian ruang sisa: ia pandai memutuskan siapa melar dan siapa menyusut. Pilih ini untuk navbar, deretan tombol, dan apa pun yang mengalir dalam satu arah.',
+        },
+        {
+          term: 'Grid',
+          meaning:
+            'Sistem tata letak **dua dimensi** — baris dan kolom sekaligus. Bedanya dengan Flexbox bukan soal mana yang lebih baru: Grid membiarkanmu menetapkan kerangkanya **dari wadah**, sementara Flexbox membiarkan isinya yang menentukan. Pilih Grid untuk galeri, dashboard, dan tata letak halaman.',
+        },
+        {
+          term: 'main axis / cross axis',
+          meaning:
+            'Terjemahannya **sumbu utama** dan **sumbu silang**. Pada Flexbox, `justify-*` mengatur sepanjang sumbu utama sementara `items-*` mengatur sumbu silang. Yang sering membingungkan: **arah keduanya bertukar** begitu kamu mengubah `flex-row` menjadi `flex-col`.',
+        },
+        {
+          term: 'flex-1',
+          meaning:
+            'Singkatan dari "ambil semua ruang sisa yang tersedia". Dipakai pada anak yang harus melar mengisi sisa baris — misalnya kolom isi di sebelah sidebar yang lebarnya tetap.',
+        },
+        {
+          term: 'shrink-0',
+          meaning:
+            'Mencegah sebuah elemen **menyusut** di bawah ukuran alaminya. Sering dibutuhkan untuk ikon dan avatar, yang tanpa itu bisa gepeng ketika teks di sebelahnya terlalu panjang.',
+        },
+        {
+          term: 'min-w-0',
+          meaning:
+            'Perbaikan yang tampak aneh tapi sangat sering dibutuhkan. Anak sebuah flex container secara bawaan **menolak menyusut lebih kecil dari isinya**, sehingga `truncate` tidak bekerja dan teks panjang malah meluber. `min-w-0` mematikan perilaku itu.',
+        },
+        {
+          term: 'auto-fill / auto-fit',
+          meaning:
+            'Kata kunci Grid untuk membuat jumlah kolom **menyesuaikan sendiri** dengan lebar yang tersedia, tanpa satu pun breakpoint. Bedanya halus: `auto-fill` mempertahankan kolom kosong, `auto-fit` menciutkannya sehingga isi yang ada melar memenuhi ruang.',
+        },
+        {
+          term: 'minmax',
+          meaning:
+            'Fungsi CSS yang menetapkan **batas bawah dan batas atas** ukuran sebuah kolom: `minmax(240px, 1fr)` berarti "jangan pernah lebih sempit dari 240px, selebihnya bagi rata". Ini yang membuat grid responsif tanpa breakpoint jadi mungkin.',
+        },
+        {
+          term: 'fr',
+          meaning:
+            'Singkatan *fraction*, artinya **pecahan ruang tersisa**. `1fr 2fr` berarti kolom kedua mendapat dua kali lebar kolom pertama dari sisa ruang. Berbeda dari persen, ia menghitung setelah gap dan ukuran tetap dikurangi lebih dulu.',
+        },
+        {
+          term: 'gap',
+          meaning:
+            'Jarak antar-anak pada Flexbox maupun Grid. Menggantikan kebiasaan lama memberi margin pada tiap anak lalu menghapusnya pada yang terakhir — sebuah trik yang selalu berakhir dengan satu kasus tepi yang terlupakan.',
+        },
+      ),
+
       h2('Memilih di antara keduanya'),
       table(
         ['Kebutuhan', 'Pakai'],
@@ -465,6 +732,38 @@ export const lessons: LessonDraft[] = [
         '`auto-fill` + `minmax` membuat grid responsif tanpa breakpoint.',
         'Pakai `dvh` untuk tinggi layar di perangkat mobile.',
       ),
+      references(
+        {
+          label: 'Flex',
+          href: 'https://tailwindcss.com/docs/flex',
+          source: 'Tailwind CSS',
+          note: 'Utility `flex-1`, `shrink-0`, dan `basis-*` beserta perilaku bawaannya.',
+        },
+        {
+          label: 'Grid template columns',
+          href: 'https://tailwindcss.com/docs/grid-template-columns',
+          source: 'Tailwind CSS',
+          note: 'Termasuk sintaks nilai sembarang untuk `auto-fill` dan `minmax`.',
+        },
+        {
+          label: 'Basic concepts of flexbox',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_flexible_box_layout/Basic_concepts_of_flexbox',
+          source: 'MDN',
+          note: 'Sumbu utama dan sumbu silang — dasar kebingungan `justify` versus `items`.',
+        },
+        {
+          label: 'CSS grid layout',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout',
+          source: 'MDN',
+          note: 'Panduan lengkap Grid, termasuk satuan `fr` dan fungsi `minmax`.',
+        },
+        {
+          label: 'The large, small, and dynamic viewport units',
+          href: 'https://web.dev/blog/viewport-units',
+          source: 'web.dev',
+          note: 'Alasan `100vh` meleset di ponsel dan kenapa `dvh` menggantikannya.',
+        },
+      ),
     ],
   ),
 
@@ -474,6 +773,49 @@ export const lessons: LessonDraft[] = [
     11,
     'Menulis dari layar kecil ke besar — dan kenapa arah itu penting.',
     [
+      terms(
+        {
+          term: 'mobile-first',
+          meaning:
+            'Terjemahannya **layar kecil lebih dulu**. Aturan Tailwind yang sering disalahpahami: class **tanpa awalan** berlaku untuk **semua ukuran**, dan `md:` berarti "mulai dari sedang **ke atas**". Jadi `p-2 md:p-6` berarti padding 2 di ponsel dan 6 mulai dari tablet — bukan sebaliknya.',
+        },
+        {
+          term: 'breakpoint',
+          meaning:
+            'Terjemahannya **titik ubah**. Lebar layar di mana tata letak berganti bentuk: `sm` 40rem, `md` 48rem, `lg` 64rem, `xl` 80rem. Prinsip yang lebih penting daripada menghafal angkanya: **breakpoint mengikuti kapan tata letakmu mulai jelek**, bukan mengikuti nama perangkat tertentu.',
+        },
+        {
+          term: 'min-width',
+          meaning:
+            'Jenis kueri media yang dipakai Tailwind: `md:` berarti "**lebar minimal** 48rem". Inilah alasan teknis kenapa arahnya harus dari kecil ke besar — tiap breakpoint menimpa yang lebih kecil, bukan sebaliknya.',
+        },
+        {
+          term: 'container query',
+          meaning:
+            'Terjemahannya **kueri wadah**. Kemampuan sebuah komponen bereaksi terhadap **lebar wadahnya sendiri**, bukan lebar layar. Ini menyelesaikan masalah lama: kartu yang sama bisa muncul di sidebar sempit maupun kolom utama yang lebar, dan dengan media query biasa kamu tidak punya cara membedakannya.',
+        },
+        {
+          term: 'viewport',
+          meaning:
+            'Terjemahannya **area pandang** — bagian halaman yang benar-benar terlihat di layar. Berbeda dari ukuran layar fisik, karena bar alamat browser dan papan ketik di ponsel ikut memakan ruangnya.',
+        },
+        {
+          term: 'progressive enhancement',
+          meaning:
+            'Terjemahannya **peningkatan bertahap**. Alasan filosofis di balik mobile-first: mulai dari tampilan paling sederhana yang pasti bekerja, lalu **tambahkan** kemampuan saat ruangnya tersedia. Kebalikannya — merancang untuk desktop lalu mengecilkannya — hampir selalu menghasilkan kompromi yang buruk di ponsel.',
+        },
+        {
+          term: 'touch target',
+          meaning:
+            'Terjemahannya **sasaran sentuh**. Area yang bisa ditekan jari, minimal sekitar 44×44 piksel. Ini yang paling sering terlupakan saat menguji hanya dengan tetikus: tombol yang mudah diklik kursor bisa hampir mustahil ditekan dengan ibu jari.',
+        },
+        {
+          term: 'safe area',
+          meaning:
+            'Terjemahannya **area aman**. Bagian layar yang tidak tertutup poni, sudut membulat, atau bilah gestur. Dijangkau lewat `env(safe-area-inset-*)`, dan wajib diperhatikan untuk tampilan yang memenuhi layar penuh.',
+        },
+      ),
+
       h2('Mobile-first'),
       code(
         'html',
@@ -573,6 +915,32 @@ export const lessons: LessonDraft[] = [
         'Pilih breakpoint dari titik layout mulai terlihat buruk, bukan dari nama perangkat.',
         'Container query bereaksi pada lebar wadah, bukan lebar layar.',
       ),
+      references(
+        {
+          label: 'Responsive design',
+          href: 'https://tailwindcss.com/docs/responsive-design',
+          source: 'Tailwind CSS',
+          note: 'Menegaskan bahwa prefix berarti "dan ke atas" — sumber kesalahpahaman paling umum.',
+        },
+        {
+          label: 'Responsive design',
+          href: 'https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/CSS_layout/Responsive_Design',
+          source: 'MDN',
+          note: 'Prinsip di balik pendekatan mobile-first, terlepas dari alat yang dipakai.',
+        },
+        {
+          label: 'Container queries',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_containment/Container_queries',
+          source: 'MDN',
+          note: 'Komponen yang bereaksi pada lebar wadahnya sendiri, bukan lebar layar.',
+        },
+        {
+          label: 'Target Size (Minimum)',
+          href: 'https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html',
+          source: 'W3C WCAG',
+          note: 'Standar resmi ukuran minimum sasaran sentuh yang wajib dipenuhi.',
+        },
+      ),
     ],
   ),
 
@@ -582,6 +950,54 @@ export const lessons: LessonDraft[] = [
     12,
     'Menangani state tanpa menulis satu baris JavaScript.',
     [
+      terms(
+        {
+          term: 'variant',
+          meaning:
+            'Terjemahannya **varian**. Awalan sebelum tanda titik dua yang menyatakan **kapan** sebuah utility berlaku: `hover:`, `focus:`, `md:`, `dark:`. Kekuatannya besar — seluruh state yang dulu butuh JavaScript kini bisa ditangani CSS sepenuhnya.',
+        },
+        {
+          term: 'focus-visible',
+          meaning:
+            'Varian yang hanya aktif saat elemen difokuskan **lewat keyboard**, bukan saat diklik tetikus. Ini pembedaan yang penting: `focus:` biasa memunculkan cincin fokus setiap kali tombol diklik, yang terlihat mengganggu — sehingga banyak orang menghapusnya, dan **itulah yang merusak aksesibilitas keyboard**. `focus-visible:` menyelesaikan keduanya.',
+        },
+        {
+          term: 'cincin fokus',
+          meaning:
+            'Terjemahan dari *focus ring*. Garis yang menandai elemen mana yang sedang aktif bagi pengguna keyboard. **Tidak boleh dihapus tanpa pengganti** — tanpa itu, seseorang yang menavigasi dengan Tab benar-benar tidak tahu di mana ia berada.',
+        },
+        {
+          term: 'group',
+          meaning:
+            'Penanda pada elemen **induk** yang membuat anak-anaknya bisa bereaksi terhadap state induk: `group` di kartu, lalu `group-hover:underline` pada judul di dalamnya. Menyelesaikan kasus "seluruh kartu di-hover, tapi yang berubah judulnya".',
+        },
+        {
+          term: 'peer',
+          meaning:
+            'Terjemahannya **sejawat**. Penanda pada elemen **saudara sebelumnya**, sehingga elemen setelahnya bisa bereaksi: `peer` di input, lalu `peer-invalid:block` pada pesan error di bawahnya. Batasnya: hanya bekerja untuk saudara yang berada **sesudah** elemen ber-`peer`.',
+        },
+        {
+          term: 'has',
+          meaning:
+            'Varian yang membuat induk bereaksi terhadap **isinya**: `has-checked:bg-accent-fill` pada label yang di dalamnya ada checkbox tercentang. Ini kemampuan CSS yang relatif baru dan menghapus banyak keperluan JavaScript untuk hal-hal kecil.',
+        },
+        {
+          term: 'menyusun variant',
+          meaning:
+            'Beberapa varian bisa ditumpuk berurutan dan **dibaca dari kiri ke kanan**: `md:hover:focus-visible:ring-2` berarti "pada layar sedang ke atas, saat di-hover, dan saat difokuskan lewat keyboard". Urutannya tidak mengubah hasil, tapi konsisten membuatnya lebih mudah dibaca.',
+        },
+        {
+          term: 'invalid / disabled',
+          meaning:
+            'Varian yang mengikuti **keadaan asli elemen form**, bukan class yang kamu tambah sendiri. `invalid:` mengikuti hasil validasi bawaan HTML dari Sub-bab 4.9, dan `disabled:` mengikuti atribut `disabled`. Keduanya berarti tampilanmu otomatis benar tanpa perlu disinkronkan dari JavaScript.',
+        },
+        {
+          term: 'placeholder-shown',
+          meaning:
+            'Keadaan input yang **masih kosong** sehingga placeholder-nya terlihat. Berguna untuk menunda pesan error: jangan tampilkan "email tidak valid" pada input yang bahkan belum disentuh pengguna.',
+        },
+      ),
+
       h2('State dasar'),
       code(
         'html',
@@ -650,9 +1066,11 @@ export const lessons: LessonDraft[] = [
 
         <!-- Validasi tanpa JavaScript -->
         <input type="email" required class="peer" />
-        <p class="hidden text-danger peer-invalid:peer-[:not(:placeholder-shown)]:block">
+        <p class="hidden text-danger peer-invalid:peer-not-placeholder-shown:block">
           Format email tidak valid
         </p>
+        <!-- Dibaca: tampilkan hanya kalau input TIDAK valid DAN sudah pernah diisi,
+             supaya error tidak muncul pada input yang belum disentuh sama sekali. -->
         `,
       ),
       callout(
@@ -667,7 +1085,7 @@ export const lessons: LessonDraft[] = [
         `
         <li class="first:pt-0 last:border-b-0 odd:bg-raised">
         <div class="empty:hidden">          <!-- sembunyi kalau tidak ada isi -->
-        <div class="has-[:checked]:bg-accent-fill">   <!-- kalau punya anak tercentang -->
+        <div class="has-checked:bg-accent-fill">      <!-- kalau punya anak tercentang -->
         <div class="motion-reduce:transition-none">
         <div class="print:hidden">
         `,
@@ -688,8 +1106,34 @@ export const lessons: LessonDraft[] = [
         'Pakai `focus-visible`, bukan `focus` — dan jangan pernah `outline-none` tanpa pengganti.',
         '`group-*` bereaksi pada induk; selalu pasangkan hover dengan focus-visible.',
         '`peer-*` bereaksi pada elemen sebelumnya dalam markup, tidak bisa sebaliknya.',
-        '`has-[]` memungkinkan induk bereaksi pada anaknya.',
+        '`has-*` memungkinkan induk bereaksi pada anaknya.',
         'Variant bisa disusun; dibaca dari kanan ke kiri.',
+      ),
+      references(
+        {
+          label: 'Hover, focus, and other states',
+          href: 'https://tailwindcss.com/docs/hover-focus-and-other-states',
+          source: 'Tailwind CSS',
+          note: 'Daftar lengkap seluruh varian, termasuk `group`, `peer`, dan `has`.',
+        },
+        {
+          label: ':focus-visible',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/CSS/:focus-visible',
+          source: 'MDN',
+          note: 'Alasan ia lebih tepat daripada `:focus` untuk menandai fokus keyboard.',
+        },
+        {
+          label: ':has()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/CSS/:has',
+          source: 'MDN',
+          note: 'Selector induk yang bereaksi pada isinya — dasar varian `has-*`.',
+        },
+        {
+          label: 'Focus Visible (WCAG 2.4.7)',
+          href: 'https://www.w3.org/WAI/WCAG22/Understanding/focus-visible.html',
+          source: 'W3C WCAG',
+          note: 'Standar resmi yang membuat penghapusan cincin fokus menjadi pelanggaran, bukan pilihan gaya.',
+        },
       ),
     ],
   ),
@@ -700,6 +1144,49 @@ export const lessons: LessonDraft[] = [
     10,
     'Dua tema tanpa menggandakan style — dan kenapa dark mode bukan sekadar membalik warna.',
     [
+      terms(
+        {
+          term: 'prefers-color-scheme',
+          meaning:
+            'Kueri media yang membaca **pengaturan tema di sistem operasi** pengguna. Ini perilaku bawaan Tailwind: `dark:` otomatis mengikuti pengaturan perangkat, tanpa kamu menulis apa pun. Kelemahannya cuma satu — pengguna tidak bisa memilih tema yang berbeda dari sistemnya.',
+        },
+        {
+          term: 'strategi class',
+          meaning:
+            'Alternatif yang membuat tema ditentukan oleh **kehadiran sebuah class** (biasanya `dark` pada `<html>`), sehingga pengguna bisa memilih sendiri. Harganya: kamu yang bertanggung jawab menyimpan pilihan itu dan menerapkannya kembali saat halaman dimuat.',
+        },
+        {
+          term: 'token semantik',
+          meaning:
+            'Token yang dinamai menurut **perannya**, bukan warnanya: `--color-surface`, bukan `--color-putih`. Inilah kunci dark mode yang rapi — kamu cukup mengubah nilai token di satu tempat, dan **tidak perlu menulis satu pun varian `dark:`** di komponen. Website yang sedang kamu baca ini bekerja persis begitu.',
+        },
+        {
+          term: 'FOUC',
+          meaning:
+            'Singkatan *Flash of Unstyled Content*, terjemahannya **kedipan konten tanpa gaya**. Pada dark mode, gejalanya khas: halaman berkedip putih sepersekian detik sebelum berubah gelap. Penyebabnya karena tema baru diterapkan setelah JavaScript berjalan.',
+        },
+        {
+          term: 'skrip pra-paint',
+          meaning:
+            'Skrip kecil yang **berjalan sebelum browser menggambar apa pun**, ditaruh langsung di `<head>` tanpa `defer`. Ia membaca pilihan tema dari `localStorage` lalu memasang class-nya seketika. Ini satu-satunya cara menghapus FOUC sepenuhnya — dan pengecualian sah dari aturan "jangan taruh skrip di head".',
+        },
+        {
+          term: 'color-scheme',
+          meaning:
+            'Property CSS yang memberi tahu browser tema mana yang sedang berlaku, sehingga **elemen bawaan ikut menyesuaikan** — batang gulir, kotak centang, tanggal, dan menu pilihan. Tanpa itu, halamanmu gelap tapi batang gulirnya tetap putih menyilaukan.',
+        },
+        {
+          term: 'kontras',
+          meaning:
+            'Perbandingan kecerahan antara teks dan latarnya. Yang sering keliru: dark mode **bukan sekadar membalik warna**. Putih murni di atas hitam murni justru terlalu menyilaukan dan membuat huruf tampak bergetar, jadi tema gelap yang baik memakai putih yang diredam dan hitam yang diangkat.',
+        },
+        {
+          term: 'elevation',
+          meaning:
+            'Terjemahannya **ketinggian**. Di tema terang, kedalaman ditunjukkan lewat bayangan. Di tema gelap bayangan hampir tidak terlihat, sehingga kedalaman harus ditunjukkan dengan **latar yang lebih terang** — makin tinggi sebuah permukaan, makin terang warnanya.',
+        },
+      ),
+
       h2('Dua strategi'),
       code(
         'css',
@@ -814,6 +1301,38 @@ export const lessons: LessonDraft[] = [
         'Bayangan tidak bekerja di latar gelap — pakai perbedaan warna permukaan.',
         '`color-scheme` membuat elemen bawaan browser ikut menyesuaikan.',
       ),
+      references(
+        {
+          label: 'Dark mode',
+          href: 'https://tailwindcss.com/docs/dark-mode',
+          source: 'Tailwind CSS',
+          note: 'Kedua strategi — mengikuti sistem dan berbasis class — beserta cara menyetelnya di v4.',
+        },
+        {
+          label: 'prefers-color-scheme',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-color-scheme',
+          source: 'MDN',
+          note: 'Kueri media yang membaca pengaturan tema di sistem operasi pengguna.',
+        },
+        {
+          label: 'color-scheme',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/CSS/color-scheme',
+          source: 'MDN',
+          note: 'Yang membuat batang gulir, kotak centang, dan `<select>` ikut menyesuaikan tema.',
+        },
+        {
+          label: 'Contrast (Minimum) — WCAG 1.4.3',
+          href: 'https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html',
+          source: 'W3C WCAG',
+          note: 'Ambang 4,5:1 yang membuat amber `#E5A13C` tidak boleh membawa teks di latar terang.',
+        },
+        {
+          label: 'Building a color scheme',
+          href: 'https://web.dev/articles/building/a-color-scheme',
+          source: 'web.dev',
+          note: 'Alasan dark mode bukan sekadar membalik warna, beserta cara menyusun palet gelap yang nyaman.',
+        },
+      ),
     ],
   ),
 
@@ -823,6 +1342,49 @@ export const lessons: LessonDraft[] = [
     13,
     'Fitur inti Tailwind v4 — dan cara project ini mengunci paletnya.',
     [
+      terms(
+        {
+          term: '@theme',
+          meaning:
+            'Arahan CSS khas Tailwind v4 untuk **mendefinisikan design token**. Yang membuatnya berbeda dari sekadar variabel: tiap token di dalamnya **otomatis menghasilkan utility class**. Menulis `--color-primary` sekali langsung memberimu `bg-primary`, `text-primary`, dan `border-primary` tanpa konfigurasi tambahan apa pun.',
+        },
+        {
+          term: 'design token',
+          meaning:
+            'Nilai desain yang dikunci di satu tempat lalu dipakai ulang di mana-mana — warna, jarak, radius sudut, bayangan. Nilainya bukan penghematan ketikan: ia **membuat perubahan menyeluruh menjadi satu baris**, dan membuat nilai ad-hoc jadi terlihat mencolok saat direview.',
+        },
+        {
+          term: 'namespace',
+          meaning:
+            'Awalan yang menentukan **utility apa** yang dihasilkan sebuah token. `--color-*` menghasilkan utility warna, `--spacing-*` menghasilkan jarak, `--font-*` menghasilkan keluarga huruf. Salah memilih awalan berarti tokennya tetap ada sebagai variabel, tapi utility-nya tidak pernah muncul.',
+        },
+        {
+          term: '@theme inline',
+          meaning:
+            'Varian `@theme` yang membuat token **merujuk variabel lain alih-alih menyalin nilainya**. Inilah yang memungkinkan satu token berubah mengikuti tema: `--color-surface` menunjuk `var(--surface)`, dan nilai `--surface` itulah yang berbeda antara mode terang dan gelap.',
+        },
+        {
+          term: 'CSS variable',
+          meaning:
+            'Disebut juga *custom property*, ditulis dengan awalan dua tanda hubung. Token Tailwind v4 **benar-benar menjadi CSS variable asli**, bukan nilai yang disalin saat build. Akibatnya token bisa dibaca dan diubah dari JavaScript, dan bisa diwarisi ke elemen anak seperti variabel CSS biasa.',
+        },
+        {
+          term: 'oklch',
+          meaning:
+            'Ruang warna modern yang lebih dekat dengan cara mata manusia melihat kecerahan. Keunggulan praktisnya: menaikkan angka kecerahannya menghasilkan perubahan yang **terasa merata**, sementara pada `hsl` warna kuning dan biru dengan angka yang sama bisa terasa sangat berbeda terangnya.',
+        },
+        {
+          term: 'menimpa bawaan',
+          meaning:
+            'Menulis token dengan nama yang sama seperti bawaan Tailwind akan **menggantikannya**. Untuk membuang seluruh palet bawaan sekaligus — supaya tidak ada yang tidak sengaja memakai `blue-500` — pakai `--color-*: initial` lalu daftarkan warnamu sendiri.',
+        },
+        {
+          term: 'satu sumber kebenaran',
+          meaning:
+            'Prinsip bahwa setiap nilai desain hanya punya **satu tempat resmi**. Di project ini, `globals.css` adalah tempat itu, dan aturannya tegas: tidak boleh ada nilai hex atau jarak ad-hoc yang ditulis langsung di komponen.',
+        },
+      ),
+
       h2('Bentuk dasarnya'),
       code(
         'css',
@@ -945,6 +1507,32 @@ export const lessons: LessonDraft[] = [
         'Hitung kontras sebelum mengunci warna.',
         '`--color-*: initial` menghapus palet bawaan dan menjadikan penyimpangan sebagai error.',
       ),
+      references(
+        {
+          label: 'Theme variables',
+          href: 'https://tailwindcss.com/docs/theme',
+          source: 'Tailwind CSS',
+          note: 'Seluruh namespace `@theme`, termasuk `--color-*: initial` untuk membuang palet bawaan.',
+        },
+        {
+          label: 'Adding custom styles',
+          href: 'https://tailwindcss.com/docs/adding-custom-styles',
+          source: 'Tailwind CSS',
+          note: 'Kapan menambah token dan kapan cukup memakai nilai sembarang.',
+        },
+        {
+          label: 'Using CSS custom properties',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_cascading_variables/Using_CSS_custom_properties',
+          source: 'MDN',
+          note: 'Karena token v4 benar-benar CSS variable, seluruh aturan pewarisannya berlaku.',
+        },
+        {
+          label: 'oklch()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/oklch',
+          source: 'MDN',
+          note: 'Ruang warna yang membuat perubahan kecerahan terasa merata antar-warna.',
+        },
+      ),
     ],
   ),
 
@@ -954,6 +1542,49 @@ export const lessons: LessonDraft[] = [
     12,
     'Menghindari class yang berulang di dua puluh tempat — tanpa kembali ke CSS bernama.',
     [
+      terms(
+        {
+          term: '@apply',
+          meaning:
+            'Arahan yang menyalin utility ke dalam sebuah class CSS bernama. Terlihat seperti jalan keluar untuk class yang berulang, tapi **ia mengembalikan seluruh masalah CSS bernama** dari Sub-bab 1.1: tidak bisa dihapus dengan yakin, dan perubahannya berjangkauan luas. Pakai sehemat mungkin.',
+        },
+        {
+          term: 'komponen sebagai jawaban',
+          meaning:
+            'Cara yang benar mengatasi pengulangan class: **buat komponen**, bukan class CSS baru. `<Tombol variant="utama">` menyelesaikan hal yang sama dengan `.btn-utama`, tapi tanpa menciptakan lapisan CSS yang harus dirawat terpisah.',
+        },
+        {
+          term: 'cva',
+          meaning:
+            'Singkatan *class variance authority*. Pustaka kecil untuk menyusun **varian sebuah komponen** secara terstruktur — ukuran, warna, keadaan — beserta kombinasinya. Menggantikan rantai ternary panjang yang cepat menjadi tidak terbaca.',
+        },
+        {
+          term: 'tailwind-merge',
+          meaning:
+            'Pustaka yang menyelesaikan **class yang saling bertabrakan**. Menulis `p-4 p-8` menghasilkan hasil yang bergantung pada urutan di berkas CSS, bukan urutan di atributmu — dan itu sering mengejutkan. `twMerge` memastikan yang terakhir yang menang, sehingga prop `className` dari luar bisa benar-benar menimpa bawaan komponen.',
+        },
+        {
+          term: 'cn',
+          meaning:
+            'Nama fungsi pembantu yang lazim, gabungan `clsx` dan `twMerge`. Tugasnya dua: menggabungkan class bersyarat, lalu membereskan yang bertabrakan. Project ini punya fungsi itu di `src/lib/utils/cn.ts`.',
+        },
+        {
+          term: 'clsx',
+          meaning:
+            'Pustaka kecil untuk **menyusun nama class secara bersyarat**: `clsx("dasar", aktif && "bg-primary")`. Ia hanya menggabungkan dan membuang nilai kosong — ia **tidak** menyelesaikan tabrakan, dan itulah kenapa ia biasa dipasangkan dengan `twMerge`.',
+        },
+        {
+          term: 'urutan class tidak berpengaruh',
+          meaning:
+            'Kesalahpahaman yang sangat umum. Urutan class di dalam atribut `class` **tidak menentukan apa pun** — yang menentukan adalah urutan aturan di berkas CSS hasil build. Inilah alasan `p-4 p-8` tidak bisa diandalkan, dan alasan `tailwind-merge` perlu ada.',
+        },
+        {
+          term: 'prop className',
+          meaning:
+            'Kebiasaan membiarkan komponen menerima `className` dari luar agar bisa disesuaikan di tempat pemakaian. Berguna, tapi hanya benar-benar bekerja kalau digabungkan dengan `twMerge` — tanpa itu, class dari luar bisa kalah oleh bawaan komponen tanpa alasan yang terlihat.',
+        },
+      ),
+
       h2('Cara pertama: komponen, bukan class'),
       code(
         'jsx',
@@ -1086,6 +1717,32 @@ export const lessons: LessonDraft[] = [
         '`tailwind-merge` hanya perlu kalau pemanggil menimpa gaya.',
         'Tambahkan alat saat masalahnya muncul, bukan sebelumnya.',
       ),
+      references(
+        {
+          label: 'Reusing styles',
+          href: 'https://tailwindcss.com/docs/styling-with-utility-classes#managing-duplication',
+          source: 'Tailwind CSS',
+          note: 'Anjuran resmi mendahulukan komponen daripada `@apply` untuk mengatasi pengulangan.',
+        },
+        {
+          label: 'Functions and directives — @apply',
+          href: 'https://tailwindcss.com/docs/functions-and-directives#apply-directive',
+          source: 'Tailwind CSS',
+          note: 'Termasuk peringatan resmi bahwa ia mengembalikan masalah CSS bernama.',
+        },
+        {
+          label: 'Styling with utility classes — Conflicting utilities',
+          href: 'https://tailwindcss.com/docs/styling-with-utility-classes#conflicting-utilities',
+          source: 'Tailwind CSS',
+          note: 'Penegasan bahwa urutan class di atribut tidak menentukan apa pun — dasar kebutuhan `tailwind-merge`.',
+        },
+        {
+          label: 'Passing Props to a Component',
+          href: 'https://react.dev/learn/passing-props-to-a-component',
+          source: 'React',
+          note: 'Pola prop `variant` dan `className` yang menjadi lapisan penyelesai pengulangan.',
+        },
+      ),
     ],
   ),
 
@@ -1095,6 +1752,49 @@ export const lessons: LessonDraft[] = [
     11,
     'Gerak yang membantu, bukan yang memamerkan.',
     [
+      terms(
+        {
+          term: 'transisi',
+          meaning:
+            'Perubahan **bertahap** dari satu keadaan ke keadaan lain, bukan lompatan seketika. Di Tailwind kamu menyebutkan **property apa** yang beranimasi (`transition-colors`) dan **berapa lama** (`duration-150`). Menyebutkan propertynya penting — `transition-all` memaksa browser mengamati semuanya, termasuk yang mahal.',
+        },
+        {
+          term: 'duration',
+          meaning:
+            'Lamanya sebuah transisi. Acuan yang berguna: **150–200 ms** untuk hal kecil seperti warna tombol, **200–300 ms** untuk yang lebih besar. Di atas 300 ms mulai terasa lambat, dan pada elemen yang sering disentuh itu berubah dari "halus" menjadi "mengganggu".',
+        },
+        {
+          term: 'easing',
+          meaning:
+            'Terjemahannya **kurva percepatan** — bagaimana gerakan berubah cepat-lambat sepanjang durasinya. `ease-out` (cepat lalu melambat) hampir selalu tepat untuk sesuatu yang **muncul**, karena ia terasa seperti benda yang datang lalu berhenti dengan sendirinya.',
+        },
+        {
+          term: 'compositor-friendly',
+          meaning:
+            'Terjemahan bebasnya **ramah bagi tahap penyusunan lapisan**. Hanya `transform` dan `opacity` yang bisa dianimasikan tanpa memicu perhitungan ulang tata letak. Menganimasikan `width`, `height`, atau `left` memaksa reflow di **setiap frame** — dan itulah sumber animasi yang tersendat.',
+        },
+        {
+          term: 'prefers-reduced-motion',
+          meaning:
+            'Pengaturan sistem tempat pengguna menyatakan bahwa **gerakan mengganggunya**. Ini bukan preferensi gaya: bagi sebagian orang, animasi besar memicu pusing dan mual sungguhan. Menghormatinya lewat `motion-reduce:` bukan penyempurnaan opsional melainkan kewajiban aksesibilitas.',
+        },
+        {
+          term: 'motion-reduce',
+          meaning:
+            'Varian Tailwind yang aktif ketika pengguna meminta pengurangan gerak. Yang perlu dipahami: **mematikan animasi sepenuhnya tidak selalu jawaban terbaik** — mengganti gerakan besar dengan pudar singkat sering lebih baik, karena umpan baliknya tetap ada tanpa perpindahan yang memicu keluhan.',
+        },
+        {
+          term: 'interruptible',
+          meaning:
+            'Terjemahannya **bisa disela**. Animasi yang menanggapi tindakan baru **di tengah jalan**, alih-alih memaksa selesai dulu. Transisi CSS bersifat begini secara bawaan; animasi berbasis keyframe sering tidak, dan itu terasa kaku saat pengguna berubah pikiran.',
+        },
+        {
+          term: 'gerak fungsional',
+          meaning:
+            'Gerakan yang **menjelaskan sesuatu**: dari mana panel muncul, ke mana item berpindah, apakah sesuatu sedang diproses. Lawannya gerak dekoratif yang hanya memperlambat. Ujinya sederhana — kalau animasi itu dihapus, apakah ada informasi yang hilang bagi pengguna?',
+        },
+      ),
+
       h2('Transisi'),
       code(
         'html',
@@ -1235,6 +1935,38 @@ export const lessons: LessonDraft[] = [
         'Reduced motion = hapus gerak, pertahankan umpan balik warna.',
         'Elemen yang sering dipakai lebih baik tanpa animasi sama sekali.',
       ),
+      references(
+        {
+          label: 'Transition property',
+          href: 'https://tailwindcss.com/docs/transition-property',
+          source: 'Tailwind CSS',
+          note: 'Utility transisi beserta alasan menyebutkan property lebih baik daripada `transition-all`.',
+        },
+        {
+          label: 'prefers-reduced-motion',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion',
+          source: 'MDN',
+          note: 'Pengaturan sistem yang wajib dihormati — bukan preferensi gaya melainkan kebutuhan nyata.',
+        },
+        {
+          label: 'Stick to compositor-only properties',
+          href: 'https://web.dev/articles/stick-to-compositor-only-properties-and-manage-layer-count',
+          source: 'web.dev',
+          note: 'Alasan hanya `transform` dan `opacity` yang aman dianimasikan.',
+        },
+        {
+          label: 'Animation from Interactions (WCAG 2.3.3)',
+          href: 'https://www.w3.org/WAI/WCAG22/Understanding/animation-from-interactions.html',
+          source: 'W3C WCAG',
+          note: 'Standar resmi yang mendasari kewajiban menghormati pengurangan gerak.',
+        },
+        {
+          label: 'CSS easing functions',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/CSS/easing-function',
+          source: 'MDN',
+          note: 'Perbedaan `ease-in`, `ease-out`, dan kenapa keduanya tidak bisa ditukar begitu saja.',
+        },
+      ),
     ],
   ),
 
@@ -1246,6 +1978,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Aturan `frontend.md` di project ini menempatkan aksesibilitas **di atas** preferensi desain. Ini bukan sikap moral — antarmuka yang tidak bisa dipakai keyboard adalah antarmuka yang rusak, sama seperti tombol yang tidak merespons klik.',
+      ),
+
+      terms(
+        {
+          term: 'aksesibilitas',
+          meaning:
+            'Dari *accessibility*, sering disingkat **a11y** (huruf a, 11 huruf, huruf y). Kemampuan sebuah antarmuka dipakai oleh **semua orang**, termasuk yang memakai pembaca layar, hanya keyboard, atau memperbesar tampilan. Aturan project ini menempatkannya **di atas preferensi desain** — dan alasannya praktis, bukan moral: antarmuka yang tidak bisa dipakai keyboard sama rusaknya dengan tombol yang tidak merespons klik.',
+        },
+        {
+          term: 'sr-only',
+          meaning:
+            'Singkatan *screen reader only*. Utility yang menyembunyikan elemen **dari mata tapi tetap membiarkannya dibacakan** teknologi bantu. Bedakan tegas dari `hidden`, yang menyembunyikannya dari **semua orang** termasuk pembaca layar.',
+        },
+        {
+          term: 'not-sr-only',
+          meaning:
+            'Kebalikannya — memunculkan kembali elemen yang tadinya `sr-only`. Pemakaian paling umum: tautan "lewati ke konten utama" yang tersembunyi sampai difokuskan dengan Tab, lalu muncul untuk pengguna keyboard.',
+        },
+        {
+          term: 'skip link',
+          meaning:
+            'Terjemahannya **tautan lewati**. Tautan pertama di halaman yang membiarkan pengguna keyboard melompat langsung ke konten utama tanpa menelusuri seluruh menu navigasi. Tanpa itu, setiap perpindahan halaman berarti puluhan tekanan Tab.',
+        },
+        {
+          term: 'rasio kontras',
+          meaning:
+            'Perbandingan kecerahan antara teks dan latarnya, ditulis seperti `4.5:1`. Ambang WCAG AA: **4,5:1** untuk teks biasa, **3:1** untuk teks besar dan elemen antarmuka yang bermakna. Angka ini bisa dihitung, jadi ia bukan soal selera — ia bisa benar atau salah.',
+        },
+        {
+          term: 'warna sebagai satu-satunya penanda',
+          meaning:
+            'Kesalahan yang sangat umum: menandai error hanya dengan border merah. Sekitar 8% laki-laki mengalami buta warna tertentu, dan mereka tidak akan melihat perbedaannya. Selalu **tambahkan ikon atau teks** — pola yang sama dipakai callout di website ini.',
+        },
+        {
+          term: 'outline-none',
+          meaning:
+            'Utility yang menghapus cincin fokus bawaan browser. Menulisnya **tanpa menyediakan pengganti** adalah salah satu cacat aksesibilitas paling sering di web. Aturan project ini menyebutnya terang-terangan: focus indicator tidak pernah dihapus tanpa penggantinya.',
+        },
+        {
+          term: 'ring',
+          meaning:
+            'Utility Tailwind untuk membuat cincin di sekeliling elemen memakai `box-shadow`. Lebih fleksibel daripada `outline` karena bisa diberi warna, ketebalan, dan jarak — sehingga cocok sebagai pengganti cincin fokus bawaan yang serasi dengan desainmu.',
+        },
+        {
+          term: 'urutan fokus',
+          meaning:
+            'Urutan elemen yang dilalui saat menekan Tab. Ia mengikuti **urutan di markup**, bukan urutan visual. Karena itu utility seperti `order-*` pada flexbox bisa membuat tampilan dan urutan fokus tidak lagi sejalan — dan pengguna keyboard jadi melompat-lompat tanpa pola.',
+        },
       ),
 
       h2('Focus yang selalu terlihat'),
@@ -1361,6 +2141,38 @@ export const lessons: LessonDraft[] = [
         'Warna tidak boleh jadi satu-satunya pembawa makna.',
         'Target sentuh 44×44px — `-m-2 p-2` memperbesar area tanpa mengubah tampilan.',
       ),
+      references(
+        {
+          label: 'Screen readers',
+          href: 'https://tailwindcss.com/docs/screen-readers',
+          source: 'Tailwind CSS',
+          note: 'Utility `sr-only` dan `not-sr-only` beserta pemakaiannya untuk skip link.',
+        },
+        {
+          label: 'Contrast (Minimum) — WCAG 1.4.3',
+          href: 'https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html',
+          source: 'W3C WCAG',
+          note: 'Ambang 4,5:1 untuk teks biasa dan 3:1 untuk teks besar.',
+        },
+        {
+          label: 'Use of Color — WCAG 1.4.1',
+          href: 'https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html',
+          source: 'W3C WCAG',
+          note: 'Standar yang melarang warna menjadi satu-satunya pembawa makna.',
+        },
+        {
+          label: ':focus-visible',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/CSS/:focus-visible',
+          source: 'MDN',
+          note: 'Pengganti `:focus` yang menghapus alasan orang menulis `outline-none`.',
+        },
+        {
+          label: 'ARIA states and properties',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes',
+          source: 'MDN',
+          note: 'Rujukan `aria-current`, `aria-expanded`, dan atribut lain yang dipakai di praktik penutup.',
+        },
+      ),
     ],
   ),
 
@@ -1372,6 +2184,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Praktik penutup bab. Kamu akan membangun dua komponen yang muncul di hampir setiap aplikasi, memakai token sendiri, dan mengujinya terhadap checklist aksesibilitas.',
+      ),
+
+      terms(
+        {
+          term: 'navbar',
+          meaning:
+            'Singkatan *navigation bar*, terjemahannya **bilah navigasi**. Komponen yang muncul di hampir setiap aplikasi, dan justru karena itu ia menjadi tempat paling sering cacat aksesibilitas lolos — menu yang tidak bisa ditutup dengan `Esc`, atau halaman aktif yang hanya ditandai warna.',
+        },
+        {
+          term: 'card',
+          meaning:
+            'Terjemahannya **kartu**. Wadah berisi satu satuan informasi yang berdiri sendiri. Uji kelayakannya sederhana: kalau kartunya dipindah ke tempat lain, apakah isinya masih masuk akal tanpa konteks di sekitarnya?',
+        },
+        {
+          term: 'truncate',
+          meaning:
+            'Memotong teks yang terlalu panjang menjadi satu baris dengan tanda elipsis. Jebakannya sudah kamu temui di Sub-bab 1.4: di dalam flex container, ia **tidak bekerja** tanpa `min-w-0` pada anaknya.',
+        },
+        {
+          term: 'line-clamp',
+          meaning:
+            'Memotong teks setelah sejumlah **baris**, bukan satu baris seperti `truncate`. `line-clamp-3` menyisakan tiga baris lalu memberi elipsis — pilihan yang lebih baik untuk ringkasan di dalam kartu.',
+        },
+        {
+          term: 'overlay',
+          meaning:
+            'Terjemahannya **lapisan penutup** — menu, dialog, atau panel yang muncul di atas halaman. Tiga kewajibannya sering terlupakan: bisa ditutup dengan `Esc`, mengunci fokus di dalamnya selama terbuka, dan **mengembalikan fokus** ke pemicunya setelah ditutup.',
+        },
+        {
+          term: 'aria-expanded',
+          meaning:
+            'Atribut yang memberi tahu apakah sesuatu yang dikendalikan tombol sedang **terbuka atau tertutup**. Tanpa itu, pengguna pembaca layar menekan tombol menu dan tidak mendapat kabar apa pun tentang apa yang terjadi.',
+        },
+        {
+          term: 'aria-current',
+          meaning:
+            'Menandai item mana yang **sedang aktif** dalam sebuah navigasi, ditulis `aria-current="page"`. Ini padanan tekstual dari penanda visual yang biasanya cuma berupa warna atau garis bawah.',
+        },
+        {
+          term: 'zoom 200%',
+          meaning:
+            'Uji yang diwajibkan WCAG: tampilan harus tetap bisa dipakai saat diperbesar dua kali lipat. Ini menangkap masalah yang tidak terlihat pada layar biasa — teks yang terpotong, tombol yang saling menumpuk, dan tata letak yang meluber ke samping.',
+        },
+        {
+          term: 'baseline',
+          meaning:
+            'Terjemahannya **batas minimum**. Kumpulan syarat yang tidak bisa ditawar apa pun keputusan desainnya: kontras cukup, fokus terlihat, bisa dipakai keyboard, menghormati pengurangan gerak. Aturan project ini menyatakannya tegas — **aksesibilitas mengalahkan estetika**.',
+        },
       ),
 
       h2('1. Kunci tokennya dulu'),
@@ -1581,6 +2441,38 @@ export const lessons: LessonDraft[] = [
         'Overlay wajib menangani `Esc` dan mengembalikan fokus.',
         '`aria-current`, `aria-expanded`, dan `sr-only` adalah tiga hal kecil dengan dampak besar.',
         'Uji dengan Tab, zoom 200%, dan reduced motion sebelum menganggapnya selesai.',
+      ),
+      references(
+        {
+          label: 'Theme variables',
+          href: 'https://tailwindcss.com/docs/theme',
+          source: 'Tailwind CSS',
+          note: 'Langkah pertama praktik ini — mengunci token sebelum satu komponen pun dibangun.',
+        },
+        {
+          label: 'Line clamp',
+          href: 'https://tailwindcss.com/docs/line-clamp',
+          source: 'Tailwind CSS',
+          note: 'Memotong teks setelah sejumlah baris, pilihan yang lebih tepat daripada `truncate` di kartu.',
+        },
+        {
+          label: 'aria-expanded',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-expanded',
+          source: 'MDN',
+          note: 'Wajib pada tombol yang membuka menu, agar keadaannya terumumkan.',
+        },
+        {
+          label: 'Reflow — WCAG 1.4.10',
+          href: 'https://www.w3.org/WAI/WCAG22/Understanding/reflow.html',
+          source: 'W3C WCAG',
+          note: 'Dasar uji zoom 200% yang menutup checklist praktik ini.',
+        },
+        {
+          label: 'Keyboard-navigable JavaScript widgets',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/Guides/Keyboard-navigable_JavaScript_widgets',
+          source: 'MDN',
+          note: 'Kewajiban `Esc`, kunci fokus, dan pengembalian fokus pada overlay.',
+        },
       ),
     ],
   ),

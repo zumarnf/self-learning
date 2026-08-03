@@ -23,7 +23,9 @@ const tailwind = defineChapter({
   ],
   prerequisites: [],
   stackVersions: ['Tailwind CSS 4.3'],
-  reviewedAt: '2026-08-02',
+  // 2026-08-03: revisi ADR-0006 — setiap sub-bab kini menjelaskan istilahnya sendiri dan
+  // menunjuk halaman dokumentasi resminya.
+  reviewedAt: '2026-08-03',
   lessons: lessonsTailwind,
   quiz: [
     q(
@@ -75,7 +77,9 @@ const reactFundamental = defineChapter({
   ],
   prerequisites: [{ category: 'frontend-basic', chapter: 'jsx-dan-tsx' }],
   stackVersions: ['React 19.2'],
-  reviewedAt: '2026-08-02',
+  // 2026-08-03: revisi ADR-0006 — setiap sub-bab kini menjelaskan istilahnya sendiri dan
+  // menunjuk halaman dokumentasi resminya.
+  reviewedAt: '2026-08-03',
   lessons: lessonsReactFundamental,
   quiz: [
     q(
@@ -126,7 +130,9 @@ const komponenReact = defineChapter({
   ],
   prerequisites: [{ category: 'frontend-intermediate', chapter: 'fundamental-reactjs' }],
   stackVersions: ['React 19.2', 'Tailwind CSS 4.3'],
-  reviewedAt: '2026-08-02',
+  // 2026-08-03: revisi ADR-0006 — setiap sub-bab kini menjelaskan istilahnya sendiri dan
+  // menunjuk halaman dokumentasi resminya.
+  reviewedAt: '2026-08-03',
   lessons: lessonsKomponen,
   quiz: [
     q(
@@ -177,7 +183,9 @@ const stateEvent = defineChapter({
   ],
   prerequisites: [{ category: 'frontend-intermediate', chapter: 'fundamental-reactjs' }],
   stackVersions: ['React 19.2'],
-  reviewedAt: '2026-08-02',
+  // 2026-08-03: revisi ADR-0006 — setiap sub-bab kini menjelaskan istilahnya sendiri dan
+  // menunjuk halaman dokumentasi resminya.
+  reviewedAt: '2026-08-03',
   lessons: lessonsState,
   quiz: [
     q(

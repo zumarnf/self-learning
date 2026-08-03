@@ -561,11 +561,130 @@ export const glossary: GlossaryEntry[] = [
     lesson: 'frontend-intermediate/tailwind-css/design-token-theme',
   },
   {
+    term: 'Utility Class',
+    category: 'frontend-intermediate',
+    definition:
+      'Class CSS yang mengerjakan satu hal dan namanya menyebutkan hal itu — `p-4`, `flex`, `text-sm`. Artinya tidak pernah berubah di mana pun ia dipakai, sehingga mengubahnya tidak bisa merusak apa pun di tempat lain.',
+    lesson: 'frontend-intermediate/tailwind-css/filosofi-utility-first',
+  },
+  {
+    term: '@theme',
+    category: 'frontend-intermediate',
+    aliases: ['CSS-first'],
+    definition:
+      'Arahan Tailwind v4 untuk mendefinisikan design token di dalam CSS. Tiap token otomatis menghasilkan utility class, dan nilainya benar-benar menjadi CSS variable asli.',
+    lesson: 'frontend-intermediate/tailwind-css/design-token-theme',
+  },
+  {
+    term: 'group & peer',
+    category: 'frontend-intermediate',
+    definition:
+      'Penanda Tailwind agar anak bereaksi pada state induk (`group`) atau pada saudara sebelumnya (`peer`). `peer` hanya bekerja untuk elemen sesudahnya — CSS tidak bisa memilih ke belakang.',
+    lesson: 'frontend-intermediate/tailwind-css/variant-status',
+  },
+  {
+    term: 'Mobile-first',
+    category: 'frontend-intermediate',
+    definition:
+      'Class tanpa awalan berlaku untuk semua ukuran; `md:` berarti "mulai dari sedang ke atas". Mobile-first menambah kemampuan saat ruang tersedia, sementara desktop-first membatalkannya.',
+    lesson: 'frontend-intermediate/tailwind-css/responsif',
+  },
+  {
+    term: 'UI = f(state)',
+    category: 'frontend-intermediate',
+    definition:
+      'Rumus yang merangkum React: tampilan adalah hasil perhitungan dari keadaan. Kamu menulis "kalau keadaannya begini, tampilannya begini" — bukan memerintahkan perubahan satu per satu.',
+    lesson: 'frontend-intermediate/fundamental-reactjs/kenapa-react',
+  },
+  {
+    term: 'Render & Commit',
+    category: 'frontend-intermediate',
+    definition:
+      'Dua tahap React: **render** memanggil fungsi komponen untuk mendapat gambaran terbaru, **commit** menerapkannya ke DOM. Render ulang tidak selalu berarti DOM ikut berubah.',
+    lesson: 'frontend-intermediate/fundamental-reactjs/komponen-pertama',
+  },
+  {
+    term: 'Prop Drilling',
+    category: 'frontend-intermediate',
+    definition:
+      'Data yang dioper melewati banyak lapisan yang tidak memakainya. Sering selesai dengan composition — oper komponennya, bukan datanya — tanpa perlu Context.',
+    lesson: 'frontend-intermediate/fundamental-reactjs/composition-children',
+  },
+  {
+    term: 'React Compiler',
+    category: 'frontend-intermediate',
+    aliases: ['Memoization'],
+    definition:
+      'Alat React 19 yang menganalisis komponen saat build lalu menyisipkan memoisasi otomatis, sehingga `useMemo` dan `useCallback` manual jauh berkurang. Ia melewati komponen yang melanggar Rules of React.',
+    lesson: 'frontend-intermediate/fundamental-reactjs/react-compiler',
+  },
+  {
     term: 'Reconciliation',
     category: 'frontend-intermediate',
     definition:
       'Proses React membandingkan pohon elemen baru dengan yang lama untuk menentukan perubahan minimum di DOM.',
     lesson: 'frontend-intermediate/fundamental-reactjs/virtual-dom',
+  },
+  {
+    term: 'API Komponen',
+    category: 'frontend-intermediate',
+    aliases: ['API Surface'],
+    definition:
+      'Daftar props sebuah komponen — janji kepada siapa pun yang memakainya. Mengubahnya merusak semua pemakai yang sudah ada, jadi merancangnya sadar sejak awal jauh lebih murah daripada memperbaikinya belakangan.',
+    lesson: 'frontend-intermediate/pembuatan-komponen-react/anatomi-komponen',
+  },
+  {
+    term: 'Focus Trap',
+    category: 'frontend-intermediate',
+    definition:
+      'Menahan Tab agar tidak keluar dari dialog selama terbuka. Tanpa itu pengguna keyboard tersesat di halaman belakang — masih bisa mengklik tombol yang seharusnya tidak terjangkau.',
+    lesson: 'frontend-intermediate/pembuatan-komponen-react/studi-dialog',
+  },
+  {
+    term: 'Roving Tabindex',
+    category: 'frontend-intermediate',
+    definition:
+      'Hanya satu item dalam kelompok yang bisa dijangkau Tab; sisanya `-1` dan diakses lewat tombol panah. Mencegah daftar sepuluh tab memaksa sepuluh tekanan Tab untuk melewatinya.',
+    lesson: 'frontend-intermediate/pembuatan-komponen-react/studi-tabs',
+  },
+  {
+    term: 'Snapshot State',
+    category: 'frontend-intermediate',
+    aliases: ['Stale Closure'],
+    definition:
+      'Nilai state di dalam satu render tidak pernah berubah — ia potret, bukan variabel hidup. Inilah kenapa `setJumlah(jumlah + 1)` tiga kali hanya menambah satu.',
+    lesson: 'frontend-intermediate/state-dan-event-handler/state-snapshot',
+  },
+  {
+    term: 'Updater Function',
+    category: 'frontend-intermediate',
+    aliases: ['Batching'],
+    definition:
+      'Bentuk `setJumlah(n => n + 1)` yang membaca nilai terbaru dari antrean, bukan dari potret render. Wajib saat beberapa pembaruan berurutan atau saat memperbarui di kode asinkron.',
+    lesson: 'frontend-intermediate/state-dan-event-handler/batching-updater',
+  },
+  {
+    term: 'State Turunan',
+    category: 'frontend-intermediate',
+    aliases: ['Derived State'],
+    definition:
+      'Nilai yang bisa dihitung dari state lain — jangan disimpan. Menyimpannya menciptakan dua sumber yang pasti berselisih, dan bugnya muncul jauh dari penyebabnya.',
+    lesson: 'frontend-intermediate/state-dan-event-handler/derived-state',
+  },
+  {
+    term: 'Reducer',
+    category: 'frontend-intermediate',
+    aliases: ['useReducer', 'Action', 'Dispatch'],
+    definition:
+      'Fungsi murni `(state, action) => stateBaru` yang memisahkan apa yang terjadi dari bagaimana state berubah. Dipakai saat beberapa nilai berubah bersama atau transisinya punya aturan.',
+    lesson: 'frontend-intermediate/state-dan-event-handler/usereducer',
+  },
+  {
+    term: 'Controlled vs Uncontrolled',
+    category: 'frontend-intermediate',
+    definition:
+      'Controlled: React memegang nilai input lewat `value`, render tiap ketikan. Uncontrolled: DOM yang memegang, dibaca saat dibutuhkan. Mencampur keduanya berarti dua sumber yang pasti berselisih.',
+    lesson: 'frontend-intermediate/state-dan-event-handler/controlled-uncontrolled',
   },
   {
     term: 'Server Component',

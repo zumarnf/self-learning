@@ -7,7 +7,9 @@ import {
   h2,
   ol,
   p,
+  references,
   table,
+  terms,
   ul,
 } from '@/lib/content/builders';
 import { type LessonDraft, written } from '@/lib/curriculum/authoring';
@@ -28,6 +30,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Membuat komponen itu mudah. Membuat komponen yang masih enak dipakai enam bulan kemudian, oleh orang yang tidak menulisnya, adalah keterampilan tersendiri. Bab ini menetapkan standarnya sebelum delapan studi kasus berikutnya.',
+      ),
+
+      terms(
+        {
+          term: 'API komponen',
+          meaning:
+            'Terjemahannya **antarmuka komponen**. Daftar props yang diterima sebuah komponen — inilah janji yang kamu berikan kepada siapa pun yang memakainya. Sama seperti API jaringan, mengubahnya berarti merusak semua pemakai yang sudah ada, jadi merancangnya dengan sadar sejak awal jauh lebih murah daripada memperbaikinya belakangan.',
+        },
+        {
+          term: 'satu tanggung jawab',
+          meaning:
+            'Prinsip dari Sub-bab 2.11 Frontend Basic, diterapkan pada komponen. Ujinya tetap sama dan tetap tajam: **jelaskan komponen itu dalam satu kalimat**. Kalau kalimatnya butuh kata "dan", kemungkinan besar ia sudah menampung lebih dari satu tanggung jawab.',
+        },
+        {
+          term: 'dapat dipakai ulang',
+          meaning:
+            'Terjemahan dari *reusable*. Sering disalahpahami sebagai "bisa dipakai untuk apa saja" — dan komponen yang berusaha begitu justru berakhir dengan dua puluh prop. Yang sebenarnya dimaksud: **bisa dipakai di beberapa tempat yang memang serupa**, tanpa perlu diubah.',
+        },
+        {
+          term: 'komponen terkendali',
+          meaning:
+            'Terjemahan dari *controlled component*. Komponen yang nilainya **ditentukan sepenuhnya dari luar** lewat props, dan melaporkan perubahan lewat callback. Lawannya menyimpan nilainya sendiri di dalam. Pilihan ini menentukan siapa pemilik datanya, dan dibahas tuntas di Bab 4.',
+        },
+        {
+          term: 'escape hatch',
+          meaning:
+            'Terjemahannya **pintu darurat**. Jalan keluar yang kamu sediakan untuk kasus yang tidak terpikirkan — biasanya prop `className` atau `...sisa` yang meneruskan atribut apa pun. Tanpa itu, satu kebutuhan kecil yang tidak tercakup memaksa orang menyalin seluruh komponenmu.',
+        },
+        {
+          term: 'prop bocor',
+          meaning:
+            'Terjemahan bebas dari *leaky abstraction*. Props yang membocorkan **detail internal** komponen, misalnya `wrapperStyle` atau `innerDivClassName`. Tandanya jelas: pemakainya harus tahu struktur HTML di dalamnya untuk bisa memakainya — dan sejak itu, kamu tidak bisa lagi mengubah struktur itu.',
+        },
+        {
+          term: 'accessible name',
+          meaning:
+            'Terjemahannya **nama yang terbaca teknologi bantu**. Setiap elemen interaktif wajib punya satu. Untuk tombol berteks, teksnya sendiri sudah cukup; untuk tombol ikon, ia harus datang dari `aria-label`. Komponen yang tidak menyediakan jalan untuk itu **memaksa** pemakainya membuat antarmuka yang tidak bisa diakses.',
+        },
+        {
+          term: 'design system',
+          meaning:
+            'Kumpulan komponen dan token yang **konsisten satu sama lain**. Nilainya bukan pada jumlah komponennya, melainkan pada keseragaman: nama prop yang sama berarti hal yang sama di seluruh komponen, dan ukuran `sm` terlihat sepadan di mana pun.',
+        },
       ),
 
       h2('Lima ciri'),
@@ -139,6 +184,32 @@ export const lessons: LessonDraft[] = [
         'Mulai uncontrolled; tambahkan controlled saat ada kebutuhan nyata.',
         'Taruh state serendah mungkin, tapi setinggi yang diperlukan.',
       ),
+      references(
+        {
+          label: 'Your First Component',
+          href: 'https://react.dev/learn/your-first-component',
+          source: 'React',
+          note: 'Dasar penyusunan komponen, termasuk kapan sebuah bagian layak dipecah.',
+        },
+        {
+          label: 'Sharing State Between Components',
+          href: 'https://react.dev/learn/sharing-state-between-components',
+          source: 'React',
+          note: 'Aturan "serendah mungkin, setinggi yang diperlukan" untuk penempatan state.',
+        },
+        {
+          label: 'Passing Props to a Component',
+          href: 'https://react.dev/learn/passing-props-to-a-component',
+          source: 'React',
+          note: 'Pola meneruskan props sisa yang menjadi pintu darurat komponen.',
+        },
+        {
+          label: 'ARIA: button role',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/button_role',
+          source: 'MDN',
+          note: 'Syarat accessible name yang wajib disediakan setiap komponen interaktif.',
+        },
+      ),
     ],
   ),
 
@@ -148,6 +219,49 @@ export const lessons: LessonDraft[] = [
     13,
     'Komponen paling sering ditulis ulang, dan paling sering salah dirancang.',
     [
+      terms(
+        {
+          term: 'boolean prop explosion',
+          meaning:
+            'Terjemahan bebasnya **ledakan prop boolean**. Enam prop `true`/`false` menghasilkan **64 kombinasi**, dan biasanya hanya sekitar delapan yang masuk akal. Sisanya bukan sekadar tidak berguna — ia kombinasi yang **tidak punya arti sama sekali**, seperti `isPrimary` dan `isDanger` sekaligus, tapi tetap bisa ditulis tanpa peringatan apa pun.',
+        },
+        {
+          term: 'variant',
+          meaning:
+            'Prop bernilai **salah satu dari beberapa pilihan** — `variant="utama" | "hantu" | "bahaya"`. Menggantikan sekumpulan boolean sekaligus, dan keuntungannya langsung terasa: kombinasi mustahil menjadi **tidak bisa ditulis**, dan editor menawarkan pilihan yang sah saat kamu mengetik.',
+        },
+        {
+          term: 'size',
+          meaning:
+            'Prop ukuran yang juga sebaiknya berupa pilihan terbatas — `"sm" | "md" | "lg"` — bukan angka bebas. Alasannya sama dengan skala spacing di Bab 1: membatasi pilihan **menjaga konsistensi tanpa perlu disiplin siapa pun**.',
+        },
+        {
+          term: 'ComponentProps',
+          meaning:
+            'Pembantu TypeScript untuk **meminjam seluruh tipe atribut elemen bawaan**: `ComponentProps<"button">` memberimu `type`, `disabled`, `aria-label`, dan puluhan lainnya sekaligus. Tanpa itu, kamu harus mendaftarkan tiap atribut satu per satu dan pasti ada yang terlewat.',
+        },
+        {
+          term: 'type="button"',
+          meaning:
+            'Nilai bawaan yang **wajib** kamu tetapkan pada komponen tombol. Alasannya: tombol di dalam `<form>` secara bawaan bertipe `submit`, sehingga tombol "Batal" yang lupa diberi tipe justru **mengirim formnya**. Ini bug yang sangat sering dan sangat membingungkan.',
+        },
+        {
+          term: 'loading state',
+          meaning:
+            'Keadaan tombol saat aksinya sedang berjalan. Dua kewajibannya sering terlupakan: **nonaktifkan tombolnya** agar tidak terkirim dua kali, dan **umumkan perubahannya** lewat `aria-busy` atau teks — karena pemutar berputar tidak berarti apa-apa bagi pembaca layar.',
+        },
+        {
+          term: 'asChild',
+          meaning:
+            'Pola yang membuat komponen **meminjamkan gayanya ke elemen lain**, misalnya agar sebuah tombol dirender sebagai `<a>`. Menyelesaikan kebutuhan nyata "terlihat seperti tombol tapi sebenarnya tautan" tanpa menduplikasi seluruh gayanya.',
+        },
+        {
+          term: 'tombol vs tautan',
+          meaning:
+            'Pembedaan yang menentukan dan sering diabaikan: `<button>` untuk **melakukan sesuatu**, `<a>` untuk **pergi ke suatu tempat**. Bukan soal tampilan — keduanya berbeda perilaku keyboard, berbeda menu klik kanan, dan hanya tautan yang bisa dibuka di tab baru.',
+        },
+      ),
+
       h2('Bentuk yang salah dulu'),
       code(
         'tsx',
@@ -282,6 +396,32 @@ export const lessons: LessonDraft[] = [
         'Saat memuat: `disabled`, `aria-busy`, dan label tetap ada.',
         'Navigasi memakai `<a>`, aksi memakai `<button>`.',
       ),
+      references(
+        {
+          label: '<button>',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/button',
+          source: 'MDN',
+          note: 'Termasuk penegasan bahwa `type` bawaannya `submit` — sumber bug tombol Batal.',
+        },
+        {
+          label: 'aria-busy',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-busy',
+          source: 'MDN',
+          note: 'Mengumumkan keadaan memuat kepada pembaca layar, karena spinner tidak terbaca.',
+        },
+        {
+          label: 'Using TypeScript — typing props',
+          href: 'https://react.dev/learn/typescript#typing-props',
+          source: 'React',
+          note: '`ComponentProps<"button">` untuk meminjam seluruh atribut elemen bawaan.',
+        },
+        {
+          label: 'Links vs. Buttons',
+          href: 'https://www.w3.org/WAI/ARIA/apg/patterns/button/',
+          source: 'W3C ARIA APG',
+          note: 'Pola resmi tombol, termasuk perilaku keyboard yang membedakannya dari tautan.',
+        },
+      ),
     ],
   ),
 
@@ -293,6 +433,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Field form terlihat sepele dan hampir selalu salah. Yang menentukan bukan tampilannya, melainkan tiga hubungan yang harus ada di markup.',
+      ),
+
+      terms(
+        {
+          term: 'tiga hubungan wajib',
+          meaning:
+            'Yang menentukan benar-tidaknya sebuah field bukan tampilannya, melainkan tiga tautan di markup: **label ke input** (`htmlFor` ↔ `id`), **input ke pesan bantuan dan error** (`aria-describedby`), dan **penanda tidak valid** (`aria-invalid`). Ketiganya tidak terlihat mata, tapi tanpanya field itu praktis tidak bisa dipakai dengan pembaca layar.',
+        },
+        {
+          term: 'useId',
+          meaning:
+            'Hook React untuk menghasilkan **id yang unik dan stabil**. Wajib dipakai di sini karena satu komponen field bisa dirender berkali-kali di satu halaman — dan id yang ditulis tetap akan bertabrakan. Ia juga aman untuk render di server, tidak seperti `Math.random()`.',
+        },
+        {
+          term: 'htmlFor',
+          meaning:
+            'Padanan atribut `for` di JSX, karena `for` adalah kata kunci JavaScript. Menghubungkan `<label>` ke input yang `id`-nya cocok. Manfaatnya dua: pembaca layar tahu input itu untuk apa, **dan** area kliknya melebar mencakup labelnya.',
+        },
+        {
+          term: 'aria-describedby',
+          meaning:
+            'Menghubungkan input ke **teks penjelas atau pesan error**, dengan menyebut `id`-nya. Boleh berisi beberapa id sekaligus dipisah spasi. Inilah yang membuat pesan error benar-benar dibacakan saat pengguna memfokuskan input yang gagal — tanpa itu, error hanya terlihat oleh yang bisa melihat.',
+        },
+        {
+          term: 'aria-invalid',
+          meaning:
+            'Menandai bahwa isi sebuah input **tidak valid**. Dipasangkan dengan `aria-describedby` yang menunjuk pesannya. Perhatikan bahwa border merah saja tidak cukup — itu warna sebagai satu-satunya penanda, persis yang dilarang di Bab 1.',
+        },
+        {
+          term: 'placeholder bukan label',
+          meaning:
+            'Kesalahan yang sangat umum. `placeholder` **hilang begitu pengguna mulai mengetik**, sehingga ia lupa field itu untuk apa; ia juga berkontras rendah dan tidak selalu terbaca pembaca layar. Placeholder untuk **contoh format**, label untuk **nama field** — keduanya, bukan salah satu.',
+        },
+        {
+          term: 'pesan error',
+          meaning:
+            'Wajib memenuhi tiga hal: **di dekat fieldnya** (bukan menumpuk di atas form), **menjelaskan cara memperbaikinya** (bukan sekadar "tidak valid"), dan **terhubung `aria-describedby`**. Ketiganya bersama-sama, karena satu saja yang hilang sudah cukup membuatnya tidak berguna bagi sebagian orang.',
+        },
+        {
+          term: 'required',
+          meaning:
+            'Atribut yang menandai field wajib diisi. Menandainya dengan tanda bintang saja tidak cukup — atributnya yang sebenarnya diumumkan pembaca layar. Dan seperti biasa: ini validasi klien, jadi **server tetap wajib memeriksanya ulang**.',
+        },
       ),
 
       h2('Tiga hubungan wajib'),
@@ -439,6 +622,38 @@ export const lessons: LessonDraft[] = [
         'Diam sampai submit pertama, lalu validasi tiap ketikan.',
         '`autoComplete` yang benar adalah fitur aksesibilitas.',
       ),
+      references(
+        {
+          label: 'useId',
+          href: 'https://react.dev/reference/react/useId',
+          source: 'React',
+          note: 'Id unik yang aman terhadap hidrasi — pengganti `Math.random()` yang merusak SSR.',
+        },
+        {
+          label: '<label>',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/label',
+          source: 'MDN',
+          note: 'Hubungan `htmlFor` ↔ `id` beserta manfaat melebarnya area klik.',
+        },
+        {
+          label: 'aria-describedby',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-describedby',
+          source: 'MDN',
+          note: 'Menghubungkan input ke pesan bantuan dan error agar benar-benar dibacakan.',
+        },
+        {
+          label: 'Error Identification — WCAG 3.3.1',
+          href: 'https://www.w3.org/WAI/WCAG22/Understanding/error-identification.html',
+          source: 'W3C WCAG',
+          note: 'Standar yang mewajibkan error dijelaskan dalam teks, bukan hanya warna.',
+        },
+        {
+          label: 'HTML attribute: autocomplete',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/autocomplete',
+          source: 'MDN',
+          note: 'Daftar nilai yang membuat pengisian otomatis benar-benar bekerja.',
+        },
+      ),
     ],
   ),
 
@@ -448,6 +663,49 @@ export const lessons: LessonDraft[] = [
     11,
     'Wadah konten yang fleksibel, dan placeholder yang tidak membuat layout melompat.',
     [
+      terms(
+        {
+          term: 'Card',
+          meaning:
+            'Wadah untuk satu satuan konten yang **berdiri sendiri**. Ujinya sederhana: kalau kartunya dipindah ke halaman lain, apakah isinya masih masuk akal tanpa konteks di sekitarnya? Kalau tidak, itu bukan kartu melainkan sepotong tata letak.',
+        },
+        {
+          term: 'Skeleton',
+          meaning:
+            'Terjemahannya **kerangka**. Bentuk abu-abu yang menyerupai isi sebenarnya, ditampilkan selama memuat. Syarat yang membuatnya berguna: ia harus **memesan ruang seukuran isi akhirnya** — kalau tidak, halaman tetap melompat saat data datang, dan seluruh gunanya hilang.',
+        },
+        {
+          term: 'layout shift',
+          meaning:
+            'Terjemahannya **pergeseran tata letak**. Isi halaman yang melompat karena sesuatu muncul dan mendorong yang lain. Bukan sekadar tidak enak dilihat: pengguna bisa **salah menekan tombol** karena posisinya berubah tepat saat ia mengklik.',
+        },
+        {
+          term: 'aspect-ratio',
+          meaning:
+            'Perbandingan lebar dan tinggi yang ditetapkan sejak awal, misalnya `aspect-video`. Ini cara mencegah gambar menggeser tata letak sebelum ia selesai dimuat — ruangnya sudah dipesan meski isinya belum ada.',
+        },
+        {
+          term: 'animate-pulse',
+          meaning:
+            'Animasi denyut halus pada skeleton yang menandakan "sedang bekerja". Wajib dipasangkan dengan `motion-reduce:animate-none`, karena gerak berulang termasuk yang dikeluhkan pengguna yang meminta pengurangan gerak.',
+        },
+        {
+          term: 'aria-hidden',
+          meaning:
+            'Menyembunyikan sebuah elemen dari **teknologi bantu** meski tetap terlihat mata. Tepat untuk skeleton: bentuk kotak abu-abu tidak punya arti apa pun untuk dibacakan, dan mengumumkannya justru mengganggu.',
+        },
+        {
+          term: 'compound component',
+          meaning:
+            'Sekelompok komponen yang dipakai bersama: `<Card><Card.Header/><Card.Body/></Card>`. Untuk Card, ini jauh lebih baik daripada prop `judul`, `subjudul`, `gambar`, `badge` — karena kebutuhan baru cukup ditulis sebagai isi, tanpa menambah prop baru.',
+        },
+        {
+          term: 'placeholder yang jujur',
+          meaning:
+            'Prinsip yang mengikat seluruh sub-bab ini: skeleton **tidak boleh berbohong** tentang berapa banyak isi yang akan datang. Menampilkan lima baris skeleton lalu hanya satu item muncul terasa seperti sesuatu yang gagal, meski sebenarnya semuanya berjalan benar.',
+        },
+      ),
+
       h2('Card: composition, bukan props'),
       compare(
         {
@@ -602,6 +860,32 @@ export const lessons: LessonDraft[] = [
         'Skeleton `aria-hidden`; wadahnya yang memakai `aria-busy`.',
         'Jangan pakai skeleton untuk operasi yang hampir selalu instan.',
       ),
+      references(
+        {
+          label: 'Passing JSX as children',
+          href: 'https://react.dev/learn/passing-props-to-a-component#passing-jsx-as-children',
+          source: 'React',
+          note: 'Dasar pola compound component yang menggantikan props Card yang meledak.',
+        },
+        {
+          label: 'aria-hidden',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-hidden',
+          source: 'MDN',
+          note: 'Menyembunyikan skeleton dari pembaca layar karena bentuknya tidak punya arti.',
+        },
+        {
+          label: 'Optimize Cumulative Layout Shift',
+          href: 'https://web.dev/articles/optimize-cls',
+          source: 'web.dev',
+          note: 'Alasan skeleton wajib memesan tinggi akhirnya, beserta cara mengukur dampaknya.',
+        },
+        {
+          label: 'aspect-ratio',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/CSS/aspect-ratio',
+          source: 'MDN',
+          note: 'Memesan ruang gambar sebelum ia dimuat, sehingga tata letak tidak bergeser.',
+        },
+      ),
     ],
   ),
 
@@ -613,6 +897,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Dialog adalah komponen dengan jarak terbesar antara "terlihat berfungsi" dan "benar-benar berfungsi". Lima hal berikut wajib ada, dan empat di antaranya tidak terlihat sama sekali kalau kamu hanya memakai mouse.',
+      ),
+
+      terms(
+        {
+          term: 'dialog',
+          meaning:
+            'Jendela yang muncul di atas halaman dan **menuntut perhatian penuh** sebelum pengguna bisa melanjutkan. Komponen dengan jarak terbesar antara "terlihat berfungsi" dan "benar-benar berfungsi" — empat dari lima kewajibannya **tidak terlihat sama sekali** kalau kamu hanya menguji dengan tetikus.',
+        },
+        {
+          term: 'portal',
+          meaning:
+            'Kemampuan React merender sebuah komponen **di tempat lain di DOM**, biasanya langsung di bawah `<body>`, meski di kode ia ditulis jauh di dalam. Dibutuhkan karena `overflow: hidden` atau `z-index` sebuah induk bisa memotong dialog — masalah yang tidak bisa diselesaikan dengan CSS dari dalam.',
+        },
+        {
+          term: 'focus trap',
+          meaning:
+            'Terjemahannya **perangkap fokus**. Menahan Tab agar tidak keluar dari dialog selama ia terbuka. Tanpa itu, pengguna keyboard menekan Tab beberapa kali lalu **tersesat di halaman di belakangnya** — masih bisa mengklik tombol yang seharusnya tidak terjangkau, tanpa tahu di mana ia berada.',
+        },
+        {
+          term: 'pengembalian fokus',
+          meaning:
+            'Terjemahan dari *focus restoration*. Saat dialog ditutup, fokus **wajib kembali ke elemen yang membukanya**. Kalau tidak, fokus melompat ke awal halaman dan pengguna keyboard harus menelusuri ulang dari nol untuk kembali ke tempatnya tadi.',
+        },
+        {
+          term: 'inert',
+          meaning:
+            'Atribut yang membuat sebuah bagian halaman **benar-benar tidak bisa disentuh** — tidak bisa diklik, tidak bisa difokuskan, dan tidak dibacakan pembaca layar. Cara modern dan paling bersih untuk menonaktifkan latar belakang saat dialog terbuka.',
+        },
+        {
+          term: 'scroll lock',
+          meaning:
+            'Terjemahannya **kunci gulir**. Mencegah halaman di belakang ikut bergulir saat dialog terbuka. Jebakannya: mengunci dengan `overflow: hidden` pada `<body>` membuat halaman **melompat** karena batang gulir menghilang — kompensasi lebarnya perlu ditambahkan.',
+        },
+        {
+          term: 'role="dialog"',
+          meaning:
+            'Menandai elemen sebagai dialog bagi teknologi bantu, dipasangkan dengan `aria-modal="true"` dan `aria-labelledby` yang menunjuk judulnya. Tanpa judul yang tertaut, pembaca layar hanya mengumumkan "dialog" tanpa keterangan apa pun tentang isinya.',
+        },
+        {
+          term: '<dialog> bawaan',
+          meaning:
+            'Elemen HTML asli yang **sudah menyediakan** focus trap, `Esc`, dan lapisan latar tanpa kode tambahan. Sekarang didukung semua browser modern, dan sebaiknya dipertimbangkan lebih dulu sebelum membangun sendiri — persis aturan pertama ARIA: pakai yang bawaan kalau ada.',
+        },
+        {
+          term: 'aria-modal',
+          meaning:
+            'Memberi tahu pembaca layar bahwa isi **di luar dialog tidak relevan** selama ia terbuka. Perlu dicatat: atribut ini tidak melakukan apa pun secara teknis — ia hanya pemberitahuan, dan penonaktifan sungguhan tetap butuh `inert` atau focus trap.',
+        },
       ),
 
       h2('Lima kewajiban'),
@@ -784,6 +1116,38 @@ export const lessons: LessonDraft[] = [
         '`role="dialog"` + `aria-modal` + `aria-labelledby` adalah satu paket.',
         'Uji seluruhnya dengan keyboard saja — mouse menyembunyikan semua cacatnya.',
       ),
+      references(
+        {
+          label: '<dialog>',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/dialog',
+          source: 'MDN',
+          note: 'Elemen bawaan yang sudah memberi focus trap, `Esc`, dan backdrop tanpa kode tambahan.',
+        },
+        {
+          label: 'createPortal',
+          href: 'https://react.dev/reference/react-dom/createPortal',
+          source: 'React',
+          note: 'Merender di luar pohon induk agar `overflow: hidden` tidak memotong dialog.',
+        },
+        {
+          label: 'Dialog (Modal) Pattern',
+          href: 'https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/',
+          source: 'W3C ARIA APG',
+          note: 'Pola resmi lengkap: peran, atribut, dan seluruh perilaku keyboard yang diharapkan.',
+        },
+        {
+          label: 'inert',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/inert',
+          source: 'MDN',
+          note: 'Cara modern menonaktifkan latar belakang secara menyeluruh, bukan hanya secara visual.',
+        },
+        {
+          label: 'Focus Order — WCAG 2.4.3',
+          href: 'https://www.w3.org/WAI/WCAG22/Understanding/focus-order.html',
+          source: 'W3C WCAG',
+          note: 'Dasar kewajiban mengembalikan fokus ke elemen pemicu setelah dialog ditutup.',
+        },
+      ),
     ],
   ),
 
@@ -793,6 +1157,49 @@ export const lessons: LessonDraft[] = [
     14,
     'Beberapa komponen yang berbagi state lewat context — dan pola keyboard ARIA yang menyertainya.',
     [
+      terms(
+        {
+          term: 'compound component',
+          meaning:
+            'Terjemahannya **komponen majemuk**. Sekelompok komponen yang **hanya bermakna kalau dipakai bersama**: `<Tabs>`, `<Tabs.List>`, `<Tabs.Tab>`, `<Tabs.Panel>`. Keunggulannya, struktur markup langsung menceritakan hubungan antar-bagiannya — tanpa satu pun prop yang menjelaskan hierarki.',
+        },
+        {
+          term: 'Context',
+          meaning:
+            'Cara React mengalirkan nilai ke seluruh keturunan **tanpa mengopernya lewat props satu per satu**. Pada compound component inilah kegunaannya paling jelas: `<Tabs.Tab>` bisa berada berapa lapis pun di dalam, dan tetap tahu tab mana yang sedang aktif.',
+        },
+        {
+          term: 'implicit state sharing',
+          meaning:
+            'Terjemahan bebasnya **berbagi keadaan secara tersirat**. Anak-anak compound component saling terhubung tanpa pemakainya perlu mengoper apa pun. Ini kelebihan sekaligus jebakannya — memakai `<Tabs.Tab>` di luar `<Tabs>` harus **gagal dengan pesan yang jelas**, bukan diam-diam menghasilkan `undefined`.',
+        },
+        {
+          term: 'roving tabindex',
+          meaning:
+            'Terjemahan bebasnya **tabindex berpindah**. Pola di mana **hanya satu** tab yang bisa dijangkau Tab (`tabIndex={0}`), sisanya `-1`. Alasannya penting: tanpa itu, daftar berisi sepuluh tab memaksa pengguna keyboard menekan Tab sepuluh kali hanya untuk melewatinya. Perpindahan antar-tab memakai tombol panah, bukan Tab.',
+        },
+        {
+          term: 'tombol panah',
+          meaning:
+            'Cara baku berpindah antar-item dalam satu kelompok: panah kiri-kanan untuk tab mendatar, ditambah `Home` dan `End` untuk melompat ke ujung. Ini bukan tambahan opsional — pengguna pembaca layar **mengharapkannya**, karena begitulah semua komponen tab lain berperilaku.',
+        },
+        {
+          term: 'role="tablist"',
+          meaning:
+            'Trio peran yang wajib lengkap: `tablist` untuk wadahnya, `tab` untuk tiap tombol, `tabpanel` untuk isinya. Ketiganya diikat `aria-controls` dan `aria-labelledby` sehingga pembaca layar tahu tab mana mengendalikan panel mana.',
+        },
+        {
+          term: 'aria-selected',
+          meaning:
+            'Menandai tab mana yang **sedang aktif**. Berbeda dari `aria-current` yang dipakai untuk navigasi halaman. Tanpa itu, pengguna pembaca layar mendengar empat tab tanpa tahu satu pun yang sedang terbuka.',
+        },
+        {
+          term: 'displayName',
+          meaning:
+            'Nama yang muncul di React DevTools. Perlu disetel manual pada compound component, karena `Tabs.Tab` yang ditulis sebagai fungsi anonim akan muncul sebagai `Unknown` — dan menelusuri pohon komponen jadi jauh lebih sulit.',
+        },
+      ),
+
       h2('API yang dituju'),
       code(
         'tsx',
@@ -974,6 +1381,32 @@ export const lessons: LessonDraft[] = [
         '`role`, `aria-selected`, `aria-controls`, `aria-labelledby` adalah satu paket.',
         'Pola ini menang saat isinya bervariasi; untuk dua tab tetap, props biasa lebih sederhana.',
       ),
+      references(
+        {
+          label: 'Tabs Pattern',
+          href: 'https://www.w3.org/WAI/ARIA/apg/patterns/tabs/',
+          source: 'W3C ARIA APG',
+          note: 'Pola resmi lengkap: peran, atribut, roving tabindex, dan seluruh perilaku tombol panah.',
+        },
+        {
+          label: 'Passing Data Deeply with Context',
+          href: 'https://react.dev/learn/passing-data-deeply-with-context',
+          source: 'React',
+          note: 'Mekanisme berbagi state antar-bagian compound component tanpa props berantai.',
+        },
+        {
+          label: 'useContext',
+          href: 'https://react.dev/reference/react/useContext',
+          source: 'React',
+          note: 'Termasuk pola melempar error saat dipakai di luar provider-nya.',
+        },
+        {
+          label: 'tabindex',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/tabindex',
+          source: 'MDN',
+          note: 'Dasar teknis roving tabindex — kenapa `-1` tetap bisa difokuskan lewat kode.',
+        },
+      ),
     ],
   ),
 
@@ -983,6 +1416,49 @@ export const lessons: LessonDraft[] = [
     12,
     'Buka-tutup konten dengan semantik yang benar — dan kapan HTML bawaan sudah cukup.',
     [
+      terms(
+        {
+          term: 'accordion',
+          meaning:
+            'Terjemahannya **akordeon**, dinamai dari alat musik yang melipat dan mengembang. Kumpulan bagian yang bisa dibuka-tutup untuk menghemat ruang. Pertanyaan pertamanya bukan "bagaimana membuatnya", melainkan **"apakah aku benar-benar membutuhkannya"** — menyembunyikan konten juga berarti membuatnya lebih sulit ditemukan.',
+        },
+        {
+          term: '<details> & <summary>',
+          meaning:
+            'Elemen HTML bawaan yang **sudah menyediakan seluruh perilaku akordeon tanpa satu baris JavaScript**: keyboard bekerja, keadaannya diumumkan pembaca layar, dan Chrome bahkan bisa menemukan teks di dalamnya yang tertutup lewat Ctrl+F. Kalau kebutuhanmu sesederhana FAQ, **berhenti di sini** — versi React justru lebih buruk.',
+        },
+        {
+          term: 'progressive enhancement',
+          meaning:
+            'Prinsip yang mendasari urutan sub-bab ini: mulai dari yang bawaan, naik ke versi buatan sendiri **hanya kalau ada kebutuhan yang benar-benar tidak terpenuhi**. Empat kebutuhan itu disebutkan tegas di bawah, dan di luar itu HTML bawaan menang.',
+        },
+        {
+          term: 'aria-expanded',
+          meaning:
+            'Menandai apakah bagian yang dikendalikan sebuah tombol sedang **terbuka atau tertutup**. Wajib pada versi buatan sendiri — inilah salah satu hal yang `<details>` berikan gratis dan sering terlupakan saat orang membangunnya ulang.',
+        },
+        {
+          term: 'aria-controls',
+          meaning:
+            'Menghubungkan tombol pemicu ke **isi yang dikendalikannya**, dengan menyebut `id`-nya. Melengkapi `aria-expanded`: yang satu menyatakan keadaannya, yang lain menyatakan apa yang keadaannya berubah.',
+        },
+        {
+          term: 'heading di dalam tombol',
+          meaning:
+            'Susunan yang benar dan sering terbalik: `<h3><button>…</button></h3>`, **bukan** `<button><h3>…</h3></button>`. Alasannya, pembaca layar memakai daftar heading untuk melompat antar-bagian — dan heading yang terkubur di dalam tombol tidak muncul di daftar itu.',
+        },
+        {
+          term: 'animasi tinggi',
+          meaning:
+            'Alasan paling sering orang meninggalkan `<details>`. Menganimasikan `height` memicu reflow tiap frame, jadi pakai `grid-template-rows: 0fr → 1fr` atau ukur tingginya dulu lalu animasikan `transform`. Dan seperti biasa: hormati `prefers-reduced-motion`.',
+        },
+        {
+          term: 'lazy content',
+          meaning:
+            'Terjemahannya **isi yang dimuat belakangan**. Isi bagian baru diambil saat pertama kali dibuka. Berguna untuk akordeon berisi data berat — tapi ingat menyediakan keadaan memuat, karena isi yang muncul terlambat tanpa penjelasan terasa seperti gagal.',
+        },
+      ),
+
       h2('Coba `<details>` lebih dulu'),
       code(
         'tsx',
@@ -1126,6 +1602,32 @@ export const lessons: LessonDraft[] = [
         '`aria-expanded` + `aria-controls` + `role="region"` adalah satu paket.',
         'Panel tertutup harus `hidden` atau `inert` — kalau tidak, isinya tetap bisa di-Tab.',
       ),
+      references(
+        {
+          label: '<details>',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/details',
+          source: 'MDN',
+          note: 'Seluruh perilaku akordeon tanpa JavaScript — coba ini lebih dulu.',
+        },
+        {
+          label: 'Accordion Pattern',
+          href: 'https://www.w3.org/WAI/ARIA/apg/patterns/accordion/',
+          source: 'W3C ARIA APG',
+          note: 'Pola resmi versi buatan sendiri, termasuk susunan heading yang membungkus tombol.',
+        },
+        {
+          label: 'aria-controls',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-controls',
+          source: 'MDN',
+          note: 'Menghubungkan tombol pemicu ke panel yang dikendalikannya.',
+        },
+        {
+          label: 'Animating height',
+          href: 'https://web.dev/articles/animating-a-css-gradient-border',
+          source: 'web.dev',
+          note: 'Konteks kenapa menganimasikan tinggi memicu layout tiap frame, berbeda dari `transform`.',
+        },
+      ),
     ],
   ),
 
@@ -1135,6 +1637,54 @@ export const lessons: LessonDraft[] = [
     13,
     'Notifikasi sementara yang tetap terbaca teknologi bantu — dan tidak menghilang terlalu cepat.',
     [
+      terms(
+        {
+          term: 'toast',
+          meaning:
+            'Terjemahan harfiahnya **roti panggang** — dinamai dari cara pesannya "meloncat" muncul seperti roti dari pemanggang. Notifikasi singkat yang muncul lalu menghilang sendiri. Batas pemakaiannya tegas: **hanya untuk kabar yang boleh terlewat**. Sesuatu yang wajib dibaca pengguna tidak boleh ditaruh di sini.',
+        },
+        {
+          term: 'aria-live',
+          meaning:
+            'Menandai area yang isinya berubah-ubah agar **diumumkan pembaca layar tanpa memindahkan fokus**. Inilah yang membuat toast terbaca sama sekali — tanpa itu, pengguna tunanetra tidak akan pernah tahu ada pesan yang muncul dan hilang.',
+        },
+        {
+          term: 'polite vs assertive',
+          meaning:
+            'Dua tingkat kepentingan `aria-live`. **`polite`** menunggu pembaca layar selesai membaca hal lain — pilihan yang benar untuk hampir semua toast. **`assertive`** memotong apa pun yang sedang dibacakan, dan hanya pantas untuk kegagalan yang benar-benar mendesak. Memakai `assertive` sembarangan sama kasarnya dengan menyela orang bicara.',
+        },
+        {
+          term: 'role="status"',
+          meaning:
+            'Peran yang sudah membawa `aria-live="polite"` di dalamnya. Pasangannya `role="alert"` yang setara dengan `assertive`. Memakai peran ini lebih ringkas daripada menulis atribut `aria-live` sendiri.',
+        },
+        {
+          term: 'durasi',
+          meaning:
+            'Berapa lama toast bertahan. Aturan praktisnya: **minimal 5 detik**, dan lebih lama untuk pesan yang panjang — orang butuh waktu membaca, dan pembaca layar butuh waktu membacakan. Toast tiga detik yang berisi dua kalimat praktis mustahil ditangkap.',
+        },
+        {
+          term: 'jeda saat hover',
+          meaning:
+            'Menghentikan hitungan mundur selama kursor berada di atas toast, atau selama ia difokuskan keyboard. Tanpa itu, pesan bisa menghilang **tepat saat pengguna hendak mengklik tombol aksinya** — dan itu termasuk kegagalan yang paling membuat frustrasi.',
+        },
+        {
+          term: 'antrean toast',
+          meaning:
+            'Pembatasan berapa banyak toast boleh tampil bersamaan, biasanya tiga. Lebih dari itu menumpuk menutupi layar dan tidak ada yang sempat terbaca. Yang berlebih **diantrekan**, bukan ditampilkan sekaligus.',
+        },
+        {
+          term: 'tombol tutup',
+          meaning:
+            'Wajib ada dan wajib punya nama yang terbaca. Alasannya bukan kenyamanan: toast yang hanya bisa hilang lewat waktu berarti pengguna keyboard **tidak punya cara apa pun** untuk membersihkan layarnya.',
+        },
+        {
+          term: 'WCAG 2.2.1',
+          meaning:
+            'Standar bernama *Timing Adjustable*. Isinya: kalau ada batas waktu, pengguna harus bisa mematikan, menyesuaikan, atau memperpanjangnya. Inilah dasar formal dari kewajiban jeda-saat-hover dan tombol tutup di atas.',
+        },
+      ),
+
       h2('Arsitektur'),
       code(
         'tsx',
@@ -1287,6 +1837,32 @@ export const lessons: LessonDraft[] = [
         'Jeda timer saat hover dan fokus.',
         'Batasi jumlah yang tampil bersamaan.',
       ),
+      references(
+        {
+          label: 'ARIA live regions',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Guides/Live_regions',
+          source: 'MDN',
+          note: 'Perbedaan `polite` dan `assertive`, dan kenapa wadahnya harus ada di DOM sejak awal.',
+        },
+        {
+          label: 'role="status"',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/status_role',
+          source: 'MDN',
+          note: 'Peran yang sudah membawa `aria-live="polite"` tanpa perlu menulisnya sendiri.',
+        },
+        {
+          label: 'Timing Adjustable — WCAG 2.2.1',
+          href: 'https://www.w3.org/WAI/WCAG22/Understanding/timing-adjustable.html',
+          source: 'W3C WCAG',
+          note: 'Dasar formal kewajiban jeda saat hover dan tombol tutup pada toast.',
+        },
+        {
+          label: 'Alert Pattern',
+          href: 'https://www.w3.org/WAI/ARIA/apg/patterns/alert/',
+          source: 'W3C ARIA APG',
+          note: 'Kapan sebuah pesan pantas menyela pembaca layar dan kapan tidak.',
+        },
+      ),
     ],
   ),
 
@@ -1296,6 +1872,54 @@ export const lessons: LessonDraft[] = [
     15,
     'Tabel dengan sort, filter, dan paginasi — dan kenapa `<table>` asli tetap penting.',
     [
+      terms(
+        {
+          term: 'data table',
+          meaning:
+            'Tabel berisi data yang bisa diurutkan, disaring, dan dibagi ke beberapa halaman. Yang wajib dipegang: sebanyak apa pun fiturnya, dasarnya tetap **`<table>` asli** — bukan `<div>` bergrid yang terlihat sama.',
+        },
+        {
+          term: 'kenapa <table> asli',
+          meaning:
+            'Bukan soal tampilan. `<div>` bergrid **menghapus seluruh hubungan baris-kolom** dari sudut pandang pembaca layar: pengguna tidak bisa menanyakan "sel ini kolom apa", tidak bisa bernavigasi antar-sel dengan tombol khusus tabel, dan tidak mendengar nama kolom saat berpindah. Grid CSS bisa dipakai untuk tata letaknya, tapi elemennya harus tetap tabel.',
+        },
+        {
+          term: 'scope',
+          meaning:
+            'Atribut pada `<th>` yang menyatakan apakah ia judul untuk **kolom** (`scope="col"`) atau untuk **baris** (`scope="row"`). Inilah yang membuat pembaca layar bisa mengumumkan "Email, a@b.c" alih-alih hanya "a@b.c" saat pengguna berpindah sel.',
+        },
+        {
+          term: 'caption',
+          meaning:
+            'Elemen `<caption>` yang memberi **judul pada tabel**, ditulis sebagai anak pertama `<table>`. Sering dilewati karena terlihat seperti hiasan, padahal ia yang menjawab "tabel ini isinya apa" bagi pengguna yang tidak melihat konteks di sekitarnya.',
+        },
+        {
+          term: 'aria-sort',
+          meaning:
+            'Menandai kolom mana yang sedang menjadi dasar pengurutan dan ke arah mana — `"ascending"`, `"descending"`, atau `"none"`. Ikon panah saja tidak cukup: itu warna dan bentuk sebagai satu-satunya penanda, persis yang dilarang di Bab 1.',
+        },
+        {
+          term: 'paginasi',
+          meaning:
+            'Membagi data ke beberapa halaman. Dua kewajiban aksesibilitasnya sering terlupakan: **umumkan perubahan halaman** lewat area `aria-live`, dan **kembalikan fokus** ke awal tabel setelah berpindah — kalau tidak, pengguna keyboard tetap berada di tombol paginasi tanpa tahu isinya sudah berganti.',
+        },
+        {
+          term: 'virtualisasi',
+          meaning:
+            'Hanya merender baris yang **benar-benar terlihat di layar**. Diperlukan untuk ribuan baris. Harganya nyata: pencarian bawaan browser (Ctrl+F) berhenti bekerja karena barisnya memang tidak ada di DOM — jadi jangan dipakai sebelum jumlah datanya benar-benar menuntutnya.',
+        },
+        {
+          term: 'sort di klien vs server',
+          meaning:
+            'Mengurutkan di browser hanya benar kalau **seluruh data memang sudah ada di sana**. Begitu ada paginasi dari server, pengurutan di klien hanya mengurutkan halaman yang sedang tampil — dan itu **salah secara diam-diam**, karena hasilnya terlihat masuk akal.',
+        },
+        {
+          term: 'responsif untuk tabel',
+          meaning:
+            'Tabel tidak bisa dibuat responsif dengan cara biasa. Dua pendekatan yang sah: **gulir mendatar** di dalam wadahnya sendiri (dengan `tabIndex={0}` agar bisa digulir keyboard), atau **berubah bentuk menjadi daftar kartu** di layar kecil.',
+        },
+      ),
+
       h2('Pakai `<table>`, bukan `<div>`'),
       code(
         'tsx',
@@ -1471,6 +2095,38 @@ export const lessons: LessonDraft[] = [
         '`toSorted`, bukan `sort` — jangan memutasi state.',
         'Tabel juga punya empat keadaan UI.',
       ),
+      references(
+        {
+          label: '<table>',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/table',
+          source: 'MDN',
+          note: 'Struktur tabel yang benar beserta `<caption>`, `<thead>`, dan `<tbody>`.',
+        },
+        {
+          label: 'HTML table accessibility',
+          href: 'https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Structuring_content/Table_accessibility',
+          source: 'MDN',
+          note: 'Peran `scope` dan `<caption>` — alasan `<div>` bergrid menghapus seluruh navigasi tabel.',
+        },
+        {
+          label: 'aria-sort',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-sort',
+          source: 'MDN',
+          note: 'Menandai kolom dan arah pengurutan bagi pengguna yang tidak melihat ikon panah.',
+        },
+        {
+          label: 'Array.prototype.toSorted()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/toSorted',
+          source: 'MDN',
+          note: 'Pengurutan tanpa memutasi array asli — syarat agar React melihat perubahannya.',
+        },
+        {
+          label: 'Table Pattern',
+          href: 'https://www.w3.org/WAI/ARIA/apg/patterns/table/',
+          source: 'W3C ARIA APG',
+          note: 'Pola resmi tabel interaktif, termasuk perilaku keyboard yang diharapkan.',
+        },
+      ),
     ],
   ),
 
@@ -1480,6 +2136,49 @@ export const lessons: LessonDraft[] = [
     12,
     'Tanda-tanda API komponen mulai rusak — dan empat cara memperbaikinya.',
     [
+      terms(
+        {
+          term: 'ledakan boolean prop',
+          meaning:
+            'Yang perlu dipahami adalah **cara ia terjadi**: tidak pernah dalam satu keputusan besar. Minggu 1 satu prop, minggu 3 tambah `isError`, minggu 6 tambah `isDismissible`. Setiap langkahnya masuk akal sendiri-sendiri, dan tidak ada satu titik pun yang terasa seperti kesalahan — sampai suatu hari komponennya punya delapan boolean dan tidak ada yang berani menyentuhnya.',
+        },
+        {
+          term: 'ledakan kombinasi',
+          meaning:
+            'Perhitungan yang membuat masalahnya terlihat: **n prop boolean menghasilkan 2ⁿ kombinasi**. Empat boolean sudah berarti 16, delapan berarti 256. Sebagian besar di antaranya tidak punya arti sama sekali, tapi semuanya **bisa ditulis** tanpa peringatan — dan tidak ada yang pernah mengujinya.',
+        },
+        {
+          term: 'union prop',
+          meaning:
+            'Cara pertama memperbaikinya: ganti beberapa boolean yang **saling meniadakan** menjadi satu prop bernilai pilihan. `isError`, `isWarning`, `isSuccess` menjadi `nada: "error" | "peringatan" | "sukses"` — dan kombinasi mustahil langsung hilang.',
+        },
+        {
+          term: 'discriminated union',
+          meaning:
+            'Cara kedua, untuk kasus di mana **prop lain ikut berubah** tergantung pilihannya. Menyatakan bahwa `sebagai: "tautan"` mensyaratkan `href`, sementara `sebagai: "tombol"` mensyaratkan `onClick` — sehingga menulis keduanya sekaligus menjadi error, bukan kebingungan.',
+        },
+        {
+          term: 'composition',
+          meaning:
+            'Cara ketiga, dan biasanya yang paling ampuh: **oper komponennya, bukan bendera**. `withHeader` dan `headerTitle` digantikan `<Modal.Header>Judul</Modal.Header>`. Kebutuhan baru cukup ditulis sebagai isi, tanpa satu pun prop tambahan.',
+        },
+        {
+          term: 'pecah jadi dua komponen',
+          meaning:
+            'Cara keempat, yang sering paling jujur. Kalau sebuah prop **mengubah struktur** komponennya secara mendasar, itu tanda bahwa yang kamu punya sebenarnya **dua komponen berbeda** yang dipaksa menjadi satu.',
+        },
+        {
+          term: 'API surface',
+          meaning:
+            'Terjemahannya **luas permukaan antarmuka**. Seberapa banyak yang harus dipelajari seseorang sebelum bisa memakai komponenmu. Setiap prop menambahnya — dan yang bertambah bukan cuma prop itu, melainkan seluruh **interaksinya** dengan prop yang sudah ada.',
+        },
+        {
+          term: 'tanda peringatan',
+          meaning:
+            'Empat gejala yang layak dijadikan pemicu untuk berhenti dan merancang ulang: lebih dari **tiga prop boolean**, nama prop yang mengandung "with" atau "show", dokumentasi yang harus menjelaskan **kombinasi mana yang sah**, dan prop yang hanya berarti kalau prop lain bernilai tertentu.',
+        },
+      ),
+
       h2('Bagaimana ia terjadi'),
       code(
         'tsx',
@@ -1626,6 +2325,32 @@ export const lessons: LessonDraft[] = [
         'Composition untuk bagian opsional; pecah komponen kalau strukturnya berubah.',
         'Boolean tepat untuk keadaan biner yang berdiri sendiri.',
       ),
+      references(
+        {
+          label: 'Passing Props to a Component',
+          href: 'https://react.dev/learn/passing-props-to-a-component',
+          source: 'React',
+          note: 'Dasar composition sebagai pengganti prop boolean yang terus bertambah.',
+        },
+        {
+          label: 'Discriminated unions',
+          href: 'https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions',
+          source: 'TypeScript',
+          note: 'Membuat kombinasi props yang saling bergantung menjadi tidak bisa ditulis.',
+        },
+        {
+          label: 'Everyday Types — Union Types',
+          href: 'https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#union-types',
+          source: 'TypeScript',
+          note: 'Mengganti beberapa boolean yang saling meniadakan dengan satu prop pilihan.',
+        },
+        {
+          label: 'Your First Component',
+          href: 'https://react.dev/learn/your-first-component',
+          source: 'React',
+          note: 'Tanda bahwa sebuah komponen sebenarnya sudah menjadi dua komponen berbeda.',
+        },
+      ),
     ],
   ),
 
@@ -1637,6 +2362,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Praktik penutup. Kamu akan merapikan delapan komponen menjadi satu set yang terasa berasal dari sistem yang sama, bukan dari delapan keputusan terpisah.',
+      ),
+
+      terms(
+        {
+          term: 'mini design system',
+          meaning:
+            'Sekumpulan komponen yang **terasa berasal dari satu sistem**, bukan dari delapan keputusan terpisah. Ukurannya bukan jumlah komponen melainkan **keseragamannya** — dan itulah yang dilatih praktik penutup ini.',
+        },
+        {
+          term: 'kosakata varian',
+          meaning:
+            'Kesepakatan bahwa **nama yang sama berarti hal yang sama** di seluruh komponen. Kalau `size="sm"` pada Button berarti tinggi 32px, ia harus berarti hal yang sepadan pada Input dan Badge. Ketidakkonsistenan di sini tidak pernah terlihat saat menguji komponen satu per satu.',
+        },
+        {
+          term: 'membatasi pilihan',
+          meaning:
+            'Keputusan yang terasa berlawanan dengan naluri: **sedikitkan pilihan sejak awal**. Dua ukuran, tiga radius, empat nada. Sistem dengan lima ukuran menghasilkan tampilan yang tidak konsisten justru karena tidak ada yang ingat kapan memakai yang mana.',
+        },
+        {
+          term: 'halaman sandbox',
+          meaning:
+            'Terjemahan bebasnya **halaman uji coba**. Satu halaman yang menampilkan **seluruh komponen dalam seluruh variannya berdampingan**. Nilainya besar dan sering diremehkan: ketidakkonsistenan yang tidak terlihat saat komponen dilihat satu per satu langsung mencolok saat semuanya bersebelahan.',
+        },
+        {
+          term: 'aturan yang mengikat',
+          meaning:
+            'Sekumpulan keputusan yang berlaku untuk **semua** komponen tanpa kecuali — cincin fokus yang sama, kosakata prop yang sama, cara menerima `className` yang sama. Inilah yang membuat sekumpulan komponen terasa satu set, bukan sekadar berada di folder yang sama.',
+        },
+        {
+          term: 'dokumentasi "untuk X pakai Y"',
+          meaning:
+            'Bentuk dokumentasi yang paling berharga dan paling jarang ditulis. Bukan daftar prop — itu sudah dijawab tipe. Yang dibutuhkan pembaca adalah **kapan memilih yang mana**: "untuk aksi merusak pakai `variant=\'bahaya\'`", "untuk kabar yang boleh terlewat pakai Toast".',
+        },
+        {
+          term: 'konsistensi',
+          meaning:
+            'Nilai yang **mengalahkan preferensi pribadi** dalam sebuah sistem. Komponen yang sedikit kurang ideal tapi seragam dengan tetangganya lebih baik daripada komponen sempurna yang berperilaku berbeda sendiri — karena yang kedua memaksa setiap pemakainya berhenti dan memeriksa.',
+        },
+        {
+          term: 'uji konsistensi',
+          meaning:
+            'Memeriksa keseragaman dengan sengaja, bukan berharap ia terjadi sendiri. Tiga cara yang dipakai praktik ini: halaman sandbox untuk memeriksa mata, daftar aturan untuk memeriksa kode, dan **menekan Tab dari atas ke bawah** untuk memeriksa perilaku keyboardnya.',
+        },
       ),
 
       h2('1. Token bersama'),
@@ -1795,6 +2563,32 @@ export const lessons: LessonDraft[] = [
         'Enam aturan yang mengikat semua komponen membuatnya terasa satu set.',
         'Kalimat "untuk X pakai Y" adalah dokumentasi paling berharga.',
         'Halaman sandbox membongkar ketidakkonsistenan yang tidak terlihat satu per satu.',
+      ),
+      references(
+        {
+          label: 'Theme variables',
+          href: 'https://tailwindcss.com/docs/theme',
+          source: 'Tailwind CSS',
+          note: 'Mengunci token bersama sebagai langkah pertama menyusun satu set komponen.',
+        },
+        {
+          label: 'ARIA Authoring Practices Guide',
+          href: 'https://www.w3.org/WAI/ARIA/apg/patterns/',
+          source: 'W3C ARIA APG',
+          note: 'Daftar pola resmi untuk seluruh komponen di bab ini — acuan saat memeriksa konsistensi perilaku.',
+        },
+        {
+          label: 'Keyboard — WCAG 2.1.1',
+          href: 'https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html',
+          source: 'W3C WCAG',
+          note: 'Dasar uji "tekan Tab dari atas ke bawah" yang menutup praktik ini.',
+        },
+        {
+          label: 'Passing Props to a Component',
+          href: 'https://react.dev/learn/passing-props-to-a-component',
+          source: 'React',
+          note: 'Kosakata prop yang seragam — inti dari apa yang membuat komponen terasa satu set.',
+        },
       ),
     ],
   ),

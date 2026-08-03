@@ -399,6 +399,10 @@ describe('istilah & rujukan resmi (ADR-0006)', () => {
       'frontend-basic/manipulasi-dom',
       'frontend-basic/ajax-web-api',
       'frontend-basic/jsx-dan-tsx',
+      'frontend-intermediate/tailwind-css',
+      'frontend-intermediate/fundamental-reactjs',
+      'frontend-intermediate/pembuatan-komponen-react',
+      'frontend-intermediate/state-dan-event-handler',
     ];
 
     const denganTerms = lessonsWithBlock('terms');
@@ -428,7 +432,9 @@ describe('istilah & rujukan resmi (ADR-0006)', () => {
     // Batch 4 (2026-08-03): Frontend Basic Bab 4 — 13 sub-bab. Kumulatif 53.
     // Batch 5 (2026-08-03): Frontend Basic Bab 5 — 12 sub-bab. Kumulatif 65.
     // Batch 6 (2026-08-03): Frontend Basic Bab 6 — 11 sub-bab. Kumulatif 76.
-    expect(lessonsWithBlock('references').size).toBeGreaterThanOrEqual(76);
+    // Batch 7 (2026-08-03): Frontend Intermediate Bab 1–2 — 23 sub-bab. Kumulatif 99.
+    // Batch 8 (2026-08-03): Frontend Intermediate Bab 3–4 — 23 sub-bab. Kumulatif 122.
+    expect(lessonsWithBlock('references').size).toBeGreaterThanOrEqual(122);
   });
 
   /**
