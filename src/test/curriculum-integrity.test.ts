@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { cheatsheets } from '@/content/cheatsheets';
 import { glossary } from '@/content/glossary';
-import { CODE_LANGUAGES, type Block } from '@/lib/content/types';
+import { CODE_LANGUAGES, OFFICIAL_DOC_HOSTS, type Block } from '@/lib/content/types';
 import { flattenLessons, getCurriculum } from '@/lib/curriculum/queries';
 import { lessonKey } from '@/lib/curriculum/types';
 
@@ -297,6 +297,136 @@ describe('aturan konten', () => {
       lessonKey(location.category.slug, location.chapter.slug, location.lesson.slug),
     );
     expect(new Set(keys).size).toBe(keys.length);
+  });
+});
+
+/**
+ * Guards the two blocks added in ADR-0006.
+ *
+ * The material claims to point at official documentation. Without a machine check that claim
+ * decays quietly: one link to a blog, then a dead vendor URL, then a "reference" that is really a
+ * tutorial. The allow-list is the enforcement point, not the author's memory.
+ */
+describe('istilah & rujukan resmi (ADR-0006)', () => {
+  const allowedHosts = new Set<string>(OFFICIAL_DOC_HOSTS);
+
+  /** Lessons that carry at least one block of the given kind. */
+  function lessonsWithBlock(kind: 'terms' | 'references'): Set<string> {
+    const keys = new Set<string>();
+    for (const location of allLessons) {
+      if (location.lesson.status !== 'written') continue;
+      if (location.lesson.blocks.some((block) => block.kind === kind)) keys.add(location.key);
+    }
+    return keys;
+  }
+
+  it('setiap rujukan memakai https dan host dokumentasi resmi yang diizinkan', () => {
+    for (const { block, where } of collectBlocks()) {
+      if (block.kind !== 'references') continue;
+
+      expect(block.items.length, `${where}: blok rujukan kosong`).toBeGreaterThan(0);
+
+      for (const item of block.items) {
+        expect(item.label.trim().length, `${where}: rujukan tanpa judul`).toBeGreaterThan(0);
+        expect(
+          item.source.trim().length,
+          `${where}: rujukan "${item.label}" tanpa nama sumber`,
+        ).toBeGreaterThan(0);
+
+        let url: URL;
+        try {
+          url = new URL(item.href);
+        } catch {
+          throw new Error(`${where}: rujukan "${item.label}" bukan URL absolut: ${item.href}`);
+        }
+
+        expect(url.protocol, `${where}: rujukan "${item.label}" tidak memakai https`).toBe(
+          'https:',
+        );
+        expect(
+          allowedHosts.has(url.hostname),
+          `${where}: host "${url.hostname}" bukan dokumentasi resmi yang diizinkan — tambahkan ke OFFICIAL_DOC_HOSTS kalau memang resmi`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('tidak ada rujukan yang sama dua kali dalam satu sub-bab', () => {
+    for (const location of allLessons) {
+      if (location.lesson.status !== 'written') continue;
+
+      const hrefs = location.lesson.blocks
+        .filter((block) => block.kind === 'references')
+        .flatMap((block) => (block.kind === 'references' ? block.items.map((i) => i.href) : []));
+
+      const duplicates = hrefs.filter((href, index) => hrefs.indexOf(href) !== index);
+      expect(duplicates, `rujukan duplikat di ${location.key}: ${duplicates.join(', ')}`).toEqual(
+        [],
+      );
+    }
+  });
+
+  it('setiap istilah punya nama dan arti, tanpa duplikat dalam satu sub-bab', () => {
+    for (const location of allLessons) {
+      if (location.lesson.status !== 'written') continue;
+
+      const entries = location.lesson.blocks
+        .filter((block) => block.kind === 'terms')
+        .flatMap((block) => (block.kind === 'terms' ? block.items : []));
+
+      for (const entry of entries) {
+        expect(entry.term.trim().length, `${location.key}: istilah tanpa nama`).toBeGreaterThan(0);
+        expect(
+          entry.meaning.trim().length,
+          `${location.key}: istilah "${entry.term}" tanpa arti`,
+        ).toBeGreaterThan(0);
+      }
+
+      const names = entries.map((entry) => entry.term);
+      const duplicates = names.filter((name, index) => names.indexOf(name) !== index);
+      expect(duplicates, `istilah duplikat di ${location.key}: ${duplicates.join(', ')}`).toEqual(
+        [],
+      );
+    }
+  });
+
+  it('bab yang sudah direvisi punya blok istilah dan rujukan di setiap sub-babnya', () => {
+    // Tambahkan bab ke daftar ini setiap kali revisinya selesai. Menghapus entri = regresi.
+    const babSudahDirevisi = [
+      'frontend-basic/javascript-dari-nol',
+      'frontend-basic/oop-javascript',
+      'frontend-basic/asynchronous-javascript',
+      'frontend-basic/manipulasi-dom',
+      'frontend-basic/ajax-web-api',
+    ];
+
+    const denganTerms = lessonsWithBlock('terms');
+    const denganReferences = lessonsWithBlock('references');
+
+    for (const babKey of babSudahDirevisi) {
+      const [categorySlug, chapterSlug] = babKey.split('/');
+      const chapter = curriculum
+        .find((category) => category.slug === categorySlug)
+        ?.chapters.find((c) => c.slug === chapterSlug);
+
+      expect(chapter, `bab "${babKey}" tidak ditemukan`).toBeDefined();
+
+      for (const lesson of chapter?.lessons ?? []) {
+        const key = `${babKey}/${lesson.slug}`;
+        expect(denganTerms.has(key), `${key} belum punya blok istilah`).toBe(true);
+        expect(denganReferences.has(key), `${key} belum punya blok rujukan resmi`).toBe(true);
+      }
+    }
+  });
+
+  it('jumlah sub-bab yang punya rujukan resmi tidak pernah turun', () => {
+    // Naikkan angka ini setiap batch revisi selesai. Turun = rujukan hilang dari materi.
+    // Batch 1 (2026-08-03): Frontend Basic Bab 1 — 16 sub-bab.
+    // Batch 2 (2026-08-03): Frontend Basic Bab 2 — 12 sub-bab. Kumulatif 28.
+    // Batch 3 (2026-08-03): Frontend Basic Bab 3 — 12 sub-bab. Kumulatif 40.
+    // Batch 4 (2026-08-03): Frontend Basic Bab 4 — 13 sub-bab. Kumulatif 53.
+    // Batch 5 (2026-08-03): Frontend Basic Bab 5 — 12 sub-bab. Kumulatif 65.
+    expect(lessonsWithBlock('references').size).toBeGreaterThanOrEqual(65);
   });
 });
 

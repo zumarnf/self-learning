@@ -1,4 +1,14 @@
-import { callout, code, divider, h2, p, table, ul } from '@/lib/content/builders';
+import {
+  callout,
+  code,
+  divider,
+  h2,
+  p,
+  references,
+  table,
+  terms,
+  ul,
+} from '@/lib/content/builders';
 import { type LessonDraft, written } from '@/lib/curriculum/authoring';
 
 /** Frontend Basic — Chapter 1, lessons 1.9 to 1.12. */
@@ -11,6 +21,64 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Sebagian besar pekerjaan frontend adalah mengubah bentuk data: dari respons API menjadi daftar di layar. Method array adalah alat utamanya, dan menguasai lima di antaranya sudah menutup mayoritas kebutuhan sehari-hari.',
+      ),
+
+      terms(
+        {
+          term: 'array',
+          meaning:
+            'Dibaca "a-rei", terjemahan Indonesianya **larik**. Daftar berurutan yang menyimpan banyak nilai di dalam satu variabel, ditulis dengan kurung siku: `["apel", "jeruk", "mangga"]`. Dua sifat yang membedakannya dari object: isinya **berurutan** (elemen pertama selalu tetap pertama) dan diakses lewat **nomor posisi**, bukan nama. Hampir semua data yang datang dari server berbentuk array of object, jadi sub-bab ini adalah alat kerja harianmu nanti.',
+        },
+        {
+          term: 'arr',
+          meaning:
+            'Singkatan *array*, nama parameter yang lazim dipakai di dokumentasi, tutorial, dan cheatsheet — misalnya `arr.map(fn)`. **Bukan kata kunci**, hanya kebiasaan penamaan bersama. Di kodemu sendiri, nama yang menjelaskan isinya hampir selalu lebih baik: `daftarProduk.map(...)` langsung memberi tahu pembaca apa yang sedang diolah, sementara `arr.map(...)` tidak.',
+        },
+        {
+          term: 'fn',
+          meaning:
+            'Singkatan *function*. Ia menandakan bahwa di posisi itu kamu harus mengisikan sebuah **fungsi**, bukan angka atau teks. Jadi `arr.map(fn)` di cheatsheet sebenarnya berarti sesuatu seperti `daftarHarga.map((harga) => harga * 1.11)`. Sama seperti `arr`, ini **bukan kata kunci JavaScript** — ia hanya nama yang dipilih penulis dokumentasi karena pendek. Kalau kamu menemuinya di dokumentasi resmi mana pun, terjemahkan dalam hati menjadi "isi bagian ini dengan fungsi".',
+        },
+        {
+          term: 'method',
+          meaning:
+            'Dibaca "me-thod", artinya **cara** atau **metode**. Fungsi yang menempel pada sebuah nilai dan dipanggil dengan tanda titik. Bedakan dari *property*: `buah.length` adalah property (sebuah nilai, tanpa kurung), sementara `buah.includes("jeruk")` adalah method (sebuah fungsi, dengan kurung). Kalau kamu lupa menuliskan kurungnya pada method, yang kamu dapat bukan hasilnya melainkan fungsinya sendiri — sumber bug yang membingungkan karena tidak ada error yang muncul.',
+        },
+        {
+          term: 'mutasi',
+          meaning:
+            'Dari *mutate*, artinya **mengubah**. Perubahan yang terjadi **langsung pada data aslinya**, bukan menghasilkan data baru. `push`, `sort`, dan `splice` bermutasi; `map`, `filter`, dan `toSorted` tidak. Pembagian ini adalah bagian terpenting di seluruh sub-bab ini, karena ia yang menentukan benar atau tidaknya tampilan React nanti diperbarui.',
+        },
+        {
+          term: 'callback',
+          meaning:
+            'Fungsi yang kamu serahkan ke sebuah method untuk **dijalankan olehnya**, sekali untuk setiap elemen. Pada `angka.filter((n) => n > 2)`, bagian `(n) => n > 2` adalah callback: kamu menuliskannya, tapi `filter` yang memanggilnya. Yang perlu dipahami, method itulah yang mengisi nilai `n` — kamu hanya menentukan apa yang harus dilakukan terhadapnya.',
+        },
+        {
+          term: 'akumulator',
+          meaning:
+            'Dari *accumulate*, artinya **mengumpulkan** atau **menumpuk**. Nilai berjalan yang dibawa `reduce` dari satu elemen ke elemen berikutnya, seperti saldo yang terus diperbarui saat kamu menjumlah belanjaan satu per satu. Di materi ini namanya ditulis `total` atau `hasil` supaya terbaca; di dokumentasi resmi ia sering disingkat `acc`. Nilai awalnya — argumen kedua `reduce` — adalah saldo pembukaannya.',
+        },
+        {
+          term: 'u / p / n',
+          meaning:
+            'Nama parameter singkat yang dipakai di contoh-contoh sub-bab ini: `u` untuk *user* (pengguna), `p` untuk *produk*, `n` untuk *number* (angka). Semuanya kebiasaan penamaan, bukan aturan. Di kode sungguhan, `(pengguna) => pengguna.nama` lebih baik daripada `(u) => u.nama` karena pembaca berikutnya tidak perlu menebak.',
+        },
+        {
+          term: 'chaining',
+          meaning:
+            'Dibaca "chei-ning", artinya **merangkai seperti rantai**. Memanggil beberapa method berturut-turut dalam satu ekspresi: `.filter(...).map(...).reduce(...)`. Ini mungkin karena `filter` mengembalikan array baru, yang lalu punya method `map` sendiri, dan seterusnya. Bacalah dari kiri ke kanan seperti kalimat: "ambil produk, saring yang stoknya ada, ubah jadi nilai rupiah, lalu jumlahkan".',
+        },
+        {
+          term: 'referensi',
+          meaning:
+            'Alamat menuju sebuah array atau object di dalam memori — bukan isinya, melainkan penunjuk ke tempat isinya berada. React memutuskan perlu-tidaknya menggambar ulang layar dengan membandingkan **referensi**, bukan isi. Karena `push` mengubah isi tanpa mengubah alamat, React tidak melihat perubahan apa pun dan layar tidak diperbarui — inilah alasan teknis di balik seluruh anjuran "jangan bermutasi" di sub-bab ini.',
+        },
+        {
+          term: 'to-prefixed',
+          meaning:
+            'Sekelompok method baru yang namanya diawali `to`: `toSorted`, `toSpliced`, `toReversed`. Awalan itu adalah janji bahwa method tersebut **mengembalikan versi baru** dan tidak menyentuh array asli — pasangan aman dari `sort`, `splice`, dan `reverse` yang bermutasi. Ketiganya tersedia di semua browser modern dan Node.js 20 ke atas.',
+        },
       ),
 
       h2('Dasar'),
@@ -226,6 +294,38 @@ export const lessons: LessonDraft[] = [
         '`reduce` selalu diberi nilai awal — array kosong tanpa nilai awal melempar error.',
         '`filter(...)[0]` artinya kamu sebenarnya butuh `find`.',
       ),
+      references(
+        {
+          label: 'Array',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array',
+          source: 'MDN',
+          note: 'Daftar lengkap seluruh method array, dengan penanda mana yang mengubah array asli.',
+        },
+        {
+          label: 'Array.prototype.map()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map',
+          source: 'MDN',
+          note: 'Termasuk penegasan bahwa panjang hasilnya selalu sama dengan panjang masukan.',
+        },
+        {
+          label: 'Array.prototype.reduce()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce',
+          source: 'MDN',
+          note: 'Menjelaskan resmi kenapa `reduce` tanpa nilai awal melempar error pada array kosong.',
+        },
+        {
+          label: 'Array.prototype.sort()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort',
+          source: 'MDN',
+          note: 'Sumber resmi untuk perilaku "diurutkan sebagai teks" saat pembandingnya tidak diberikan.',
+        },
+        {
+          label: 'Object.groupBy()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/groupBy',
+          source: 'MDN',
+          note: 'Alternatif ringkas untuk pengelompokan yang biasanya ditulis dengan `reduce`.',
+        },
+      ),
     ],
   ),
 
@@ -237,6 +337,59 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Object adalah kumpulan pasangan kunci–nilai, dan bentuk data paling umum yang akan kamu terima dari API. Bab ini fokus pada membacanya dengan aman — karena data dari luar hampir tidak pernah selengkap yang kamu harapkan.',
+      ),
+
+      terms(
+        {
+          term: 'object',
+          meaning:
+            'Dibaca "ob-jek", terjemahannya **objek**. Kumpulan pasangan nama–nilai yang ditulis di antara kurung kurawal: `{ nama: "Zum", umur: 24 }`. Bedanya dengan array ada pada cara mengambil isinya — array memakai **nomor posisi**, object memakai **nama**. Karena itu object cocok untuk data yang setiap bagiannya punya arti berbeda, sementara array cocok untuk banyak hal sejenis. Ini bentuk data yang paling sering kamu terima dari server.',
+        },
+        {
+          term: 'property',
+          meaning:
+            'Dibaca "pro-per-ti", artinya **sifat** atau **atribut**. Satu pasangan nama–nilai di dalam object. Pada `{ nama: "Zum" }`, keseluruhan `nama: "Zum"` adalah sebuah property. Kata ini juga dipakai untuk hal yang menempel pada nilai lain: `teks.length` adalah property dari sebuah string.',
+        },
+        {
+          term: 'key / value',
+          meaning:
+            'Terjemahannya **kunci** dan **nilai**. Kunci adalah nama sebuah property, nilai adalah isinya — pada `{ umur: 24 }`, `umur` kuncinya dan `24` nilainya. Disebut kunci karena fungsinya memang seperti kunci lemari: ia yang membuka akses ke isi tertentu. Tiga fungsi bawaan bekerja berdasarkan pembagian ini: `Object.keys()` mengambil daftar kuncinya, `Object.values()` daftar nilainya, dan `Object.entries()` pasangan keduanya.',
+        },
+        {
+          term: 'literal',
+          meaning:
+            'Artinya **apa adanya, secara harfiah**. Cara menuliskan sebuah nilai langsung di dalam kode alih-alih membuatnya lewat fungsi. `{ nama: "Zum" }` disebut *object literal* karena objectnya ditulis begitu saja; `[1, 2, 3]` adalah *array literal*; dan `"halo"` adalah *string literal*. Istilah ini akan muncul lagi sebagai *template literal* di Sub-bab 1.12.',
+        },
+        {
+          term: 'shorthand',
+          meaning:
+            'Artinya **bentuk singkat**. Kalau nama variabel kebetulan sama persis dengan nama property yang ingin kamu buat, `{ nama: nama }` boleh disingkat menjadi `{ nama }` saja. Ada juga bentuk singkat untuk method: `{ sapa() { ... } }` menggantikan `{ sapa: function () { ... } }`. Kamu akan melihat kedua bentuk ini di hampir setiap kode React.',
+        },
+        {
+          term: 'nested',
+          meaning:
+            'Dibaca "nes-ted", artinya **bersarang** — object yang berada di dalam object lain. `pengguna.alamat.kota` menembus dua tingkat sarang sekaligus. Semakin dalam sarangnya, semakin besar kemungkinan salah satu tingkat ternyata tidak ada pada data sungguhan, dan di situlah `?.` menjadi penyelamat.',
+        },
+        {
+          term: 'API',
+          meaning:
+            'Singkatan *Application Programming Interface*. Dalam konteks sub-bab ini artinya **layanan di server yang mengirimkan data ke aplikasimu**, biasanya dalam bentuk JSON yang berubah menjadi object begitu diterima. Yang perlu diingat: data dari API adalah data dari luar, dan data dari luar hampir tidak pernah selengkap yang dijanjikan dokumentasinya.',
+        },
+        {
+          term: 'JSON',
+          meaning:
+            'Singkatan *JavaScript Object Notation*, dibaca "je-son". Format teks untuk bertukar data yang bentuknya sengaja dibuat menyerupai object literal JavaScript. Perbedaan yang sering menjebak: di JSON, **setiap kunci wajib memakai tanda kutip ganda**, dan tidak boleh ada fungsi, komentar, maupun koma di akhir daftar.',
+        },
+        {
+          term: 'o',
+          meaning:
+            'Nama variabel singkat untuk *object*, dipakai di contoh-contoh pendek agar perhatian tertuju pada bentuk sintaksnya. Seperti `arr` dan `fn`, ini kebiasaan penamaan — bukan aturan bahasa.',
+        },
+        {
+          term: 'in',
+          meaning:
+            'Operator yang menjawab satu pertanyaan: **"apakah kunci ini ada di object tersebut?"** Ditulis `"a" in o`. Bedanya dengan mengecek nilainya sangat halus tapi penting — `in` menjawab `true` meski isinya `undefined`, karena yang ia periksa memang keberadaan kuncinya, bukan isinya. Untuk pengecekan yang lebih tepat pada kunci milik object itu sendiri, pakai `Object.hasOwn(o, "a")`.',
+        },
       ),
 
       h2('Membuat object'),
@@ -389,6 +542,38 @@ export const lessons: LessonDraft[] = [
         '`Object.hasOwn()` membedakan "kunci tidak ada" dari "ada tapi `undefined`".',
         'Spread menyalin satu lapis; `structuredClone` menyalin seluruhnya.',
       ),
+      references(
+        {
+          label: 'Working with objects',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Working_with_objects',
+          source: 'MDN',
+          note: 'Panduan resmi membuat, membaca, dan menelusuri object dari awal.',
+        },
+        {
+          label: 'Object.entries()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/entries',
+          source: 'MDN',
+          note: 'Pasangan `Object.keys()` dan `Object.values()` ada di halaman yang sama tautannya.',
+        },
+        {
+          label: 'Object.hasOwn()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/hasOwn',
+          source: 'MDN',
+          note: 'Menjelaskan kenapa ia menggantikan `hasOwnProperty` yang lama.',
+        },
+        {
+          label: 'Property accessors',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Property_accessors',
+          source: 'MDN',
+          note: 'Aturan resmi kapan harus memakai titik dan kapan wajib kurung siku.',
+        },
+        {
+          label: 'Object.fromEntries()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/fromEntries',
+          source: 'MDN',
+          note: 'Kebalikan dari `Object.entries()` — dipakai untuk merakit object hasil penyaringan.',
+        },
+      ),
     ],
   ),
 
@@ -400,6 +585,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Tiga sintaks ini tidak menambah kemampuan baru — semuanya bisa ditulis dengan cara lama. Yang mereka tambahkan adalah **kejelasan**, dan itu sebabnya mereka ada di mana-mana. Memahaminya adalah syarat untuk bisa membaca kode React.',
+      ),
+
+      terms(
+        {
+          term: 'destructuring',
+          meaning:
+            'Dibaca "di-strak-cer-ing", harfiahnya **membongkar struktur**. Mengambil beberapa nilai dari dalam sebuah object atau array sekaligus, lalu memberi masing-masing nama tersendiri. Bayangkan membuka kardus paket dan langsung menaruh isinya di rak masing-masing, alih-alih menyebut "isi kardus nomor satu" setiap kali membutuhkannya. Aturan pembedanya: destructuring object bekerja berdasarkan **nama**, destructuring array berdasarkan **posisi**.',
+        },
+        {
+          term: 'spread',
+          meaning:
+            'Dibaca "spred", artinya **menyebar** atau **menumpahkan**. Tanda `...` yang menumpahkan isi sebuah array atau object ke tempat baru: `[...a, ...b]` menghasilkan satu array berisi seluruh elemen keduanya. Yang penting diingat, ia menumpahkan **satu lapis saja** — object yang berada di dalam object tetap dibagi bersama aslinya.',
+        },
+        {
+          term: 'rest',
+          meaning:
+            'Artinya **sisa**. Tanda `...` yang justru **mengumpulkan** nilai-nilai yang tersisa menjadi satu: `const [utama, ...sisanya] = [1, 2, 3, 4]` membuat `sisanya` bernilai `[2, 3, 4]`. Simbolnya sama persis dengan spread dan tugasnya berkebalikan, sehingga pemula sering tertukar. Cara membedakannya ada di bagian akhir sub-bab ini, dan intinya cuma satu: lihat ia berada di sisi mana.',
+        },
+        {
+          term: 'alias',
+          meaning:
+            'Artinya **nama samaran** atau **nama pengganti**. `const { nama: namaLengkap } = pengguna` mengambil property bernama `nama` tapi menyimpannya ke variabel bernama `namaLengkap`. Berguna ketika nama aslinya terlalu umum, bertabrakan dengan variabel yang sudah ada, atau kurang menjelaskan dalam konteks barunya.',
+        },
+        {
+          term: 'props',
+          meaning:
+            'Singkatan *properties*, dibaca "props". Di React, sebuah object tunggal yang berisi **seluruh data yang dikirim dari komponen induk ke komponen anak** — mirip atribut pada tag HTML. Pola `function Tombol({ label, ukuran })` yang akan kamu tulis ribuan kali nanti pada dasarnya hanyalah destructuring object yang kamu pelajari di sub-bab ini, diterapkan pada props.',
+        },
+        {
+          term: 'useState',
+          meaning:
+            'Fungsi bawaan React yang mengembalikan **array berisi dua elemen**: nilai yang sedang disimpan, dan fungsi untuk mengubahnya. Karena hasilnya array, ia selalu ditulis dengan destructuring array — dan karena berbasis posisi, kamu bebas menamai keduanya apa saja. `const [hitungan, setHitungan] = useState(0)` dan `const [n, setN] = useState(0)` sama sahnya; kebiasaan `setXxx` murni kesepakatan komunitas.',
+        },
+        {
+          term: 'x / y / a / b',
+          meaning:
+            'Nama variabel satu huruf yang sengaja dipakai di contoh singkat tentang sintaks, supaya perhatian pembaca tertuju pada **bentuk penulisannya**, bukan pada makna datanya. Di kode sungguhan, nama sependek ini hampir selalu keputusan yang buruk.',
+        },
+        {
+          term: 'swap',
+          meaning:
+            'Artinya **menukar**. Baris `[x, y] = [y, x]` menukar isi dua variabel tanpa memerlukan variabel bantu sama sekali — sesuatu yang di banyak bahasa lain butuh tiga baris. Ini salah satu contoh paling ringkas bahwa destructuring bukan sekadar penghematan tulisan.',
+        },
       ),
 
       h2('Destructuring object'),
@@ -545,6 +773,32 @@ export const lessons: LessonDraft[] = [
         'Spread menyebar (kanan), rest mengumpulkan (kiri).',
         'Spread menyalin satu lapis saja — object di dalamnya masih dibagi.',
       ),
+      references(
+        {
+          label: 'Destructuring assignment',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Destructuring',
+          source: 'MDN',
+          note: 'Semua bentuk destructuring — object, array, bersarang, default, dan alias — di satu halaman.',
+        },
+        {
+          label: 'Spread syntax (...)',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax',
+          source: 'MDN',
+          note: 'Termasuk penegasan resmi bahwa spread hanya menyalin satu lapis.',
+        },
+        {
+          label: 'Rest parameters',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/rest_parameters',
+          source: 'MDN',
+          note: 'Sisi "mengumpulkan" dari tanda `...`, dibandingkan langsung dengan spread.',
+        },
+        {
+          label: 'Passing Props to a Component',
+          href: 'https://react.dev/learn/passing-props-to-a-component',
+          source: 'React',
+          note: 'Dokumentasi resmi React yang memakai persis pola destructuring dan rest dari sub-bab ini.',
+        },
+      ),
     ],
   ),
 
@@ -556,6 +810,64 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Teks adalah hal yang paling sering kamu tampilkan ke pengguna. Bab ini pendek, tapi isinya dipakai setiap hari.',
+      ),
+
+      terms(
+        {
+          term: 'string',
+          meaning:
+            'Dibaca "string", terjemahannya **teks** atau harfiahnya "untaian". Rangkaian karakter yang ditulis di antara tanda kutip: `\'halo\'`, `"halo"`, atau `` `halo` ``. Nama "untaian" itu tepat — sebuah string memang dianggap sebagai deretan karakter yang berurutan, sehingga ia punya `length` dan bisa ditelusuri per karakter dengan `for...of`, persis seperti array.',
+        },
+        {
+          term: 'backtick',
+          meaning:
+            'Dibaca "bek-tik", kadang disebut *aksen kuburan* dalam tipografi. Tanda kutip miring `` ` `` yang letaknya di sebelah kiri angka 1 pada kebanyakan keyboard, satu tombol dengan tilde `~`. Perhatikan baik-baik: ia **berbeda** dari tanda kutip tunggal `\'`, dan hanya tanda inilah yang mengaktifkan kemampuan template literal. Salah memakai kutip tunggal adalah penyebab paling umum `${ }` muncul apa adanya di layar.',
+        },
+        {
+          term: 'template literal',
+          meaning:
+            'Terjemahan bebasnya **teks bercetakan**. Teks yang ditulis di antara sepasang backtick, sehingga memperoleh dua kemampuan yang tidak dimiliki kutip biasa: **menyisipkan nilai** dengan `${ }`, dan **menulis beberapa baris** langsung tanpa perlu `\\n`. Di dalam `${ }` boleh diisi ekspresi apa pun — perhitungan, pemanggilan fungsi, bahkan ternary.',
+        },
+        {
+          term: 'interpolasi',
+          meaning:
+            'Dari *interpolation*, artinya **penyisipan di antara**. Bagian `${nama}` di dalam template literal adalah interpolasi: nilai variabel disisipkan ke tengah teks pada saat teks itu dibuat. Istilah yang sama dipakai di banyak bahasa lain dengan sintaks berbeda, jadi mengenalinya akan membantu saat kamu membaca dokumentasi di luar JavaScript.',
+        },
+        {
+          term: 'immutable',
+          meaning:
+            'Artinya **tidak bisa diubah isinya**. String di JavaScript bersifat immutable, dan konsekuensinya sangat praktis: **setiap method string mengembalikan string baru dan tidak pernah menyentuh yang lama**. Karena itu menulis `s.trim();` sendirian tidak melakukan apa-apa yang terlihat — hasilnya dibuang begitu saja. Kamu harus menyimpannya: `const bersih = s.trim();`. Ini kesalahan yang sangat mudah terlewat karena tidak memunculkan error apa pun.',
+        },
+        {
+          term: 'trim',
+          meaning:
+            'Artinya **memangkas**. `trim()` membuang spasi, tab, dan baris baru di awal maupun akhir teks — tanpa menyentuh yang di tengah. Variannya: `trimStart()` hanya memangkas bagian depan, `trimEnd()` hanya bagian belakang. Ini nyaris selalu langkah pertama saat memproses apa pun yang diketik pengguna, karena spasi yang tidak sengaja terikut sangat umum.',
+        },
+        {
+          term: 'pad',
+          meaning:
+            'Artinya **mengganjal** atau **melapisi**. `padStart(2, "0")` menambahkan karakter di **depan** sampai panjang totalnya tercapai, sehingga `"9"` menjadi `"09"`; `padEnd` melakukannya di belakang. Pemakaian sehari-harinya adalah menyeragamkan tampilan jam, tanggal, dan nomor urut supaya rata dan tidak melompat-lompat.',
+        },
+        {
+          term: 'Intl',
+          meaning:
+            'Singkatan dari *Internationalization* — kata yang begitu panjang sehingga di dunia perangkat lunak biasa disingkat menjadi "i18n" (i, lalu 18 huruf, lalu n). Objek bawaan JavaScript yang **sudah tahu aturan penulisan angka, mata uang, dan tanggal untuk hampir semua bahasa di dunia**. Memakainya berarti kamu tidak perlu menulis sendiri logika pemisah ribuan atau nama bulan, dan hasilnya otomatis mengikuti pengaturan perangkat pembacamu.',
+        },
+        {
+          term: 'locale',
+          meaning:
+            'Dibaca "lo-kal", artinya **setelan kebahasaan dan kewilayahan**. Kode pendek seperti `id-ID` (bahasa Indonesia, wilayah Indonesia) atau `en-US` (Inggris, Amerika). Bagian pertama adalah bahasanya, bagian kedua wilayahnya — dan wilayah itu penting, karena kode inilah yang memutuskan apakah satu juta setengah ditulis `1.000.000,5` atau `1,000,000.5`.',
+        },
+        {
+          term: 's',
+          meaning:
+            'Nama variabel singkat untuk *string*, dipakai di contoh pendek supaya perhatian tertuju pada method yang sedang dibahas. Kebiasaan penamaan, bukan aturan bahasa.',
+        },
+        {
+          term: 'replace / replaceAll',
+          meaning:
+            'Artinya **mengganti**. Perbedaannya sering menjebak: `replace("-", "+")` hanya mengganti **kemunculan pertama**, sementara `replaceAll("-", "+")` mengganti **semuanya**. Kalau kamu pernah bingung kenapa hanya satu tanda yang berubah, jawabannya ada di sini.',
+        },
       ),
 
       h2('Template literal'),
@@ -685,6 +997,38 @@ export const lessons: LessonDraft[] = [
         '`padStart` untuk nomor urut, jam, dan tanggal.',
         'Pakai `Intl` untuk angka dan tanggal — jangan pernah merangkainya sendiri.',
         'String tidak bisa diubah: setiap method mengembalikan string baru.',
+      ),
+      references(
+        {
+          label: 'Template literals',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals',
+          source: 'MDN',
+          note: 'Aturan resmi backtick, `${ }`, multi-baris, dan tagged template.',
+        },
+        {
+          label: 'String',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String',
+          source: 'MDN',
+          note: 'Daftar seluruh method string, dengan penegasan bahwa string bersifat immutable.',
+        },
+        {
+          label: 'String.prototype.replaceAll()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/replaceAll',
+          source: 'MDN',
+          note: 'Menjelaskan bedanya dengan `replace` yang hanya mengganti kemunculan pertama.',
+        },
+        {
+          label: 'Intl.NumberFormat',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/NumberFormat',
+          source: 'MDN',
+          note: 'Seluruh opsi format angka dan mata uang, termasuk `style: "currency"`.',
+        },
+        {
+          label: 'Intl.DateTimeFormat',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat',
+          source: 'MDN',
+          note: 'Pilihan `dateStyle` dan `timeStyle` untuk menulis tanggal sesuai kebiasaan tiap locale.',
+        },
       ),
     ],
   ),

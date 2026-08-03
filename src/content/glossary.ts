@@ -55,11 +55,208 @@ export const glossary: GlossaryEntry[] = [
     lesson: 'frontend-basic/javascript-dari-nol/scope-hoisting-closure',
   },
   {
+    term: 'Type Coercion',
+    category: 'frontend-basic',
+    aliases: ['Coercion', 'Konversi tipe otomatis'],
+    definition:
+      'Perilaku JavaScript diam-diam mengubah tipe sebuah nilai agar operasinya tetap bisa dijalankan. `"5" - 2` menghasilkan `3` karena teks `"5"` dipaksa menjadi angka.',
+    lesson: 'frontend-basic/javascript-dari-nol/operator-dan-coercion',
+  },
+  {
+    term: 'Truthy & Falsy',
+    category: 'frontend-basic',
+    definition:
+      'Sifat sebuah nilai saat dipakai sebagai kondisi. Hanya delapan nilai yang falsy (`false`, `0`, `-0`, `0n`, `""`, `null`, `undefined`, `NaN`); sisanya truthy — termasuk `[]` dan `{}`.',
+    lesson: 'frontend-basic/javascript-dari-nol/operator-dan-coercion',
+  },
+  {
+    term: 'Short-circuit',
+    category: 'frontend-basic',
+    definition:
+      'Sifat `&&` dan `||` yang berhenti mengevaluasi begitu hasilnya sudah pasti, sehingga sisi kanan tidak pernah dijalankan. Dasar dari pola `pengguna && kirimEmail(pengguna)`.',
+    lesson: 'frontend-basic/javascript-dari-nol/operator-dan-coercion',
+  },
+  {
+    term: 'Nullish Coalescing',
+    category: 'frontend-basic',
+    aliases: ['??'],
+    definition:
+      'Operator `??` yang memakai nilai cadangan hanya untuk `null` dan `undefined`. Berbeda dari `||`, ia menghormati `0` dan string kosong sebagai nilai yang sah.',
+    lesson: 'frontend-basic/javascript-dari-nol/operator-dan-coercion',
+  },
+  {
+    term: 'Optional Chaining',
+    category: 'frontend-basic',
+    aliases: ['?.'],
+    definition:
+      'Operator `?.` yang menghentikan pembacaan dengan aman dan menghasilkan `undefined` bila bagian sebelumnya kosong, alih-alih melempar `TypeError`.',
+    lesson: 'frontend-basic/javascript-dari-nol/object',
+  },
+  {
+    term: 'Callback',
+    category: 'frontend-basic',
+    definition:
+      'Fungsi yang diserahkan ke fungsi lain untuk dipanggil nanti — pada tiap elemen array, saat tombol diklik, atau saat data selesai datang.',
+    lesson: 'frontend-basic/javascript-dari-nol/fungsi',
+  },
+  {
+    term: 'Lexical Scoping',
+    category: 'frontend-basic',
+    definition:
+      'Aturan bahwa scope ditentukan oleh tempat kode **ditulis**, bukan tempat fungsinya dipanggil. Karena itu scope bisa dibaca tanpa menjalankan program.',
+    lesson: 'frontend-basic/javascript-dari-nol/scope-hoisting-closure',
+  },
+  {
+    term: 'Mutasi',
+    category: 'frontend-basic',
+    aliases: ['Mutation', 'Mutable'],
+    definition:
+      'Perubahan langsung pada data asli, bukan pada salinan baru. `push` dan `sort` melakukannya; `map`, `filter`, dan `toSorted` tidak. Pembedaan ini menentukan benar-tidaknya render ulang di React.',
+    lesson: 'frontend-basic/javascript-dari-nol/array-dan-method',
+  },
+  {
+    term: 'Immutable',
+    category: 'frontend-basic',
+    definition:
+      'Tidak bisa diubah isinya. String di JavaScript immutable — setiap method string menghasilkan string baru dan tidak pernah mengubah yang lama.',
+    lesson: 'frontend-basic/javascript-dari-nol/string-dan-template-literal',
+  },
+  {
+    term: 'Destructuring',
+    category: 'frontend-basic',
+    definition:
+      'Mengambil beberapa nilai sekaligus dari dalam object atau array lalu memberi masing-masing nama sendiri. Object berbasis nama, array berbasis posisi.',
+    lesson: 'frontend-basic/javascript-dari-nol/destructuring-spread',
+  },
+  {
+    term: 'Spread & Rest',
+    category: 'frontend-basic',
+    definition:
+      'Tanda `...` yang menyebar isi bila berada di sisi kanan atau di pemanggilan fungsi, dan mengumpulkan sisa bila berada di sisi kiri atau di daftar parameter.',
+    lesson: 'frontend-basic/javascript-dari-nol/destructuring-spread',
+  },
+  {
+    term: 'Fungsi Murni',
+    category: 'frontend-basic',
+    aliases: ['Pure Function'],
+    definition:
+      'Fungsi yang hasilnya hanya bergantung pada argumennya dan tidak mengubah apa pun di luar dirinya. Paling mudah diuji, dan disyaratkan React untuk komponennya.',
+    lesson: 'frontend-basic/javascript-dari-nol/praktik-todo-logic',
+  },
+  {
+    term: 'ESM',
+    category: 'frontend-basic',
+    aliases: ['ECMAScript Modules', 'Modul ES'],
+    definition:
+      'Sistem modul resmi JavaScript yang memakai `import`/`export`. Berjalan di browser maupun Node modern, dan memungkinkan tree-shaking — tidak seperti CommonJS.',
+    lesson: 'frontend-basic/javascript-dari-nol/modul-es',
+  },
+  {
+    term: 'Tree-shaking',
+    category: 'frontend-basic',
+    definition:
+      'Pembuangan kode yang tidak pernah diimpor siapa pun oleh bundler, sehingga berkas yang dikirim ke browser lebih kecil. Hanya mungkin pada modul ESM.',
+    lesson: 'frontend-basic/javascript-dari-nol/modul-es',
+  },
+  {
+    term: 'Code Splitting',
+    category: 'frontend-basic',
+    definition:
+      'Memecah aplikasi menjadi beberapa berkas yang baru diunduh saat benar-benar dipakai, lewat `import()` dinamis. Dipakai website ini untuk memuat editor playground.',
+    lesson: 'frontend-basic/javascript-dari-nol/modul-es',
+  },
+  {
+    term: 'Strict Mode',
+    category: 'frontend-basic',
+    aliases: ['use strict', 'Mode ketat'],
+    definition:
+      'Mode yang mengubah beberapa kesalahan diam-diam menjadi error yang terlihat, misalnya salah ketik nama variabel. Modul ES selalu berjalan dalam mode ini.',
+    lesson: 'frontend-basic/javascript-dari-nol/debugging',
+  },
+  {
+    term: 'Stack Trace',
+    category: 'frontend-basic',
+    aliases: ['Jejak tumpukan'],
+    definition:
+      'Daftar siapa memanggil siapa yang dicetak bersama sebuah error, dari pemanggilan terbaru ke terlama. Baris pertama adalah tempat kejadiannya.',
+    lesson: 'frontend-basic/javascript-dari-nol/error-handling',
+  },
+  {
     term: 'Prototype Chain',
     category: 'frontend-basic',
     definition:
       'Rantai objek yang ditelusuri JavaScript saat mencari property yang tidak ada di objek itu sendiri. Ini mekanisme pewarisan asli JavaScript.',
     lesson: 'frontend-basic/oop-javascript/prototype-chain',
+  },
+  {
+    term: 'Encapsulation',
+    category: 'frontend-basic',
+    aliases: ['Enkapsulasi'],
+    definition:
+      'Menyembunyikan keadaan internal sehingga hanya bisa diubah lewat pintu yang kamu sediakan. Nilainya bukan kerahasiaan, melainkan jaminan bahwa aturan seperti "saldo tidak boleh negatif" mustahil dilanggar dari luar.',
+    lesson: 'frontend-basic/oop-javascript/encapsulation',
+  },
+  {
+    term: 'Private Field',
+    category: 'frontend-basic',
+    aliases: ['#field'],
+    definition:
+      'Property yang namanya diawali `#` dan dijaga bahasa — mengaksesnya dari luar class adalah `SyntaxError`, bukan sekadar tidak sopan. Berbeda dari konvensi `_nama` yang hanya kesepakatan.',
+    lesson: 'frontend-basic/oop-javascript/encapsulation',
+  },
+  {
+    term: 'this Binding',
+    category: 'frontend-basic',
+    aliases: ['Binding'],
+    definition:
+      'Penentuan nilai `this` untuk sebuah pemanggilan, dengan empat aturan berprioritas: `new` > explicit (`call`/`bind`) > implicit (`o.fn()`) > default. Ditentukan oleh call-site, bukan tempat fungsi ditulis.',
+    lesson: 'frontend-basic/oop-javascript/this-binding',
+  },
+  {
+    term: 'Gula Sintaks',
+    category: 'frontend-basic',
+    aliases: ['Syntactic Sugar'],
+    definition:
+      'Sintaks yang membuat sesuatu lebih enak ditulis tanpa menambah kemampuan baru. `class` adalah contohnya — `typeof Pengguna` tetap menjawab `"function"`.',
+    lesson: 'frontend-basic/oop-javascript/class-dasar',
+  },
+  {
+    term: 'Duck Typing',
+    category: 'frontend-basic',
+    definition:
+      '"Kalau ia berjalan dan bersuara seperti bebek, ia bebek." JavaScript tidak peduli sebuah objek bertipe apa — yang penting ia punya method yang dipanggil. Object literal, factory, dan class bisa bercampur bebas.',
+    lesson: 'frontend-basic/oop-javascript/polymorphism',
+  },
+  {
+    term: 'Composition over Inheritance',
+    category: 'frontend-basic',
+    aliases: ['Composition'],
+    definition:
+      'Menyusun kemampuan dari bagian kecil yang berdiri sendiri, alih-alih mewarisi pohon yang kaku. Tes kalimatnya: "X adalah Y" → inheritance, "X punya Y" → composition.',
+    lesson: 'frontend-basic/oop-javascript/composition-over-inheritance',
+  },
+  {
+    term: 'Liskov Substitution',
+    category: 'frontend-basic',
+    aliases: ['LSP'],
+    definition:
+      'Objek turunan harus bisa menggantikan induknya tanpa mengejutkan pemanggil. Pinguin yang mewarisi `terbang()` lalu melempar error melanggarnya — tanda hierarkinya salah pilih.',
+    lesson: 'frontend-basic/oop-javascript/solid-ringkas',
+  },
+  {
+    term: 'Dependency Inversion',
+    category: 'frontend-basic',
+    aliases: ['Dependency Injection'],
+    definition:
+      'Bergantung pada kemampuan yang diserahkan dari luar, bukan mengambil sendiri implementasi konkret dari dalam. Inilah yang membuat test tidak perlu menambal `fetch` global.',
+    lesson: 'frontend-basic/oop-javascript/solid-ringkas',
+  },
+  {
+    term: 'Factory Method',
+    category: 'frontend-basic',
+    definition:
+      'Method `static` yang membuat instance dengan cara tertentu dan punya nama yang menjelaskan asal datanya — `Pengguna.dariJSON(...)`. Tidak seperti `new`, ia boleh mengembalikan objek yang sudah ada.',
+    lesson: 'frontend-basic/oop-javascript/static-factory',
   },
   {
     term: 'Event Loop',
@@ -76,11 +273,137 @@ export const glossary: GlossaryEntry[] = [
     lesson: 'frontend-basic/asynchronous-javascript/microtask-macrotask',
   },
   {
+    term: 'Blocking',
+    category: 'frontend-basic',
+    definition:
+      'Pekerjaan yang menahan call stack begitu lama sehingga event loop tidak sempat memasukkan apa pun. Akibatnya halaman tidak bisa di-scroll atau diklik, karena tampilan dan JavaScript berbagi satu utas.',
+    lesson: 'frontend-basic/asynchronous-javascript/event-loop',
+  },
+  {
+    term: 'Promise',
+    category: 'frontend-basic',
+    definition:
+      'Objek yang mewakili hasil operasi yang belum selesai. Punya tiga keadaan — `pending`, `fulfilled`, `rejected` — dan sekali berpindah dari `pending`, keadaannya tidak bisa berubah lagi.',
+    lesson: 'frontend-basic/asynchronous-javascript/promise',
+  },
+  {
+    term: 'Unhandled Rejection',
+    category: 'frontend-basic',
+    definition:
+      'Promise yang gagal tanpa satu pun `.catch()` atau `try`/`catch` yang menangkapnya. Di browser muncul sebagai peringatan console; di Node.js modern ia menghentikan proses.',
+    lesson: 'frontend-basic/asynchronous-javascript/promise',
+  },
+  {
+    term: 'Callback Hell',
+    category: 'frontend-basic',
+    aliases: ['Pyramid of Doom'],
+    definition:
+      'Callback bersarang berlapis-lapis karena tiap operasi menunggu hasil sebelumnya. Masalahnya bukan estetika: penanganan error terduplikasi di tiap tingkat dan alur bacanya berlawanan dengan urutan kejadian.',
+    lesson: 'frontend-basic/asynchronous-javascript/callback',
+  },
+  {
+    term: 'Inversion of Control',
+    category: 'frontend-basic',
+    definition:
+      'Menyerahkan fungsimu ke pihak lain sehingga pihak itu yang memutuskan kapan dan berapa kali ia dipanggil. Promise mengembalikan kendali itu — ia hanya bisa selesai sekali.',
+    lesson: 'frontend-basic/asynchronous-javascript/callback',
+  },
+  {
+    term: 'Exponential Backoff',
+    category: 'frontend-basic',
+    aliases: ['Backoff', 'Jitter'],
+    definition:
+      'Menunda percobaan ulang dengan jeda berlipat (1s, 2s, 4s) ditambah keacakan, supaya klien tidak mengulang serempak dan memperparah server yang sedang pulih.',
+    lesson: 'frontend-basic/asynchronous-javascript/retry-backoff',
+  },
+  {
+    term: 'AbortController',
+    category: 'frontend-basic',
+    aliases: ['AbortSignal', 'AbortError'],
+    definition:
+      'Cara standar membatalkan operasi yang sedang berjalan. `AbortError` yang dihasilkannya adalah pembatalan yang disengaja — jangan pernah ditampilkan sebagai pesan error ke pengguna.',
+    lesson: 'frontend-basic/asynchronous-javascript/abort-timeout',
+  },
+  {
+    term: 'Race Condition',
+    category: 'frontend-basic',
+    definition:
+      'Dua operasi selesai dalam urutan yang tidak bisa dipastikan, sehingga hasilnya kadang benar kadang salah. Berbahaya karena hampir tidak pernah muncul di mesin pengembang yang jaringannya cepat.',
+    lesson: 'frontend-basic/asynchronous-javascript/jebakan-async',
+  },
+  {
+    term: 'Floating Promise',
+    category: 'frontend-basic',
+    definition:
+      'Fungsi async yang dipanggil tanpa `await` dan tanpa `.catch()`, sehingga kegagalannya tidak pernah terlihat. Setiap promise harus di-`await` atau di-`catch` — tidak ada opsi ketiga.',
+    lesson: 'frontend-basic/asynchronous-javascript/jebakan-async',
+  },
+  {
+    term: 'Async Generator',
+    category: 'frontend-basic',
+    aliases: ['for await...of'],
+    definition:
+      'Fungsi `async function*` yang menghasilkan nilai bertahap dengan `yield`, dikonsumsi `for await...of`. Membuat paginasi jadi detail internal — pemanggil cukup melihat satu aliran item.',
+    lesson: 'frontend-basic/asynchronous-javascript/async-iterator',
+  },
+  {
     term: 'Event Delegation',
     category: 'frontend-basic',
     definition:
       'Memasang satu listener di elemen induk untuk menangani event dari seluruh anaknya, termasuk anak yang ditambahkan kemudian.',
     lesson: 'frontend-basic/manipulasi-dom/bubbling-delegation',
+  },
+  {
+    term: 'Reflow',
+    category: 'frontend-basic',
+    aliases: ['Layout', 'Layout Thrashing'],
+    definition:
+      'Perhitungan ulang posisi dan ukuran elemen — langkah render paling mahal. Membaca property layout (`offsetWidth`, `getBoundingClientRect`) di sela penulisan memaksanya berulang kali; obatnya baca semua dulu, baru tulis semua.',
+    lesson: 'frontend-basic/manipulasi-dom/performa-dom',
+  },
+  {
+    term: 'Koleksi Hidup',
+    category: 'frontend-basic',
+    aliases: ['Live Collection', 'HTMLCollection'],
+    definition:
+      'Kumpulan yang ikut berubah otomatis saat DOM berubah, hasil `getElementsBy*`. Berbahaya di dalam loop yang menghapus elemen — indeksnya bergeser. `querySelectorAll` menghasilkan koleksi statis yang aman.',
+    lesson: 'frontend-basic/manipulasi-dom/seleksi-elemen',
+  },
+  {
+    term: 'Atribut vs Property',
+    category: 'frontend-basic',
+    definition:
+      'Atribut adalah yang tertulis di HTML (keadaan awal, selalu teks); property adalah yang ada di objek DOM (keadaan sekarang). Untuk `value`, `checked`, dan `selected` keduanya berhenti saling mencerminkan setelah pengguna berinteraksi.',
+    lesson: 'frontend-basic/manipulasi-dom/atribut-property-dataset',
+  },
+  {
+    term: 'DocumentFragment',
+    category: 'frontend-basic',
+    definition:
+      'Wadah sementara di luar pohon DOM untuk merakit banyak elemen sebelum disisipkan sekaligus, sehingga hanya memicu satu kali perhitungan ulang alih-alih sekali per elemen.',
+    lesson: 'frontend-basic/manipulasi-dom/membuat-menghapus-node',
+  },
+  {
+    term: 'Bubbling & Capturing',
+    category: 'frontend-basic',
+    definition:
+      'Perjalanan event: turun dari `document` ke elemen sasaran (capturing), tiba (target), lalu naik kembali (bubbling). Listener berjalan pada fase bubbling secara bawaan.',
+    lesson: 'frontend-basic/manipulasi-dom/bubbling-delegation',
+  },
+  {
+    term: 'IntersectionObserver',
+    category: 'frontend-basic',
+    aliases: ['Observer API'],
+    definition:
+      'Pengamat yang memberi tahu saat elemen masuk atau keluar layar, menggantikan listener `scroll` yang berjalan ratusan kali per detik dan memaksa pembacaan layout.',
+    lesson: 'frontend-basic/manipulasi-dom/observer-api',
+  },
+  {
+    term: 'Constraint Validation',
+    category: 'frontend-basic',
+    definition:
+      'Validasi bawaan HTML lewat `required`, `type`, `pattern`, dan `minlength` — pesannya otomatis mengikuti bahasa perangkat. Tetap hanya UX: kontrol keamanannya wajib ada di server.',
+    lesson: 'frontend-basic/manipulasi-dom/form-input',
   },
   {
     term: 'XSS',
@@ -96,6 +419,66 @@ export const glossary: GlossaryEntry[] = [
     definition:
       'Aturan yang ditegakkan browser tentang siapa boleh membaca respons lintas origin. CORS bukan kontrol akses — `curl` tidak terpengaruh sama sekali.',
     lesson: 'frontend-basic/ajax-web-api/cors',
+  },
+  {
+    term: 'Preflight',
+    category: 'frontend-basic',
+    definition:
+      'Permintaan `OPTIONS` yang dikirim browser lebih dulu untuk bertanya apakah permintaan sebenarnya diizinkan. Terpicu oleh method selain GET/POST/HEAD atau header tidak baku seperti `Authorization`.',
+    lesson: 'frontend-basic/ajax-web-api/cors',
+  },
+  {
+    term: 'Same-origin Policy',
+    category: 'frontend-basic',
+    aliases: ['Origin'],
+    definition:
+      'Aturan browser yang melarang halaman membaca jawaban dari origin lain. Origin = protokol + host + port, sehingga subdomain pun dihitung berbeda. Inilah yang memblokir — CORS adalah cara server memberi pengecualian.',
+    lesson: 'frontend-basic/ajax-web-api/cors',
+  },
+  {
+    term: 'Idempoten',
+    category: 'frontend-basic',
+    aliases: ['Safe Method'],
+    definition:
+      'Operasi yang hasil akhirnya sama meski dijalankan berkali-kali. `GET`, `PUT`, dan `DELETE` idempoten; `POST` tidak. Ini yang menentukan boleh-tidaknya sebuah permintaan diulang otomatis saat gagal.',
+    lesson: 'frontend-basic/ajax-web-api/http-dasar',
+  },
+  {
+    term: 'Bearer Token',
+    category: 'frontend-basic',
+    definition:
+      'Token yang dikirim di header `Authorization`. Namanya menjelaskan risikonya: siapa pun yang membawanya diperlakukan sebagai pemiliknya. Rentan XSS — berbeda dari cookie `HttpOnly` yang rentan CSRF.',
+    lesson: 'frontend-basic/ajax-web-api/auth-klien',
+  },
+  {
+    term: 'HttpOnly',
+    category: 'frontend-basic',
+    aliases: ['SameSite', 'Secure'],
+    definition:
+      'Penanda cookie yang membuatnya tidak bisa dibaca JavaScript sama sekali, sehingga celah XSS tidak bisa mencurinya. Dipasangkan dengan `Secure` (hanya HTTPS) dan `SameSite` (pertahanan CSRF).',
+    lesson: 'frontend-basic/ajax-web-api/auth-klien',
+  },
+  {
+    term: 'Secure Context',
+    category: 'frontend-basic',
+    definition:
+      'Syarat bahwa halaman dimuat lewat HTTPS atau `localhost`. Banyak API modern — Clipboard, Geolocation, Notification — menolak bekerja di luar itu.',
+    lesson: 'frontend-basic/ajax-web-api/web-api-lain',
+  },
+  {
+    term: 'Server-Sent Events',
+    category: 'frontend-basic',
+    aliases: ['SSE', 'EventSource'],
+    definition:
+      'Aliran satu arah dari server ke klien lewat HTTP biasa, dengan penyambungan ulang otomatis. Lebih sederhana daripada WebSocket, dan cukup untuk sebagian besar kebutuhan realtime.',
+    lesson: 'frontend-basic/ajax-web-api/realtime',
+  },
+  {
+    term: 'Empat Keadaan UI',
+    category: 'frontend-basic',
+    definition:
+      'Setiap tampilan yang mengambil data punya empat keadaan — memuat, kosong, gagal, berhasil. Melewatkan tiga di antaranya adalah cacat yang paling sering sampai produksi.',
+    lesson: 'frontend-basic/ajax-web-api/praktik-konsumsi-api',
   },
   {
     term: 'JSX',

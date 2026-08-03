@@ -1,4 +1,12 @@
-import type { Block, CalloutTone, CodeLang, ComparePane, QuizQuestion } from './types';
+import type {
+  Block,
+  CalloutTone,
+  CodeLang,
+  ComparePane,
+  DocReference,
+  QuizQuestion,
+  TermEntry,
+} from './types';
 
 /**
  * Authoring helpers.
@@ -53,6 +61,24 @@ export function code(
 
 export function callout(tone: CalloutTone, title: string, ...body: string[]): Block {
   return { kind: 'callout', tone, title, body };
+}
+
+/**
+ * Explain the tokens a beginner cannot decode from context — `fn`, `arr`, `req`/`res`.
+ *
+ * Deliberately a separate block rather than a `table`: the integrity test can then require the
+ * explanation to exist, and the reader recognises the box by shape (ADR-0006).
+ */
+export function terms(...items: TermEntry[]): Block {
+  return { kind: 'terms', items };
+}
+
+/**
+ * Point at primary documentation. The host is checked against `OFFICIAL_DOC_HOSTS` by the
+ * integrity test, so a link to a blog fails the suite rather than quietly shipping.
+ */
+export function references(...items: DocReference[]): Block {
+  return { kind: 'references', items };
 }
 
 export function table(head: string[], rows: string[][], caption?: string): Block {

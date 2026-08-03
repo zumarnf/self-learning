@@ -28,7 +28,9 @@ const chapter2 = defineChapter({
   ],
   prerequisites: [{ category: 'frontend-basic', chapter: 'javascript-dari-nol' }],
   stackVersions: ['ECMAScript 2024'],
-  reviewedAt: '2026-08-02',
+  // 2026-08-03: revisi ADR-0006 — setiap sub-bab kini menjelaskan istilahnya sendiri dan
+  // menunjuk halaman dokumentasi resminya.
+  reviewedAt: '2026-08-03',
   lessons: lessonsOop,
   quiz: [
     q(
@@ -93,7 +95,9 @@ const chapter3 = defineChapter({
   ],
   prerequisites: [{ category: 'frontend-basic', chapter: 'javascript-dari-nol' }],
   stackVersions: ['ECMAScript 2024'],
-  reviewedAt: '2026-08-02',
+  // 2026-08-03: revisi ADR-0006 — setiap sub-bab kini menjelaskan istilahnya sendiri dan
+  // menunjuk halaman dokumentasi resminya.
+  reviewedAt: '2026-08-03',
   lessons: lessonsAsync,
   quiz: [
     q(
@@ -153,7 +157,9 @@ const chapter4 = defineChapter({
   ],
   prerequisites: [{ category: 'frontend-basic', chapter: 'javascript-dari-nol' }],
   stackVersions: ['DOM Living Standard'],
-  reviewedAt: '2026-08-02',
+  // 2026-08-03: revisi ADR-0006 — setiap sub-bab kini menjelaskan istilahnya sendiri dan
+  // menunjuk halaman dokumentasi resminya.
+  reviewedAt: '2026-08-03',
   lessons: lessonsDom,
   quiz: [
     q(
@@ -221,7 +227,9 @@ const chapter5 = defineChapter({
     { category: 'frontend-basic', chapter: 'manipulasi-dom' },
   ],
   stackVersions: ['Fetch Standard', 'HTTP/1.1 & HTTP/2'],
-  reviewedAt: '2026-08-02',
+  // 2026-08-03: revisi ADR-0006 — setiap sub-bab kini menjelaskan istilahnya sendiri dan
+  // menunjuk halaman dokumentasi resminya.
+  reviewedAt: '2026-08-03',
   lessons: lessonsAjax,
   quiz: [
     q(

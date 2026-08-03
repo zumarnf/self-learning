@@ -7,8 +7,10 @@ import {
   ol,
   p,
   playground,
+  references,
   steps,
   table,
+  terms,
   ul,
 } from '@/lib/content/builders';
 import { type LessonDraft, written } from '@/lib/curriculum/authoring';
@@ -23,6 +25,74 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Begitu sebuah berkas melewati beberapa ratus baris, ia berhenti bisa dibaca. Modul memecahnya menjadi bagian-bagian yang punya batas jelas: tiap berkas menyatakan apa yang ia **berikan** ke luar, dan apa yang ia **butuh** dari luar.',
+      ),
+
+      terms(
+        {
+          term: 'modul',
+          meaning:
+            'Dari *module*, artinya **bagian yang berdiri sendiri**. Satu berkas kode yang punya batas jelas terhadap dunia luar: ia menyatakan secara eksplisit apa yang **diberikan** keluar lewat `export`, dan apa yang **dibutuhkan** dari luar lewat `import`. Yang terpenting, batas ini ditegakkan oleh bahasanya sendiri — apa pun yang tidak kamu ekspor benar-benar tidak bisa disentuh berkas lain, bukan sekadar "sebaiknya jangan disentuh".',
+        },
+        {
+          term: 'export',
+          meaning:
+            'Dibaca "eks-port", artinya **mengekspor** atau mengeluarkan. Menandai sesuatu di dalam sebuah berkas agar boleh dipakai berkas lain. Bisa ditulis langsung di depan deklarasinya (`export const PAJAK = 0.11`) atau dikumpulkan di akhir berkas (`export { format }`) — keduanya sama saja, pilih yang membuat berkasnya lebih mudah dibaca.',
+        },
+        {
+          term: 'import',
+          meaning:
+            'Dibaca "im-port", artinya **mengimpor** atau memasukkan. Mengambil sesuatu yang sudah diekspor berkas lain untuk dipakai di berkas ini. Semua `import` selalu dievaluasi lebih dulu sebelum baris mana pun dijalankan, jadi urutan penulisannya di bagian atas berkas tidak memengaruhi apa pun selain kerapian.',
+        },
+        {
+          term: 'named export',
+          meaning:
+            'Terjemahannya **ekspor bernama**. Bentuk ekspor yang paling umum: sebuah berkas boleh punya sebanyak apa pun, dan saat diimpor namanya **harus sama persis** serta ditulis di dalam kurung kurawal — `import { hitungTotal } from "./harga.js"`. Justru keharusan nama yang sama itulah kelebihannya: autocomplete editor bekerja, pencarian di seluruh project menemukan semuanya, dan rename otomatis tidak melewatkan satu pun.',
+        },
+        {
+          term: 'default export',
+          meaning:
+            'Terjemahannya **ekspor utama**. Satu berkas hanya boleh punya maksimal satu, dan saat diimpor ia ditulis **tanpa** kurung kurawal dengan nama yang **bebas** kamu tentukan. Kebebasan itu terdengar enak, tapi justru menjadi kelemahannya: berkas yang sama bisa diimpor dengan tiga nama berbeda di tiga tempat, dan tidak ada alat yang bisa merapikannya kembali. Pengecualian yang wajar adalah berkas halaman di Next.js, yang memang mewajibkannya.',
+        },
+        {
+          term: 'ESM',
+          meaning:
+            'Singkatan *ECMAScript Modules*, yaitu **sistem modul resmi bahasa JavaScript** yang memakai `import` dan `export`. ECMAScript sendiri adalah nama resmi standar bahasanya — "JavaScript" secara teknis adalah nama dagang. ESM adalah standar yang berlaku di browser maupun Node.js modern, dan satu-satunya yang memungkinkan tree-shaking.',
+        },
+        {
+          term: 'CommonJS',
+          meaning:
+            'Dibaca "ko-mon-je-es", sering disingkat CJS. Sistem modul **lama** milik Node.js yang memakai `require()` untuk mengambil dan `module.exports` untuk memberikan. Ia lahir sebelum JavaScript punya sistem modul resmi, dan masih sangat banyak ditemui di paket-paket lawas. Kamu tidak perlu menulisnya, tapi perlu bisa mengenalinya saat membaca kode orang lain.',
+        },
+        {
+          term: 'bundler',
+          meaning:
+            'Dibaca "ban-dler", dari *bundle* yang berarti **bendel** atau ikatan. Alat yang menelusuri seluruh rantai `import` di project-mu lalu menggabungkan ratusan berkas menjadi beberapa berkas saja yang siap dikirim ke browser. Alasannya praktis: mengunduh 300 berkas kecil jauh lebih lambat daripada mengunduh tiga berkas besar. Vite dan Next.js memakainya di balik layar tanpa perlu kamu setel.',
+        },
+        {
+          term: 'tree-shaking',
+          meaning:
+            'Harfiahnya **mengguncang pohon**, seperti memanen buah dengan mengguncang batangnya sampai yang tidak melekat berjatuhan. Kemampuan bundler membuang kode yang **tidak pernah diimpor siapa pun**, sehingga berkas akhir yang diunduh pengunjung jadi lebih kecil. Ini hanya mungkin pada ESM, karena `import` bisa dianalisis sebelum program dijalankan — sementara `require()` bisa muncul di mana saja, bahkan di dalam `if`.',
+        },
+        {
+          term: 'code splitting',
+          meaning:
+            'Terjemahannya **pemecahan kode**. Memisahkan bagian-bagian aplikasi ke berkas terpisah supaya masing-masing baru diunduh **ketika benar-benar dibutuhkan**, bukan sekaligus di awal. Caranya lewat `import()` dinamis. Website yang sedang kamu baca ini memakainya untuk editor playground: berkasnya besar, jadi ia baru diambil saat kamu benar-benar membuka sub-bab yang punya playground.',
+        },
+        {
+          term: 'node_modules',
+          meaning:
+            'Folder tempat seluruh paket pihak ketiga dipasang oleh npm. Aturan pencariannya begini: impor yang dimulai dengan `./` atau `../` dicari relatif terhadap berkasmu, sementara impor **tanpa** keduanya — seperti `from "react"` — dicari di folder ini. Folder ini tidak pernah ikut disimpan ke Git karena isinya bisa dibangun ulang kapan saja dari `package.json`.',
+        },
+        {
+          term: 'alias',
+          meaning:
+            'Artinya **nama pengganti**. Jalan pintas penulisan alamat berkas yang disetel di konfigurasi project. Di project ini `@/` berarti folder `src/`, sehingga `@/lib/util` menunjuk berkas yang sama dengan `src/lib/util`. Manfaatnya terasa saat berkasmu dalam-dalam: `@/lib/util` jauh lebih tahan pindah folder daripada `../../../lib/util`.',
+        },
+        {
+          term: 'impor melingkar',
+          meaning:
+            'Terjemahan dari *circular import*. Keadaan ketika berkas A mengimpor B, sementara B juga mengimpor A — langsung maupun lewat perantara. Akibatnya salah satu berkas bisa membaca nilai yang **belum sempat terisi**, menghasilkan `undefined` yang sangat sulit dilacak karena kodenya sendiri terlihat benar. Berkas indeks yang dipakai berlebihan adalah salah satu penyebab paling umumnya.',
+        },
       ),
 
       h2('Named export'),
@@ -178,6 +248,38 @@ export const lessons: LessonDraft[] = [
         'ESM adalah standar; CommonJS masih hidup di Node lama.',
         '`import()` dinamis memuat kode saat dibutuhkan — dasar dari code splitting.',
       ),
+      references(
+        {
+          label: 'JavaScript modules',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules',
+          source: 'MDN',
+          note: 'Panduan resmi modul ES dari awal, termasuk kenapa berkas module butuh server lokal.',
+        },
+        {
+          label: 'import',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import',
+          source: 'MDN',
+          note: 'Semua bentuk impor: named, default, namespace, dan `import()` dinamis.',
+        },
+        {
+          label: 'export',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/export',
+          source: 'MDN',
+          note: 'Termasuk sintaks re-export yang dipakai berkas indeks.',
+        },
+        {
+          label: 'Modules: ECMAScript modules',
+          href: 'https://nodejs.org/api/esm.html',
+          source: 'Node.js',
+          note: 'Aturan resmi Node menentukan sebuah berkas dibaca sebagai ESM atau CommonJS.',
+        },
+        {
+          label: 'Modules: CommonJS modules',
+          href: 'https://nodejs.org/api/modules.html',
+          source: 'Node.js',
+          note: 'Dokumentasi `require()` dan `module.exports` untuk saat kamu membaca kode lama.',
+        },
+      ),
     ],
   ),
 
@@ -189,6 +291,69 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Kode yang berjalan mulus adalah kasus yang paling jarang terjadi di produksi. Jaringan putus, input aneh, berkas tidak ada, server balas 500. Bab ini soal bersikap terhadap kegagalan dengan sadar.',
+      ),
+
+      terms(
+        {
+          term: 'error',
+          meaning:
+            'Objek bawaan JavaScript yang **mewakili sebuah kegagalan**. Ia bukan sekadar teks pesan: ia membawa `name` (jenis kegagalannya, misalnya `TypeError`), `message` (penjelasan singkatnya), dan `stack` (jejak lengkap sampai ke baris penyebabnya). Ketiga bagian itulah yang membuat error berguna, dan itu pula sebabnya melempar teks biasa alih-alih objek `Error` adalah kerugian besar.',
+        },
+        {
+          term: 'exception',
+          meaning:
+            'Dibaca "ek-sep-syen", artinya **pengecualian**. Nama umum lintas bahasa untuk kegagalan yang dilempar dan menghentikan alur normal program. Disebut pengecualian karena ia menandai keadaan di luar jalur yang diharapkan. Di JavaScript, istilah *error* dan *exception* sering dipakai bergantian dan dalam praktik maksudnya sama.',
+        },
+        {
+          term: 'throw',
+          meaning:
+            'Dibaca "thro", artinya **melempar**. Kata kunci yang menghentikan fungsi saat itu juga lalu **menyerahkan sebuah error ke atas**, ke pihak yang memanggilnya. Istilah "melempar" dipilih karena gambarannya memang seperti itu: fungsi yang tidak sanggup menangani sesuatu melemparkannya ke pemanggil, dan kalau pemanggil juga tidak menangkapnya, error terus terlempar naik sampai menghentikan program.',
+        },
+        {
+          term: 'try / catch',
+          meaning:
+            '`try` artinya **coba** — "jalankan blok ini, dan bersiaplah kalau ternyata gagal". `catch` artinya **tangkap** — "kalau tadi gagal, inilah yang harus dilakukan". Melanjutkan gambaran melempar tadi: `throw` melemparkan, `catch` yang menangkapnya di udara sebelum ia jatuh menghancurkan program.',
+        },
+        {
+          term: 'finally',
+          meaning:
+            'Artinya **pada akhirnya**. Blok yang **selalu** dijalankan apa pun yang terjadi sebelumnya — `try` berhasil, `try` gagal, bahkan ketika `try` sudah menjalankan `return`. Gunanya untuk pekerjaan pembersihan yang tidak boleh terlewat dalam keadaan apa pun: mematikan indikator memuat, menutup koneksi, atau mengaktifkan kembali tombol yang tadi dinonaktifkan.',
+        },
+        {
+          term: 'stack trace',
+          meaning:
+            'Terjemahannya **jejak tumpukan**. Daftar pemanggilan fungsi yang menempel pada setiap objek `Error`, tersusun dari yang **terbaru di atas** ke yang terlama di bawah. Membacanya menjawab dua pertanyaan sekaligus: baris teratas menjawab "di mana ini terjadi", dan baris-baris di bawahnya menjawab "kenapa fungsi itu sampai dijalankan". Inilah alasan sesungguhnya melempar objek `Error` dan bukan teks biasa — teks tidak punya jejak ini.',
+        },
+        {
+          term: 'instanceof',
+          meaning:
+            'Gabungan *instance* (wujud nyata dari sebuah kelas) dan *of* (dari). Operator yang menjawab pertanyaan **"apakah nilai ini dibuat dari kelas tertentu?"**. Dipakai di `catch` untuk membedakan `ValidasiError` buatanmu dari error jenis lain, sehingga kamu bisa menangani yang kamu pahami dan meneruskan sisanya. Ini jauh lebih andal daripada mencocokkan teks pesan, yang akan rusak begitu kalimatnya diubah sedikit saja.',
+        },
+        {
+          term: 'rethrow',
+          meaning:
+            'Artinya **melempar ulang**. Menangkap sebuah error, memeriksanya, menyadari bahwa itu bukan jenis yang kamu tahu cara menanganinya, lalu melemparkannya lagi ke atas dengan `throw error`. Ini bukan kemalasan melainkan kejujuran: menahan error yang tidak bisa kamu tangani sama saja dengan menyembunyikan bug dari orang yang seharusnya melihatnya.',
+        },
+        {
+          term: 'anti-pola',
+          meaning:
+            'Terjemahan dari *anti-pattern*. Cara yang **tampak** menyelesaikan masalah dan sering dipakai, tapi sebenarnya menimbulkan masalah yang lebih besar dan lebih sulit dilacak. `catch` kosong adalah contoh paling klasik di bab ini: ia benar-benar membuat pesan error hilang dari layar, sehingga terasa seperti berhasil — padahal yang hilang hanyalah peringatannya, bukan kerusakannya.',
+        },
+        {
+          term: 'e / err',
+          meaning:
+            'Singkatan *error*, nama parameter yang lazim dipakai di `catch (e)`. Sama persis artinya dengan menulis `catch (error)` — murni kebiasaan penamaan. Sejak ES2019 kamu bahkan boleh menghilangkannya sama sekali (`catch { ... }`) kalau memang tidak dipakai.',
+        },
+        {
+          term: 'unhandledrejection',
+          meaning:
+            'Gabungan *unhandled* (tidak ditangani) dan *rejection* (penolakan). Nama event browser yang berbunyi ketika sebuah operasi asinkron gagal dan **tidak ada satu pun `catch` yang menanganinya**. Mendengarkan event ini berguna sebagai jaring pengaman terakhir untuk mengirim laporan ke layanan pemantauan — tapi ia bukan pengganti penanganan error di tempat kejadiannya.',
+        },
+        {
+          term: 'invariant',
+          meaning:
+            'Artinya **hal yang seharusnya selalu benar** sepanjang program berjalan, misalnya "sebuah pesanan pasti punya minimal satu item". Kalau invariant dilanggar, itu bukan input yang salah melainkan **bug di kodemu sendiri**. Karena itu perlakuannya berbeda: input salah ditangani dengan pesan yang ramah, sedangkan invariant yang dilanggar sebaiknya gagal dengan berisik supaya cepat ketahuan.',
+        },
       ),
 
       h2('`try` / `catch` / `finally`'),
@@ -396,6 +561,38 @@ export const lessons: LessonDraft[] = [
         'Detail lengkap ke log, pesan generik yang bisa ditindaklanjuti ke pengguna.',
         '`try`/`catch` tidak menangkap error dari callback asinkron seperti `setTimeout`.',
       ),
+      references(
+        {
+          label: 'try...catch',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/try...catch',
+          source: 'MDN',
+          note: 'Termasuk `catch` tanpa parameter dan urutan jalannya `finally` terhadap `return`.',
+        },
+        {
+          label: 'Error',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error',
+          source: 'MDN',
+          note: 'Seluruh property error dan cara membuat kelas error turunan sendiri.',
+        },
+        {
+          label: 'throw',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/throw',
+          source: 'MDN',
+          note: 'Menjelaskan bahwa apa pun boleh dilempar — dan kenapa sebaiknya tetap objek `Error`.',
+        },
+        {
+          label: 'Window: unhandledrejection event',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Window/unhandledrejection_event',
+          source: 'MDN',
+          note: 'Jaring pengaman terakhir untuk kegagalan asinkron yang lolos dari semua `catch`.',
+        },
+        {
+          label: 'Error Handling Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Error_Handling_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Alasan keamanan di balik aturan "detail ke log, pesan generik ke pengguna".',
+        },
+      ),
     ],
   ),
 
@@ -407,6 +604,69 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Debugging bukan menebak lalu mengubah sesuatu sampai kebetulan jalan. Ia adalah proses: reproduksi masalahnya, persempit, buat hipotesis, lalu buktikan salah satunya. Alatnya sudah ada di browsermu.',
+      ),
+
+      terms(
+        {
+          term: 'bug',
+          meaning:
+            'Harfiahnya **serangga**, istilah baku untuk cacat pada program. Ceritanya sering dikaitkan dengan ngengat yang benar-benar tersangkut di relai komputer Harvard Mark II pada 1947, meski istilahnya sudah dipakai insinyur jauh sebelum itu. Yang berguna dari asal-usul ini: bug bukan tanda kebodohan, melainkan sesuatu yang sudah menyertai profesi ini sejak awal.',
+        },
+        {
+          term: 'debugging',
+          meaning:
+            'Dibaca "di-ba-ging", harfiahnya **membasmi serangga**. Proses **menemukan penyebab** sebuah masalah — bukan sekadar membuat gejalanya hilang dari layar. Perbedaan itu penting: mengubah baris acak sampai errornya berhenti muncul bukan debugging, karena masalahnya kemungkinan besar hanya berpindah ke tempat yang lebih sulit ditemukan.',
+        },
+        {
+          term: 'DevTools',
+          meaning:
+            'Singkatan *Developer Tools*, artinya **alat untuk pengembang**. Panel bawaan yang sudah ada di dalam setiap browser modern tanpa perlu dipasang, dibuka dengan `F12` atau `Ctrl+Shift+I` (di macOS `Cmd+Option+I`). Isinya jauh lebih luas daripada console: ada pemeriksa elemen, pemantau jaringan, penyimpanan, dan pengukur performa.',
+        },
+        {
+          term: 'breakpoint',
+          meaning:
+            'Terjemahannya **titik henti**. Penanda yang kamu pasang pada sebuah baris supaya program **berhenti tepat sebelum baris itu dijalankan**, membekukan seluruh keadaannya agar bisa diperiksa dengan santai. Bedanya dengan `console.log` besar: `console.log` menunjukkan **satu nilai** pada satu titik, sementara breakpoint menunjukkan **semua nilai** yang ada pada titik itu.',
+        },
+        {
+          term: 'source map',
+          meaning:
+            'Terjemahannya **peta sumber**. Berkas pemetaan yang menghubungkan kode hasil bundling — yang sudah digabung, dipendekkan, dan hampir tidak terbaca manusia — kembali ke kode aslimu. Berkat berkas ini, yang tampil di DevTools tetaplah kode yang kamu tulis, lengkap dengan nama variabel dan nomor baris yang benar.',
+        },
+        {
+          term: 'call stack',
+          meaning:
+            'Terjemahannya **tumpukan pemanggilan**. Daftar fungsi yang sedang berjalan pada saat itu, dengan yang **terbaru di paling atas**. Disebut tumpukan karena cara kerjanya persis seperti tumpukan piring: fungsi yang dipanggil terakhir adalah yang pertama selesai dan diangkat. Panel ini yang menjawab pertanyaan "kenapa fungsi ini sampai dijalankan?" ketika kodenya sendiri terlihat baik-baik saja.',
+        },
+        {
+          term: 'step over / into / out',
+          meaning:
+            'Tiga cara melangkah saat program sedang dibekukan. **Step over** ("melangkahi") menjalankan satu baris utuh dan berhenti di baris berikutnya, termasuk kalau baris itu memanggil fungsi. **Step into** ("melangkah masuk") justru masuk ke dalam fungsi yang dipanggil baris itu untuk menelusurinya dari dalam. **Step out** ("melangkah keluar") menyelesaikan sisa fungsi yang sedang kamu telusuri lalu kembali ke pemanggilnya.',
+        },
+        {
+          term: 'scope panel',
+          meaning:
+            'Terjemahannya **panel jangkauan**. Bagian DevTools yang menampilkan **semua variabel yang terlihat** pada titik program berhenti — dikelompokkan menjadi lokal, closure, dan global. Ini juga cara terbaik melihat closure dari Sub-bab 1.8 secara nyata: variabel yang "seharusnya sudah hilang" ternyata benar-benar masih tercantum di sana.',
+        },
+        {
+          term: 'strict mode',
+          meaning:
+            'Terjemahannya **mode ketat**. Mode yang mengubah sejumlah kesalahan yang biasanya lolos diam-diam menjadi error yang terlihat — misalnya salah ketik nama variabel yang tanpa mode ini justru membuat variabel global baru. Kabar baiknya, **modul ES selalu berjalan dalam mode ini secara otomatis**, jadi kalau kamu memakai `import`/`export` kamu sudah berada di dalamnya tanpa menulis apa pun.',
+        },
+        {
+          term: 'hipotesis',
+          meaning:
+            'Dugaan yang dirumuskan sedemikian rupa sehingga **bisa dibuktikan salah**. Perbedaannya dengan tebakan biasa menentukan cepat-lambatnya kamu menemukan bug. "Saya duga `items` sudah kosong sebelum sampai di baris ini" adalah hipotesis — kamu bisa langsung membuktikannya benar atau salah. "Coba ubah bagian ini" bukan hipotesis, karena apa pun hasilnya kamu tetap tidak belajar apa-apa.',
+        },
+        {
+          term: 'deprecated',
+          meaning:
+            'Dibaca "de-pre-key-ted", artinya **tidak lagi dianjurkan**. Label untuk fitur yang masih berfungsi hari ini tapi sudah direncanakan untuk dihapus, biasanya karena sudah ada penggantinya yang lebih baik. Menemuinya di console bukan error, melainkan peringatan dini: kodenya akan rusak di masa depan, jadi lebih murah menggantinya sekarang.',
+        },
+        {
+          term: 'conditional breakpoint',
+          meaning:
+            'Terjemahannya **titik henti bersyarat**. Breakpoint yang hanya aktif kalau syarat yang kamu tulis terpenuhi, misalnya `item.id === 42`. Sangat berguna pada loop yang berjalan ribuan kali: alih-alih menekan tombol lanjut ratusan kali, program hanya berhenti pada iterasi yang benar-benar kamu selidiki.',
+        },
       ),
 
       h2('Console lebih dari sekadar `log`'),
@@ -563,6 +823,38 @@ export const lessons: LessonDraft[] = [
         'Modul ES otomatis `"use strict"` — salah ketik jadi error, bukan variabel global baru.',
         'Reproduksi → persempit → hipotesis → ubah satu hal → tulis test.',
       ),
+      references(
+        {
+          label: 'Debug JavaScript',
+          href: 'https://developer.chrome.com/docs/devtools/javascript',
+          source: 'Chrome DevTools',
+          note: 'Panduan resmi memasang breakpoint, melangkah, dan membaca panel Scope.',
+        },
+        {
+          label: 'Console features reference',
+          href: 'https://developer.chrome.com/docs/devtools/console/reference',
+          source: 'Chrome DevTools',
+          note: 'Seluruh kemampuan panel console, termasuk conditional breakpoint dan filter log.',
+        },
+        {
+          label: 'console',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/console',
+          source: 'MDN',
+          note: 'Rujukan lintas-browser untuk `table`, `group`, `time`, `assert`, dan `count`.',
+        },
+        {
+          label: 'Strict mode',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Strict_mode',
+          source: 'MDN',
+          note: 'Daftar lengkap perubahan perilaku yang diaktifkan mode ketat.',
+        },
+        {
+          label: 'debugger',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/debugger',
+          source: 'MDN',
+          note: 'Menegaskan bahwa pernyataan ini tidak berefek apa pun saat DevTools tertutup.',
+        },
+      ),
     ],
   ),
 
@@ -577,6 +869,64 @@ export const lessons: LessonDraft[] = [
       ),
       p(
         'Tampilannya akan dipasang di Bab 4 — memakai modul yang sama persis dengan yang kamu tulis sekarang.',
+      ),
+
+      terms(
+        {
+          term: 'DOM',
+          meaning:
+            'Singkatan *Document Object Model*, dibaca "dom", terjemahannya **model objek dokumen**. Representasi halaman web sebagai kumpulan objek yang bisa dibaca dan diubah oleh JavaScript — inilah yang ada di balik `document.querySelector(...)`. Praktik penutup ini **sengaja tidak menyentuhnya sama sekali**, dan itu bukan karena DOM sulit, melainkan karena memisahkan logika dari tampilan adalah keputusan yang akan membentuk seluruh sisa kurikulum.',
+        },
+        {
+          term: 'fungsi murni',
+          meaning:
+            'Terjemahan dari *pure function*. Fungsi dengan dua syarat: **hasilnya hanya ditentukan oleh argumen yang masuk**, dan **ia tidak mengubah apa pun di luar dirinya sendiri**. Konsekuensinya, memanggilnya seratus kali dengan argumen yang sama selalu memberi hasil yang sama, dan urutan pemanggilannya tidak pernah jadi masalah. Inilah yang membuatnya bisa diuji tanpa persiapan apa pun — tidak perlu browser, tidak perlu server, tidak perlu database.',
+        },
+        {
+          term: 'mutasi',
+          meaning:
+            'Perubahan yang terjadi **langsung pada data aslinya**. `push`, `splice`, `sort`, dan penugasan langsung ke elemen array (`daftar[0] = x`) semuanya bermutasi; `map`, `filter`, dan spread `[...daftar]` tidak. Perhatikan bahwa di seluruh modul praktik ini tidak ada satu pun operasi yang bermutasi — dan itu disengaja sepenuhnya.',
+        },
+        {
+          term: 'JSDoc',
+          meaning:
+            'Gabungan *JS* dan *doc* (dokumentasi). Format komentar khusus yang diawali `/**` dan berisi penanda seperti `@typedef`, `@property`, dan `@param`. Manfaat praktisnya besar: editor membaca komentar ini dan mulai memberikan autocomplete serta peringatan tipe **tanpa kamu perlu memakai TypeScript sama sekali**. Cocok sebagai langkah antara sebelum benar-benar pindah ke TypeScript di Bab 6.',
+        },
+        {
+          term: 'UUID',
+          meaning:
+            'Singkatan *Universally Unique Identifier*, artinya **penanda unik universal**. String acak panjang berbentuk `f81d4fae-7dec-11d0-a765-00a0c91e6bf6` yang kemungkinan kembarnya begitu kecil sampai bisa dianggap mustahil dalam praktik. `crypto.randomUUID()` menghasilkannya, dan ia hanya tersedia pada konteks aman — yaitu `https` atau `localhost`.',
+        },
+        {
+          term: 'ISO 8601',
+          meaning:
+            'Dibaca "ai-es-o delapan enam nol satu". Standar internasional penulisan tanggal dan waktu, bentuknya `2026-08-03T10:15:30.000Z`. Kelebihan utamanya sering diremehkan: karena bagian tahun ditulis lebih dulu, lalu bulan, lalu tanggal, **urutan teksnya selalu sama dengan urutan waktunya** — sehingga tanggal bisa diurutkan sebagai teks biasa tanpa dikonversi dulu. Huruf `Z` di akhir menandakan waktunya UTC.',
+        },
+        {
+          term: 'toggle',
+          meaning:
+            'Dibaca "to-gel", artinya **membalik keadaan** ke lawannya, seperti sakelar lampu. Kalau statusnya selesai menjadi belum, kalau belum menjadi selesai. Di kode, pembaliknya adalah operator `!` — `selesai: !t.selesai`.',
+        },
+        {
+          term: 'key',
+          meaning:
+            'Artinya **kunci** atau penanda identitas. Di React nanti, setiap elemen dalam sebuah daftar wajib punya `key` yang stabil agar React bisa mengenali mana yang berpindah, ditambah, atau dihapus. Alasan `id` harus stabil di modul ini **sama persis** dengan alasan `key` harus stabil di sana: sesuatu yang identitasnya berubah setiap saat bukanlah identitas.',
+        },
+        {
+          term: 'jalur tidak bahagia',
+          meaning:
+            'Terjemahan dari *unhappy path*, kadang disebut juga *sad path*. Jalur ketika sesuatu tidak berjalan sebagaimana diharapkan: input kosong, daftar kosong, id yang tidak ditemukan, angka nol sebagai pembagi. Pasangannya adalah *happy path*, jalur ketika semua berjalan lancar. Kenyataannya, jalur bahagia justru bagian yang paling jarang rusak — jadi di sanalah pengujian paling sedikit memberi manfaat.',
+        },
+        {
+          term: 't',
+          meaning:
+            'Singkatan *tugas*, nama parameter callback yang dipakai berulang di modul ini: `daftar.filter((t) => t.id !== id)`. Sekali lagi ini kebiasaan penamaan; menulis `(tugas) => tugas.id !== id` sama sahnya dan lebih jelas untuk pembaca baru.',
+        },
+        {
+          term: 'validasi di batas masuk',
+          meaning:
+            'Terjemahan bebas dari *validate at the boundary*. Prinsip memeriksa kebenaran data **satu kali, di satu tempat, tepat saat data itu masuk ke sistemmu** — bukan diperiksa berulang-ulang di setiap fungsi yang menyentuhnya. Di modul ini, `buatTugas()` adalah batas itu: setelah sebuah tugas berhasil dibuat, seluruh fungsi lain boleh mempercayai bahwa judulnya pasti sudah bersih dan tidak kosong.',
+        },
       ),
 
       h2('1. Rancang bentuk datanya lebih dulu'),
@@ -850,6 +1200,38 @@ console.log(ringkasan(daftar));
         'Fungsi murni tanpa mutasi bukan gaya, melainkan syarat agar React bekerja benar.',
         'Validasi di batas masuk: tolak input tidak valid sekali, di satu tempat.',
         'Uji kasus kosong, id tidak ada, dan nilai tak dikenal — di situlah bug bersembunyi.',
+      ),
+      references(
+        {
+          label: 'Crypto: randomUUID() method',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Crypto/randomUUID',
+          source: 'MDN',
+          note: 'Termasuk catatan bahwa ia hanya tersedia pada konteks yang aman (`https` atau `localhost`).',
+        },
+        {
+          label: 'Date.prototype.toISOString()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/toISOString',
+          source: 'MDN',
+          note: 'Bentuk baku tanggal yang dipakai `dibuatPada` di modul ini.',
+        },
+        {
+          label: 'Keeping Components Pure',
+          href: 'https://react.dev/learn/keeping-components-pure',
+          source: 'React',
+          note: 'Alasan resmi React kenapa fungsi tanpa mutasi bukan sekadar gaya penulisan.',
+        },
+        {
+          label: 'Rendering Lists',
+          href: 'https://react.dev/learn/rendering-lists',
+          source: 'React',
+          note: 'Bagian "Why does React need keys?" adalah lanjutan langsung dari keputusan `id` di sub-bab ini.',
+        },
+        {
+          label: 'JSDoc @typedef',
+          href: 'https://www.typescriptlang.org/docs/handbook/jsdoc-supported-types.html',
+          source: 'TypeScript',
+          note: 'Daftar penanda JSDoc yang dipahami editor untuk memberi tipe pada berkas JavaScript biasa.',
+        },
       ),
     ],
   ),

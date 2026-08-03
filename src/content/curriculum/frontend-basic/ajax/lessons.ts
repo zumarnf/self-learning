@@ -6,8 +6,10 @@ import {
   h2,
   ol,
   p,
+  references,
   steps,
   table,
+  terms,
   ul,
 } from '@/lib/content/builders';
 import { type LessonDraft, written } from '@/lib/curriculum/authoring';
@@ -25,6 +27,54 @@ export const lessons: LessonDraft[] = [
       ),
       p(
         '**AJAX** (Asynchronous JavaScript And XML) mengubah itu: JavaScript mengirim permintaan di latar belakang, menerima data, lalu memperbarui **bagian** halaman yang perlu saja. Namanya menyebut XML karena format itu yang populer saat itu; hari ini hampir semuanya JSON, tapi namanya terlanjur melekat.',
+      ),
+
+      terms(
+        {
+          term: 'AJAX',
+          meaning:
+            'Singkatan *Asynchronous JavaScript And XML*, dibaca "a-jaks". Teknik mengirim permintaan ke server **di latar belakang** lalu memperbarui hanya **bagian** halaman yang perlu, tanpa memuat ulang seluruhnya. Catatan sejarah yang penting: huruf X-nya menyebut XML karena format itu yang populer pada 2005; hari ini hampir semuanya JSON, tapi namanya sudah terlanjur melekat.',
+        },
+        {
+          term: 'XMLHttpRequest',
+          meaning:
+            'Sering disingkat **XHR**. Objek generasi pertama untuk mengirim permintaan dari JavaScript. Berbasis callback, penanganan errornya tersebar di beberapa property (`onload`, `onerror`), dan tidak bisa dirangkai. Kamu tidak perlu menulisnya lagi, tapi perlu bisa mengenalinya di kode lama.',
+        },
+        {
+          term: 'fetch',
+          meaning:
+            'Artinya **mengambil**. Pengganti modern `XMLHttpRequest` yang mengembalikan **Promise**, sehingga bisa dipakai dengan `await` dan `try`/`catch` biasa. Satu perilakunya wajib dihafal sejak sekarang: **`fetch` tidak menolak untuk status 404 atau 500** — bagi dia, jawaban "tidak ditemukan" tetap permintaan yang berhasil sampai tujuan.',
+        },
+        {
+          term: 'request',
+          meaning:
+            'Terjemahannya **permintaan**. Pesan yang dikirim browser ke server, berisi method, alamat, header, dan kadang badan pesan.',
+        },
+        {
+          term: 'response',
+          meaning:
+            'Terjemahannya **jawaban** atau respons. Pesan balasan dari server, berisi status, header, dan badan pesan. Perlu diingat: objek respons **belum berisi datanya** — datanya baru keluar setelah `await res.json()`.',
+        },
+        {
+          term: 'JSON',
+          meaning:
+            'Singkatan *JavaScript Object Notation*, dibaca "je-son". Format teks untuk bertukar data yang bentuknya menyerupai object literal JavaScript. Format baku hampir semua API hari ini, menggantikan XML yang jauh lebih bertele-tele.',
+        },
+        {
+          term: 'XML',
+          meaning:
+            'Singkatan *eXtensible Markup Language*. Format bertukar data berbasis tag seperti HTML. Masih dipakai di beberapa sistem lama dan RSS, tapi untuk API baru hampir selalu kalah dari JSON karena jauh lebih panjang untuk data yang sama.',
+        },
+        {
+          term: 'SPA',
+          meaning:
+            'Singkatan *Single Page Application*, terjemahannya **aplikasi satu halaman**. Aplikasi yang memuat satu dokumen HTML lalu mengganti isinya dari JavaScript, alih-alih berpindah halaman. AJAX adalah teknik yang memungkinkannya — tanpa AJAX, SPA tidak punya cara mengambil data baru.',
+        },
+        {
+          term: 'endpoint',
+          meaning:
+            'Terjemahannya **titik ujung**. Satu alamat di server yang melayani permintaan tertentu, misalnya `/api/pengguna`. Kamu akan merancang endpoint sendiri nanti di kategori Backend; di bab ini kamu berlatih memakainya.',
+        },
       ),
 
       h2('Yang berubah bagi pengguna'),
@@ -100,6 +150,38 @@ export const lessons: LessonDraft[] = [
         '`XMLHttpRequest` masih unggul untuk progres unggah.',
         'Keduanya sama-sama **tidak** menolak untuk status 404 atau 500.',
       ),
+      references(
+        {
+          label: 'Using the Fetch API',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch',
+          source: 'MDN',
+          note: 'Pengganti resmi `XMLHttpRequest`, lengkap dengan catatan bahwa ia tidak menolak untuk 404.',
+        },
+        {
+          label: 'XMLHttpRequest',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest',
+          source: 'MDN',
+          note: 'Dibaca bukan untuk dipakai lagi, melainkan agar kamu mengenalinya di kode lama.',
+        },
+        {
+          label: 'AJAX',
+          href: 'https://developer.mozilla.org/en-US/docs/Glossary/AJAX',
+          source: 'MDN',
+          note: 'Definisi ringkas beserta catatan kenapa huruf X-nya sudah tidak relevan lagi.',
+        },
+        {
+          label: 'JSON',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON',
+          source: 'MDN',
+          note: 'Format baku yang menggantikan XML, beserta `parse` dan `stringify`.',
+        },
+        {
+          label: 'ProgressEvent',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/ProgressEvent',
+          source: 'MDN',
+          note: 'Alasan `XMLHttpRequest` masih unggul untuk menampilkan progres unggahan.',
+        },
+      ),
     ],
   ),
 
@@ -111,6 +193,59 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Setiap permintaan HTTP punya bentuk yang sama: **method**, **URL**, **header**, dan kadang **body**. Setiap respons punya **status code**, **header**, dan **body**. Menguasai empat bagian ini membuat sisi frontend dan backend terasa seperti satu bahasa.',
+      ),
+
+      terms(
+        {
+          term: 'HTTP',
+          meaning:
+            'Singkatan *HyperText Transfer Protocol*, terjemahannya **protokol pengiriman hiperteks**. Aturan baku yang dipakai browser dan server untuk saling berbicara. Menguasainya membuat sisi frontend dan backend terasa seperti satu bahasa — dan seluruh kategori Backend nanti berdiri di atas bab ini.',
+        },
+        {
+          term: 'method',
+          meaning:
+            'Terjemahannya **kata kerja permintaan**. Kata di awal permintaan yang menyatakan **maksudmu**: `GET` untuk membaca, `POST` untuk membuat, `PUT` untuk mengganti, `DELETE` untuk menghapus. Bukan sekadar formalitas — perantara jaringan dan cache memperlakukan tiap method secara berbeda berdasarkan sifatnya.',
+        },
+        {
+          term: 'aman (safe)',
+          meaning:
+            'Sifat method yang **tidak mengubah apa pun** di server. Hanya `GET` dan `HEAD` yang aman. Konsekuensi praktisnya penting: tautan dan tombol yang mengubah data **tidak boleh** memakai `GET`, karena browser dan perayap web bebas memanggilnya kapan saja tanpa diminta.',
+        },
+        {
+          term: 'idempoten',
+          meaning:
+            'Dibaca "i-dem-po-ten". Sifat operasi yang **hasil akhirnya sama meski dijalankan berkali-kali**. `DELETE` idempoten — menghapus dua kali tetap menghasilkan "tidak ada". `POST` tidak — mengirim dua kali menghasilkan dua data. Ini yang menentukan boleh-tidaknya sebuah permintaan diulang otomatis saat gagal.',
+        },
+        {
+          term: 'status code',
+          meaning:
+            'Terjemahannya **kode status**. Angka tiga digit di jawaban server yang menyatakan hasilnya. Digit pertamanya sudah memberi tahu banyak: **2xx** berhasil, **3xx** dialihkan, **4xx** kesalahan dari pihak klien, **5xx** kesalahan dari pihak server. Membedakan 4xx dan 5xx menentukan apakah kamu perlu memperbaiki permintaanmu atau menunggu server pulih.',
+        },
+        {
+          term: 'header',
+          meaning:
+            'Terjemahannya **kepala pesan**. Pasangan nama–nilai yang membawa keterangan **tentang** permintaan atau jawaban, bukan isinya — misalnya `Content-Type` yang menyatakan format badan pesan, atau `Authorization` yang membawa identitas.',
+        },
+        {
+          term: 'body',
+          meaning:
+            'Terjemahannya **badan pesan**. Isi sebenarnya yang dikirim, biasanya JSON. `GET` dan `DELETE` umumnya tidak punya body — datanya dititipkan di URL sebagai query string.',
+        },
+        {
+          term: 'Content-Type',
+          meaning:
+            'Header yang menyatakan **format** badan pesan: `application/json`, `text/html`, `multipart/form-data`. Salah menyebutkannya adalah penyebab umum server menolak dengan `400` meski datamu sebenarnya sudah benar.',
+        },
+        {
+          term: 'Authorization',
+          meaning:
+            'Header yang membawa **bukti identitas** ke server, paling sering dalam bentuk `Bearer <token>`. Dibahas tuntas di Sub-bab 5.7 beserta perbandingannya dengan cookie.',
+        },
+        {
+          term: 'URL',
+          meaning:
+            'Singkatan *Uniform Resource Locator*. Alamat lengkap sebuah sumber daya. Bagian-bagiannya punya nama sendiri: **protokol** (`https:`), **host** (`contoh.id`), **path** (`/api/tugas`), dan **query string** (`?halaman=2`). Ketiga bagian pertama menentukan *origin*, yang menjadi inti pembahasan CORS di Sub-bab 5.6.',
+        },
       ),
 
       h2('Bentuk permintaan'),
@@ -231,6 +366,38 @@ export const lessons: LessonDraft[] = [
         'Nama header tidak case-sensitive; sebagian tersembunyi pada permintaan lintas origin.',
         'Pakai `URL` dan `searchParams`, jangan merangkai query string dengan tangan.',
       ),
+      references(
+        {
+          label: 'HTTP request methods',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods',
+          source: 'MDN',
+          note: 'Tabel resmi sifat aman dan idempoten tiap method — dasar seluruh sub-bab ini.',
+        },
+        {
+          label: 'HTTP response status codes',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status',
+          source: 'MDN',
+          note: 'Daftar lengkap status beserta arti tiap kelompok digit pertamanya.',
+        },
+        {
+          label: 'HTTP headers',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers',
+          source: 'MDN',
+          note: 'Rujukan seluruh header, termasuk mana yang boleh dibaca pada permintaan lintas origin.',
+        },
+        {
+          label: 'URL',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/URL',
+          source: 'MDN',
+          note: 'Beserta `searchParams` — cara aman menyusun query string tanpa merangkai teks.',
+        },
+        {
+          label: 'RFC 9110: HTTP Semantics',
+          href: 'https://www.rfc-editor.org/rfc/rfc9110.html',
+          source: 'IETF',
+          note: 'Spesifikasi aslinya, sumber kebenaran untuk definisi "safe" dan "idempotent".',
+        },
+      ),
     ],
   ),
 
@@ -240,6 +407,54 @@ export const lessons: LessonDraft[] = [
     12,
     'Pemanggilan API sehari-hari, dari yang paling sederhana sampai unggahan berkas.',
     [
+      terms(
+        {
+          term: 'res',
+          meaning:
+            'Singkatan *response*, nama variabel yang lazim untuk hasil `fetch`. Yang wajib dipahami: **`res` belum berisi datanya** — ia baru berisi status, header, dan sebuah aliran yang belum dibaca. Datanya keluar setelah `await res.json()`, dan itulah sebabnya hampir selalu ada dua `await` berturut-turut.',
+        },
+        {
+          term: 'res.json()',
+          meaning:
+            'Method yang **membaca badan jawaban lalu mengurainya sebagai JSON**. Ia mengembalikan Promise karena badan pesan bisa saja masih mengalir dari jaringan. Perlu diketahui: memanggilnya pada jawaban yang bukan JSON — misalnya halaman error HTML — melempar `SyntaxError` yang pesannya membingungkan.',
+        },
+        {
+          term: 'res.text()',
+          meaning:
+            'Membaca badan jawaban sebagai teks mentah. Berguna saat kamu tidak yakin server mengirim JSON, atau ketika ingin melihat isi sebenarnya dari jawaban yang gagal diurai.',
+        },
+        {
+          term: 'body sekali baca',
+          meaning:
+            'Badan jawaban `fetch` hanya bisa **dibaca satu kali**. Memanggil `res.json()` setelah `res.text()` pada objek yang sama melempar error. Kalau butuh keduanya, baca sebagai teks lalu urai sendiri dengan `JSON.parse`, atau gandakan dulu dengan `res.clone()`.',
+        },
+        {
+          term: 'options',
+          meaning:
+            'Objek argumen kedua `fetch` yang mengatur permintaan: `method`, `headers`, `body`, `signal`, `credentials`. Tanpa objek ini, `fetch` menganggap permintaanmu `GET` sederhana.',
+        },
+        {
+          term: 'JSON.stringify',
+          meaning:
+            'Mengubah object JavaScript menjadi teks JSON, kebalikan dari `JSON.parse`. Wajib dipakai saat mengisi `body`, karena `fetch` **tidak** mengubah object menjadi JSON dengan sendirinya — mengirim object mentah menghasilkan teks `[object Object]` yang tidak berguna.',
+        },
+        {
+          term: 'query string',
+          meaning:
+            'Bagian URL setelah tanda tanya, berisi pasangan nama–nilai: `?status=aktif&hal=2`. Susun dengan `URLSearchParams` dan jangan pernah merangkainya dengan penyambungan teks — nilai yang mengandung spasi, tanda `&`, atau huruf non-Latin akan merusak alamatnya.',
+        },
+        {
+          term: 'encodeURIComponent',
+          meaning:
+            'Fungsi yang mengubah karakter bermakna khusus menjadi bentuk amannya untuk URL — spasi menjadi `%20`, `&` menjadi `%26`. `URLSearchParams` sudah melakukannya otomatis, jadi kamu jarang perlu memanggilnya sendiri.',
+        },
+        {
+          term: 'multipart/form-data',
+          meaning:
+            'Format badan pesan untuk mengirim **berkas** bersama data teks. Aturan yang sering menjebak: kalau kamu memakai `FormData`, **jangan menulis header `Content-Type` sendiri** — browser harus menyusunnya sendiri agar bisa menyisipkan penanda pembatas yang benar.',
+        },
+      ),
+
       h2('GET'),
       code(
         'js',
@@ -372,6 +587,38 @@ export const lessons: LessonDraft[] = [
         'Periksa `content-type` sebelum `res.json()` supaya pesan errornya jujur.',
         '`204 No Content` tidak punya body — jangan panggil `res.json()` untuknya.',
       ),
+      references(
+        {
+          label: 'fetch()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Window/fetch',
+          source: 'MDN',
+          note: 'Seluruh opsi permintaan: `method`, `headers`, `body`, `credentials`, dan `signal`.',
+        },
+        {
+          label: 'Response',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Response',
+          source: 'MDN',
+          note: 'Menegaskan bahwa badan jawaban hanya bisa dibaca sekali, beserta `clone()` sebagai jalan keluar.',
+        },
+        {
+          label: 'URLSearchParams',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams',
+          source: 'MDN',
+          note: 'Menyusun query string dengan pengkodean otomatis — pengganti penyambungan teks.',
+        },
+        {
+          label: 'Headers',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Headers',
+          source: 'MDN',
+          note: 'Termasuk aturan jangan menulis `Content-Type` sendiri saat memakai `FormData`.',
+        },
+        {
+          label: '204 No Content',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/204',
+          source: 'MDN',
+          note: 'Alasan `res.json()` tidak boleh dipanggil untuk status ini.',
+        },
+      ),
     ],
   ),
 
@@ -383,6 +630,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Ini sub-bab pendek dengan dampak besar. Satu salah paham di sini membuat aplikasi menampilkan "berhasil" padahal server menolak permintaannya.',
+      ),
+
+      terms(
+        {
+          term: 'res.ok',
+          meaning:
+            'Property boolean yang bernilai `true` **hanya** untuk status 200–299. Inilah pemeriksaan yang wajib kamu tulis sendiri setelah setiap `fetch`. Melewatkannya adalah kesalahan nomor satu di sub-bab ini, dan akibatnya aplikasi menampilkan "berhasil" padahal server menolak.',
+        },
+        {
+          term: 'menolak (reject)',
+          meaning:
+            'Promise yang berakhir gagal sehingga masuk ke `catch`. Aturan `fetch` konsisten dan perlu dihafal: ia menolak **hanya kalau jawabannya tidak sampai** — jaringan mati, DNS gagal, dibatalkan, atau diblokir CORS. Begitu server menjawab, apa pun isinya, permintaannya dianggap berhasil dilakukan.',
+        },
+        {
+          term: 'TypeError',
+          meaning:
+            'Jenis error yang dilempar `fetch` saat permintaan **tidak sampai sama sekali**. Sayangnya pesannya sengaja dibuat kabur ("Failed to fetch") demi keamanan — browser tidak ingin membocorkan apakah kegagalannya karena jaringan, DNS, atau CORS.',
+        },
+        {
+          term: 'error jaringan',
+          meaning:
+            'Kegagalan sebelum jawaban sempat tiba: koneksi putus, server tidak dapat dihubungi, permintaan diblokir. Bedakan dari **error aplikasi** seperti `404` atau `422` — yang pertama layak dicoba ulang, yang kedua tidak.',
+        },
+        {
+          term: 'error terstruktur',
+          meaning:
+            'Objek `Error` buatanmu yang **membawa keterangan tambahan** selain pesan — `status`, `kode`, atau isi jawaban server. Tanpa itu, pemanggil hanya punya teks untuk dicocokkan, dan pencocokan teks selalu rapuh.',
+        },
+        {
+          term: 'error.cause',
+          meaning:
+            'Property baku untuk **menyimpan error asal** saat kamu membungkusnya dengan error baru: `new Error("Gagal memuat", { cause: e })`. Tanpa itu, jejak penyebab sebenarnya hilang begitu error dibungkus ulang.',
+        },
+        {
+          term: 'pesan yang bisa ditindaklanjuti',
+          meaning:
+            'Pesan error yang memberi tahu pengguna **apa yang bisa ia lakukan**, bukan sekadar menyatakan ada yang salah. "Periksa koneksi lalu coba lagi" bisa ditindaklanjuti; "Terjadi kesalahan" tidak. Aturan pendampingnya dari `security.md`: detail teknis tetap di log, jangan di layar.',
+        },
+        {
+          term: 'graceful degradation',
+          meaning:
+            'Terjemahannya **penurunan yang anggun**. Aplikasi tetap berguna meski sebagian gagal — misalnya menampilkan data lama dari cache sambil memberi tahu bahwa pembaruan gagal, alih-alih menampilkan layar kosong.',
+        },
       ),
 
       h2('Kapan `fetch` menolak'),
@@ -501,6 +791,38 @@ export const lessons: LessonDraft[] = [
         'Koneksi yang ditolak memberi `TypeError`, bukan `TimeoutError`.',
         'Detail lengkap ke log; pesan yang bisa ditindaklanjuti ke layar.',
       ),
+      references(
+        {
+          label: 'Response.ok',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Response/ok',
+          source: 'MDN',
+          note: 'Pemeriksaan wajib setelah setiap `fetch` — inti seluruh sub-bab ini.',
+        },
+        {
+          label: 'Using the Fetch API — Checking that the fetch was successful',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch',
+          source: 'MDN',
+          note: 'Penegasan resmi bahwa `fetch` hanya menolak saat jawaban tidak sampai.',
+        },
+        {
+          label: 'Error: cause',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/cause',
+          source: 'MDN',
+          note: 'Menyimpan error asal saat membungkusnya, agar jejak penyebab tidak hilang.',
+        },
+        {
+          label: 'TypeError',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypeError',
+          source: 'MDN',
+          note: 'Jenis error yang dilempar `fetch` saat permintaan tidak sampai sama sekali.',
+        },
+        {
+          label: 'Error Handling Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Error_Handling_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Alasan keamanan di balik "detail ke log, pesan generik ke layar".',
+        },
+      ),
     ],
   ),
 
@@ -510,6 +832,59 @@ export const lessons: LessonDraft[] = [
     11,
     'Mengirim berkas dari browser — dan kenapa validasi klien bukan pengaman.',
     [
+      terms(
+        {
+          term: 'File',
+          meaning:
+            'Objek yang mewakili satu berkas yang dipilih pengguna, berisi `name`, `size`, `type`, dan `lastModified`. Peringatan yang wajib melekat: **`type` berasal dari klien dan bisa dipalsukan** — mengganti nama `virus.exe` menjadi `foto.jpg` sudah cukup untuk mengelabuinya.',
+        },
+        {
+          term: 'FileList',
+          meaning:
+            'Kumpulan berkas pada `input.files`. Seperti `NodeList`, ia **mirip array tapi bukan array** — sebarkan dengan `[...input.files]` kalau butuh `map` atau `filter`.',
+        },
+        {
+          term: 'FormData',
+          meaning:
+            'Objek yang menyusun badan pesan `multipart/form-data`, satu-satunya format yang bisa membawa **berkas dan teks sekaligus**. Aturan mutlaknya: **jangan pernah menulis header `Content-Type` sendiri** saat memakainya — browser harus menyusunnya sendiri agar bisa menyisipkan penanda pembatas yang benar.',
+        },
+        {
+          term: 'multipart',
+          meaning:
+            'Terjemahannya **berbagai bagian**. Format badan pesan yang memisahkan tiap potongan data dengan penanda pembatas unik, sehingga berkas biner dan teks bisa dikirim dalam satu permintaan tanpa saling merusak.',
+        },
+        {
+          term: 'boundary',
+          meaning:
+            'Terjemahannya **pembatas**. Untai teks acak yang memisahkan tiap bagian di dalam badan `multipart`. Nilainya harus dijamin tidak muncul di dalam isi berkas — dan justru karena itulah browser yang harus membuatnya, bukan kamu.',
+        },
+        {
+          term: 'MIME type',
+          meaning:
+            'Singkatan *Multipurpose Internet Mail Extensions*. Penanda jenis berkas seperti `image/jpeg` atau `application/pdf`. Asal-usulnya memang dari surel, tapi kini dipakai di seluruh web untuk menyatakan format sebuah data.',
+        },
+        {
+          term: 'magic bytes',
+          meaning:
+            'Terjemahannya **byte penanda**. Beberapa byte pertama sebuah berkas yang menyatakan jenis aslinya — misalnya berkas PNG selalu diawali `89 50 4E 47`. Inilah cara **server** memeriksa jenis berkas yang sebenarnya, karena ia tidak bisa dipalsukan hanya dengan mengganti nama.',
+        },
+        {
+          term: 'accept',
+          meaning:
+            'Atribut pada `<input type="file">` yang **menyaring pilihan di dialog** berkas, misalnya `accept="image/*"`. Perlu ditegaskan: ini murni kenyamanan — ia sama sekali tidak mencegah pengguna memilih berkas lain lewat cara lain.',
+        },
+        {
+          term: 'validasi klien vs server',
+          meaning:
+            'Pemeriksaan di browser membuat pengguna dapat jawaban seketika; pemeriksaan di server **satu-satunya yang mengamankan**. Untuk unggahan, server wajib memeriksa ukuran, jenis berkas dari magic bytes, dan menyimpannya dengan nama yang ia buat sendiri — bukan nama dari klien.',
+        },
+        {
+          term: 'objectURL',
+          meaning:
+            'Alamat sementara berbentuk `blob:` yang dibuat `URL.createObjectURL(file)` untuk menampilkan pratinjau tanpa mengunggah apa pun. Wajib dilepas dengan `URL.revokeObjectURL(...)` setelah selesai, kalau tidak berkasnya tertahan di memori.',
+        },
+      ),
+
       h2('Memilih berkas'),
       code('html', `<input type="file" id="berkas" accept="image/*" multiple />`),
       code(
@@ -614,6 +989,38 @@ export const lessons: LessonDraft[] = [
         '`file.type` berasal dari klien dan bisa dipalsukan.',
         'Validasi klien adalah kenyamanan; server wajib memeriksa ulang semuanya.',
       ),
+      references(
+        {
+          label: 'FormData',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/FormData',
+          source: 'MDN',
+          note: 'Termasuk aturan jangan menyetel `Content-Type` sendiri agar boundary tersusun benar.',
+        },
+        {
+          label: 'File',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/File',
+          source: 'MDN',
+          note: 'Property `name`, `size`, dan `type` — beserta catatan bahwa `type` berasal dari klien.',
+        },
+        {
+          label: 'URL.createObjectURL()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/URL/createObjectURL_static',
+          source: 'MDN',
+          note: 'Pratinjau tanpa mengunggah, beserta kewajiban memanggil `revokeObjectURL`.',
+        },
+        {
+          label: 'File Upload Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Daftar pemeriksaan yang wajib dilakukan server: magic bytes, ukuran, dan nama berkas.',
+        },
+        {
+          label: 'HTML attribute: accept',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/accept',
+          source: 'MDN',
+          note: 'Menegaskan bahwa ia hanya menyaring dialog berkas, bukan mencegah apa pun.',
+        },
+      ),
     ],
   ),
 
@@ -625,6 +1032,59 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Hampir setiap orang yang belajar frontend pernah berhenti karena pesan ini. Kabar baiknya: setelah paham **siapa yang memblokir dan kenapa**, penyelesaiannya selalu sama dan selalu di sisi server.',
+      ),
+
+      terms(
+        {
+          term: 'origin',
+          meaning:
+            'Terjemahannya **asal**. Gabungan **protokol + host + port** sebuah alamat. Path tidak ikut dihitung. Karena ketiganya harus identik, `https://app.id` dan `https://api.app.id` adalah origin **berbeda** — subdomain pun dihitung host lain, dan ini yang paling sering mengejutkan.',
+        },
+        {
+          term: 'same-origin policy',
+          meaning:
+            'Terjemahannya **kebijakan asal yang sama**. Aturan bawaan browser yang melarang halaman dari satu origin membaca jawaban dari origin lain. Alasannya sangat konkret: tanpa aturan ini, situs jahat yang kamu buka bisa memanggil `https://bank.id/api/saldo` **dengan cookie login-mu** lalu membaca hasilnya.',
+        },
+        {
+          term: 'CORS',
+          meaning:
+            'Singkatan *Cross-Origin Resource Sharing*, terjemahannya **berbagi sumber daya lintas asal**. Perlu diluruskan: CORS **bukan** yang memblokir permintaanmu — same-origin policy yang memblokir, dan CORS justru mekanisme server untuk **mengizinkan pengecualian secara sadar**. Karena itu penyelesaiannya selalu di sisi server, tidak pernah di kodemu.',
+        },
+        {
+          term: 'preflight',
+          meaning:
+            'Terjemahannya **penerbangan pendahuluan**. Permintaan `OPTIONS` yang **dikirim browser lebih dulu** untuk bertanya "boleh tidak saya mengirim permintaan seperti ini?". Terpicu oleh method selain GET/POST/HEAD, atau oleh header tidak baku seperti `Authorization`. Kalau preflight ditolak, permintaan sebenarnya tidak pernah dikirim sama sekali.',
+        },
+        {
+          term: 'Access-Control-Allow-Origin',
+          meaning:
+            'Header **jawaban dari server** yang menyatakan origin mana yang boleh membaca hasilnya. Inilah header yang keberadaannya dicari browser. Perlu diingat: `*` tidak boleh dipakai bersama `credentials: "include"` — kombinasi itu ditolak spesifikasi karena akan membuka celah yang justru ingin ditutup.',
+        },
+        {
+          term: 'simple request',
+          meaning:
+            'Terjemahannya **permintaan sederhana**. Permintaan yang **tidak memicu preflight** karena memenuhi syarat ketat: method GET, POST, atau HEAD, dengan `Content-Type` terbatas pada tiga nilai saja. Menambahkan satu header kustom saja sudah cukup membuatnya tidak lagi sederhana.',
+        },
+        {
+          term: 'credentials',
+          meaning:
+            'Opsi `fetch` yang menentukan **apakah cookie ikut dikirim**. Nilai `include` mengirimnya bahkan lintas origin — dan begitu dipakai, server wajib menyebutkan origin secara persis serta menambahkan `Access-Control-Allow-Credentials: true`.',
+        },
+        {
+          term: 'opaque response',
+          meaning:
+            'Terjemahannya **jawaban buram**. Jawaban yang **diterima browser tapi tidak boleh dibaca kodemu** — statusnya tampak `0` dan badannya kosong. Ini yang kamu lihat saat CORS gagal: datanya sebenarnya sampai, tapi browser menolak menyerahkannya kepadamu.',
+        },
+        {
+          term: 'proxy',
+          meaning:
+            'Terjemahannya **perantara**. Server milikmu sendiri yang meneruskan permintaan ke API pihak ketiga. Ini jalan keluar yang sah saat kamu **tidak bisa mengubah** server tujuan — karena permintaan server-ke-server tidak tunduk pada same-origin policy sama sekali.',
+        },
+        {
+          term: 'curl',
+          meaning:
+            'Alat baris perintah untuk mengirim permintaan HTTP. Disebut di sini karena ia **berhasil pada alamat yang persis sama** dengan yang diblokir di browser — dan itu bukan keanehan, melainkan bukti bahwa CORS adalah kontrol **browser**, bukan kontrol server. Konsekuensi pentingnya: CORS tidak pernah bisa dianggap sebagai pengaman.',
+        },
       ),
 
       h2('Same-origin policy'),
@@ -750,6 +1210,38 @@ export const lessons: LessonDraft[] = [
         'JSON + `Authorization` hampir selalu memicu preflight `OPTIONS`.',
         'Allow-list origin yang persis; jangan `*` dengan credentials, jangan pantulkan `Origin`.',
       ),
+      references(
+        {
+          label: 'Cross-Origin Resource Sharing (CORS)',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS',
+          source: 'MDN',
+          note: 'Rujukan utama sub-bab ini: preflight, header yang terlibat, dan syarat simple request.',
+        },
+        {
+          label: 'Same-origin policy',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy',
+          source: 'MDN',
+          note: 'Aturan yang sebenarnya memblokir — CORS hanyalah cara server memberi pengecualian.',
+        },
+        {
+          label: 'Access-Control-Allow-Origin',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Access-Control-Allow-Origin',
+          source: 'MDN',
+          note: 'Termasuk larangan memakai `*` bersama permintaan yang membawa credentials.',
+        },
+        {
+          label: 'Origin',
+          href: 'https://developer.mozilla.org/en-US/docs/Glossary/Origin',
+          source: 'MDN',
+          note: 'Definisi resmi: protokol + host + port, dan kenapa subdomain dihitung berbeda.',
+        },
+        {
+          label: 'Fetch Standard — CORS protocol',
+          href: 'https://fetch.spec.whatwg.org/#http-cors-protocol',
+          source: 'WHATWG',
+          note: 'Spesifikasi aslinya, sumber kebenaran untuk kapan preflight wajib dikirim.',
+        },
+      ),
     ],
   ),
 
@@ -761,6 +1253,59 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Setelah login, browser harus membuktikan siapa kamu di setiap permintaan berikutnya. Ada dua cara utama, dan keduanya punya risiko berbeda — bukan satu yang aman dan satu yang tidak.',
+      ),
+
+      terms(
+        {
+          term: 'autentikasi',
+          meaning:
+            'Dari *authentication*, terjemahannya **pembuktian identitas** — menjawab "siapa kamu". Bedakan dari **otorisasi** (*authorization*) yang menjawab "boleh apa saja kamu". Keduanya sering disingkat sama-sama "auth", padahal urusannya berbeda: kamu bisa terautentikasi tapi tetap tidak berhak.',
+        },
+        {
+          term: 'Bearer token',
+          meaning:
+            'Artinya **token pembawa**. Untai teks yang dikirim di header `Authorization: Bearer <token>` sebagai bukti identitas. Namanya menjelaskan risikonya: **siapa pun yang membawanya diperlakukan sebagai pemiliknya** — tidak ada pemeriksaan tambahan apakah pembawanya memang orang yang berhak.',
+        },
+        {
+          term: 'cookie',
+          meaning:
+            'Potongan data kecil yang disimpan browser dan **dikirim otomatis** ke server pada setiap permintaan ke domain itu. Sifat otomatis inilah kelebihan sekaligus kelemahannya: kamu tidak perlu mengurusnya, tapi ia juga ikut terkirim pada permintaan yang dipicu situs lain.',
+        },
+        {
+          term: 'HttpOnly',
+          meaning:
+            'Penanda pada cookie yang membuatnya **tidak bisa dibaca JavaScript sama sekali**. Ini keunggulan besar cookie atas token di `localStorage`: kalau ada celah XSS, skrip penyerang tetap tidak bisa mencuri cookie yang ditandai `HttpOnly`.',
+        },
+        {
+          term: 'Secure',
+          meaning:
+            'Penanda yang membuat cookie **hanya dikirim lewat HTTPS**. Tanpa itu, cookie ikut terkirim dalam bentuk terbaca pada koneksi biasa, dan siapa pun yang menyadap jaringan bisa mengambilnya.',
+        },
+        {
+          term: 'SameSite',
+          meaning:
+            'Penanda yang mengatur **apakah cookie ikut terkirim** saat permintaan dipicu dari situs lain. Nilai `Lax` (bawaan sekarang) dan `Strict` adalah pertahanan utama terhadap CSRF, karena keduanya memutus jalur yang dipakai serangan itu.',
+        },
+        {
+          term: 'CSRF',
+          meaning:
+            'Singkatan *Cross-Site Request Forgery*, terjemahannya **pemalsuan permintaan lintas situs**. Serangan di mana situs jahat memicu permintaan ke situsmu **memakai cookie login korban**. Perhatikan pembagian risikonya: pola cookie rentan CSRF, sementara pola Bearer rentan XSS. Tidak ada yang aman tanpa syarat — masing-masing menukar satu risiko dengan risiko lain.',
+        },
+        {
+          term: 'access token',
+          meaning:
+            'Token berumur **pendek** (hitungan menit) yang dipakai untuk mengakses sumber daya. Umurnya sengaja dibuat pendek agar token yang dicuri cepat kedaluwarsa dengan sendirinya.',
+        },
+        {
+          term: 'refresh token',
+          meaning:
+            'Token berumur **panjang** yang tugasnya hanya satu: menukar dirinya dengan access token baru. Disimpan lebih hati-hati — idealnya sebagai cookie `HttpOnly` — dan sebaiknya **dirotasi setiap kali dipakai**, sehingga kemunculan token lama menjadi tanda pencurian.',
+        },
+        {
+          term: 'JWT',
+          meaning:
+            'Singkatan *JSON Web Token*, dibaca "jot". Format token yang membawa datanya sendiri dalam bentuk bertanda tangan. Satu hal yang wajib dipahami sejak awal: **isinya hanya di-encode base64, bukan dienkripsi** — siapa pun bisa membacanya. Jangan pernah menaruh apa pun yang rahasia di dalamnya.',
+        },
       ),
 
       h2('Pola 1 — Bearer token di header'),
@@ -891,6 +1436,38 @@ export const lessons: LessonDraft[] = [
         'Refresh token harus dijaga agar hanya satu yang berjalan pada satu waktu.',
         'JWT bisa dibaca siapa saja; jangan pernah menaruh rahasia di dalamnya.',
       ),
+      references(
+        {
+          label: 'Using HTTP cookies',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies',
+          source: 'MDN',
+          note: 'Penanda `HttpOnly`, `Secure`, dan `SameSite` beserta perilaku bawaannya sekarang.',
+        },
+        {
+          label: 'Authorization header',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Authorization',
+          source: 'MDN',
+          note: 'Bentuk baku `Bearer <token>` dan skema autentikasi lain yang tersedia.',
+        },
+        {
+          label: 'Cross-Site Request Forgery Prevention Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Risiko utama pola cookie, beserta pola token anti-CSRF yang menutupnya.',
+        },
+        {
+          label: 'JSON Web Token Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Kesalahan JWT yang paling sering, termasuk menaruh data rahasia di payload.',
+        },
+        {
+          label: 'RFC 6750: Bearer Token Usage',
+          href: 'https://www.rfc-editor.org/rfc/rfc6750.html',
+          source: 'IETF',
+          note: 'Spesifikasi resminya, termasuk penegasan bahwa pembawa token diperlakukan sebagai pemiliknya.',
+        },
+      ),
     ],
   ),
 
@@ -900,6 +1477,54 @@ export const lessons: LessonDraft[] = [
     11,
     'Menyimpan data di browser — beserta batas yang sering ditemukan terlambat.',
     [
+      terms(
+        {
+          term: 'Web Storage',
+          meaning:
+            'Nama payung untuk `localStorage` dan `sessionStorage`. Keduanya menyimpan data **di browser pengguna**, terikat pada satu origin — data yang disimpan situs A tidak akan pernah bisa dibaca situs B.',
+        },
+        {
+          term: 'localStorage',
+          meaning:
+            'Penyimpanan yang isinya **bertahan sampai dihapus**, bahkan setelah browser ditutup dan komputer dimatikan. Kapasitasnya sekitar 5–10 MB. Dua batas yang sering ditemukan terlambat: **isinya hanya bisa berupa teks**, dan **API-nya sinkron** sehingga operasi besar memblokir tampilan.',
+        },
+        {
+          term: 'sessionStorage',
+          meaning:
+            'Sama seperti `localStorage`, kecuali umurnya **hanya selama tab terbuka**. Perbedaan penting lainnya: tiap tab punya salinannya sendiri yang **tidak dibagi**. Cocok untuk keadaan sementara seperti langkah formulir bertahap.',
+        },
+        {
+          term: 'IndexedDB',
+          meaning:
+            'Basis data di dalam browser yang jauh lebih mampu: kapasitas ratusan megabita, bisa menyimpan **objek, Blob, dan File** apa adanya tanpa diubah jadi teks, dan **asinkron** sehingga tidak memblokir tampilan. Harganya: API bawaannya rumit, sehingga hampir semua orang memakai pembungkus seperti `idb`.',
+        },
+        {
+          term: 'serialize',
+          meaning:
+            'Mengubah data menjadi teks agar bisa disimpan. Karena Web Storage hanya menerima teks, objek **wajib** melewati `JSON.stringify` dulu. Menyimpannya langsung tidak melempar error — ia diam-diam tersimpan sebagai teks `[object Object]`, dan itulah yang membuat bug ini sulit dilacak.',
+        },
+        {
+          term: 'quota',
+          meaning:
+            'Terjemahannya **jatah**. Batas ruang yang diberikan browser per origin. Melewatinya membuat penulisan **melempar `QuotaExceededError`** — dan karena penyimpanan sering dianggap pasti berhasil, kegagalan ini biasanya tidak ditangani siapa pun.',
+        },
+        {
+          term: 'input tidak tepercaya',
+          meaning:
+            'Sikap yang wajib diambil terhadap isi Web Storage. Pengguna bisa mengubahnya kapan saja lewat DevTools, dan versi lama aplikasimu mungkin menyimpan bentuk yang berbeda. Karena itu hasil `JSON.parse` **wajib divalidasi bentuknya**, persis seperti data dari jaringan.',
+        },
+        {
+          term: 'storage event',
+          meaning:
+            'Peristiwa yang berbunyi ketika `localStorage` diubah **dari tab lain** pada origin yang sama. Berguna untuk menyelaraskan keadaan antar-tab — misalnya logout di satu tab ikut melogout tab lainnya. Perhatikan: ia **tidak** berbunyi di tab yang melakukan perubahan itu sendiri.',
+        },
+        {
+          term: 'PII',
+          meaning:
+            'Singkatan *Personally Identifiable Information*, artinya **data yang bisa mengidentifikasi seseorang**. Web Storage bukan tempatnya: isinya terbaca JavaScript mana pun di halaman itu, sehingga satu celah XSS sudah cukup untuk membocorkan semuanya.',
+        },
+      ),
+
       h2('Tiga pilihan'),
       table(
         ['', '`localStorage`', '`sessionStorage`', 'IndexedDB'],
@@ -1026,6 +1651,38 @@ export const lessons: LessonDraft[] = [
         'API-nya sinkron dan memblokir tampilan; data besar sebaiknya ke IndexedDB.',
         'Event `storage` hanya terpicu di tab lain.',
       ),
+      references(
+        {
+          label: 'Window.localStorage',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage',
+          source: 'MDN',
+          note: 'Termasuk kapan penulisan bisa gagal dengan `QuotaExceededError`.',
+        },
+        {
+          label: 'Window.sessionStorage',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Window/sessionStorage',
+          source: 'MDN',
+          note: 'Menegaskan bahwa tiap tab punya salinannya sendiri yang tidak dibagi.',
+        },
+        {
+          label: 'IndexedDB API',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API',
+          source: 'MDN',
+          note: 'Untuk data besar, berkas, dan pencarian — asinkron sehingga tidak memblokir tampilan.',
+        },
+        {
+          label: 'Window: storage event',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Window/storage_event',
+          source: 'MDN',
+          note: 'Menyelaraskan keadaan antar-tab; tidak berbunyi di tab yang melakukan perubahan.',
+        },
+        {
+          label: 'Storage for the web',
+          href: 'https://web.dev/articles/storage-for-the-web',
+          source: 'web.dev',
+          note: 'Panduan memilih di antara ketiganya, beserta cara browser menentukan kuota.',
+        },
+      ),
     ],
   ),
 
@@ -1037,6 +1694,59 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'API berikut punya satu pola bersama: sebagian butuh **izin pengguna**, sebagian butuh **secure context** (HTTPS atau `localhost`), dan semuanya bisa ditolak. Kode yang menganggapnya selalu berhasil akan rusak di perangkat sungguhan.',
+      ),
+
+      terms(
+        {
+          term: 'secure context',
+          meaning:
+            'Terjemahannya **konteks aman**. Syarat bahwa halaman harus dimuat lewat **HTTPS** atau berjalan di `localhost`. Banyak API modern menolak bekerja di luar itu, dan alasannya masuk akal: kemampuan seperti membaca lokasi atau kamera tidak boleh dititipkan pada koneksi yang bisa disadap dan dipalsukan.',
+        },
+        {
+          term: 'izin',
+          meaning:
+            'Dari *permission*. Persetujuan yang harus diberikan pengguna sebelum sebuah kemampuan bisa dipakai. Tiga keadaannya: `granted` (diizinkan), `denied` (ditolak), dan `prompt` (belum ditanya). Yang wajib diingat: **penolakan bersifat menetap** — sekali ditolak, browser tidak akan bertanya lagi sampai pengguna mengubahnya sendiri dari pengaturan.',
+        },
+        {
+          term: 'user gesture',
+          meaning:
+            'Terjemahannya **tindakan langsung pengguna** — klik, ketukan, atau tekanan tombol. Sebagian API **hanya boleh dipanggil dari dalam penangan peristiwa semacam itu**, bukan dari `setTimeout` atau saat halaman dimuat. Aturan ini ada untuk mencegah situs menyalin papan klip atau meminta izin tanpa sebab yang terlihat pengguna.',
+        },
+        {
+          term: 'navigator',
+          meaning:
+            'Objek browser yang menjadi **pintu masuk sebagian besar kemampuan perangkat**: `navigator.clipboard`, `navigator.geolocation`, `navigator.mediaDevices`. Namanya warisan sejarah dari Netscape Navigator, dan sudah terlanjur menjadi standar.',
+        },
+        {
+          term: 'Clipboard API',
+          meaning:
+            'Kemampuan membaca dan menulis **papan klip** (tempat hasil salin-tempel). Menulis relatif mudah; **membaca** jauh lebih dibatasi karena isinya bisa saja berupa kata sandi yang baru disalin pengguna dari aplikasi lain.',
+        },
+        {
+          term: 'Geolocation API',
+          meaning:
+            'Kemampuan membaca **posisi geografis** perangkat. Selalu butuh izin, selalu butuh secure context, dan **selalu bisa ditolak atau gagal** — pengguna bisa menolak, GPS bisa tidak tersedia, atau pembacaan bisa habis waktu. Ketiga kemungkinan itu wajib ditangani.',
+        },
+        {
+          term: 'Notification API',
+          meaning:
+            'Kemampuan menampilkan pemberitahuan sistem di luar halaman. Aturan tak tertulis yang penting: **jangan meminta izinnya saat halaman baru dibuka**. Pengguna yang belum tahu situsmu untuk apa hampir pasti menolak, dan penolakan itu menetap.',
+        },
+        {
+          term: 'File API',
+          meaning:
+            'Kumpulan kemampuan membaca berkas yang dipilih pengguna — `File`, `FileReader`, `Blob`. Perlu ditegaskan: ia hanya bisa membaca berkas yang **secara sadar dipilih pengguna** lewat dialog atau seret-lepas, bukan menjelajahi berkas di komputernya.',
+        },
+        {
+          term: 'Blob',
+          meaning:
+            'Singkatan *Binary Large Object*. Wadah untuk data biner mentah — isi gambar, berkas PDF, potongan video. `File` sebenarnya adalah `Blob` yang diberi nama dan tanggal.',
+        },
+        {
+          term: 'progressive enhancement',
+          meaning:
+            'Terjemahannya **peningkatan bertahap**. Prinsip membangun agar fungsi dasarnya tetap berjalan tanpa kemampuan tambahan, lalu memperkayanya kalau kemampuan itu tersedia. Wujud praktisnya di sub-bab ini: **selalu periksa keberadaan API dulu**, dan sediakan jalan lain saat izinnya ditolak.',
+        },
       ),
 
       h2('Clipboard'),
@@ -1157,6 +1867,38 @@ export const lessons: LessonDraft[] = [
         '`dragover` wajib di-`preventDefault` agar `drop` terpicu.',
         'Semua API ini bisa gagal — sediakan jalur alternatif.',
       ),
+      references(
+        {
+          label: 'Secure contexts',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts',
+          source: 'MDN',
+          note: 'Daftar API yang mensyaratkannya, beserta alasan `localhost` ikut dianggap aman.',
+        },
+        {
+          label: 'Permissions API',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Permissions_API',
+          source: 'MDN',
+          note: 'Memeriksa keadaan izin tanpa memicu dialog — `granted`, `denied`, atau `prompt`.',
+        },
+        {
+          label: 'Clipboard API',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API',
+          source: 'MDN',
+          note: 'Termasuk syarat secure context dan pemicu dari tindakan langsung pengguna.',
+        },
+        {
+          label: 'Geolocation API',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Geolocation_API',
+          source: 'MDN',
+          note: 'Ketiga jalur kegagalan yang wajib ditangani: ditolak, tidak tersedia, dan habis waktu.',
+        },
+        {
+          label: 'Notification permissions best practices',
+          href: 'https://web.dev/articles/push-notifications-permissions-ux',
+          source: 'web.dev',
+          note: 'Alasan meminta izin saat halaman dibuka hampir selalu berakhir dengan penolakan permanen.',
+        },
+      ),
     ],
   ),
 
@@ -1168,6 +1910,59 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'HTTP biasa selalu dimulai klien. Untuk notifikasi, chat, atau angka yang berubah sendiri, server yang perlu memulai — dan ada tiga tingkat solusi.',
+      ),
+
+      terms(
+        {
+          term: 'realtime',
+          meaning:
+            'Terjemahannya **waktu nyata**. Keadaan ketika pembaruan sampai ke pengguna **segera setelah terjadi**, bukan menunggu ia menyegarkan halaman. Perlu diluruskan: "realtime" di web hampir tidak pernah berarti seketika secara harfiah — yang dimaksud adalah cukup cepat sehingga terasa langsung.',
+        },
+        {
+          term: 'polling',
+          meaning:
+            'Terjemahannya **menanyai berulang**. Klien bertanya ke server setiap sekian detik, entah ada perubahan atau tidak. Terdengar primitif, tapi **sering justru jawaban yang benar**: jauh lebih sedikit yang bisa rusak, lewat proxy dan firewall mana pun, dan tidak butuh infrastruktur khusus.',
+        },
+        {
+          term: 'long polling',
+          meaning:
+            'Varian di mana server **menahan permintaan** sampai ada kabar baru, baru kemudian menjawab. Mengurangi permintaan sia-sia dibanding polling biasa, dengan harga koneksi yang menggantung lebih lama.',
+        },
+        {
+          term: 'SSE',
+          meaning:
+            'Singkatan *Server-Sent Events*, terjemahannya **peristiwa yang dikirim server**. Aliran **satu arah** dari server ke klien lewat HTTP biasa. Dua keunggulan praktisnya sering diremehkan: ia **menyambung ulang otomatis** saat koneksi putus, dan karena tetap HTTP biasa, ia melewati proxy tanpa masalah.',
+        },
+        {
+          term: 'EventSource',
+          meaning:
+            'Objek browser untuk membuka koneksi SSE: `new EventSource("/api/aliran")`. Penyambungan ulang sudah tertanam di dalamnya — kamu tidak perlu menulis logika apa pun untuk itu.',
+        },
+        {
+          term: 'WebSocket',
+          meaning:
+            'Protokol **dua arah** yang membuka saluran tetap antara klien dan server, sehingga keduanya bisa mengirim kapan saja. Harganya nyata: protokolnya sendiri (bukan HTTP), penyambungan ulang **harus kamu tulis sendiri**, dan sebagian proxy perusahaan memblokirnya.',
+        },
+        {
+          term: 'handshake',
+          meaning:
+            'Terjemahannya **jabat tangan**. Proses pembuka koneksi WebSocket, yang justru dimulai sebagai permintaan HTTP biasa berisi permintaan naik tingkat (`Upgrade: websocket`). Setelah server menyetujuinya, koneksi yang sama beralih ke protokol WebSocket.',
+        },
+        {
+          term: 'wss://',
+          meaning:
+            'Skema alamat WebSocket **terenkripsi**, padanan `https://`. Selalu pakai ini di produksi — `ws://` mengirim seluruh pesan dalam bentuk terbaca, dan banyak browser menolaknya dari halaman HTTPS.',
+        },
+        {
+          term: 'heartbeat',
+          meaning:
+            'Terjemahannya **denyut jantung**. Pesan kecil yang dikirim berkala untuk **memastikan koneksi masih hidup**. Dibutuhkan karena koneksi yang mati diam-diam — misalnya diputus perantara jaringan — sering tidak memicu peristiwa `close` sama sekali.',
+        },
+        {
+          term: 'backpressure',
+          meaning:
+            'Terjemahannya **tekanan balik**. Keadaan ketika pesan datang lebih cepat daripada kemampuan penerima mengolahnya. Pada aliran realtime yang ramai, ini menumpuk di memori dan akhirnya membuat tab berat — sehingga pembatasan laju perlu dipikirkan sejak awal.',
+        },
       ),
 
       h2('Tiga pendekatan'),
@@ -1289,6 +2084,38 @@ export const lessons: LessonDraft[] = [
         'Selalu tutup koneksi saat ditinggalkan.',
         'Pesan masuk adalah input tidak tepercaya — validasi, jangan render sebagai HTML.',
       ),
+      references(
+        {
+          label: 'Server-sent events',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events',
+          source: 'MDN',
+          note: 'Termasuk penyambungan ulang otomatis yang menjadi keunggulan utamanya atas WebSocket.',
+        },
+        {
+          label: 'The WebSocket API',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/WebSocket_API',
+          source: 'MDN',
+          note: 'Siklus hidup koneksi dan kode penutupan — dasar logika sambung ulang di atas.',
+        },
+        {
+          label: 'EventSource',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/EventSource',
+          source: 'MDN',
+          note: 'Antarmuka SSE di sisi klien, termasuk penanganan `error` dan `open`.',
+        },
+        {
+          label: 'RFC 6455: The WebSocket Protocol',
+          href: 'https://www.rfc-editor.org/rfc/rfc6455.html',
+          source: 'IETF',
+          note: 'Spesifikasi handshake yang menjelaskan kenapa koneksinya dimulai sebagai HTTP.',
+        },
+        {
+          label: 'WebSocket Security Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Alasan WebSocket wajib punya autentikasi sendiri dan kenapa `wss://` tidak opsional.',
+        },
+      ),
     ],
   ),
 
@@ -1300,6 +2127,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Setelah sepuluh pemanggilan `fetch` tersebar di seluruh aplikasi, kamu akan menemukan timeout yang lupa dipasang di tiga tempat dan penanganan 401 yang berbeda-beda. Satu pembungkus menyelesaikan itu — dan menjadi tempat tunggal untuk memperbaikinya.',
+      ),
+
+      terms(
+        {
+          term: 'wrapper',
+          meaning:
+            'Terjemahannya **pembungkus**. Satu fungsi yang menyelimuti `fetch` dan menampung semua urusan berulang: base URL, header baku, timeout, penanganan `401`, dan bentuk error. Nilainya bukan menghemat ketikan — nilainya adalah **satu tempat untuk memperbaiki**, alih-alih sepuluh tempat yang perlu diingat semuanya.',
+        },
+        {
+          term: 'base URL',
+          meaning:
+            'Awalan alamat yang sama untuk seluruh pemanggilan API, misalnya `/api` atau `https://api.contoh.id/v1`. Menaruhnya di satu tempat membuat perpindahan antara lingkungan pengembangan dan produksi cukup mengubah satu nilai.',
+        },
+        {
+          term: 'error terstruktur',
+          meaning:
+            'Kelas error buatan sendiri seperti `ApiError` yang **membawa keterangan tambahan** selain pesan: `status`, `kode` dari server, dan `detail` error per field. Ini yang memungkinkan pemanggil bereaksi berbeda untuk tiap kasus tanpa mencocokkan teks pesan — pencocokan teks selalu rusak begitu kalimatnya diubah sedikit.',
+        },
+        {
+          term: 'interceptor',
+          meaning:
+            'Terjemahannya **pencegat**. Fungsi yang berjalan **sebelum setiap permintaan** atau **sesudah setiap jawaban**, sehingga bisa menyisipkan token, mencatat, atau menangani `401` secara terpusat. Istilah ini berasal dari pustaka seperti Axios, tapi polanya bisa kamu tulis sendiri dengan mudah.',
+        },
+        {
+          term: 'single-flight',
+          meaning:
+            'Terjemahan bebasnya **satu penerbangan saja**. Aturan bahwa hanya boleh ada **satu** proses penyegaran token yang berjalan pada satu waktu. Tanpa itu, lima permintaan yang bersamaan menerima `401` akan memicu lima penyegaran sekaligus — dan sebagian di antaranya membatalkan hasil yang lain.',
+        },
+        {
+          term: 'idempoten (di wrapper)',
+          meaning:
+            'Syarat sebelum sebuah permintaan boleh diulang otomatis oleh wrapper. Aman untuk `GET`, `PUT`, dan `DELETE`; **berbahaya untuk `POST`**, karena pengulangan bisa menghasilkan dua data. Karena itu logika retry di wrapper wajib memeriksa method-nya, bukan hanya statusnya.',
+        },
+        {
+          term: 'AbortSignal.any',
+          meaning:
+            'Menggabungkan beberapa signal menjadi satu, sehingga permintaan batal kalau **salah satunya** memicu pembatalan. Dipakai untuk menggabungkan timeout bawaan wrapper dengan signal pembatalan milik pemanggil, tanpa salah satunya harus mengalah.',
+        },
+        {
+          term: 'kontrak',
+          meaning:
+            'Kesepakatan tentang **apa yang dijanjikan** sebuah fungsi kepada pemanggilnya: bentuk nilai kembalian, jenis error yang mungkin dilempar, dan perilaku pada kasus khusus. Wrapper yang baik punya kontrak yang jelas — misalnya "selalu melempar `ApiError`, tidak pernah `TypeError` mentah".',
+        },
       ),
 
       h2('Bentuk error yang seragam'),
@@ -1455,6 +2325,38 @@ export const lessons: LessonDraft[] = [
         '`204` tidak punya body.',
         'Retry otomatis hanya untuk `GET`, kecuali ada idempotency key.',
       ),
+      references(
+        {
+          label: 'Error: cause',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/cause',
+          source: 'MDN',
+          note: 'Menjaga penyebab asli tetap terbaca saat wrapper membungkusnya jadi `ApiError`.',
+        },
+        {
+          label: 'extends',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes/extends',
+          source: 'MDN',
+          note: 'Dasar pembuatan `class ApiError extends Error` — pola yang sama dengan Sub-bab 2.7.',
+        },
+        {
+          label: 'AbortSignal: any() static method',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/any_static',
+          source: 'MDN',
+          note: 'Menggabungkan timeout wrapper dengan signal pembatalan milik pemanggil.',
+        },
+        {
+          label: 'Idempotency-Key Header Field',
+          href: 'https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header',
+          source: 'IETF',
+          note: 'Syarat agar `POST` pun aman diulang otomatis oleh wrapper.',
+        },
+        {
+          label: '429 Too Many Requests',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/429',
+          source: 'MDN',
+          note: 'Salah satu status yang dianggap `bisaDiulang` oleh `ApiError` di atas.',
+        },
+      ),
     ],
   ),
 
@@ -1466,6 +2368,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Praktik penutup Bab 5. Kamu akan membangun daftar yang mengambil data dari API sungguhan, menangani **keempat keadaan UI**, membatalkan pencarian yang sudah usang, dan tidak pernah berbohong tentang apa yang sedang terjadi.',
+      ),
+
+      terms(
+        {
+          term: 'empat keadaan UI',
+          meaning:
+            'Setiap tampilan yang mengambil data punya **empat** kemungkinan keadaan, bukan satu: **memuat**, **kosong**, **gagal**, dan **berhasil**. Melewatkan tiga di antaranya adalah cacat yang paling sering sampai ke produksi — hampir semua tutorial hanya menunjukkan yang terakhir.',
+        },
+        {
+          term: 'skeleton',
+          meaning:
+            'Terjemahannya **kerangka**. Bentuk abu-abu yang menyerupai isi sebenarnya, ditampilkan selama memuat. Keunggulannya atas pemutar berputar bukan sekadar estetika: ia **memesan ruang** dengan ukuran yang mendekati isi akhir, sehingga tata letak tidak melompat saat datanya tiba.',
+        },
+        {
+          term: 'layout shift',
+          meaning:
+            'Terjemahannya **pergeseran tata letak**. Isi halaman yang melompat karena sesuatu muncul dan mendorong yang lain. Sangat mengganggu — pengguna bisa salah menekan tombol karena posisinya berubah tepat saat ia mengklik.',
+        },
+        {
+          term: 'keadaan kosong',
+          meaning:
+            'Terjemahan dari *empty state*. Wajib menjelaskan **kenapa** kosong dan memberi **satu langkah lanjutan**. Perhatikan bahwa penyebabnya bisa berbeda: belum ada data sama sekali, atau ada tapi tidak cocok dengan saringan — dan keduanya butuh pesan yang berbeda.',
+        },
+        {
+          term: 'debounce',
+          meaning:
+            'Menunda sebuah aksi sampai pemicunya berhenti berdatangan. Pada kotak pencarian, ia mencegah sepuluh huruf menghasilkan sepuluh permintaan. Dipasangkan dengan pembatalan, ia juga menutup masalah respons lama yang menimpa hasil baru.',
+        },
+        {
+          term: 'race condition (di UI)',
+          meaning:
+            'Respons untuk kata kunci **lama** tiba setelah respons kata kunci baru, lalu menimpanya di layar. Pengguna melihat hasil untuk sesuatu yang sudah tidak ia ketik. Obatnya sudah kamu pelajari di Sub-bab 3.8: batalkan permintaan sebelumnya sebelum mengirim yang baru.',
+        },
+        {
+          term: 'aria-busy',
+          meaning:
+            'Atribut yang memberi tahu pembaca layar bahwa sebuah area **sedang diperbarui**, sehingga ia tidak membacakan isi setengah jadi. Dipasangkan dengan `aria-live` untuk mengumumkan hasilnya setelah selesai.',
+        },
+        {
+          term: 'jujur',
+          meaning:
+            'Prinsip yang mendasari seluruh praktik ini: tampilan **tidak boleh menyembunyikan keadaan sebenarnya**. Layar kosong tanpa penjelasan tidak bisa dibedakan dari aplikasi yang rusak, dan pengguna akan menganggapnya rusak. Menampilkan kegagalan dengan jelas lebih baik daripada terlihat rapi tapi menyesatkan.',
+        },
       ),
 
       h2('Empat keadaan — bukan satu'),
@@ -1685,6 +2630,38 @@ export const lessons: LessonDraft[] = [
         'Debounce mengurangi permintaan; pembatalan mencegah respons usang menimpa yang baru.',
         '`AbortError` bukan kegagalan — jangan tampilkan ke pengguna.',
         'Data dari API tetap input tidak tepercaya.',
+      ),
+      references(
+        {
+          label: 'aria-busy',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-busy',
+          source: 'MDN',
+          note: 'Mencegah pembaca layar membacakan isi yang masih setengah jadi.',
+        },
+        {
+          label: 'aria-live',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-live',
+          source: 'MDN',
+          note: 'Mengumumkan hasil pencarian setelah selesai dimuat, tanpa memotong pengguna.',
+        },
+        {
+          label: 'Cumulative Layout Shift (CLS)',
+          href: 'https://web.dev/articles/cls',
+          source: 'web.dev',
+          note: 'Alasan skeleton harus memesan ruang, bukan sekadar berputar di tengah.',
+        },
+        {
+          label: 'AbortController',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/AbortController',
+          source: 'MDN',
+          note: 'Pembatalan yang mencegah respons usang menimpa hasil yang lebih baru.',
+        },
+        {
+          label: 'Empty states',
+          href: 'https://web.dev/articles/building-a-loading-bar-component',
+          source: 'web.dev',
+          note: 'Pola menampilkan kemajuan yang jujur alih-alih layar kosong tanpa penjelasan.',
+        },
       ),
     ],
   ),

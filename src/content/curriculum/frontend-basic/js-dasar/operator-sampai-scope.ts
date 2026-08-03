@@ -1,4 +1,14 @@
-import { callout, code, divider, h2, p, table, ul } from '@/lib/content/builders';
+import {
+  callout,
+  code,
+  divider,
+  h2,
+  p,
+  references,
+  table,
+  terms,
+  ul,
+} from '@/lib/content/builders';
 import { type LessonDraft, written } from '@/lib/curriculum/authoring';
 
 /**
@@ -16,6 +26,59 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'JavaScript adalah bahasa bertipe dinamis dan **longgar**. Dinamis berarti tipe ditentukan saat program berjalan. Longgar berarti JavaScript akan diam-diam mengubah tipe supaya sebuah operasi tetap bisa dilakukan. Perilaku kedua itulah yang disebut **type coercion**, dan ia sumber sebagian besar kebingungan pemula.',
+      ),
+
+      terms(
+        {
+          term: 'operator',
+          meaning:
+            'Simbol yang **melakukan sesuatu** pada satu atau dua nilai — `+`, `-`, `===`, `&&`, `!`. Cara paling mudah mengingatnya: kalau nilai adalah kata benda, operator adalah kata kerjanya. Kebanyakan operator bekerja pada dua nilai (disebut *biner*), sebagian hanya pada satu (*uner*, seperti `!` dan `typeof`), dan tepat satu operator bekerja pada tiga nilai sekaligus — ternary `? :` yang dibahas di sub-bab berikutnya.',
+        },
+        {
+          term: 'operan',
+          meaning:
+            'Dari *operand*, artinya **yang dioperasikan**. Nilai yang dikerjakan oleh sebuah operator. Pada `7 + 3`, tanda `+` adalah operatornya sementara angka `7` dan `3` adalah kedua operannya. Istilah ini berguna karena banyak aturan JavaScript berbunyi "kalau salah satu operannya bertipe X, maka…" — dan tanpa kata ini, aturan itu jadi berbelit untuk dijelaskan.',
+        },
+        {
+          term: 'coercion',
+          meaning:
+            'Dibaca "ko-er-syen", artinya **pemaksaan**. Perilaku JavaScript yang, saat menemui operasi antara dua tipe berbeda, diam-diam mengubah salah satunya agar operasi itu tetap bisa dijalankan alih-alih menyerah dan melempar error. Niatnya membantu, tapi karena terjadi tanpa pemberitahuan, hasilnya sering bukan yang kamu maksud. Sebagian besar isi sub-bab ini pada dasarnya adalah daftar tempat perilaku ini menggigit.',
+        },
+        {
+          term: 'modulo',
+          meaning:
+            'Nama operator `%`, dibaca "mo-du-lo". **Bukan persen**, meski simbolnya sama dengan tanda persen — ia memberi **sisa** dari sebuah pembagian. `7 % 3` bernilai `1`, karena 7 dibagi 3 hasilnya 2 dan bersisa 1. Dua pemakaian yang akan sering kamu lihat: `i % 2 === 0` untuk mengecek bilangan genap, dan `i % panjangDaftar` untuk membuat indeks berputar kembali ke awal saat mencapai ujung.',
+        },
+        {
+          term: 'truthy / falsy',
+          meaning:
+            'Dibaca "tru-thi" dan "fol-si", dari kata *true* dan *false* dengan akhiran yang berarti "cenderung" atau "berasa seperti". Keduanya menggambarkan **sifat sebuah nilai saat dipakai sebagai kondisi**, misalnya di dalam `if`. Falsy berarti diperlakukan seperti `false`; truthy berarti diperlakukan seperti `true`. Kabar baiknya, daftar falsy hanya berisi delapan nilai dan bisa dihafal; segala sesuatu di luar delapan itu bersifat truthy — termasuk array kosong dan object kosong, yang sering mengejutkan.',
+        },
+        {
+          term: 'short-circuit',
+          meaning:
+            'Terjemahan harfiahnya **hubungan pendek**, dari dunia kelistrikan: arus menemukan jalan pintas dan tidak melewati sisa rangkaian. Sifat `&&` dan `||` yang berhenti mengevaluasi begitu hasilnya sudah pasti, sehingga bagian di sebelah kanan **tidak pernah dijalankan sama sekali**. Pada `a && b()`, kalau `a` sudah falsy maka fungsi `b` tidak dipanggil. Sifat ini bukan sekadar penghematan; ia sengaja dipakai sebagai pengganti `if` singkat.',
+        },
+        {
+          term: 'nullish',
+          meaning:
+            'Dibaca "na-lisy", bentukan dari `null` dengan akhiran yang berarti "semacam". Istilah resmi spesifikasi untuk **"bernilai `null` atau `undefined`, dan hanya kedua itu"**. Perlu istilah tersendiri karena ia lebih sempit daripada *falsy*: angka `0` dan teks kosong `""` bersifat falsy tapi **tidak** nullish. Perbedaan sempit inilah yang membuat operator `??` ada dan berguna.',
+        },
+        {
+          term: 'optional chaining',
+          meaning:
+            'Terjemahan bebasnya **penelusuran yang boleh gagal**. Operator `?.` yang berarti: "kalau bagian sebelum tanda ini bernilai `null` atau `undefined`, berhenti dengan tenang dan hasilkan `undefined` — jangan melempar error dan menghentikan seluruh program". Disebut *chaining* karena ia dipakai saat menelusuri rantai property yang panjang seperti `data.pengguna?.alamat?.kota`, di mana bagian mana pun bisa saja tidak ada.',
+        },
+        {
+          term: 'NaN',
+          meaning:
+            'Singkatan *Not a Number*, artinya **bukan sebuah angka**. Muncul ketika sebuah perhitungan angka gagal, misalnya `Number("15000px")`. Jangan mengeceknya dengan `nilai === NaN` karena selalu bernilai `false`; pakai `Number.isNaN(nilai)`.',
+        },
+        {
+          term: 'parseInt / parseFloat',
+          meaning:
+            'Gabungan *parse* (membedah) dengan *integer* (bilangan bulat) dan *float* (bilangan desimal). Keduanya membedah teks menjadi angka, tapi lebih **longgar** daripada `Number()`: mereka membaca dari kiri dan berhenti di karakter pertama yang bukan angka, sehingga `parseInt("15000px", 10)` menghasilkan `15000` sementara `Number("15000px")` menghasilkan `NaN`. Angka `10` pada argumen kedua adalah basis bilangan (desimal) dan sebaiknya selalu ditulis.',
+        },
       ),
 
       h2('Operator aritmetika'),
@@ -227,6 +290,38 @@ export const lessons: LessonDraft[] = [
         '`if (angka)` melewatkan nol — hampir selalu bukan yang kamu maksud.',
         '`??` menghormati `0` dan `""`; `||` tidak.',
       ),
+      references(
+        {
+          label: 'Expressions and operators',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Expressions_and_operators',
+          source: 'MDN',
+          note: 'Daftar lengkap operator JavaScript beserta urutan prioritasnya.',
+        },
+        {
+          label: 'Equality comparisons and sameness',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Equality_comparisons_and_sameness',
+          source: 'MDN',
+          note: 'Perbandingan langsung `==`, `===`, dan `Object.is` — termasuk tabel `==` yang tidak perlu kamu hafal.',
+        },
+        {
+          label: 'Truthy',
+          href: 'https://developer.mozilla.org/en-US/docs/Glossary/Truthy',
+          source: 'MDN',
+          note: 'Definisi resminya, dengan tautan ke daftar lengkap nilai falsy.',
+        },
+        {
+          label: 'Nullish coalescing operator (??)',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Nullish_coalescing',
+          source: 'MDN',
+          note: 'Menjelaskan kenapa `??` sengaja dibuat berbeda dari `||`.',
+        },
+        {
+          label: 'Optional chaining (?.)',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Optional_chaining',
+          source: 'MDN',
+          note: 'Termasuk bentuk `?.()` untuk memanggil fungsi dan `?.[]` untuk mengakses indeks.',
+        },
+      ),
     ],
   ),
 
@@ -238,6 +333,44 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Percabangan itu mudah ditulis dan mudah dibuat berantakan. Bagian yang benar-benar perlu dilatih bukan sintaksnya, melainkan **menjaga kode tetap rata** saat kondisinya bertambah banyak.',
+      ),
+
+      terms(
+        {
+          term: 'kondisi',
+          meaning:
+            'Dari *condition*, artinya **syarat**. Ekspresi di dalam kurung `if (...)` yang hasilnya dinilai truthy atau falsy. Kalau truthy, blok di bawahnya dijalankan; kalau tidak, dilewati. Yang perlu diingat: isinya tidak harus berupa perbandingan — nilai apa pun boleh ditaruh di sana, dan JavaScript akan menilai "rasa boolean"-nya. Justru kelonggaran itulah yang membuat jebakan angka nol di sub-bab sebelumnya bisa terjadi.',
+        },
+        {
+          term: 'early return',
+          meaning:
+            'Terjemahannya **keluar lebih awal**. Pola menulis fungsi dengan menangani semua kasus gagal di baris-baris pertama lalu langsung `return`, sehingga sisa fungsi hanya berisi jalur normal tanpa perlu menjorok ke dalam. Manfaatnya bukan estetika: pembaca yang menelusuri jalur sukses tidak perlu lagi menahan tiga syarat sekaligus di kepalanya, karena setiap syarat sudah ditutup dan ditinggalkan satu per satu.',
+        },
+        {
+          term: 'nesting',
+          meaning:
+            'Dibaca "nes-ting", dari *nest* yang berarti **sarang**. Kondisi berada di dalam kondisi, yang berada di dalam kondisi lagi. Masalahnya bersifat manusiawi, bukan teknis: setiap tingkat sarang menambah satu hal yang harus diingat pembaca secara bersamaan, dan kemampuan itu habis jauh lebih cepat daripada yang biasanya kita kira. Karena itu meratakan sarang hampir selalu memperbaiki kode.',
+        },
+        {
+          term: 'fall-through',
+          meaning:
+            'Terjemahan bebasnya **jatuh menembus ke bawah**. Perilaku `switch` yang, jika sebuah `case` tidak diakhiri `break` atau `return`, akan terus menjalankan isi `case` di bawahnya — bahkan meski nilainya tidak cocok. Lupa menuliskan penutup adalah salah satu bug klasik `switch`. Tapi perilaku ini juga bisa dimanfaatkan dengan sengaja: menumpuk dua `case` berturut-turut adalah cara ringkas mengatakan "kedua nilai ini diperlakukan sama".',
+        },
+        {
+          term: 'ternary',
+          meaning:
+            'Dibaca "ter-na-ri", dari bahasa Latin *ternarius* yang berarti **terdiri dari tiga**. Bentuknya `kondisi ? nilaiJikaBenar : nilaiJikaSalah`. Disebut ternary karena ia satu-satunya operator di JavaScript yang bekerja atas **tiga** bagian sekaligus. Bedanya dengan `if` bukan sekadar gaya: `if` adalah pernyataan yang menjalankan sesuatu, sementara ternary adalah **ekspresi yang menghasilkan nilai**, sehingga ia bisa ditaruh langsung di dalam template literal atau di tengah JSX.',
+        },
+        {
+          term: 'default',
+          meaning:
+            'Artinya **cadangan** atau **bawaan**. Di dalam `switch`, cabang yang dijalankan kalau tidak ada satu pun `case` yang cocok — perannya sama seperti `else` pada `if`. Menuliskannya bukan formalitas: `switch` tanpa `default` akan diam saja ketika menerima nilai tak dikenal, sehingga bug melewati tempat ini tanpa jejak apa pun.',
+        },
+        {
+          term: 'objek pencarian',
+          meaning:
+            'Terjemahan dari *lookup object*. Sebuah object biasa yang dipakai sebagai tabel pemetaan nilai-ke-nilai, misalnya `{ draft: "Draf", review: "Sedang ditinjau" }`, lalu dibaca dengan `LABEL[status]`. Untuk pemetaan sederhana ia lebih pendek daripada `switch` dan lebih mudah diperluas, karena menambah kemungkinan baru cukup menambah satu baris data.',
+        },
       ),
 
       h2('`if` / `else if` / `else`'),
@@ -390,6 +523,32 @@ export const lessons: LessonDraft[] = [
         'Objek pencarian sering mengalahkan `switch` untuk pemetaan sederhana.',
         'Ternary bertingkat adalah utang teknis, bukan kepintaran.',
       ),
+      references(
+        {
+          label: 'Control flow and error handling',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Control_flow_and_error_handling',
+          source: 'MDN',
+          note: 'Panduan resmi seluruh bentuk percabangan dalam satu halaman.',
+        },
+        {
+          label: 'if...else',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/if...else',
+          source: 'MDN',
+          note: 'Termasuk catatan kenapa kurung kurawal tetap dianjurkan meski isinya satu baris.',
+        },
+        {
+          label: 'switch',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/switch',
+          source: 'MDN',
+          note: 'Penjelasan resmi fall-through dan alasan `switch` memakai perbandingan ketat `===`.',
+        },
+        {
+          label: 'Conditional (ternary) operator',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Conditional_operator',
+          source: 'MDN',
+          note: 'Halaman ini sendiri memperingatkan soal ternary bertingkat yang sulit dibaca.',
+        },
+      ),
     ],
   ),
 
@@ -401,6 +560,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'JavaScript punya beberapa cara mengulang. Memilih yang tepat bukan soal selera — masing-masing menyampaikan maksud yang berbeda kepada pembaca berikutnya.',
+      ),
+
+      terms(
+        {
+          term: 'loop',
+          meaning:
+            'Dibaca "lup", artinya **gelung** atau **putaran**. Blok kode yang dijalankan berulang-ulang sampai kondisi berhentinya terpenuhi. Nama "gelung" itu tepat secara harfiah: alur program berjalan ke bawah, lalu melengkung kembali ke atas, lalu ke bawah lagi. Bagian yang paling penting diperhatikan bukan cara memulainya, melainkan **apa yang membuatnya berhenti** — loop tanpa jalan keluar akan membekukan seluruh halaman.',
+        },
+        {
+          term: 'iterasi',
+          meaning:
+            'Dari *iteration*, artinya **satu kali putaran**. Loop yang berjalan lima kali dikatakan melakukan lima iterasi. Kata kerjanya *meng-iterasi*, yang berarti menelusuri sesuatu satu per satu. Istilah ini akan muncul lagi di luar konteks loop — misalnya "React meng-iterasi daftar" — dengan arti yang persis sama.',
+        },
+        {
+          term: 'i',
+          meaning:
+            'Nama variabel penghitung loop yang sudah menjadi kebiasaan turun-temurun sejak bahasa Fortran tahun 1950-an, berasal dari kata *index*. **Bukan kata kunci** — kamu bebas menamainya `baris` atau `nomor` kalau itu lebih menjelaskan. Kalau ada loop di dalam loop, kebiasaannya berlanjut ke `j` lalu `k`; tapi begitu kamu butuh sampai `k`, biasanya itu tanda bahwa kodenya lebih baik dipecah.',
+        },
+        {
+          term: 'indeks',
+          meaning:
+            'Dari *index*, artinya **nomor posisi** sebuah elemen di dalam array. Yang wajib diingat: penomorannya **dimulai dari 0**, bukan 1 — elemen pertama berindeks 0, elemen kelima berindeks 4, dan elemen terakhir selalu berindeks `panjang - 1`. Kekeliruan satu angka di sini sangat umum sampai punya nama sendiri dalam bahasa Inggris: *off-by-one error*.',
+        },
+        {
+          term: 'iterable',
+          meaning:
+            'Dibaca "i-te-ra-bel", artinya **bisa ditelusuri satu per satu**. Sebutan untuk nilai apa pun yang sanggup diperiksa oleh `for...of`: array, string (yang ditelusuri per karakter), `Map`, `Set`, dan hasil `Object.entries()`. Perhatikan bahwa **object biasa tidak termasuk** — dan itulah sebabnya menelusuri object butuh `Object.entries()` terlebih dulu.',
+        },
+        {
+          term: 'break / continue',
+          meaning:
+            '`break` artinya **patahkan** — ia menghentikan seluruh loop saat itu juga dan melanjutkan ke baris setelah loop. `continue` artinya **lanjutkan** — ia hanya melewati sisa iterasi yang sedang berjalan lalu langsung meloncat ke putaran berikutnya. Keduanya hanya bekerja di dalam loop sungguhan; di dalam `forEach` keduanya tidak tersedia, dan itulah batasan utama method tersebut.',
+        },
+        {
+          term: 'callback',
+          meaning:
+            'Terjemahan bebasnya **fungsi panggilan balik**. Fungsi yang kamu serahkan ke fungsi lain, dengan kesepakatan bahwa fungsi lain itulah yang akan memanggilnya — bukan kamu. Pada `angka.filter((n) => n > 2)`, bagian `(n) => n > 2` adalah callback: kamu tidak pernah memanggilnya sendiri, `filter` yang memanggilnya sekali untuk setiap elemen. Pola ini adalah fondasi hampir seluruh JavaScript modern, dari method array sampai event handler dan operasi jaringan.',
+        },
+        {
+          term: 'n',
+          meaning:
+            'Singkatan *number*, nama parameter yang lazim dipakai saat sebuah callback menerima satu angka. Sama seperti `i`, ini murni kebiasaan penamaan dan **bukan aturan bahasa** — `(harga) => harga * 2` sama sahnya dan sering lebih jelas.',
+        },
+        {
+          term: 'entries',
+          meaning:
+            'Artinya **entri** atau **pasangan catatan**. Method `.entries()` pada array mengembalikan pasangan `[indeks, nilai]`, sementara `Object.entries()` pada object mengembalikan pasangan `[kunci, nilai]`. Keduanya dipakai saat kamu butuh nama sekaligus isinya dalam satu putaran loop.',
+        },
       ),
 
       h2('`for` klasik'),
@@ -550,6 +757,38 @@ export const lessons: LessonDraft[] = [
         'Kalau loop-mu hanya mengubah, menyaring, atau meringkas — method array lebih jelas.',
         '`forEach` tidak bisa di-`break` dan tidak menunggu `await`.',
       ),
+      references(
+        {
+          label: 'Loops and iteration',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Loops_and_iteration',
+          source: 'MDN',
+          note: 'Semua bentuk perulangan JavaScript dijelaskan berurutan dalam satu panduan.',
+        },
+        {
+          label: 'for...of',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for...of',
+          source: 'MDN',
+          note: 'Termasuk perbandingan resmi `for...of` dengan `for...in` yang sering tertukar.',
+        },
+        {
+          label: 'for...in',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for...in',
+          source: 'MDN',
+          note: 'Berisi peringatan resmi agar tidak dipakai pada array.',
+        },
+        {
+          label: 'Iteration protocols',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols',
+          source: 'MDN',
+          note: 'Menjelaskan apa yang membuat sebuah nilai disebut *iterable*.',
+        },
+        {
+          label: 'Array.prototype.forEach()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach',
+          source: 'MDN',
+          note: 'Bagian "No way to stop or break" menegaskan batasan yang dibahas di sub-bab ini.',
+        },
+      ),
     ],
   ),
 
@@ -561,6 +800,74 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Fungsi adalah unit yang menampung satu pekerjaan supaya bisa diberi nama, diuji, dan dipakai ulang. Di JavaScript fungsi juga merupakan **nilai** — bisa disimpan di variabel, dioper sebagai argumen, dan dikembalikan dari fungsi lain. Sifat itu yang membuat `map`, `filter`, dan event handler mungkin ada.',
+      ),
+
+      terms(
+        {
+          term: 'fn',
+          meaning:
+            'Singkatan dari *function*, dibaca "ef-en" atau langsung "function". **Ini bukan kata kunci JavaScript** — ia hanya nama parameter yang sudah jadi kebiasaan bersama saat sebuah fungsi menerima fungsi lain sebagai bahannya. Ketika kamu melihat `debounce(fn, jeda)` di dokumentasi atau `arr.map(fn)` di cheatsheet, yang dimaksud adalah "di posisi ini isikan sebuah **fungsi**, bukan angka atau teks". Kamu bebas menamainya `aksi`, `callback`, atau `apaYangDijalankan` — JavaScript tidak peduli sedikit pun, dan nama yang lebih panjang justru sering lebih baik di kodemu sendiri. Catatan penting untuk nanti: di **PHP**, `fn` justru **benar-benar kata kunci** untuk arrow function, jadi jangan bawa asumsi ini ke bab Laravel.',
+        },
+        {
+          term: 'parameter',
+          meaning:
+            'Nama yang kamu tulis di dalam kurung ketika **mendefinisikan** sebuah fungsi. Pada `function sapa(nama)`, kata `nama` adalah parameter. Ia berperan seperti **wadah kosong yang diberi label**: saat fungsi ditulis, isinya belum ada dan belum perlu ada.',
+        },
+        {
+          term: 'argumen',
+          meaning:
+            'Nilai sungguhan yang kamu kirimkan ketika **memanggil** fungsi. Pada `sapa("Zum")`, teks `"Zum"` adalah argumen. Hubungannya dengan parameter mudah diingat: **parameter adalah wadahnya, argumen adalah isinya**. Kedua istilah ini sering tertukar dalam percakapan sehari-hari, tapi dokumentasi resmi membedakannya dengan konsisten, jadi ada gunanya membiasakan diri sekarang.',
+        },
+        {
+          term: 'declaration',
+          meaning:
+            'Dibaca "dek-la-ra-syen", artinya **pernyataan**. Bentuk penulisan fungsi yang diawali kata kunci `function` lalu langsung diberi nama: `function sapa(nama) { ... }`. Ciri khasnya, ia di-*hoist* secara penuh — artinya boleh dipanggil di baris yang letaknya **di atas** definisinya, dan tetap bekerja.',
+        },
+        {
+          term: 'expression',
+          meaning:
+            'Dibaca "eks-pre-syen", artinya **ungkapan** — sesuatu yang menghasilkan nilai. Fungsi yang diperlakukan sebagai nilai biasa lalu disimpan ke dalam variabel: `const sapa = function () { ... }`. Berbeda dari declaration, bentuk ini **tidak** bisa dipanggil sebelum barisnya tercapai, karena yang berlaku adalah aturan variabel, bukan aturan fungsi.',
+        },
+        {
+          term: 'arrow function',
+          meaning:
+            'Terjemahannya **fungsi panah**, dinamai dari tanda `=>` yang menjadi cirinya. Bentuk ringkas menulis fungsi: `(a, b) => a + b` adalah versi pendek dari `function (a, b) { return a + b; }`. Perhatikan bahwa tanpa kurung kurawal, nilai di sebelah kanan panah **otomatis dikembalikan** tanpa perlu menulis `return` — dan begitu kamu menambahkan kurung kurawal, `return` menjadi wajib lagi. Arrow function juga memperlakukan `this` secara berbeda, yang dibahas tuntas di Bab 2.',
+        },
+        {
+          term: 'callback',
+          meaning:
+            'Terjemahan bebasnya **fungsi panggilan balik**. Fungsi yang kamu serahkan kepada pihak lain dengan kesepakatan bahwa pihak itulah yang akan memanggilnya nanti — saat tombol diklik, saat data selesai diunduh, atau sekali untuk tiap elemen array. Kamu menyerahkan fungsinya, bukan hasilnya; dan itulah kenapa membedakan "mengoper" dari "memanggil" menjadi sangat penting di sub-bab ini.',
+        },
+        {
+          term: 'default parameter',
+          meaning:
+            'Terjemahannya **parameter dengan nilai cadangan**. Nilai yang otomatis dipakai kalau argumennya tidak dikirim: `function sapa(nama, sapaan = "Halo")`. Satu aturan yang wajib diingat karena sering menjebak: nilai cadangan ini **hanya terpicu oleh `undefined`**, tidak oleh `null`. Mengirim `null` secara eksplisit berarti kamu benar-benar bermaksud mengirim `null`, dan JavaScript menghormatinya.',
+        },
+        {
+          term: 'rest parameter',
+          meaning:
+            'Terjemahannya **parameter sisa**. Tanda `...` di depan parameter **terakhir**, yang mengumpulkan semua argumen yang tersisa menjadi satu array asli: `function jumlahkan(...angka)`. Karena hasilnya array sungguhan, kamu bisa langsung memakai `map`, `filter`, dan `reduce` di atasnya. Ini menggantikan objek `arguments` gaya lama yang tampak seperti array tapi tidak punya method-method itu.',
+        },
+        {
+          term: 'args',
+          meaning:
+            'Singkatan *arguments*, nama yang lazim dipakai untuk menampung rest parameter: `(...args)`. Seperti `fn` dan `arr`, ini kebiasaan penamaan, bukan aturan.',
+        },
+        {
+          term: 'return',
+          meaning:
+            'Artinya **mengembalikan**. Kata kunci yang melakukan dua hal sekaligus: **menghentikan fungsi saat itu juga** dan **menyerahkan sebuah nilai kepada yang memanggilnya**. Baris apa pun setelah `return` di dalam blok yang sama tidak akan pernah dijalankan. Fungsi yang tidak punya `return` tetap menghasilkan sesuatu, yaitu `undefined` — dan lupa menuliskannya adalah penyebab nomor satu dari `map` yang menghasilkan array berisi `undefined`.',
+        },
+        {
+          term: 'fungsi murni',
+          meaning:
+            'Terjemahan dari *pure function*. Fungsi yang memenuhi dua syarat: **hasilnya hanya bergantung pada argumen yang masuk**, dan **ia tidak mengubah apa pun di luar dirinya sendiri** — tidak menyentuh variabel global, tidak menulis ke layar, tidak mengirim data ke server. Akibatnya, memanggilnya sepuluh kali dengan argumen yang sama selalu memberi hasil yang sama. Jenis fungsi ini paling mudah diuji karena tidak butuh persiapan apa pun, dan React mensyaratkan komponennya berperilaku seperti ini.',
+        },
+        {
+          term: 'ASI',
+          meaning:
+            'Singkatan *Automatic Semicolon Insertion*, artinya **penyisipan titik koma otomatis**. Mekanisme JavaScript yang menambahkan titik koma yang kamu lupa tulis. Biasanya menolong, tapi ada satu tempat ia menggigit: bila `return` berdiri sendiri di ujung baris, JavaScript menyisipkan titik koma tepat sesudahnya — sehingga nilai yang kamu tulis di baris berikutnya tidak pernah ikut dikembalikan.',
+        },
       ),
 
       h2('Tiga bentuk penulisan'),
@@ -717,6 +1024,38 @@ export const lessons: LessonDraft[] = [
         'Fungsi adalah nilai — perhatikan bedanya mengoper dan memanggil.',
         'Pisahkan menghitung dari menampilkan; yang menghitung jadi mudah diuji.',
       ),
+      references(
+        {
+          label: 'Functions — JavaScript Guide',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Functions',
+          source: 'MDN',
+          note: 'Panduan resmi yang membahas ketiga bentuk penulisan sekaligus perbedaan hoisting-nya.',
+        },
+        {
+          label: 'Arrow function expressions',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/Arrow_functions',
+          source: 'MDN',
+          note: 'Daftar resmi apa saja yang tidak dimiliki arrow function — termasuk `this` dan `arguments`.',
+        },
+        {
+          label: 'Default parameters',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/Default_parameters',
+          source: 'MDN',
+          note: 'Menegaskan bahwa hanya `undefined` yang memicu nilai default, bukan `null`.',
+        },
+        {
+          label: 'Rest parameters',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/rest_parameters',
+          source: 'MDN',
+          note: 'Perbandingan resmi rest parameter dengan objek `arguments` yang lama.',
+        },
+        {
+          label: 'return',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/return',
+          source: 'MDN',
+          note: 'Bagian "Automatic semicolon insertion" menjelaskan jebakan menaruh nilai di baris setelah `return`.',
+        },
+      ),
     ],
   ),
 
@@ -728,6 +1067,59 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Scope adalah jawaban atas satu pertanyaan: **dari mana sebuah nama bisa dilihat?** Menguasainya menghapus sekelas bug sekaligus, dan membuat closure — konsep yang sering terdengar menakutkan — terasa jelas dengan sendirinya.',
+      ),
+
+      terms(
+        {
+          term: 'scope',
+          meaning:
+            'Dibaca "skop", artinya **jangkauan** atau **wilayah berlaku**. Bagian kode di mana sebuah nama masih dikenali; di luar wilayah itu, memakainya menghasilkan `ReferenceError`. JavaScript punya tiga tingkat: global (seluruh program), fungsi (di dalam sebuah fungsi), dan blok (di antara sepasang kurung kurawal). Menguasai satu konsep ini menghapus sekelas bug sekaligus, karena sebagian besar pertanyaan "kenapa variabel saya tidak terbaca" adalah pertanyaan tentang scope.',
+        },
+        {
+          term: 'scope chain',
+          meaning:
+            'Terjemahannya **rantai scope**. Urutan yang ditempuh JavaScript saat mencari sebuah nama: mulai dari scope terdekat, kalau tidak ketemu naik satu tingkat ke luar, naik lagi, sampai akhirnya tiba di scope global. Pencarian **berhenti pada kecocokan pertama** — itulah sebabnya variabel bernama sama di scope yang lebih dalam akan "menutupi" yang di luar, perilaku yang dalam bahasa Inggris disebut *shadowing*.',
+        },
+        {
+          term: 'global',
+          meaning:
+            'Artinya **menyeluruh**. Scope terluar yang terlihat dari mana pun di dalam program. Di browser ia menempel pada objek `window`, di Node.js pada `globalThis`. Menaruh terlalu banyak hal di sini berbahaya karena dua berkas berbeda bisa memakai nama yang sama dan saling menimpa tanpa peringatan apa pun — masalah yang justru diselesaikan oleh modul ES di Sub-bab 1.13.',
+        },
+        {
+          term: 'lexical scoping',
+          meaning:
+            'Dibaca "lek-si-kal skou-ping". Kata *lexical* berhubungan dengan **teks kode itu sendiri**, bukan dengan jalannya program. Aturannya: scope sebuah fungsi ditentukan oleh **tempat ia ditulis**, bukan tempat ia dipanggil. Akibat praktisnya sangat berguna — kamu bisa menentukan variabel apa saja yang bisa dilihat sebuah fungsi hanya dengan membaca berkasnya, tanpa perlu menjalankan programnya sama sekali. Ini juga fondasi yang membuat closure masuk akal.',
+        },
+        {
+          term: 'hoisting',
+          meaning:
+            'Dari *hoist* yang berarti **mengangkat**. Pendataan semua deklarasi ke bagian atas scope sebelum satu baris pun dijalankan. Yang penting: yang terangkat adalah **namanya**, bukan nilainya — dan tiap bentuk deklarasi bereaksi berbeda saat diakses terlalu awal, seperti dirangkum tabel di bawah.',
+        },
+        {
+          term: 'closure',
+          meaning:
+            'Dibaca "klo-syur", artinya **penutupan**. Fungsi yang tetap mengingat variabel dari lingkungan tempat ia dibuat, **bahkan setelah fungsi induknya selesai berjalan dan seharusnya sudah hilang**. Namanya berasal dari gagasan bahwa fungsi itu "menutup" dan membawa serta lingkungannya. Terdengar rumit, tapi sebenarnya ia hanyalah akibat langsung dari lexical scoping: kalau scope ditentukan oleh tempat menulis, maka fungsi tersebut memang seharusnya masih bisa melihat variabel itu.',
+        },
+        {
+          term: 'enkapsulasi',
+          meaning:
+            'Dari *encapsulation*, harfiahnya **pengapsulan** — membungkus sesuatu agar tidak bisa disentuh sembarangan. Menyembunyikan data sehingga ia hanya bisa dibaca atau diubah lewat jalur yang kamu sediakan sendiri. Closure adalah cara tertua JavaScript melakukannya, dan sudah ada jauh sebelum kata kunci `class` maupun private field `#` diperkenalkan.',
+        },
+        {
+          term: 'factory function',
+          meaning:
+            'Terjemahannya **fungsi pabrik**. Fungsi yang tugasnya bukan menghitung sesuatu, melainkan **membuat dan mengembalikan fungsi atau objek lain** yang sudah disetel sebelumnya. `buatFormatter("Rp")` mengembalikan sebuah fungsi baru yang selamanya memformat dengan awalan "Rp". Polanya berguna ketika kamu punya konfigurasi yang ditentukan sekali lalu dipakai berkali-kali.',
+        },
+        {
+          term: 'debounce',
+          meaning:
+            'Dibaca "di-bauns". Istilahnya dipinjam dari elektronika: tombol fisik yang ditekan sekali sebenarnya menghasilkan beberapa sinyal karena logamnya memantul, dan *debouncing* adalah teknik mengabaikan pantulan itu. Di web, artinya **menunda sebuah aksi sampai pemicunya berhenti berdatangan** — misalnya baru mengirim permintaan pencarian setelah pengguna berhenti mengetik selama 300 milidetik. Tanpa ini, mengetik sepuluh huruf berarti sepuluh permintaan ke server.',
+        },
+        {
+          term: 'shadowing',
+          meaning:
+            'Artinya **membayangi**. Keadaan ketika sebuah variabel di scope dalam memakai nama yang sama dengan variabel di scope luar, sehingga yang di luar jadi tidak terjangkau dari dalam. Bukan error, dan kadang memang disengaja — tapi kalau tidak disengaja, ia menghasilkan bug yang sangat membingungkan karena kodenya terlihat benar sepenuhnya.',
+        },
       ),
 
       h2('Tiga tingkat scope'),
@@ -925,6 +1317,32 @@ export const lessons: LessonDraft[] = [
         '`var` di-hoist jadi `undefined`; `let`/`const` melempar error — itu fitur, bukan gangguan.',
         'Closure adalah fungsi yang mengingat lingkungannya — dasar dari state privat, factory, dan debounce.',
         '`var` di dalam loop dibagikan; `let` dibuat ulang tiap iterasi.',
+      ),
+      references(
+        {
+          label: 'Closures',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Closures',
+          source: 'MDN',
+          note: 'Penjelasan resmi closure, lengkap dengan contoh penghitung dan factory function.',
+        },
+        {
+          label: 'Scope',
+          href: 'https://developer.mozilla.org/en-US/docs/Glossary/Scope',
+          source: 'MDN',
+          note: 'Definisi ringkas ketiga tingkat scope dalam satu halaman.',
+        },
+        {
+          label: 'Hoisting',
+          href: 'https://developer.mozilla.org/en-US/docs/Glossary/Hoisting',
+          source: 'MDN',
+          note: 'Membedakan deklarasi mana yang bisa diakses lebih awal dan mana yang melempar error.',
+        },
+        {
+          label: 'Grammar and types',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Grammar_and_types',
+          source: 'MDN',
+          note: 'Bagian "Variable scope" dan "Variable hoisting" menjadi dasar seluruh sub-bab ini.',
+        },
       ),
     ],
   ),

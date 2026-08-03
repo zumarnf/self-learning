@@ -3,7 +3,14 @@ import { CopyButton } from '@/components/content/copy-button';
 import { ChecklistBlock } from '@/components/learning/checklist-block';
 import { PlaygroundBlock } from '@/components/learning/playground-block';
 import { QuizBlock } from '@/components/learning/quiz-block';
-import { DangerIcon, InfoIcon, TipIcon, WarningIcon } from '@/components/ui/icons';
+import {
+  BookIcon,
+  DangerIcon,
+  ExternalLinkIcon,
+  InfoIcon,
+  TipIcon,
+  WarningIcon,
+} from '@/components/ui/icons';
 import { highlightCode } from '@/lib/content/highlight';
 import { parseInline } from '@/lib/content/parse-inline';
 import { assertNever, type Block, type CalloutTone } from '@/lib/content/types';
@@ -159,6 +166,112 @@ async function CompareBlock({ block }: { block: Extract<Block, { kind: 'compare'
   );
 }
 
+/**
+ * The vocabulary box.
+ *
+ * A `<dl>` rather than a table: term-to-meaning is exactly what a description list is for, and it
+ * reflows to a single column on narrow screens without the horizontal scroll a table needs. The
+ * dashed edge marks it as reference material sitting beside the narrative rather than inside it
+ * (ADR-0006).
+ */
+function TermsBlock({ block, index }: { block: Extract<Block, { kind: 'terms' }>; index: number }) {
+  // Naming the region by its visible heading rather than by an `aria-label` keeps a screen reader
+  // from announcing the same sentence twice — once as the region name, once as its first line.
+  const labelId = `istilah-${index}`;
+
+  return (
+    <aside
+      aria-labelledby={labelId}
+      className="not-prose border-border bg-sunken my-8 rounded-md border border-dashed px-4 py-3.5"
+    >
+      <p
+        id={labelId}
+        className="text-2xs text-muted flex items-center gap-2 font-semibold tracking-[0.08em] uppercase"
+      >
+        <BookIcon size={15} />
+        <span>Istilah di sub-bab ini</span>
+      </p>
+      <dl className="mt-3 grid gap-x-5 gap-y-3 sm:grid-cols-[minmax(0,9rem)_1fr]">
+        {block.items.map((item, i) => (
+          <div key={i} className="contents">
+            {/* `translate="no"` keeps browser auto-translation from turning `fn` into a word.
+                A mistranslated identifier is worse than an untranslated one. */}
+            <dt
+              translate="no"
+              className="text-text font-mono text-[0.82rem] leading-6 wrap-break-word"
+            >
+              {item.term}
+            </dt>
+            <dd className="text-muted font-serif text-[0.95rem] leading-relaxed">
+              {parseInline(item.meaning)}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </aside>
+  );
+}
+
+/**
+ * Where to read the primary source.
+ *
+ * Every href is an allow-listed official documentation host, enforced by the curriculum integrity
+ * test. Links open in a new tab so the lesson is not lost, which makes
+ * `rel="noopener noreferrer"` mandatory — the same rule `parseInline` follows for inline links
+ * (.claude/rules/security.md → Frontend-Specific).
+ */
+function ReferencesBlock({
+  block,
+  index,
+}: {
+  block: Extract<Block, { kind: 'references' }>;
+  index: number;
+}) {
+  const labelId = `rujukan-${index}`;
+
+  return (
+    <aside
+      aria-labelledby={labelId}
+      className="not-prose border-border bg-raised my-8 rounded-md border px-4 py-3.5"
+    >
+      <p
+        id={labelId}
+        className="text-2xs text-muted flex items-center gap-2 font-semibold tracking-[0.08em] uppercase"
+      >
+        <ExternalLinkIcon size={15} />
+        <span>Rujukan dokumentasi resmi</span>
+      </p>
+      <ul className="mt-3 space-y-2.5">
+        {block.items.map((item, i) => (
+          <li key={i} className="text-[0.95rem] leading-relaxed">
+            <a
+              href={item.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:text-primary-hover font-sans font-medium underline decoration-[0.08em] underline-offset-[0.2em]"
+            >
+              {item.label}
+              <span className="sr-only"> (buka di tab baru)</span>
+            </a>
+            {/* The publisher is stated in text, never implied by an icon alone (NFR-A4).
+                `text-muted`, not `text-faint`: this is meaningful text, and `--faint` only
+                reaches ~3.1:1 on `--raised` — below the 4.5:1 floor in
+                .claude/rules/frontend.md. */}
+            <span className="text-muted ml-2 font-sans text-xs" translate="no">
+              {item.source}
+            </span>
+            {item.note ? (
+              <span className="text-muted block font-serif text-[0.92rem]">
+                {parseInline(item.note)}
+              </span>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </aside>
+  );
+}
+
 async function renderBlock(block: Block, index: number): Promise<ReactNode> {
   switch (block.kind) {
     case 'heading': {
@@ -220,6 +333,12 @@ async function renderBlock(block: Block, index: number): Promise<ReactNode> {
         </aside>
       );
     }
+
+    case 'terms':
+      return <TermsBlock key={index} block={block} index={index} />;
+
+    case 'references':
+      return <ReferencesBlock key={index} block={block} index={index} />;
 
     case 'table':
       return <TableBlock key={index} block={block} />;

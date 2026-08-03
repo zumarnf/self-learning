@@ -1,4 +1,14 @@
-import { callout, code, divider, h2, p, table, ul } from '@/lib/content/builders';
+import {
+  callout,
+  code,
+  divider,
+  h2,
+  p,
+  references,
+  table,
+  terms,
+  ul,
+} from '@/lib/content/builders';
 import { type LessonDraft, written } from '@/lib/curriculum/authoring';
 
 /**
@@ -18,6 +28,54 @@ export const lessons: LessonDraft[] = [
       ),
       p(
         'OOP menjawabnya dengan mengikat data dan perilakunya jadi satu, lalu membatasi siapa boleh menyentuh apa.',
+      ),
+
+      terms(
+        {
+          term: 'OOP',
+          meaning:
+            'Singkatan *Object-Oriented Programming*, dibaca "o-o-pe", terjemahannya **pemrograman berorientasi objek**. Cara menyusun program dengan **mengikat data dan perilaku yang mengurusnya menjadi satu kesatuan**, lalu membatasi siapa saja yang boleh menyentuh data itu. Perlu ditegaskan sejak awal: ini adalah **satu di antara beberapa gaya**, bukan cara yang lebih benar. JavaScript sama-sama nyaman dipakai dengan gaya fungsional, dan React modern justru memilih gaya itu.',
+        },
+        {
+          term: 'objek',
+          meaning:
+            'Dalam konteks OOP, artinya lebih sempit daripada "object" biasa di JavaScript: sebuah kesatuan yang punya **keadaan** (data yang ia simpan) sekaligus **perilaku** (fungsi yang mengurus data itu). Sebuah keranjang belanja punya keadaan berupa daftar isinya, dan perilaku berupa kemampuan menambah atau mengeluarkan barang.',
+        },
+        {
+          term: 'keadaan',
+          meaning:
+            'Terjemahan dari *state*. Data yang dipegang sebuah objek dan **bisa berubah seiring waktu** — saldo dompet, isi keranjang, status login. Ini kata kunci untuk memutuskan perlu tidaknya sebuah class: kalau tidak ada keadaan yang berubah dan perlu dijaga, kemungkinan besar kamu hanya butuh fungsi biasa.',
+        },
+        {
+          term: 'encapsulation',
+          meaning:
+            'Dibaca "en-kap-su-lei-syen", terjemahannya **pengapsulan**. Menyembunyikan keadaan internal sebuah objek sehingga ia **hanya bisa diubah lewat pintu yang kamu sediakan sendiri**. Nilainya bukan kerahasiaan, melainkan jaminan: kalau satu-satunya jalan menambah barang adalah lewat method `tambah()`, maka pemeriksaan "jumlah harus lebih dari nol" mustahil dilewati siapa pun.',
+        },
+        {
+          term: 'inheritance',
+          meaning:
+            'Dibaca "in-he-ri-tens", terjemahannya **pewarisan**. Mengambil perilaku dari tipe lain sehingga tidak perlu menulisnya ulang. Di JavaScript ini dikerjakan lewat rantai prototype. Ini pilar yang paling sering **disalahgunakan** — dibahas tuntas beserta batasnya di Sub-bab 2.7 dan 2.10.',
+        },
+        {
+          term: 'polymorphism',
+          meaning:
+            'Dibaca "po-li-mor-fism", dari bahasa Yunani *poly* (banyak) dan *morphe* (bentuk) — harfiahnya **berbagai bentuk**. Kemampuan satu pemanggilan yang sama menghasilkan perilaku berbeda tergantung objeknya. Memanggil `.gambar()` pada sebuah lingkaran dan pada sebuah persegi adalah pemanggilan yang identik, tapi yang terjadi di dalamnya berbeda sepenuhnya.',
+        },
+        {
+          term: 'abstraction',
+          meaning:
+            'Dibaca "ab-strak-syen", terjemahannya **abstraksi**. Menampilkan **apa** yang bisa dilakukan sebuah objek sambil menyembunyikan **bagaimana** ia melakukannya. Setir mobil adalah abstraksi: kamu tahu memutarnya membelokkan mobil, tanpa perlu tahu apa pun tentang rack and pinion di baliknya.',
+        },
+        {
+          term: 'instance',
+          meaning:
+            'Dibaca "in-stens", terjemahannya **wujud nyata** atau **contoh**. Satu objek konkret yang dibuat dari sebuah class. Kalau `Keranjang` adalah cetakannya, maka `new Keranjang()` menghasilkan satu instance — dan kamu bisa membuat sebanyak apa pun instance dari cetakan yang sama, masing-masing dengan isinya sendiri.',
+        },
+        {
+          term: 'tree-shaking',
+          meaning:
+            'Kemampuan bundler membuang kode yang tidak pernah diimpor siapa pun agar berkas akhirnya lebih kecil. Disebut di sini karena berkaitan langsung dengan pilihan gaya: fungsi lepas yang diekspor satu per satu bisa dibuang sebagian, sementara sebuah class ikut terbawa utuh meski hanya satu method-nya yang dipakai.',
+        },
       ),
 
       h2('Empat pilar, seperlunya'),
@@ -95,6 +153,38 @@ export const lessons: LessonDraft[] = [
         'Encapsulation dan polymorphism paling berguna; inheritance paling sering disalahgunakan.',
         'Class tanpa keadaan yang dijaga = fungsi yang dibungkus tanpa alasan.',
       ),
+      references(
+        {
+          label: 'Object-oriented programming',
+          href: 'https://developer.mozilla.org/en-US/docs/Glossary/Object-oriented_programming',
+          source: 'MDN',
+          note: 'Definisi ringkas paradigmanya beserta tautan ke tiap pilar yang dibahas di sub-bab ini.',
+        },
+        {
+          label: 'Encapsulation',
+          href: 'https://developer.mozilla.org/en-US/docs/Glossary/Encapsulation',
+          source: 'MDN',
+          note: 'Pilar yang paling sering benar-benar berguna, dijelaskan tanpa contoh berbahasa Java.',
+        },
+        {
+          label: 'Polymorphism',
+          href: 'https://developer.mozilla.org/en-US/docs/Glossary/Polymorphism',
+          source: 'MDN',
+          note: 'Pasangan encapsulation, dan alasan JavaScript tidak memerlukan `interface` formal.',
+        },
+        {
+          label: 'Using classes',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Using_classes',
+          source: 'MDN',
+          note: 'Panduan resmi yang dipakai sebagai rujukan utama seluruh bab ini.',
+        },
+        {
+          label: 'Your First Component',
+          href: 'https://react.dev/learn/your-first-component',
+          source: 'React',
+          note: 'Bukti langsung bahwa komponen React modern adalah fungsi, bukan class — konteks untuk catatan di atas.',
+        },
+      ),
     ],
   ),
 
@@ -106,6 +196,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Sebelum `class` masuk ke bahasa (2015), JavaScript sudah punya tiga cara membuat objek. Ketiganya masih dipakai hari ini, dan `class` sendiri dibangun di atas yang ketiga.',
+      ),
+
+      terms(
+        {
+          term: 'object literal',
+          meaning:
+            'Terjemahannya **objek yang ditulis apa adanya**. Object yang dibuat dengan langsung menuliskan isinya di antara kurung kurawal: `{ nama: "Zum" }`. Kata *literal* berarti harfiah — kamu menulis wujud akhirnya, bukan membuat resep untuk menghasilkannya.',
+        },
+        {
+          term: 'factory function',
+          meaning:
+            'Terjemahannya **fungsi pabrik**. Fungsi biasa yang tugasnya **membuat lalu mengembalikan sebuah object baru** setiap kali dipanggil. Tidak butuh `new`, tidak butuh `this`, dan justru karena itulah ia punya keunggulan yang dibahas di bawah.',
+        },
+        {
+          term: 'constructor',
+          meaning:
+            'Dibaca "kon-strak-tor", terjemahannya **pembangun** atau **perakit**. Fungsi yang dirancang khusus untuk dipanggil dengan kata kunci `new`, dan tugasnya mengisi objek baru yang sedang dirakit. Konvensi penamaannya memakai huruf besar di awal (`Pengguna`, bukan `pengguna`) — itu bukan aturan bahasa, melainkan tanda bagi pembaca bahwa fungsi ini **wajib** dipanggil dengan `new`.',
+        },
+        {
+          term: 'new',
+          meaning:
+            'Kata kunci yang melakukan empat langkah sekaligus: membuat object kosong, menyambungkan prototype-nya, menjalankan constructor dengan `this` mengarah ke object baru itu, lalu mengembalikannya. Melupakannya adalah bug klasik — pada constructor function ia gagal diam-diam, sementara pada `class` ia selalu melempar `TypeError`.',
+        },
+        {
+          term: 'prototype',
+          meaning:
+            'Dibaca "pro-to-taip", terjemahannya **purwarupa** atau cetakan asal. Sebuah object tempat menaruh method yang akan **dibagi bersama** oleh semua objek yang dibuat dari constructor itu. Ini mekanisme pewarisan asli JavaScript, dan seluruh Sub-bab 2.3 membahasnya.',
+        },
+        {
+          term: 'closure',
+          meaning:
+            'Fungsi yang tetap mengingat variabel dari tempat ia dibuat. Di sub-bab ini closure adalah **rahasia keunggulan factory function**: karena method-nya mengambil nilai dari closure alih-alih dari `this`, ia tidak pernah bisa kehilangan konteks meski dioper ke mana pun.',
+        },
+        {
+          term: 'kehilangan konteks',
+          meaning:
+            'Terjemahan bebas dari *losing `this`*. Keadaan ketika sebuah method dipisahkan dari objeknya — misalnya `const s = a.sapa;` lalu `s()` — sehingga `this` di dalamnya tidak lagi menunjuk objek asal. Ini penyebab bug yang sangat sering muncul pada event handler, dan Sub-bab 2.4 membahas keempat aturannya secara lengkap.',
+        },
+        {
+          term: 'instance',
+          meaning:
+            'Satu objek konkret hasil pemanggilan constructor atau factory. `new Pengguna("Zum")` dan `new Pengguna("Ani")` menghasilkan dua instance berbeda dari cetakan yang sama.',
+        },
       ),
 
       h2('1. Object literal'),
@@ -229,6 +362,38 @@ export const lessons: LessonDraft[] = [
         '`new` membuat objek, menyambungkan prototype, dan menjalankan constructor dengan `this` ke objek itu.',
         'Constructor/class berbagi method lewat prototype; factory menyalinnya per objek.',
       ),
+      references(
+        {
+          label: 'Working with objects',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Working_with_objects',
+          source: 'MDN',
+          note: 'Bagian "Using a constructor function" dan "Using Object.create" menjelaskan ketiga cara di sub-bab ini.',
+        },
+        {
+          label: 'new operator',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/new',
+          source: 'MDN',
+          note: 'Uraian resmi keempat langkah yang dilakukan `new`, termasuk apa yang terjadi bila constructor mengembalikan object lain.',
+        },
+        {
+          label: 'Constructor',
+          href: 'https://developer.mozilla.org/en-US/docs/Glossary/Constructor',
+          source: 'MDN',
+          note: 'Definisi ringkas beserta konvensi penamaan huruf besar di awal.',
+        },
+        {
+          label: 'Object.create()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/create',
+          source: 'MDN',
+          note: 'Cara membuat object dengan prototype yang kamu tentukan sendiri, tanpa constructor sama sekali.',
+        },
+        {
+          label: 'Function: prototype',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/prototype',
+          source: 'MDN',
+          note: 'Tempat method dibagi bersama seluruh instance — dasar dari perbandingan memori di atas.',
+        },
+      ),
     ],
   ),
 
@@ -240,6 +405,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'JavaScript **tidak punya** inheritance berbasis class seperti Java. Yang ia punya adalah objek yang menunjuk objek lain. Kalau sebuah property tidak ada di objek itu sendiri, JavaScript menelusuri tautan itu ke atas. Itulah seluruh mekanismenya.',
+      ),
+
+      terms(
+        {
+          term: 'prototype',
+          meaning:
+            'Dibaca "pro-to-taip", terjemahannya **purwarupa**. Sebuah object yang menjadi **tempat pencarian cadangan** bagi object lain. Kalau sebuah property tidak ditemukan pada object itu sendiri, JavaScript melanjutkan pencarian ke prototype-nya. Inilah satu-satunya mekanisme pewarisan yang benar-benar dimiliki JavaScript — `class` yang kamu tulis nanti hanyalah cara penulisan yang lebih rapi di atas mekanisme ini.',
+        },
+        {
+          term: '[[Prototype]]',
+          meaning:
+            'Ditulis dengan kurung siku ganda karena begitulah spesifikasi ECMAScript menandai **slot internal** — sesuatu yang benar-benar ada di dalam mesin JavaScript tapi tidak bisa kamu tulis langsung dalam kode. Isinya adalah tautan dari sebuah object ke prototype-nya. Untuk membacanya dari kode, pakai `Object.getPrototypeOf(obj)`.',
+        },
+        {
+          term: '__proto__',
+          meaning:
+            'Dibaca "dander-proto" (dua garis bawah di kiri dan kanan). Cara **lama** membaca dan menulis tautan `[[Prototype]]` sebuah object. Masih bekerja demi kompatibilitas, tapi sudah *deprecated* — pakailah `Object.getPrototypeOf()` dan `Object.setPrototypeOf()`. Jangan tertukar dengan `prototype`: `__proto__` ada pada **object**, sedangkan `prototype` ada pada **fungsi**.',
+        },
+        {
+          term: 'prototype chain',
+          meaning:
+            'Terjemahannya **rantai prototype**. Deretan object yang ditelusuri JavaScript saat mencari sebuah property: dari object itu sendiri, naik ke prototype-nya, naik lagi, sampai akhirnya tiba di `null` — ujung rantai. Sebuah array biasa punya rantai `arr → Array.prototype → Object.prototype → null`, dan itulah sebabnya ia punya `map` sekaligus `toString`.',
+        },
+        {
+          term: 'shadowing',
+          meaning:
+            'Artinya **membayangi**. Keadaan ketika sebuah object punya property dengan nama yang sama dengan yang ada di prototype-nya, sehingga pencarian berhenti lebih dulu dan versi prototype tidak pernah terpakai. Penting untuk dipahami: **tidak ada yang benar-benar ditimpa atau dihapus** — versi induknya masih utuh di sana, hanya saja tidak pernah tercapai.',
+        },
+        {
+          term: 'own property',
+          meaning:
+            'Terjemahannya **milik sendiri**. Property yang benar-benar tersimpan pada object itu, bukan diwarisi dari prototype. `Object.hasOwn(obj, "a")` menjawab pertanyaan ini dengan tepat, sementara operator `in` menjawab `true` untuk keduanya. `Object.keys()` juga hanya mengembalikan milik sendiri.',
+        },
+        {
+          term: 'monkey patching',
+          meaning:
+            'Terjemahan bebasnya **menambal seenaknya**. Praktik menambah atau mengubah method pada prototype bawaan seperti `Array.prototype`. Terlihat praktis karena semua array langsung punya method barumu, tapi berbahaya: **seluruh** array di aplikasi ikut berubah, termasuk milik pustaka pihak ketiga. Contoh nyatanya ada di bawah, dan akibatnya sampai mengubah nama sebuah method di standar ECMAScript.',
+        },
+        {
+          term: 'MooTools',
+          meaning:
+            'Nama pustaka JavaScript populer di sekitar tahun 2007–2012. Disebut di sini karena ia menambahkan `Array.prototype.flatten` dengan perilaku yang berbeda dari rencana standar. Karena masih ada situs lama yang memakainya, komite standar terpaksa menamai method resminya `flat` — bukti nyata bahwa monkey patching bisa berdampak sampai ke tingkat spesifikasi bahasa.',
+        },
       ),
 
       h2('Tautan `[[Prototype]]`'),
@@ -349,6 +557,38 @@ export const lessons: LessonDraft[] = [
         'Jangan pernah menambah apa pun ke prototype bawaan.',
         '`class` tidak menggantikan prototype — ia dibangun di atasnya.',
       ),
+      references(
+        {
+          label: 'Inheritance and the prototype chain',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Inheritance_and_the_prototype_chain',
+          source: 'MDN',
+          note: 'Rujukan utama sub-bab ini — menjelaskan rantai prototype dari dasar sampai kaitannya dengan `class`.',
+        },
+        {
+          label: 'Object.getPrototypeOf()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/getPrototypeOf',
+          source: 'MDN',
+          note: 'Cara resmi membaca tautan `[[Prototype]]`, pengganti `__proto__` yang sudah usang.',
+        },
+        {
+          label: 'Object.prototype.__proto__',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/proto',
+          source: 'MDN',
+          note: 'Halaman ini sendiri memberi peringatan *deprecated* beserta alasan performanya.',
+        },
+        {
+          label: 'Object.hasOwn()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/hasOwn',
+          source: 'MDN',
+          note: 'Membedakan property milik sendiri dari yang diwarisi — inti bagian "milik sendiri vs warisan".',
+        },
+        {
+          label: 'Array.prototype.flat()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/flat',
+          source: 'MDN',
+          note: 'Method yang terpaksa dinamai `flat` alih-alih `flatten` gara-gara monkey patching MooTools.',
+        },
+      ),
     ],
   ),
 
@@ -360,6 +600,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Kalau ada satu konsep JavaScript yang paling sering membuat orang menyerah, ini dia. Kabar baiknya: aturannya cuma empat, dan bisa dicek berurutan.',
+      ),
+
+      terms(
+        {
+          term: 'this',
+          meaning:
+            'Kata kunci yang berarti **"objek yang sedang mengerjakan fungsi ini"**. Bagian yang membingungkan dan wajib dipegang erat: nilainya **tidak ditentukan saat fungsi ditulis**, melainkan saat fungsi **dipanggil** — dan fungsi yang sama persis bisa punya `this` berbeda pada dua pemanggilan berbeda. Ini kebalikan dari aturan scope biasa, dan justru ketidaksesuaian itulah sumber hampir semua kebingungan tentangnya.',
+        },
+        {
+          term: 'binding',
+          meaning:
+            'Dibaca "bain-ding", artinya **pengikatan**. Proses menentukan nilai `this` untuk sebuah pemanggilan. Ada empat aturan pengikatan, dan JavaScript memeriksanya menurut prioritas — begitu satu aturan cocok, sisanya tidak diperiksa lagi.',
+        },
+        {
+          term: 'call-site',
+          meaning:
+            'Terjemahannya **tempat pemanggilan**, yaitu baris tempat fungsi itu benar-benar dipanggil — bukan baris tempat ia ditulis. Inilah satu-satunya tempat yang perlu kamu lihat untuk menentukan `this`. Trik praktisnya: lihat **apa yang berada tepat sebelum tanda kurung pemanggilan**.',
+        },
+        {
+          term: 'implicit binding',
+          meaning:
+            'Terjemahannya **pengikatan tersirat**. Aturan yang berlaku saat fungsi dipanggil sebagai method: `o.sapa()`. Nilai `this` menjadi apa pun yang berada **sebelum titik** — dalam hal ini `o`. Disebut tersirat karena kamu tidak menyebutkannya secara khusus; ia tersimpul dari cara penulisannya.',
+        },
+        {
+          term: 'explicit binding',
+          meaning:
+            'Terjemahannya **pengikatan tersurat**. Kamu menentukan `this` secara langsung lewat `call`, `apply`, atau `bind`. Bedanya: `call(konteks, a, b)` memanggil sekarang dengan argumen terpisah, `apply(konteks, [a, b])` sama tapi argumennya dalam bentuk array, dan `bind(konteks)` **tidak memanggil apa pun** melainkan menghasilkan fungsi baru yang `this`-nya terkunci selamanya.',
+        },
+        {
+          term: 'new binding',
+          meaning:
+            'Pengikatan berprioritas paling tinggi. Saat fungsi dipanggil dengan `new`, `this` selalu menunjuk objek baru yang sedang dibuat — mengalahkan ketiga aturan lainnya.',
+        },
+        {
+          term: 'default binding',
+          meaning:
+            'Terjemahannya **pengikatan bawaan**, yaitu yang berlaku kalau tidak ada satu pun aturan lain yang cocok — misalnya pada pemanggilan telanjang `sapa()`. Di dalam modul ES yang otomatis mode ketat, hasilnya adalah `undefined`, sehingga menyentuh property darinya melempar `TypeError`. Di mode longgar lama, ia justru menjadi `window`, dan diam-diam mencemari lingkup global.',
+        },
+        {
+          term: 'kehilangan this',
+          meaning:
+            'Terjemahan dari *losing `this`*. Terjadi ketika sebuah method dipisahkan dari objeknya — `const lepas = pengguna.sapa;` — sehingga saat dipanggil ia tidak lagi punya apa pun sebelum titik. Ini penyebab bug paling sering pada `setTimeout` dan event handler, dan `bind` atau arrow function adalah dua obatnya.',
+        },
+        {
+          term: 'lexical this',
+          meaning:
+            'Terjemahannya **`this` menurut tempat penulisan**. Arrow function **tidak punya `this` sendiri sama sekali** — ia meminjam `this` dari tempat ia ditulis, dan pinjaman itu tidak pernah bisa diubah, bahkan oleh `call` maupun `bind`. Justru sifat inilah yang membuatnya aman untuk callback, dan sekaligus membuatnya salah untuk method di dalam object literal.',
+        },
       ),
 
       h2('Aturan, dari prioritas tertinggi'),
@@ -480,6 +768,38 @@ export const lessons: LessonDraft[] = [
         'Arrow function mengambil `this` dari tempat ia ditulis, dan tidak bisa diubah.',
         'Jangan pakai arrow untuk method objek; pakai untuk callback.',
       ),
+      references(
+        {
+          label: 'this',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/this',
+          source: 'MDN',
+          note: 'Rujukan resmi keempat aturan binding, lengkap dengan perbedaan mode ketat dan longgar.',
+        },
+        {
+          label: 'Function.prototype.bind()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/bind',
+          source: 'MDN',
+          note: 'Menegaskan bahwa `bind` menghasilkan fungsi baru dan ikatannya tidak bisa dibatalkan lagi.',
+        },
+        {
+          label: 'Function.prototype.call()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/call',
+          source: 'MDN',
+          note: 'Pasangannya `apply` ada di halaman tetangga — bedanya hanya pada bentuk argumen.',
+        },
+        {
+          label: 'Arrow function expressions',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/Arrow_functions',
+          source: 'MDN',
+          note: 'Bagian "No separate this" adalah dasar seluruh peringatan tentang method objek di atas.',
+        },
+        {
+          label: 'Strict mode',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Strict_mode',
+          source: 'MDN',
+          note: 'Alasan `this` menjadi `undefined` alih-alih `globalThis` pada pemanggilan telanjang.',
+        },
+      ),
     ],
   ),
 
@@ -491,6 +811,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         '`class` masuk ke JavaScript pada 2015 sebagai sintaks yang lebih jelas untuk pola constructor + prototype yang sudah ada. Tidak ada mekanisme baru yang ditambahkan ke bahasa.',
+      ),
+
+      terms(
+        {
+          term: 'class',
+          meaning:
+            'Dibaca "klas", terjemahannya **kelas** dalam arti golongan atau jenis. Cetakan untuk membuat banyak objek yang berperilaku sama. Yang wajib dipahami sejak awal: `class` **tidak menambahkan mekanisme baru** ke JavaScript — ia hanya cara penulisan yang lebih rapi untuk pola constructor dan prototype yang sudah kamu pelajari di dua sub-bab sebelumnya.',
+        },
+        {
+          term: 'gula sintaks',
+          meaning:
+            'Terjemahan dari *syntactic sugar*. Sebutan untuk sintaks yang membuat sesuatu **lebih enak ditulis dan dibaca**, tanpa menambah kemampuan apa pun yang sebelumnya tidak ada. Disebut "gula" karena ia mempermanis, bukan menambah gizi. `class` adalah contohnya, dan membuktikannya mudah: `typeof Pengguna` tetap menjawab `"function"`.',
+        },
+        {
+          term: 'constructor',
+          meaning:
+            'Method khusus di dalam class yang **dijalankan otomatis sekali** setiap kali `new` dipanggil. Tugasnya mengisi keadaan awal objek yang sedang dibuat. Namanya wajib persis `constructor`, dan satu class hanya boleh punya satu.',
+        },
+        {
+          term: 'instance field',
+          meaning:
+            'Terjemahannya **medan milik instance**. Property yang ditulis langsung di badan class tanpa `static`, misalnya `peran = "anggota"`. Setiap instance mendapat **salinannya sendiri**, dan pengisiannya terjadi **sebelum** badan constructor dijalankan — urutan yang penting diingat saat constructor-mu bergantung padanya.',
+        },
+        {
+          term: 'static',
+          meaning:
+            'Artinya **melekat pada class itu sendiri**, bukan pada instance-nya. `Pengguna.jumlahDibuat` dibaca dari class-nya langsung, dan tidak ada di dalam `u`. Dipakai untuk hal yang berlaku untuk seluruh golongan, bukan untuk satu objek — misalnya penghitung total, konstanta bersama, atau factory method.',
+        },
+        {
+          term: 'method',
+          meaning:
+            'Fungsi yang ditulis di dalam badan class. Berbeda dari instance field, **method ditaruh di prototype dan dibagi bersama** oleh seluruh instance — hanya ada satu salinannya di memori, berapa pun banyak objek yang kamu buat. Inilah yang dibuktikan `Object.hasOwn(u, "sapa")` yang bernilai `false`.',
+        },
+        {
+          term: 'factory method',
+          meaning:
+            'Method `static` yang tugasnya **membuat instance dengan cara khusus**, misalnya `Pengguna.dariJSON(teks)`. Berguna ketika ada beberapa cara membuat objek yang sama sementara `constructor` hanya boleh satu — dan namanya bisa menjelaskan asal datanya, sesuatu yang tidak bisa dilakukan `new`.',
+        },
+        {
+          term: 'hoisting class',
+          meaning:
+            'Berbeda dari fungsi biasa: nama sebuah `class` memang di-*hoist*, tapi ia berada dalam Temporal Dead Zone sampai barisnya tercapai. Akibat praktisnya, **class tidak bisa dipakai sebelum baris deklarasinya** — mencobanya melempar `ReferenceError`, bukan bekerja diam-diam seperti function declaration.',
+        },
       ),
 
       h2('Anatomi'),
@@ -590,6 +953,38 @@ export const lessons: LessonDraft[] = [
         'Class wajib dipanggil dengan `new`, tidak di-hoist, dan selalu mode strict.',
         'Field arrow (`sapa = () => {}`) mengunci `this`, dengan biaya satu fungsi per objek.',
       ),
+      references(
+        {
+          label: 'Classes',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes',
+          source: 'MDN',
+          note: 'Rujukan lengkap seluruh anggota class: constructor, field, method, static, dan private.',
+        },
+        {
+          label: 'constructor',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes/constructor',
+          source: 'MDN',
+          note: 'Termasuk aturan bahwa satu class hanya boleh punya satu constructor.',
+        },
+        {
+          label: 'Public class fields',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes/Public_class_fields',
+          source: 'MDN',
+          note: 'Menjelaskan urutan eksekusi field terhadap badan constructor — sumber kejutan yang sering terjadi.',
+        },
+        {
+          label: 'static',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes/static',
+          source: 'MDN',
+          note: 'Anggota yang melekat pada class, dasar dari factory method di Sub-bab 2.9.',
+        },
+        {
+          label: 'class expression',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/class',
+          source: 'MDN',
+          note: 'Bentuk class sebagai nilai, dipakai saat class perlu dibuat secara dinamis.',
+        },
+      ),
     ],
   ),
 
@@ -601,6 +996,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Encapsulation adalah pilar OOP yang paling sering benar-benar terpakai. Intinya satu kalimat: **apa yang tidak bisa disentuh dari luar, tidak bisa dirusak dari luar** — dan bisa kamu ubah kapan saja tanpa memecahkan kode orang lain.',
+      ),
+
+      terms(
+        {
+          term: 'private field',
+          meaning:
+            'Terjemahannya **medan privat**. Property yang namanya diawali tanda pagar `#`, misalnya `#saldo`. Ia **benar-benar dijaga bahasa**: mengaksesnya dari luar class bukan sekadar tidak sopan, melainkan `SyntaxError` yang membuat kodenya tidak bisa dijalankan sama sekali. Ia juga tidak muncul di `Object.keys()` maupun `JSON.stringify()`.',
+        },
+        {
+          term: '#',
+          meaning:
+            'Tanda pagar (*hash*) yang menjadi bagian **dari nama property itu sendiri**, bukan sekadar penanda. Karena itu `#saldo` dan `saldo` adalah dua property yang benar-benar berbeda dan bisa hidup berdampingan dalam satu class tanpa bertabrakan.',
+        },
+        {
+          term: '_nama',
+          meaning:
+            'Konvensi lama: garis bawah di depan nama dipakai sebagai **isyarat** bahwa property itu urusan internal dan sebaiknya tidak disentuh dari luar. Perlu ditegaskan, ini hanya kesepakatan sopan santun — tidak ada apa pun yang mencegah siapa saja menulis `obj._saldo = -999`. Inilah bedanya dengan `#` yang ditegakkan bahasa.',
+        },
+        {
+          term: 'getter',
+          meaning:
+            'Method yang ditulis dengan awalan `get` dan **dibaca seperti property biasa**, tanpa tanda kurung: `d.saldo`, bukan `d.saldo()`. Gunanya menyediakan jalan baca yang aman ke data internal, atau menghitung nilai turunan setiap kali diminta.',
+        },
+        {
+          term: 'setter',
+          meaning:
+            'Pasangan getter, ditulis dengan awalan `set` dan **dipakai seperti penugasan biasa**: `d.saldo = 100`. Kekuatannya ada di sini — kamu bisa menyelipkan pemeriksaan di tengah sesuatu yang tampak seperti penugasan polos, sehingga nilai tidak valid ditolak sebelum sempat masuk.',
+        },
+        {
+          term: 'serialize',
+          meaning:
+            'Dibaca "si-ri-a-laiz", artinya **mengubah objek menjadi teks** agar bisa dikirim lewat jaringan atau disimpan. `JSON.stringify()` melakukannya. Perlu diingat bahwa private field **tidak ikut ter-serialize** — kalau kamu butuh menyimpan keadaan internal, sediakan method khusus untuk itu.',
+        },
+        {
+          term: 'invariant',
+          meaning:
+            'Aturan yang harus **selalu benar** sepanjang umur sebuah objek — misalnya "saldo tidak pernah negatif". Encapsulation adalah cara menegakkannya: kalau satu-satunya jalan mengubah saldo adalah lewat `setor()` dan `tarik()` yang keduanya memeriksa dulu, maka aturan itu mustahil dilanggar dari luar.',
+        },
+        {
+          term: 'antarmuka publik',
+          meaning:
+            'Terjemahan dari *public interface*. Kumpulan method dan property yang sengaja kamu buka ke dunia luar — inilah janji yang kamu berikan kepada pemakai class-mu. Segala sesuatu di luar itu boleh kamu ubah kapan saja tanpa merusak kode siapa pun, dan justru kebebasan itulah imbalan sesungguhnya dari encapsulation.',
+        },
       ),
 
       h2('Private field `#`'),
@@ -718,6 +1156,38 @@ export const lessons: LessonDraft[] = [
         'Getter harus murah dan bebas efek samping — kalau tidak, jadikan method.',
         'Mulai dengan property biasa; tambahkan getter/setter saat aturannya muncul.',
       ),
+      references(
+        {
+          label: 'Private properties',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes/Private_properties',
+          source: 'MDN',
+          note: 'Aturan lengkap `#field`, termasuk private method dan static privat yang dipakai di contoh terakhir.',
+        },
+        {
+          label: 'get',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/get',
+          source: 'MDN',
+          note: 'Sintaks getter beserta catatan bahwa ia sebaiknya murah dan bebas efek samping.',
+        },
+        {
+          label: 'set',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/set',
+          source: 'MDN',
+          note: 'Pasangan getter — tempat paling tepat menaruh validasi sebelum nilai masuk.',
+        },
+        {
+          label: 'JSON.stringify()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify',
+          source: 'MDN',
+          note: 'Menjelaskan property apa saja yang ikut ter-serialize — private field tidak termasuk.',
+        },
+        {
+          label: 'RangeError',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RangeError',
+          source: 'MDN',
+          note: 'Jenis error yang tepat untuk nilai di luar jangkauan, seperti suhu di bawah nol mutlak.',
+        },
+      ),
     ],
   ),
 
@@ -729,6 +1199,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         '`extends` menyambungkan rantai prototype dua class. Sintaksnya mudah; yang sulit adalah menahan diri untuk tidak memakainya terlalu sering.',
+      ),
+
+      terms(
+        {
+          term: 'inheritance',
+          meaning:
+            'Terjemahannya **pewarisan**. Menyusun sebuah class di atas class lain sehingga ia otomatis memiliki seluruh method induknya tanpa perlu menulisnya ulang. Yang terjadi di balik layar hanyalah penyambungan rantai prototype — mekanisme yang sudah kamu pelajari di Sub-bab 2.3.',
+        },
+        {
+          term: 'extends',
+          meaning:
+            'Artinya **memperluas**. Kata kunci yang menyatakan bahwa sebuah class dibangun di atas class lain: `class Kucing extends Hewan`. Pilihan kata "memperluas" itu sendiri sudah menjadi petunjuk pemakaian yang benar — turunan sebaiknya **menambah** kemampuan induknya, bukan mengurangi atau membatalkannya.',
+        },
+        {
+          term: 'super',
+          meaning:
+            'Dari *superclass*, artinya **class di atasnya**. Punya dua pemakaian yang berbeda: `super(...)` di dalam constructor **memanggil constructor induk**, sementara `super.method()` di dalam method **memanggil versi induk** dari method itu. Yang kedua berguna untuk memperluas perilaku induk alih-alih menggantinya sama sekali.',
+        },
+        {
+          term: 'superclass / subclass',
+          meaning:
+            'Terjemahannya **class induk** dan **class turunan**. Kata *super* di sini berarti "di atas" (seperti pada *supervisor*), bukan "hebat"; dan *sub* berarti "di bawah". `Hewan` adalah superclass, `Kucing` adalah subclass.',
+        },
+        {
+          term: 'overriding',
+          meaning:
+            'Dibaca "o-ver-rai-ding", artinya **menimpa**. Mendefinisikan ulang sebuah method di class turunan dengan nama yang sama seperti di induknya. Perlu diingat dari Sub-bab 2.3: tidak ada yang benar-benar terhapus — versi induk masih utuh di prototype-nya, hanya saja pencarian berhenti lebih dulu di versi turunan.',
+        },
+        {
+          term: 'instanceof',
+          meaning:
+            'Operator yang memeriksa apakah sebuah objek berada dalam rantai prototype sebuah class. Karena ia menelusuri **seluruh rantai**, `k instanceof Kucing` dan `k instanceof Hewan` sama-sama bernilai `true` untuk objek yang sama.',
+        },
+        {
+          term: 'hierarki',
+          meaning:
+            'Susunan bertingkat dari umum ke khusus: `Hewan` → `Burung` → `Pinguin`. Masalah utamanya muncul belakangan — hierarki yang terasa sangat masuk akal hari ini sering patah begitu satu kasus baru datang, dan mengubahnya berarti membongkar seluruh cabang di bawahnya.',
+        },
+        {
+          term: 'LSP',
+          meaning:
+            'Singkatan *Liskov Substitution Principle*, terjemahannya **prinsip substitusi Liskov**, diambil dari nama Barbara Liskov. Isinya satu kalimat: **objek turunan harus bisa menggantikan induknya tanpa merusak apa pun**. Pinguin yang mewarisi `terbang()` lalu melempar error melanggar prinsip ini — dan pelanggaran itulah tanda bahwa inheritance-nya salah pilih.',
+        },
       ),
 
       h2('Dasar'),
@@ -830,6 +1343,38 @@ export const lessons: LessonDraft[] = [
         'Batasi kedalaman hierarki; menimpa method dengan error adalah tanda pilihan yang salah.',
         'Memperluas `Error` adalah kasus inheritance yang hampir selalu benar.',
       ),
+      references(
+        {
+          label: 'extends',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes/extends',
+          source: 'MDN',
+          note: 'Termasuk aturan mewarisi dari class bawaan seperti `Error` dan `Array`.',
+        },
+        {
+          label: 'super',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/super',
+          source: 'MDN',
+          note: 'Menjelaskan kedua bentuknya sekaligus alasan `super()` wajib dipanggil sebelum `this`.',
+        },
+        {
+          label: 'instanceof',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/instanceof',
+          source: 'MDN',
+          note: 'Menegaskan bahwa pemeriksaannya menelusuri seluruh rantai prototype, bukan satu tingkat.',
+        },
+        {
+          label: 'Error: cause',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/cause',
+          source: 'MDN',
+          note: 'Cara membawa error asal saat membuat kelas error turunan sendiri.',
+        },
+        {
+          label: 'Object.setPrototypeOf()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/setPrototypeOf',
+          source: 'MDN',
+          note: 'Apa yang sebenarnya dilakukan `extends` di balik layar, ditulis secara eksplisit.',
+        },
+      ),
     ],
   ),
 
@@ -841,6 +1386,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Polymorphism berarti kode pemanggil tidak perlu tahu tipe konkretnya. Ia memanggil `bayar()`, dan objek yang menerimanya yang tahu caranya. Nilainya: **menambah kasus baru tidak mengubah kode yang sudah ada.**',
+      ),
+
+      terms(
+        {
+          term: 'polymorphism',
+          meaning:
+            'Dari bahasa Yunani *poly* (banyak) dan *morphe* (bentuk) — harfiahnya **berbagai bentuk**. Kemampuan kode pemanggil untuk **tidak perlu tahu tipe konkret** dari objek yang ia pegang. Ia cukup memanggil `metode.proses(jumlah)`, dan objek yang menerimanyalah yang tahu caranya. Nilai praktisnya besar: menambah jenis baru tidak memaksamu mengedit satu baris pun kode lama.',
+        },
+        {
+          term: 'duck typing',
+          meaning:
+            'Terjemahan harfiahnya **penipean bebek**, dari pepatah Inggris: *"kalau ia berjalan seperti bebek dan bersuara seperti bebek, maka ia bebek"*. Cara JavaScript menentukan kecocokan: ia **tidak peduli sebuah objek bertipe apa atau dibuat dari class mana**, yang penting objek itu punya method yang sedang dipanggil. Karena itu object literal, hasil factory, dan instance class bisa dipakai bergantian tanpa masalah.',
+        },
+        {
+          term: 'antarmuka',
+          meaning:
+            'Terjemahan dari *interface*. Kesepakatan tentang **method apa saja yang harus dimiliki** sebuah objek agar bisa dipakai di suatu tempat. Di JavaScript kesepakatan ini bersifat tak tertulis — tidak ada kata kunci `interface` seperti di Java. TypeScript-lah yang kelak membuatnya tertulis dan bisa diperiksa sebelum program dijalankan.',
+        },
+        {
+          term: 'implementasi',
+          meaning:
+            'Isi konkret dari sebuah antarmuka — **bagaimana** sesuatu benar-benar dikerjakan. `Kartu` dan `Transfer` adalah dua implementasi berbeda dari antarmuka yang sama, yaitu "punya method `proses(jumlah)`".',
+        },
+        {
+          term: 'rantai if',
+          meaning:
+            'Deretan `if` atau `switch` yang memeriksa tipe lalu bercabang, seperti pada contoh "SEBELUM" di bawah. Ia bukan salah secara teknis, tapi punya satu kelemahan yang tumbuh seiring waktu: **setiap kasus baru memaksamu mengedit fungsi lama**, dan setiap pengeditan itu berpeluang merusak kasus yang sudah bekerja.',
+        },
+        {
+          term: 'open–closed',
+          meaning:
+            'Singkatan dari *Open–Closed Principle*: sebuah rancangan sebaiknya **terbuka untuk perluasan, tertutup untuk perubahan**. Persis inilah yang dicapai contoh "SESUDAH": menambah metode pembayaran baru cukup dengan menambah class baru, tanpa menyentuh fungsi `bayar()`. Prinsip ini dibahas lagi di Sub-bab 2.11.',
+        },
+        {
+          term: 'objek palsu',
+          meaning:
+            'Terjemahan bebas dari *mock* atau *stub*. Objek sederhana yang dibuat khusus untuk pengujian, menggantikan yang asli. Berkat duck typing, membuatnya sangat murah di JavaScript — `{ proses: () => "dipanggil" }` sudah cukup untuk menguji fungsi `bayar()` tanpa perlu kartu kredit sungguhan.',
+        },
+        {
+          term: 'tipe nominal vs struktural',
+          meaning:
+            'Dua cara sistem tipe menentukan kecocokan. **Nominal** (Java, C#) menuntut objek benar-benar dideklarasikan sebagai turunan tipe tertentu. **Struktural** (TypeScript) hanya menuntut bentuknya cocok — punya method yang sama dengan tanda tangan yang sama. Duck typing pada dasarnya adalah versi struktural yang diperiksa saat program berjalan, bukan sebelumnya.',
+        },
       ),
 
       h2('Menghapus rantai `if`'),
@@ -933,6 +1521,32 @@ export const lessons: LessonDraft[] = [
         'Duck typing: yang penting bentuknya, bukan tipenya — objek literal pun sah.',
         'TypeScript menambahkan pemeriksaan bentuk saat kompilasi, tanpa mewajibkan inheritance.',
       ),
+      references(
+        {
+          label: 'Polymorphism',
+          href: 'https://developer.mozilla.org/en-US/docs/Glossary/Polymorphism',
+          source: 'MDN',
+          note: 'Definisi ringkas beserta kaitannya dengan overriding di sub-bab sebelumnya.',
+        },
+        {
+          label: 'Object Prototypes',
+          href: 'https://developer.mozilla.org/en-US/docs/Learn_web_development/Extensions/Advanced_JavaScript_objects/Object_prototypes',
+          source: 'MDN',
+          note: 'Alasan JavaScript tidak memerlukan `interface` formal untuk mencapai polymorphism.',
+        },
+        {
+          label: 'Interfaces',
+          href: 'https://www.typescriptlang.org/docs/handbook/2/everyday-types.html',
+          source: 'TypeScript',
+          note: 'Bentuk tertulis dari antarmuka yang di JavaScript hanya berupa kesepakatan tak tertulis.',
+        },
+        {
+          label: 'Type Compatibility',
+          href: 'https://www.typescriptlang.org/docs/handbook/type-compatibility.html',
+          source: 'TypeScript',
+          note: 'Penjelasan resmi *structural typing* — versi duck typing yang diperiksa sebelum program berjalan.',
+        },
+      ),
     ],
   ),
 
@@ -944,6 +1558,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         '`static` berarti "milik class itu sendiri". Tidak ada `this` yang merujuk instance, karena tidak ada instance yang terlibat.',
+      ),
+
+      terms(
+        {
+          term: 'static',
+          meaning:
+            'Artinya **melekat pada class itu sendiri**, bukan pada instance mana pun. `Suhu.NOL_MUTLAK` dibaca langsung dari class-nya, dan tidak ikut tersalin ke setiap objek yang kamu buat. Konsekuensinya penting: **di dalam anggota `static`, `this` menunjuk class-nya**, bukan sebuah instance — karena memang tidak ada instance yang terlibat.',
+        },
+        {
+          term: 'factory method',
+          meaning:
+            'Terjemahannya **method pabrik**. Method `static` yang tugasnya membuat instance dengan cara tertentu, misalnya `Suhu.dariFahrenheit(77)`. Keunggulannya atas `constructor` ada pada **namanya**: satu class hanya boleh punya satu constructor dan namanya tidak bisa diubah, sedangkan factory method boleh sebanyak apa pun dan masing-masing bisa menjelaskan asal datanya.',
+        },
+        {
+          term: 'konstanta bersama',
+          meaning:
+            'Nilai tetap yang berlaku untuk seluruh golongan, bukan untuk satu objek — misalnya `NOL_MUTLAK`. Menaruhnya sebagai `static` membuatnya punya rumah yang jelas dan mudah ditemukan, alih-alih berkeliaran sebagai variabel lepas di suatu berkas.',
+        },
+        {
+          term: 'comparator',
+          meaning:
+            'Dibaca "kom-pa-rei-tor", artinya **fungsi pembanding**. Fungsi yang menerima dua nilai lalu mengembalikan angka negatif, nol, atau positif untuk menentukan urutan. `sort` memerlukannya untuk mengurutkan angka dengan benar, dan menaruhnya sebagai `static` pada class yang bersangkutan membuatnya mudah ditemukan.',
+        },
+        {
+          term: 'cache',
+          meaning:
+            'Dibaca "kesy", artinya **simpanan sementara**. Menyimpan hasil yang sudah pernah dibuat agar permintaan berikutnya tidak perlu membuatnya ulang. Disebut di sini karena inilah salah satu hal yang **bisa dilakukan factory method tapi tidak bisa dilakukan `new`** — `new` selalu memaksa pembuatan objek baru.',
+        },
+        {
+          term: 'keadaan global',
+          meaning:
+            'Terjemahan dari *global state*. Data yang bisa dibaca dan diubah dari mana saja di seluruh aplikasi. Berbahaya karena tidak ada yang bisa memastikan siapa mengubah apa dan kapan, sehingga bug jadi sulit direproduksi. Menyimpannya di dalam anggota `static` tidak membuatnya lebih aman — ia hanya menyamar dengan pakaian OOP.',
+        },
+        {
+          term: 'singleton',
+          meaning:
+            'Dibaca "sing-gel-ton", artinya **satu-satunya**. Pola di mana sebuah class sengaja dirancang hanya boleh punya satu instance untuk seluruh aplikasi. Terdengar rapi, tapi sebenarnya ia keadaan global dengan nama lain — dan mewarisi semua kesulitannya, terutama saat pengujian.',
+        },
+        {
+          term: 'dependency injection',
+          meaning:
+            'Terjemahannya **penyuntikan kebergantungan**. Alih-alih sebuah bagian kode mengambil sendiri apa yang ia butuhkan dari tempat global, kebutuhan itu **diserahkan dari luar** lewat parameter. Ini obat langsung untuk masalah keadaan global: apa yang diserahkan dari luar bisa diganti dengan objek palsu saat pengujian.',
+        },
       ),
 
       h2('Static method dan field'),
@@ -1044,6 +1701,32 @@ export const lessons: LessonDraft[] = [
         'Factory boleh mengembalikan objek yang sudah ada; constructor tidak.',
         '`static` yang menyimpan data yang berubah adalah variabel global yang menyamar.',
       ),
+      references(
+        {
+          label: 'static',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes/static',
+          source: 'MDN',
+          note: 'Aturan resmi anggota `static`, termasuk nilai `this` di dalamnya yang menunjuk class.',
+        },
+        {
+          label: 'Static initialization blocks',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes/Static_initialization_blocks',
+          source: 'MDN',
+          note: 'Blok `static { ... }` untuk penyiapan yang lebih rumit daripada sekadar mengisi satu nilai.',
+        },
+        {
+          label: 'Array.prototype.sort()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort',
+          source: 'MDN',
+          note: 'Kontrak fungsi pembanding yang dipakai `Suhu.bandingkan` — negatif, nol, atau positif.',
+        },
+        {
+          label: 'Private properties',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes/Private_properties',
+          source: 'MDN',
+          note: 'Termasuk `static #field`, yang dipakai pada contoh alternatif yang benar di atas.',
+        },
+      ),
     ],
   ),
 
@@ -1055,6 +1738,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Inheritance menjawab "**apa** benda ini". Composition menjawab "**apa yang bisa** ia lakukan". Yang kedua hampir selalu lebih tahan terhadap perubahan, karena kemampuan bisa ditambah dan dicabut satu per satu.',
+      ),
+
+      terms(
+        {
+          term: 'composition',
+          meaning:
+            'Dibaca "kom-po-si-syen", terjemahannya **penyusunan** atau perakitan. Membangun kemampuan sebuah objek dengan **merakit bagian-bagian kecil yang berdiri sendiri**, alih-alih mewarisinya dari sebuah induk. Bedanya dengan inheritance terletak pada pertanyaan yang dijawab: inheritance menjawab "apa benda ini", composition menjawab "apa yang bisa ia lakukan".',
+        },
+        {
+          term: 'delegasi',
+          meaning:
+            'Dari *delegation*, artinya **melimpahkan tugas**. Sebuah objek menyimpan objek lain di dalamnya, lalu meneruskan permintaan kepadanya: `Mobil` menyimpan `Mesin` dan meneruskan `nyalakan()` ke sana. Ini wujud composition ketika kamu tetap memakai class — mobil tidak *menjadi* mesin, ia hanya *punya* mesin dan menyuruhnya bekerja.',
+        },
+        {
+          term: 'multiple inheritance',
+          meaning:
+            'Terjemahannya **pewarisan berganda** — satu class mewarisi dari dua atau lebih induk sekaligus. **JavaScript tidak mendukungnya**, dan itu keputusan yang disengaja karena pewarisan berganda menimbulkan pertanyaan sulit soal method mana yang menang. Composition adalah jawaban JavaScript untuk kebutuhan yang sama, tanpa kerumitannya.',
+        },
+        {
+          term: 'mixin',
+          meaning:
+            'Dibaca "mik-sin", dari *mix in* (mencampurkan ke dalam). Sebuah objek berisi sekumpulan method yang **dicampurkan** ke objek lain, biasanya dengan spread `{ ...bisaKoding(nama) }`. Inilah bentuk paling langsung dari composition di JavaScript, dan tiap mixin bisa ditambah atau dicabut satu per satu.',
+        },
+        {
+          term: 'tes kalimat',
+          meaning:
+            'Cara cepat memilih antara keduanya dengan mengucapkan hubungannya keras-keras. Kalau **"X adalah Y"** terdengar benar — `ValidasiError` adalah `Error` — inheritance masuk akal. Kalau **"X punya Y"** yang benar — `Mobil` punya `Mesin` — pakai composition. Sederhana, tapi menyelesaikan sebagian besar perdebatan sebelum kodenya sempat ditulis.',
+        },
+        {
+          term: 'boolean prop',
+          meaning:
+            'Prop berupa `true`/`false` yang dipakai untuk menyalakan bagian tertentu, seperti `<Modal withHeader withFooter />`. Terlihat praktis di awal, tapi jumlahnya cenderung terus bertambah sampai komponennya sulit dipahami. Ini pertanda inheritance yang menyamar, dan obatnya adalah composition.',
+        },
+        {
+          term: 'compound component',
+          meaning:
+            'Terjemahannya **komponen majemuk**. Pola React di mana sebuah komponen induk menyediakan beberapa komponen anak yang dipakai bersama: `<Modal><Modal.Header/><Modal.Body/></Modal>`. Ini composition dalam bentuk paling murni, dan dibahas tuntas di Frontend Intermediate Bab 6.',
+        },
+        {
+          term: 'coupling',
+          meaning:
+            'Dibaca "ka-pling", artinya **keterikatan** antar bagian kode. Inheritance menghasilkan keterikatan yang sangat erat — turunan bergantung pada detail internal induknya, sehingga perubahan kecil di induk bisa merusak turunan yang jauh. Composition menjaga keterikatan tetap longgar karena tiap bagian hanya perlu tahu antarmuka bagian lain.',
+        },
       ),
 
       h2('Masalahnya dulu'),
@@ -1165,6 +1891,38 @@ export const lessons: LessonDraft[] = [
         'Composition membolehkan banyak kemampuan sekaligus dan bisa diganti saat berjalan.',
         'Harganya: biasanya sedikit lebih banyak kode. Hampir selalu sepadan.',
       ),
+      references(
+        {
+          label: 'Spread syntax (...)',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax',
+          source: 'MDN',
+          note: 'Mekanisme di balik pencampuran mixin `{ ...bisaKoding(nama) }` pada contoh di atas.',
+        },
+        {
+          label: 'Object.assign()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/assign',
+          source: 'MDN',
+          note: 'Cara lain mencampurkan mixin, termasuk ke `prototype` sebuah class.',
+        },
+        {
+          label: 'Extending built-in classes',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes/extends',
+          source: 'MDN',
+          note: 'Bagian "Mix-ins" menunjukkan pola composition memakai class expression sebagai fungsi.',
+        },
+        {
+          label: 'Passing JSX as children',
+          href: 'https://react.dev/learn/passing-props-to-a-component',
+          source: 'React',
+          note: 'Dasar pola compound component yang menggantikan ledakan boolean prop.',
+        },
+        {
+          label: 'Extracting State Logic into a Reducer',
+          href: 'https://react.dev/learn/extracting-state-logic-into-a-reducer',
+          source: 'React',
+          note: 'Contoh nyata memecah perilaku menjadi bagian yang bisa diuji terpisah, tanpa satu pun class.',
+        },
+      ),
     ],
   ),
 
@@ -1176,6 +1934,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'SOLID dirumuskan untuk bahasa dengan interface dan class yang ketat. Di JavaScript, sebagian besarnya tetap berlaku — tapi wujudnya sering berupa **fungsi dan modul**, bukan hierarki class.',
+      ),
+
+      terms(
+        {
+          term: 'SOLID',
+          meaning:
+            'Akronim dari lima huruf awal prinsip yang dirangkum Robert C. Martin: **S**ingle Responsibility, **O**pen/Closed, **L**iskov Substitution, **I**nterface Segregation, dan **D**ependency Inversion. Perlu dicatat sejak awal: kelimanya dirumuskan untuk bahasa dengan `interface` dan class yang ketat seperti Java, jadi di JavaScript wujudnya sering berupa **fungsi dan modul**, bukan hierarki class.',
+        },
+        {
+          term: 'Single Responsibility',
+          meaning:
+            'Terjemahannya **tanggung jawab tunggal**. Sebuah modul sebaiknya punya **satu alasan untuk berubah**. Perhatikan bahwa yang diukur adalah *alasan berubah*, bukan jumlah baris. Uji cepatnya ada di bawah: sebutkan tanggung jawab modul itu dalam satu kalimat — kalau kalimatnya butuh kata "dan", kemungkinan besar ia sudah lebih dari satu.',
+        },
+        {
+          term: 'Open/Closed',
+          meaning:
+            'Terjemahannya **terbuka–tertutup**: terbuka untuk **diperluas**, tertutup untuk **diubah**. Menambah kemampuan baru sebaiknya berarti menambah kode baru, bukan mengedit kode yang sudah bekerja. Alasannya praktis: kode yang tidak disentuh tidak bisa rusak.',
+        },
+        {
+          term: 'Liskov Substitution',
+          meaning:
+            'Diambil dari nama Barbara Liskov, ilmuwan komputer yang merumuskannya. Isinya: **objek turunan harus bisa menggantikan induknya tanpa mengejutkan pemanggil**. Pinguin yang mewarisi `terbang()` lalu melemparkan error melanggarnya — dan obatnya bukan menambal, melainkan mengakui bahwa hierarkinya memang salah sejak awal.',
+        },
+        {
+          term: 'Interface Segregation',
+          meaning:
+            'Terjemahannya **pemisahan antarmuka**. Jangan memaksa pemakai bergantung pada hal-hal yang tidak ia pakai. Di JavaScript ini paling sering muncul sebagai **parameter fungsi dan props komponen**: minta persis apa yang benar-benar dipakai, bukan satu objek raksasa berisi segalanya.',
+        },
+        {
+          term: 'Dependency Inversion',
+          meaning:
+            'Terjemahannya **pembalikan kebergantungan**. Bagian penting sebaiknya bergantung pada **kemampuan yang diserahkan dari luar**, bukan mengambil sendiri implementasi konkret dari dalam dirinya. Manfaat paling nyata terasa saat pengujian: kelas yang menerima repositorinya lewat constructor bisa diuji dengan objek palsu, tanpa perlu menambal `fetch` global.',
+        },
+        {
+          term: 'dependensi',
+          meaning:
+            'Dari *dependency*, artinya **sesuatu yang dibutuhkan** sebuah bagian kode agar bisa bekerja — sebuah pustaka, sebuah layanan jaringan, atau sekadar fungsi lain. Ia menjadi masalah ketika diambil diam-diam dari dalam, karena saat itulah ia tidak bisa diganti dari luar.',
+        },
+        {
+          term: 'mock global',
+          meaning:
+            'Praktik mengganti fungsi bawaan seperti `fetch` dengan versi palsu selama pengujian. Bisa dilakukan, tapi rapuh: ia memengaruhi seluruh berkas test, mudah bocor antar-test, dan menyembunyikan bahwa rancangannya sebenarnya terlalu terikat. Dependency Inversion menghapus kebutuhan ini sepenuhnya.',
+        },
+        {
+          term: 'abstraksi prematur',
+          meaning:
+            'Terjemahan dari *premature abstraction*. Membangun lapisan fleksibel untuk kebutuhan yang **belum ada**. Biayanya dibayar hari ini dalam bentuk waktu membaca, sementara manfaatnya mungkin tidak pernah datang. Aturan project ini melarangnya terang-terangan, dan itulah inti peringatan di akhir sub-bab.',
+        },
       ),
 
       h2('S — Single Responsibility'),
@@ -1298,6 +2104,32 @@ export const lessons: LessonDraft[] = [
         'D: oper dependensi masuk — itu yang membuat test tidak butuh mock global.',
         'Terapkan saat sakitnya terasa, bukan sebagai ritual di awal.',
       ),
+      references(
+        {
+          label: 'Object-oriented programming',
+          href: 'https://developer.mozilla.org/en-US/docs/Learn_web_development/Extensions/Advanced_JavaScript_objects/Object-oriented_programming',
+          source: 'MDN',
+          note: 'Bagian "Should you use OOP?" sejalan dengan peringatan penutup sub-bab ini.',
+        },
+        {
+          label: 'Optional chaining (?.)',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Optional_chaining',
+          source: 'MDN',
+          note: 'Dipakai pada pola peta eksporter agar format tak dikenal ditangani tanpa rantai `if`.',
+        },
+        {
+          label: 'Destructuring assignment',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Destructuring',
+          source: 'MDN',
+          note: 'Mekanisme di balik Interface Segregation versi JavaScript: `function buatEditor({ simpan, muat })`.',
+        },
+        {
+          label: 'Choosing the State Structure',
+          href: 'https://react.dev/learn/choosing-the-state-structure',
+          source: 'React',
+          note: 'Penerapan Single Responsibility pada bentuk data, bukan pada hierarki class.',
+        },
+      ),
     ],
   ),
 
@@ -1309,6 +2141,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Praktik ini punya kesimpulan yang mungkin mengejutkan. Kamu akan menulis versi class-nya sungguhan, lalu membandingkannya dengan versi fungsional dari Bab 1 — dan memutuskan sendiri mana yang menang untuk kasus ini.',
+      ),
+
+      terms(
+        {
+          term: 'refactor',
+          meaning:
+            'Dibaca "ri-fek-tor", terjemahannya **menata ulang**. Mengubah **struktur** kode tanpa mengubah **perilakunya** dari sudut pandang pemakai. Ini syarat yang ketat dan mudah dilanggar: begitu hasil yang terlihat ikut berubah, yang kamu lakukan bukan lagi refactor melainkan penulisan ulang — dan keduanya butuh kehati-hatian yang berbeda.',
+        },
+        {
+          term: 'toJSON',
+          meaning:
+            'Method dengan nama khusus yang **dicari otomatis oleh `JSON.stringify()`**. Kalau sebuah objek punya method ini, `stringify` memakai nilai kembaliannya alih-alih membaca property objeknya langsung. Di sini ia wajib ada, karena private field `#judul` tidak pernah ikut ter-serialize dengan sendirinya.',
+        },
+        {
+          term: 'method chaining',
+          meaning:
+            'Terjemahannya **merangkai method**. Pola di mana sebuah method mengembalikan `this` agar pemanggilan berikutnya bisa langsung disambung: `tugas.toggle().ubahJudul("baru")`. Perhatikan baris `return this;` pada `toggle()` — itulah yang memungkinkannya.',
+        },
+        {
+          term: 'kebocoran enkapsulasi',
+          meaning:
+            'Terjemahan bebas dari *encapsulation leak*. Keadaan ketika data internal yang seharusnya terlindungi ternyata bisa disentuh dari luar. Contoh paling sering: getter yang mengembalikan **array internal itu sendiri**, sehingga pemanggil bisa menulis `daftar.semua.push(...)` dan menembus seluruh perlindungan. Obatnya sederhana — kembalikan salinan, seperti `[...this.#item]`.',
+        },
+        {
+          term: 'Object.assign',
+          meaning:
+            'Fungsi bawaan yang **menyalin property dari satu atau beberapa objek ke objek tujuan**, lalu mengembalikan objek tujuan itu. Dipakai di sini untuk mencampurkan mixin ke sebuah instance. Perlu dicatat, ia menyalin secara **dangkal** dan tidak bisa menyentuh private field.',
+        },
+        {
+          term: 'findIndex',
+          meaning:
+            'Method array yang mengembalikan **posisi** elemen pertama yang cocok, atau `-1` kalau tidak ada. Bedakan dari `find` yang mengembalikan elemennya. Nilai `-1` itulah yang dipakai `hapus()` untuk membedakan "ketemu" dari "tidak ada" sebelum memanggil `splice`.',
+        },
+        {
+          term: 'splice',
+          meaning:
+            'Dibaca "splais", artinya **menyambung atau menyisipkan**. Method array yang membuang dan/atau menyisipkan elemen **langsung pada array aslinya** — ia bermutasi. Aman dipakai di sini justru karena arraynya privat (`#item`), sehingga tidak ada pihak luar yang bisa terkejut oleh perubahan itu.',
+        },
+        {
+          term: 'trade-off',
+          meaning:
+            'Terjemahannya **pertukaran untung-rugi**. Keadaan ketika memilih satu keuntungan berarti melepaskan keuntungan lain — bukan salah satu pilihan yang benar dan satunya salah. Seluruh praktik ini pada dasarnya adalah latihan menilai trade-off antara versi class dan versi fungsional, dan kesimpulannya sengaja tidak diberikan di awal.',
+        },
       ),
 
       h2('1. Versi class'),
@@ -1449,6 +2324,38 @@ export const lessons: LessonDraft[] = [
         'Composition menambah kemampuan tanpa memaksa hierarki baru.',
         'Untuk state React, pendekatan immutable menang; untuk objek berumur panjang, class menang.',
         'Yang dinilai bukan kemampuan menulis class, melainkan kemampuan memilih dengan alasan.',
+      ),
+      references(
+        {
+          label: 'JSON.stringify()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify',
+          source: 'MDN',
+          note: 'Bagian "toJSON() behavior" menjelaskan kenapa method itu wajib ada saat memakai private field.',
+        },
+        {
+          label: 'Array.prototype.splice()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/splice',
+          source: 'MDN',
+          note: 'Method yang bermutasi — aman di sini justru karena arraynya privat.',
+        },
+        {
+          label: 'Object.assign()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/assign',
+          source: 'MDN',
+          note: 'Dipakai mencampurkan mixin ke instance; menegaskan bahwa salinannya bersifat dangkal.',
+        },
+        {
+          label: 'Updating Objects in State',
+          href: 'https://react.dev/learn/updating-objects-in-state',
+          source: 'React',
+          note: 'Dasar kesimpulan sub-bab ini: state React harus diperlakukan immutable, dan class yang bermutasi melawan arus itu.',
+        },
+        {
+          label: 'Keeping Components Pure',
+          href: 'https://react.dev/learn/keeping-components-pure',
+          source: 'React',
+          note: 'Alasan pendekatan fungsional Bab 1 lebih cocok untuk To-Do List di React.',
+        },
       ),
     ],
   ),

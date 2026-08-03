@@ -204,6 +204,15 @@ export function BookIcon(props: IconProps) {
   );
 }
 
+export function ExternalLinkIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M13.5 4.5H19.5V10.5M19.5 4.5 11 13" />
+      <path d="M18 14.5v3.6a1.9 1.9 0 0 1-1.9 1.9H5.9A1.9 1.9 0 0 1 4 18.1V7.9A1.9 1.9 0 0 1 5.9 6h3.6" />
+    </Icon>
+  );
+}
+
 export function TerminalIcon(props: IconProps) {
   return (
     <Icon {...props}>

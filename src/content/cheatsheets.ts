@@ -26,7 +26,8 @@ export const cheatsheets: Cheatsheet[] = [
   {
     slug: 'javascript',
     title: 'JavaScript',
-    summary: 'Sintaks dan method yang paling sering dicari ulang.',
+    summary:
+      'Sintaks dan method yang paling sering dicari ulang. Nama pendek di contoh adalah tempat isian, bukan kata kunci: arr = array, fn = fungsi (function), o = object, s = string, n = angka, i = indeks.',
     sections: [
       {
         title: 'Array',
@@ -207,7 +208,8 @@ export const cheatsheets: Cheatsheet[] = [
   {
     slug: 'laravel',
     title: 'Laravel & Artisan',
-    summary: 'Perintah dan pola Eloquent yang paling sering dipakai.',
+    summary:
+      'Perintah dan pola Eloquent yang paling sering dipakai. Catatan: di PHP, fn adalah kata kunci resmi untuk arrow function — berbeda dari JavaScript, di mana fn hanya nama variabel biasa.',
     sections: [
       {
         title: 'Artisan',
