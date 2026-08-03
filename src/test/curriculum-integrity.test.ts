@@ -398,6 +398,7 @@ describe('istilah & rujukan resmi (ADR-0006)', () => {
       'frontend-basic/asynchronous-javascript',
       'frontend-basic/manipulasi-dom',
       'frontend-basic/ajax-web-api',
+      'frontend-basic/jsx-dan-tsx',
     ];
 
     const denganTerms = lessonsWithBlock('terms');
@@ -426,7 +427,31 @@ describe('istilah & rujukan resmi (ADR-0006)', () => {
     // Batch 3 (2026-08-03): Frontend Basic Bab 3 — 12 sub-bab. Kumulatif 40.
     // Batch 4 (2026-08-03): Frontend Basic Bab 4 — 13 sub-bab. Kumulatif 53.
     // Batch 5 (2026-08-03): Frontend Basic Bab 5 — 12 sub-bab. Kumulatif 65.
-    expect(lessonsWithBlock('references').size).toBeGreaterThanOrEqual(65);
+    // Batch 6 (2026-08-03): Frontend Basic Bab 6 — 11 sub-bab. Kumulatif 76.
+    expect(lessonsWithBlock('references').size).toBeGreaterThanOrEqual(76);
+  });
+
+  /**
+   * Frontend Basic is the first category to finish the ADR-0006 revision end to end. Locking it
+   * here means a lesson can never lose its terms or references block without the suite going red —
+   * the same guarantee the `toBe(330)` threshold gives the curriculum size.
+   */
+  it('seluruh Frontend Basic (76 sub-bab) punya blok istilah dan rujukan', () => {
+    const kategori = curriculum.find((c) => c.slug === 'frontend-basic');
+    const semua = kategori?.chapters.flatMap((c) => c.lessons) ?? [];
+
+    expect(semua).toHaveLength(76);
+
+    const denganTerms = lessonsWithBlock('terms');
+    const denganReferences = lessonsWithBlock('references');
+
+    for (const chapter of kategori?.chapters ?? []) {
+      for (const lesson of chapter.lessons) {
+        const key = `frontend-basic/${chapter.slug}/${lesson.slug}`;
+        expect(denganTerms.has(key), `${key} belum punya blok istilah`).toBe(true);
+        expect(denganReferences.has(key), `${key} belum punya blok rujukan resmi`).toBe(true);
+      }
+    }
   });
 });
 

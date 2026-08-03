@@ -488,6 +488,65 @@ export const glossary: GlossaryEntry[] = [
     lesson: 'frontend-basic/jsx-dan-tsx/kenapa-jsx',
   },
   {
+    term: 'Deklaratif vs Imperatif',
+    category: 'frontend-basic',
+    definition:
+      'Imperatif menuliskan langkah demi langkah cara mencapai hasil (gaya DOM manual); deklaratif menggambarkan hasil yang diinginkan dan membiarkan sistem menentukan langkahnya (gaya JSX).',
+    lesson: 'frontend-basic/jsx-dan-tsx/kenapa-jsx',
+  },
+  {
+    term: 'Virtual DOM',
+    category: 'frontend-basic',
+    definition:
+      'Gambaran ringan struktur tampilan sebagai object biasa. React membandingkan gambaran baru dengan lama, lalu hanya menyentuh bagian DOM yang benar-benar berubah.',
+    lesson: 'frontend-basic/jsx-dan-tsx/kenapa-jsx',
+  },
+  {
+    term: 'Jebakan Angka Nol',
+    category: 'frontend-basic',
+    definition:
+      '`{items.length && <Daftar />}` menampilkan angka `0` saat daftar kosong, karena `0` falsy tapi tetap dirender — berbeda dari `false` yang diabaikan. Pakai `length > 0 &&`.',
+    lesson: 'frontend-basic/jsx-dan-tsx/ekspresi-di-jsx',
+  },
+  {
+    term: 'React Element',
+    category: 'frontend-basic',
+    aliases: ['createElement', 'jsx-runtime'],
+    definition:
+      'Hasil kompilasi JSX: object JavaScript biasa berisi `type`, `props`, dan `key`. Bukan elemen DOM, dan belum menyentuh layar sama sekali.',
+    lesson: 'frontend-basic/jsx-dan-tsx/kompilasi-jsx',
+  },
+  {
+    term: 'Inferensi Tipe',
+    category: 'frontend-basic',
+    aliases: ['Type Inference'],
+    definition:
+      'Kemampuan TypeScript menyimpulkan tipe dari nilainya sendiri, sehingga sebagian besar anotasi tidak perlu ditulis. Ini yang membuat TypeScript jauh tidak seberat kelihatannya.',
+    lesson: 'frontend-basic/jsx-dan-tsx/typescript-sekilas',
+  },
+  {
+    term: 'Discriminated Union',
+    category: 'frontend-basic',
+    definition:
+      'Union yang tiap anggotanya punya property penanda bernilai tetap. Membuat kombinasi props yang mustahil menjadi tidak bisa ditulis, sekaligus menghapus ledakan boolean prop.',
+    lesson: 'frontend-basic/jsx-dan-tsx/generic-component',
+  },
+  {
+    term: 'ReactNode',
+    category: 'frontend-basic',
+    definition:
+      'Tipe untuk apa pun yang bisa dirender React — teks, angka, elemen, array, `null`. Tipe yang hampir selalu benar untuk `children`.',
+    lesson: 'frontend-basic/jsx-dan-tsx/tipe-props-children',
+  },
+  {
+    term: 'Type Assertion',
+    category: 'frontend-basic',
+    aliases: ['as'],
+    definition:
+      '`nilai as Tipe` berarti "percaya saja" — bukan konversi dan bukan pemeriksaan. Data dari jaringan tetap wajib divalidasi saat berjalan, karena tipe sudah dihapus di titik itu.',
+    lesson: 'frontend-basic/jsx-dan-tsx/kapan-tsx',
+  },
+  {
     term: 'Utility-First',
     category: 'frontend-intermediate',
     definition:

@@ -1,4 +1,16 @@
-import { callout, code, compare, divider, h2, ol, p, table, ul } from '@/lib/content/builders';
+import {
+  callout,
+  code,
+  compare,
+  divider,
+  h2,
+  ol,
+  p,
+  references,
+  table,
+  terms,
+  ul,
+} from '@/lib/content/builders';
 import { type LessonDraft, written } from '@/lib/curriculum/authoring';
 
 /**
@@ -13,6 +25,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Di Bab 4 kamu menulis `render()` yang mengosongkan wadah lalu membangun ulang isinya. Itu bekerja — tapi ada dua masalah yang muncul begitu aplikasinya membesar.',
+      ),
+
+      terms(
+        {
+          term: 'JSX',
+          meaning:
+            'Singkatan *JavaScript XML*, dibaca "je-es-eks". Sintaks tambahan yang membuatmu bisa menulis bentuk tampilan **seperti HTML di dalam berkas JavaScript**. Yang penting dipahami sejak awal: browser **tidak mengerti JSX sama sekali** — ia harus diterjemahkan dulu jadi pemanggilan fungsi biasa, dan Sub-bab 6.4 menunjukkan hasil terjemahannya.',
+        },
+        {
+          term: 'imperatif',
+          meaning:
+            'Dari *imperative*, artinya **memerintah langkah demi langkah**. Gaya kode yang kamu tulis di Bab 4: buat elemen, isi teksnya, sambungkan ke induknya. Kamu memberi tahu komputer **caranya**. Kelemahannya bukan teknis melainkan manusiawi — untuk tahu hasilnya, pembaca harus menjalankan kodenya di kepala dulu.',
+        },
+        {
+          term: 'deklaratif',
+          meaning:
+            'Dari *declarative*, artinya **menyatakan hasil yang diinginkan**. Kamu menggambarkan **bentuk akhirnya** dan membiarkan sistem yang menentukan langkah menuju ke sana. JSX bersifat deklaratif, dan itulah sebabnya ia bisa dibaca sekali lihat: bentuk kodenya menyerupai bentuk hasilnya.',
+        },
+        {
+          term: 'render',
+          meaning:
+            'Artinya **menghasilkan tampilan**. Di Bab 4 kamu menulis fungsi `render()` sendiri yang mengosongkan wadah lalu membangun ulang isinya. React mengotomatiskan proses itu — dan karena kamu sudah pernah menulisnya manual, kamu tahu persis apa yang diotomatiskan.',
+        },
+        {
+          term: 'Virtual DOM',
+          meaning:
+            'Terjemahannya **DOM maya**. Gambaran ringan struktur tampilan yang disimpan React di memori sebagai object biasa. React membandingkan gambaran baru dengan yang lama, lalu **hanya menyentuh bagian DOM yang benar-benar berubah** — alih-alih membangun ulang semuanya seperti pola Bab 4.',
+        },
+        {
+          term: 'reconciliation',
+          meaning:
+            'Dibaca "re-kon-si-li-ei-syen", terjemahannya **pencocokan**. Proses React membandingkan dua gambaran Virtual DOM untuk menentukan perubahan seminimal mungkin. Ini yang membuat elemen tidak dibuat ulang tanpa perlu — sehingga fokus, posisi kursor, dan nilai input yang belum dikirim tidak ikut hilang.',
+        },
+        {
+          term: 'state',
+          meaning:
+            'Terjemahannya **keadaan**. Data yang bisa berubah dan menentukan seperti apa tampilan saat ini. Prinsip yang dibawa JSX dan React: **tampilan adalah hasil perhitungan dari state** — ubah state, dan tampilan menyesuaikan sendiri.',
+        },
+        {
+          term: 'kehilangan keadaan',
+          meaning:
+            'Akibat nyata dari membangun ulang seluruh DOM: fokus keyboard pindah, teks yang sedang diketik hilang, posisi gulir kembali ke atas, dan animasi terputus. Inilah masalah kedua yang dipecahkan pendekatan deklaratif — bukan sekadar soal kecepatan.',
+        },
       ),
 
       h2('Masalah 1: kamu menuliskan langkahnya, bukan hasilnya'),
@@ -111,6 +166,32 @@ export const lessons: LessonDraft[] = [
         'JSX dikompilasi jadi JavaScript — ia nilai, bukan teks template.',
         'Kesalahan tag tertangkap saat build, bukan diabaikan diam-diam seperti HTML.',
       ),
+      references(
+        {
+          label: 'Writing Markup with JSX',
+          href: 'https://react.dev/learn/writing-markup-with-jsx',
+          source: 'React',
+          note: 'Pengantar resmi JSX beserta alasan React menggabungkan tampilan dan logika dalam satu berkas.',
+        },
+        {
+          label: 'Thinking in React',
+          href: 'https://react.dev/learn/thinking-in-react',
+          source: 'React',
+          note: 'Pergeseran dari imperatif ke deklaratif, dijelaskan dari sudut pandang membangun aplikasi.',
+        },
+        {
+          label: 'Preserving and Resetting State',
+          href: 'https://react.dev/learn/preserving-and-resetting-state',
+          source: 'React',
+          note: 'Menjelaskan kenapa membangun ulang seluruh DOM membuat fokus dan isi input hilang.',
+        },
+        {
+          label: 'React Without JSX',
+          href: 'https://react.dev/reference/react/createElement',
+          source: 'React',
+          note: 'Bukti bahwa JSX bukan syarat memakai React — hanya jauh lebih enak dibaca.',
+        },
+      ),
     ],
   ),
 
@@ -120,6 +201,49 @@ export const lessons: LessonDraft[] = [
     10,
     'Aturan penulisan yang berbeda dari HTML — dan alasan tiap perbedaannya.',
     [
+      terms(
+        {
+          term: 'elemen akar',
+          meaning:
+            'Terjemahan dari *root element*. JSX harus punya **satu** elemen terluar, karena hasil kompilasinya adalah satu nilai yang dikembalikan — dan sebuah `return` tidak bisa mengembalikan dua nilai sekaligus. Aturannya bukan kesewenangan React; ia konsekuensi langsung dari cara JavaScript bekerja.',
+        },
+        {
+          term: 'Fragment',
+          meaning:
+            'Terjemahannya **potongan**. Pembungkus tak terlihat yang memenuhi syarat satu elemen akar **tanpa menambah elemen apa pun ke DOM**. Ditulis singkat sebagai `<>...</>`, atau `<React.Fragment key={...}>` ketika kamu perlu memberinya `key`.',
+        },
+        {
+          term: 'className',
+          meaning:
+            'Pengganti atribut `class` di JSX. Alasannya sama dengan yang kamu pelajari di Sub-bab 4.4: `class` adalah **kata kunci JavaScript**, sehingga tidak bisa dipakai sebagai nama property. Kejanggalan sejarah yang sama juga melahirkan `htmlFor` untuk atribut `for`.',
+        },
+        {
+          term: 'self-closing',
+          meaning:
+            'Terjemahannya **menutup sendiri**. Tag yang diakhiri `/>` seperti `<img />` dan `<br />`. Di HTML garis miringnya opsional; di **JSX ia wajib**, karena JSX mengikuti aturan XML yang lebih ketat dan tidak mengizinkan tag menggantung.',
+        },
+        {
+          term: 'camelCase attribute',
+          meaning:
+            'Atribut JSX memakai penamaan JavaScript, bukan HTML: `onclick` menjadi `onClick`, `tabindex` menjadi `tabIndex`, `maxlength` menjadi `maxLength`. Alasannya konsisten: yang kamu tulis sebenarnya **property objek JavaScript**, bukan atribut HTML.',
+        },
+        {
+          term: 'komentar di JSX',
+          meaning:
+            'Ditulis `{/* ... */}` — kurung kurawal dulu, baru komentar JavaScript di dalamnya. Menulis `<!-- ... -->` gaya HTML **tidak bekerja** dan justru muncul sebagai teks di layar.',
+        },
+        {
+          term: 'kapitalisasi',
+          meaning:
+            'Aturan yang menentukan segalanya: tag berhuruf **kecil** (`<div>`) diterjemahkan menjadi elemen HTML, sedangkan tag berhuruf **besar** (`<Tombol>`) diterjemahkan menjadi pemanggilan komponenmu. Salah kapitalisasi tidak melempar error — React justru mencoba membuat elemen HTML bernama aneh yang diabaikan browser.',
+        },
+        {
+          term: 'style',
+          meaning:
+            'Di JSX, `style` menerima **objek**, bukan teks: `style={{ color: "red" }}`. Kurung kurawal gandanya bukan sintaks khusus — yang luar adalah penanda ekspresi JSX, yang dalam adalah object literal biasa. Nama propertynya juga camelCase: `backgroundColor`, bukan `background-color`.',
+        },
+      ),
+
       h2('Satu elemen akar'),
       code(
         'jsx',
@@ -241,6 +365,32 @@ export const lessons: LessonDraft[] = [
         'Semua tag ditutup; komponen wajib diawali huruf besar.',
         '`style` menerima objek camelCase, bukan string.',
       ),
+      references(
+        {
+          label: 'Writing Markup with JSX — The Rules of JSX',
+          href: 'https://react.dev/learn/writing-markup-with-jsx',
+          source: 'React',
+          note: 'Ketiga aturan resmi: satu elemen akar, semua tag ditutup, atribut camelCase.',
+        },
+        {
+          label: '<Fragment> (<>)',
+          href: 'https://react.dev/reference/react/Fragment',
+          source: 'React',
+          note: 'Termasuk kapan kamu harus memakai bentuk panjangnya demi memberi `key`.',
+        },
+        {
+          label: 'Common components (e.g. <div>)',
+          href: 'https://react.dev/reference/react-dom/components/common',
+          source: 'React',
+          note: 'Daftar lengkap perbedaan penamaan atribut JSX dengan HTML, termasuk `style` sebagai objek.',
+        },
+        {
+          label: 'Your First Component',
+          href: 'https://react.dev/learn/your-first-component',
+          source: 'React',
+          note: 'Menegaskan kewajiban huruf besar di awal nama komponen dan akibatnya kalau dilanggar.',
+        },
+      ),
     ],
   ),
 
@@ -250,6 +400,49 @@ export const lessons: LessonDraft[] = [
     11,
     'Apa yang boleh dan tidak boleh ditulis di dalam kurung kurawal — termasuk jebakan angka nol.',
     [
+      terms(
+        {
+          term: 'ekspresi',
+          meaning:
+            'Dari *expression*, artinya **ungkapan yang menghasilkan nilai**. Hanya ini yang boleh masuk ke dalam kurung kurawal JSX. Aturan praktisnya sederhana dan tidak pernah meleset: **kalau bisa ditaruh di sisi kanan tanda `=`, ia boleh masuk kurung kurawal.**',
+        },
+        {
+          term: 'pernyataan',
+          meaning:
+            'Dari *statement*, artinya **perintah yang melakukan sesuatu tapi tidak menghasilkan nilai** — `if`, `for`, `const x = 1`. Ketiganya **tidak boleh** ditulis di dalam kurung kurawal JSX. Penggantinya: ternary untuk `if`, dan `map` untuk `for`.',
+        },
+        {
+          term: 'rendering kondisional',
+          meaning:
+            'Terjemahannya **menampilkan berdasarkan syarat**. Ada tiga cara umum: ternary untuk memilih di antara dua tampilan, `&&` untuk menampilkan atau tidak sama sekali, dan `return null` lebih awal untuk membatalkan seluruh komponen.',
+        },
+        {
+          term: 'jebakan angka nol',
+          meaning:
+            'Bug paling terkenal di JSX. Menulis `{items.length && <Daftar />}` menampilkan **angka `0`** di layar ketika daftarnya kosong — karena `0` adalah falsy sehingga `&&` mengembalikannya, dan berbeda dari `false`, **angka nol benar-benar dirender**. Obatnya: ubah jadi boolean dulu, `{items.length > 0 && <Daftar />}`.',
+        },
+        {
+          term: 'nilai yang diabaikan',
+          meaning:
+            'React sengaja **tidak menampilkan apa pun** untuk `true`, `false`, `null`, dan `undefined`. Sifat inilah yang membuat pola `{kondisi && <Elemen />}` bisa bekerja. Perhatikan bahwa `0` **tidak** termasuk dalam daftar ini — dan justru itu sumber jebakan di atas.',
+        },
+        {
+          term: 'key',
+          meaning:
+            'Penanda identitas tiap elemen dalam sebuah daftar, wajib ada saat merender dengan `map`. Harus **stabil dan unik di antara saudaranya**. Pakai `id` dari datamu; **jangan pakai indeks array** kalau daftarnya bisa diurutkan, disaring, atau disisipi — indeks berubah, dan React jadi salah mengenali elemen mana yang mana.',
+        },
+        {
+          term: 'map',
+          meaning:
+            'Method array yang menjadi pengganti `for` di dalam JSX. Karena ia **menghasilkan nilai** berupa array elemen, ia sah ditulis di dalam kurung kurawal — sementara `for` tidak.',
+        },
+        {
+          term: 'escaping otomatis',
+          meaning:
+            'React **secara otomatis menetralkan** teks yang kamu sisipkan, sehingga `<script>` dari data pengguna muncul sebagai tulisan biasa, bukan dijalankan. Ini pertahanan XSS bawaan yang membuat JSX jauh lebih aman daripada `innerHTML` di Bab 4 — dan satu-satunya cara melewatinya adalah `dangerouslySetInnerHTML`, yang namanya sengaja dibuat menakutkan.',
+        },
+      ),
+
       h2('Ekspresi, bukan pernyataan'),
       code(
         'jsx',
@@ -361,6 +554,38 @@ export const lessons: LessonDraft[] = [
         '`key` harus identitas stabil, bukan indeks array.',
         'Percabangan rumit dipindah ke atas JSX sebagai early return.',
       ),
+      references(
+        {
+          label: 'JavaScript in JSX with Curly Braces',
+          href: 'https://react.dev/learn/javascript-in-jsx-with-curly-braces',
+          source: 'React',
+          note: 'Aturan resmi apa yang boleh masuk kurung kurawal — hanya ekspresi, bukan pernyataan.',
+        },
+        {
+          label: 'Conditional Rendering',
+          href: 'https://react.dev/learn/conditional-rendering',
+          source: 'React',
+          note: 'Termasuk peringatan resmi tentang jebakan `&&` dengan angka nol.',
+        },
+        {
+          label: 'Rendering Lists',
+          href: 'https://react.dev/learn/rendering-lists',
+          source: 'React',
+          note: 'Bagian "Why does React need keys?" dan alasan indeks array bukan pilihan yang aman.',
+        },
+        {
+          label: 'Array.prototype.map()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map',
+          source: 'MDN',
+          note: 'Pengganti `for` di dalam JSX — sah karena ia menghasilkan nilai.',
+        },
+        {
+          label: 'dangerouslySetInnerHTML',
+          href: 'https://react.dev/reference/react-dom/components/common#dangerously-setting-the-inner-html',
+          source: 'React',
+          note: 'Satu-satunya jalan melewati escaping otomatis — namanya sengaja dibuat menakutkan.',
+        },
+      ),
     ],
   ),
 
@@ -372,6 +597,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'JSX bukan sihir. Ia sintaks yang diubah alat build menjadi pemanggilan fungsi. Melihat hasilnya sekali akan menjelaskan beberapa perilaku React yang tampak aneh.',
+      ),
+
+      terms(
+        {
+          term: 'kompilasi',
+          meaning:
+            'Dari *compile*, artinya **menerjemahkan** kode dari satu bentuk ke bentuk lain sebelum dijalankan. JSX dikompilasi menjadi pemanggilan fungsi JavaScript biasa. Melihat hasilnya sekali saja akan menjelaskan beberapa perilaku React yang sebelumnya terasa aneh — dan itulah gunanya sub-bab ini.',
+        },
+        {
+          term: 'transpiler',
+          meaning:
+            'Gabungan *transform* dan *compiler*. Alat yang menerjemahkan kode dari satu bahasa ke bahasa lain **yang setingkat**, bukan ke bahasa mesin. Babel, SWC, dan esbuild semuanya transpiler, dan salah satunya pasti bekerja di balik layar project React-mu.',
+        },
+        {
+          term: 'jsx-runtime',
+          meaning:
+            'Modul `react/jsx-runtime` yang menyediakan fungsi `_jsx`. Sejak React 17 ia **diimpor otomatis** oleh transpiler, sehingga kamu tidak perlu lagi menulis `import React from "react"` di setiap berkas — kebiasaan yang masih sering terlihat di kode dan tutorial lama.',
+        },
+        {
+          term: 'createElement',
+          meaning:
+            'Fungsi lama yang dipakai sebelum jsx-runtime: `React.createElement("h1", { className: "judul" }, "Halo")`. Masih bekerja, dan berguna dilihat sekali untuk memahami bahwa JSX benar-benar hanya pemanggilan fungsi biasa.',
+        },
+        {
+          term: 'React element',
+          meaning:
+            'Hasil kompilasi JSX: sebuah **object JavaScript biasa** berisi `type`, `props`, dan `key`. Perlu ditegaskan — ia **bukan elemen DOM**, dan belum menyentuh layar sama sekali. Ia hanya deskripsi tentang apa yang seharusnya ada.',
+        },
+        {
+          term: 'props',
+          meaning:
+            'Singkatan *properties*. Semua atribut yang kamu tulis di JSX berkumpul menjadi **satu objek** yang dioper ke komponen. Isi di antara tag pembuka dan penutup masuk ke dalamnya sebagai `children`.',
+        },
+        {
+          term: 'children',
+          meaning:
+            'Property khusus yang berisi apa pun yang ditulis **di antara tag pembuka dan penutup**. Melihat hasil kompilasinya menjelaskan kenapa `children` bisa berupa teks, elemen, array, atau bahkan fungsi — semuanya hanyalah nilai di dalam sebuah objek.',
+        },
+        {
+          term: 'evaluasi eager',
+          meaning:
+            'Terjemahan bebasnya **dihitung lebih dulu**. Argumen sebuah pemanggilan fungsi selalu dihitung sebelum fungsinya berjalan. Konsekuensinya penting dan sering mengejutkan: `<Berat />` yang ditulis di dalam JSX **sudah menjadi objek** meski akhirnya tidak dirender — jadi bekerjanya bukan penundaan, melainkan sekadar tidak dipakai.',
+        },
       ),
 
       h2('Sebelum dan sesudah'),
@@ -472,6 +740,32 @@ export const lessons: LessonDraft[] = [
         'Automatic runtime menghapus kewajiban `import React`.',
         'JSX opsional — tapi alternatifnya jauh lebih sulit dibaca.',
       ),
+      references(
+        {
+          label: 'createElement',
+          href: 'https://react.dev/reference/react/createElement',
+          source: 'React',
+          note: 'Bentuk yang sebenarnya dijalankan di balik setiap JSX yang kamu tulis.',
+        },
+        {
+          label: 'Introducing the New JSX Transform',
+          href: 'https://react.dev/blog/2020/09/22/introducing-the-new-jsx-transform',
+          source: 'React',
+          note: 'Alasan `import React` tidak lagi wajib sejak React 17.',
+        },
+        {
+          label: '@babel/plugin-transform-react-jsx',
+          href: 'https://babeljs.io/docs/babel-plugin-transform-react-jsx',
+          source: 'Babel',
+          note: 'Transpiler yang melakukan penerjemahan — bisa dicoba langsung di REPL-nya.',
+        },
+        {
+          label: 'JSX In Depth',
+          href: 'https://react.dev/learn/writing-markup-with-jsx',
+          source: 'React',
+          note: 'Aturan penerjemahan tag berhuruf kecil menjadi string dan huruf besar menjadi referensi komponen.',
+        },
+      ),
     ],
   ),
 
@@ -483,6 +777,59 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'TypeScript adalah JavaScript ditambah anotasi tipe yang **dihapus saat build**. Tidak ada satu pun tipe yang tersisa di kode yang berjalan; semuanya adalah pemeriksaan saat kamu menulis.',
+      ),
+
+      terms(
+        {
+          term: 'TypeScript',
+          meaning:
+            'Bahasa yang merupakan **JavaScript ditambah anotasi tipe**. Hal terpenting yang wajib dipahami: seluruh tipenya **dihapus saat build** dan tidak ada satu pun yang tersisa di kode yang berjalan. Ia bukan pemeriksaan saat program berjalan — ia pemeriksaan saat kamu mengetik.',
+        },
+        {
+          term: 'tipe',
+          meaning:
+            'Terjemahan dari *type*. Pernyataan tentang **bentuk nilai apa** yang boleh mengisi sebuah tempat: `string`, `number`, `boolean`, atau bentuk yang lebih rumit. Manfaatnya bukan sekadar mencegah error — editor jadi bisa memberi autocomplete dan rename otomatis yang tepat.',
+        },
+        {
+          term: 'anotasi',
+          meaning:
+            'Dari *annotation*, artinya **keterangan yang kamu tulis**: `let nama: string`. Tanda titik dua dan tipenya adalah anotasi. Aturan praktisnya: tulis anotasi **hanya kalau inferensinya salah** atau belum ada nilai untuk disimpulkan.',
+        },
+        {
+          term: 'inferensi',
+          meaning:
+            'Dari *inference*, artinya **kesimpulan otomatis**. TypeScript menebak tipe dari nilainya sendiri: `let kota = "Bandung"` sudah dianggap `string` tanpa kamu tulis apa pun. Kemampuan ini yang membuat TypeScript jauh tidak seberat kelihatannya — sebagian besar tipe tidak perlu ditulis.',
+        },
+        {
+          term: 'interface',
+          meaning:
+            'Cara mendeskripsikan **bentuk sebuah objek**: property apa saja yang ada dan bertipe apa. Di React ia paling sering dipakai untuk mendeskripsikan props sebuah komponen.',
+        },
+        {
+          term: 'type alias',
+          meaning:
+            'Terjemahannya **nama panggilan untuk sebuah tipe**, ditulis `type Nama = ...`. Lebih fleksibel daripada `interface` karena bisa menamai apa pun — union, tuple, bahkan tipe hasil perhitungan. Untuk bentuk objek biasa, keduanya nyaris setara; pilih satu dan konsisten.',
+        },
+        {
+          term: 'union',
+          meaning:
+            'Terjemahannya **gabungan**, ditulis dengan garis tegak: `"kecil" | "besar"`. Menyatakan bahwa sebuah nilai boleh salah satu dari beberapa kemungkinan. Sangat berguna untuk prop seperti `ukuran` atau `varian`, karena editor langsung menawarkan pilihan yang sah.',
+        },
+        {
+          term: 'optional',
+          meaning:
+            'Tanda tanya setelah nama property: `judul?: string`. Artinya property itu **boleh tidak ada**, dan tipenya otomatis menjadi `string | undefined`. Inilah cara menyatakan prop yang tidak wajib diisi.',
+        },
+        {
+          term: 'any',
+          meaning:
+            'Tipe yang berarti **"jangan periksa apa pun"**. Memakainya mematikan seluruh manfaat TypeScript di tempat itu. Kalau kamu benar-benar tidak tahu bentuknya, pakai `unknown` — ia memaksamu memeriksa dulu sebelum dipakai, dan itulah yang kamu inginkan.',
+        },
+        {
+          term: 'strict',
+          meaning:
+            'Mode ketat di `tsconfig.json` yang menyalakan pemeriksaan paling berguna, termasuk `strictNullChecks` yang membuat `null` dan `undefined` tidak bisa masuk diam-diam. **Nyalakan sejak hari pertama** — menyalakannya belakangan pada project yang sudah besar jauh lebih menyakitkan.',
+        },
       ),
 
       h2('Tipe dasar dan inferensi'),
@@ -630,6 +977,38 @@ export const lessons: LessonDraft[] = [
         'Discriminated union membuat kombinasi keadaan yang mustahil jadi tidak bisa ditulis.',
         '`unknown` untuk yang belum diketahui; `any` mematikan seluruh pemeriksaan.',
       ),
+      references(
+        {
+          label: 'TypeScript for JavaScript Programmers',
+          href: 'https://www.typescriptlang.org/docs/handbook/typescript-in-5-minutes.html',
+          source: 'TypeScript',
+          note: 'Pengantar paling ringkas — cukup untuk memahami TSX tanpa mempelajari seluruh sistem tipenya.',
+        },
+        {
+          label: 'Everyday Types',
+          href: 'https://www.typescriptlang.org/docs/handbook/2/everyday-types.html',
+          source: 'TypeScript',
+          note: 'Tipe dasar, union, `interface` versus `type`, dan property opsional.',
+        },
+        {
+          label: 'Narrowing',
+          href: 'https://www.typescriptlang.org/docs/handbook/2/narrowing.html',
+          source: 'TypeScript',
+          note: 'Cara TypeScript mempersempit tipe di dalam `if` — dasar kerja discriminated union.',
+        },
+        {
+          label: 'Generics',
+          href: 'https://www.typescriptlang.org/docs/handbook/2/generics.html',
+          source: 'TypeScript',
+          note: 'Cara membuat tipe masukan mengalir ke keluaran, dipakai lagi di Sub-bab 6.9.',
+        },
+        {
+          label: 'tsconfig — strict',
+          href: 'https://www.typescriptlang.org/tsconfig/#strict',
+          source: 'TypeScript',
+          note: 'Daftar pemeriksaan yang dinyalakannya, termasuk `strictNullChecks`.',
+        },
+      ),
     ],
   ),
 
@@ -639,6 +1018,49 @@ export const lessons: LessonDraft[] = [
     10,
     'Perbedaan konkret di berkas, tooling, dan pengalaman menulis.',
     [
+      terms(
+        {
+          term: '.tsx',
+          meaning:
+            'Ekstensi berkas untuk **TypeScript yang berisi JSX**. Ekstensinya wajib `.tsx`, bukan `.ts` — di berkas `.ts` biasa, tanda `<` di awal justru ditafsirkan sebagai sesuatu yang lain dan menghasilkan error sintaks yang membingungkan.',
+        },
+        {
+          term: '.jsx',
+          meaning:
+            'Ekstensi untuk **JavaScript yang berisi JSX**. Sebenarnya `.js` pun bekerja di kebanyakan alat build modern, tapi `.jsx` memberi sinyal jelas kepada pembaca dan editor bahwa berkas ini berisi tampilan.',
+        },
+        {
+          term: 'compile-time',
+          meaning:
+            'Terjemahannya **saat dibangun**, sebelum kode dijalankan. Inilah waktu TypeScript bekerja. Bandingkan dengan **runtime** (saat program berjalan) — dan seluruh nilai TSX terletak pada pergeseran ini: kesalahan yang tadinya baru muncul di depan pengguna, kini muncul di editormu.',
+        },
+        {
+          term: 'type error',
+          meaning:
+            'Kesalahan yang **ditemukan sebelum kode dijalankan** — salah nama prop, prop wajib yang lupa diisi, atau tipe yang tidak cocok. Di berkas `.jsx` ketiganya baru ketahuan saat halaman dibuka; di `.tsx` ketiganya bergaris merah saat kamu mengetik.',
+        },
+        {
+          term: 'autocomplete',
+          meaning:
+            'Saran otomatis dari editor saat kamu mengetik. Ini manfaat TSX yang paling terasa sehari-hari dan paling sering diremehkan: mengetik `<Kartu ` langsung menampilkan daftar prop yang tersedia beserta tipenya, tanpa perlu membuka berkas komponennya.',
+        },
+        {
+          term: 'tsconfig.json',
+          meaning:
+            'Berkas konfigurasi TypeScript. Untuk TSX, kuncinya adalah opsi `jsx` — nilai `react-jsx` mengaktifkan runtime otomatis sehingga kamu tidak perlu mengimpor `React` di setiap berkas.',
+        },
+        {
+          term: 'vue-tsc / tsc',
+          meaning:
+            '`tsc` adalah pemeriksa tipe resmi TypeScript, dijalankan dengan `tsc --noEmit` untuk memeriksa tanpa menghasilkan berkas. Perlu diketahui: **alat build seperti Vite dan SWC hanya membuang tipe tanpa memeriksanya**, jadi pemeriksaan sungguhan harus dijalankan terpisah — dan itulah kenapa project ini punya skrip `type-check` sendiri.',
+        },
+        {
+          term: 'migrasi bertahap',
+          meaning:
+            'TypeScript bisa dipakai **berkas per berkas**. `.jsx` dan `.tsx` boleh hidup berdampingan dalam satu project, sehingga kamu tidak perlu mengubah semuanya sekaligus. Ini yang membuat perpindahan pada project berjalan tetap masuk akal.',
+        },
+      ),
+
       h2('Perbandingan langsung'),
       compare(
         {
@@ -754,6 +1176,32 @@ export const lessons: LessonDraft[] = [
         'Nyalakan `strict` sejak hari pertama.',
         'Tipe dihapus saat build — nol biaya saat berjalan.',
       ),
+      references(
+        {
+          label: 'JSX — tsconfig option',
+          href: 'https://www.typescriptlang.org/tsconfig/#jsx',
+          source: 'TypeScript',
+          note: 'Nilai `react-jsx` yang mengaktifkan runtime otomatis, beserta pilihan lainnya.',
+        },
+        {
+          label: 'JSX in TypeScript',
+          href: 'https://www.typescriptlang.org/docs/handbook/jsx.html',
+          source: 'TypeScript',
+          note: 'Alasan berkas harus berekstensi `.tsx` dan kenapa arrow generic butuh koma tambahan.',
+        },
+        {
+          label: 'Using TypeScript',
+          href: 'https://react.dev/learn/typescript',
+          source: 'React',
+          note: 'Panduan resmi React untuk TypeScript, termasuk cara memulai dari project yang sudah ada.',
+        },
+        {
+          label: 'Features — TypeScript',
+          href: 'https://vite.dev/guide/features#typescript',
+          source: 'Vite',
+          note: 'Penegasan bahwa alat build hanya membuang tipe tanpa memeriksanya — `tsc` tetap perlu dijalankan.',
+        },
+      ),
     ],
   ),
 
@@ -763,6 +1211,54 @@ export const lessons: LessonDraft[] = [
     12,
     'Kontrak antar komponen yang diperiksa mesin.',
     [
+      terms(
+        {
+          term: 'Props',
+          meaning:
+            'Tipe yang mendeskripsikan **kontrak sebuah komponen**: prop apa saja yang ia terima, bertipe apa, dan mana yang wajib. Nilainya melampaui pencegahan error — kontrak ini menjadi dokumentasi yang **tidak bisa basi**, karena kode yang menyimpang darinya langsung ditolak.',
+        },
+        {
+          term: 'ReactNode',
+          meaning:
+            'Tipe untuk **apa pun yang bisa dirender React**: teks, angka, elemen, array, `null`, atau `false`. Inilah tipe yang hampir selalu benar untuk `children`, karena ia paling longgar dan tidak membatasi pemakai komponenmu tanpa alasan.',
+        },
+        {
+          term: 'ReactElement',
+          meaning:
+            'Tipe yang **lebih sempit** dari `ReactNode` — hanya menerima elemen JSX, bukan teks atau angka. Pakai ini hanya kalau komponenmu memang tidak bisa bekerja dengan teks biasa; kalau tidak, ia hanya mempersulit pemakainya tanpa manfaat.',
+        },
+        {
+          term: 'PropsWithChildren',
+          meaning:
+            'Pembantu bawaan React yang menambahkan `children` ke tipe props-mu. Sekarang jarang dipakai karena menulis `children: ReactNode` sendiri lebih jelas terbaca dan tidak menyembunyikan apa pun.',
+        },
+        {
+          term: 'nilai default',
+          meaning:
+            'Nilai cadangan untuk prop opsional, ditulis langsung di destructuring: `{ jumlah = 0 }`. Ini menggantikan `defaultProps` gaya lama yang sudah tidak dianjurkan untuk komponen fungsi. Ingat aturan dari Sub-bab 1.7: nilai default **hanya terpicu oleh `undefined`**, bukan oleh `null`.',
+        },
+        {
+          term: 'callback prop',
+          meaning:
+            'Prop berupa fungsi yang dipanggil komponen anak untuk memberi tahu induknya bahwa sesuatu terjadi — `onKlik: () => void`, `onPilih: (id: string) => void`. Tipenya sekaligus mendokumentasikan **argumen apa** yang akan diterima induk.',
+        },
+        {
+          term: 'void',
+          meaning:
+            'Tipe kembalian yang berarti **"nilai kembaliannya tidak dipakai"**. Dipakai untuk hampir semua callback prop. Perlu diketahui, ia sedikit longgar: fungsi yang sebenarnya mengembalikan sesuatu tetap boleh dipasang — nilainya saja yang diabaikan.',
+        },
+        {
+          term: 'ComponentProps',
+          meaning:
+            'Pembantu untuk **meminjam tipe props elemen bawaan**: `ComponentProps<"button">` memberimu seluruh atribut tombol HTML. Sangat berguna saat membuat komponen pembungkus, agar pemakainya tetap bisa mengoper `disabled`, `type`, atau `aria-label` tanpa kamu daftarkan satu per satu.',
+        },
+        {
+          term: 'rest props',
+          meaning:
+            'Pola `{ variant, ...sisanya }` yang mengumpulkan prop yang tidak kamu pakai lalu meneruskannya ke elemen di dalamnya dengan `{...sisanya}`. Persis pola rest yang kamu pelajari di Sub-bab 1.11, diterapkan pada komponen.',
+        },
+      ),
+
       h2('Dasar'),
       code(
         'tsx',
@@ -888,6 +1384,38 @@ export const lessons: LessonDraft[] = [
         'Discriminated union membuat kombinasi props yang mustahil tidak bisa ditulis.',
         'Hindari `object` dan `any` di props — tulis bentuknya.',
       ),
+      references(
+        {
+          label: 'Using TypeScript — Typing props',
+          href: 'https://react.dev/learn/typescript#typing-props',
+          source: 'React',
+          note: 'Pola resmi memberi tipe props, termasuk anjuran menulis fungsi biasa alih-alih `React.FC`.',
+        },
+        {
+          label: 'ReactNode',
+          href: 'https://react.dev/learn/typescript#typing-children',
+          source: 'React',
+          note: 'Tipe yang tepat untuk `children`, beserta kapan `ReactElement` lebih cocok.',
+        },
+        {
+          label: 'Passing Props to a Component',
+          href: 'https://react.dev/learn/passing-props-to-a-component',
+          source: 'React',
+          note: 'Dasar konsep props sebelum tipenya ditambahkan, termasuk pola rest props.',
+        },
+        {
+          label: 'Discriminated unions',
+          href: 'https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions',
+          source: 'TypeScript',
+          note: 'Cara membuat kombinasi props yang mustahil menjadi tidak bisa ditulis sama sekali.',
+        },
+        {
+          label: 'Utility Types',
+          href: 'https://www.typescriptlang.org/docs/handbook/utility-types.html',
+          source: 'TypeScript',
+          note: '`Omit`, `Pick`, dan `Partial` yang sering dipakai saat menyusun tipe props turunan.',
+        },
+      ),
     ],
   ),
 
@@ -897,6 +1425,54 @@ export const lessons: LessonDraft[] = [
     12,
     'Dua tempat pemula paling sering tersandung tipe.',
     [
+      terms(
+        {
+          term: 'handler inline',
+          meaning:
+            'Fungsi penangan yang ditulis **langsung di dalam JSX**: `onChange={(e) => ...}`. Keuntungan yang sering tidak disadari: TypeScript sudah tahu tipe `e` dari konteksnya, jadi **kamu tidak perlu menganotasi apa pun**. Anotasi baru dibutuhkan ketika fungsinya dipisah keluar dari JSX.',
+        },
+        {
+          term: 'SyntheticEvent',
+          meaning:
+            'Terjemahannya **peristiwa sintetis**. Pembungkus React atas peristiwa DOM asli, dibuat agar perilakunya seragam di semua browser. API-nya nyaris identik dengan yang kamu pelajari di Bab 4 — `preventDefault`, `target`, `currentTarget` semuanya ada. Peristiwa aslinya tetap bisa diambil lewat `e.nativeEvent`.',
+        },
+        {
+          term: 'ChangeEvent',
+          meaning:
+            'Tipe peristiwa untuk perubahan isi input, ditulis dengan elemennya: `ChangeEvent<HTMLInputElement>`. Menyebutkan elemennya penting — itulah yang membuat `e.target.value` dikenali sebagai `string` alih-alih error.',
+        },
+        {
+          term: 'FormEvent',
+          meaning:
+            'Tipe peristiwa pengiriman form: `FormEvent<HTMLFormElement>`. Ini tempat `e.preventDefault()` dipanggil untuk mencegah halaman dimuat ulang, persis seperti di Sub-bab 4.9.',
+        },
+        {
+          term: 'target vs currentTarget',
+          meaning:
+            'Perbedaan yang sama dengan Bab 4, tapi dengan akibat tambahan di TypeScript: **`currentTarget` bertipe tepat** karena React tahu di elemen mana handler dipasang, sementara **`target` bertipe longgar** karena peristiwa bisa berasal dari elemen mana pun di dalamnya. Kalau tipenya terasa tidak cocok, biasanya kamu sebenarnya menginginkan `currentTarget`.',
+        },
+        {
+          term: 'ref',
+          meaning:
+            'Singkatan *reference*. Cara React memberimu **akses langsung ke elemen DOM** — untuk memfokuskan input, mengukur ukuran, atau memutar video. Ia adalah jalan keluar yang disediakan React ketika pendekatan deklaratif tidak cukup.',
+        },
+        {
+          term: 'useRef',
+          meaning:
+            'Hook untuk membuat ref. Bentuk tipenya menentukan perilakunya: `useRef<HTMLInputElement>(null)` untuk menunjuk elemen DOM, dan hasilnya **selalu bisa `null`** — karena sebelum React memasangnya ke elemen, isinya memang belum ada.',
+        },
+        {
+          term: 'null check',
+          meaning:
+            'Pemeriksaan `if (ref.current)` atau `ref.current?.focus()` yang **wajib** ada sebelum memakai isi sebuah ref. Bukan formalitas TypeScript — pada render pertama, atau setelah elemennya dilepas, isinya benar-benar `null`.',
+        },
+        {
+          term: 'HTMLInputElement',
+          meaning:
+            'Salah satu dari puluhan tipe elemen DOM bawaan — ada juga `HTMLButtonElement`, `HTMLDivElement`, `HTMLFormElement`. Menyebutkan tipe yang **tepat** memberimu property khusus elemen itu; menyebut `HTMLElement` yang terlalu umum membuat `value` dan `checked` tidak dikenali.',
+        },
+      ),
+
       h2('Handler inline: biarkan inferensi bekerja'),
       code(
         'tsx',
@@ -1024,6 +1600,38 @@ export const lessons: LessonDraft[] = [
         '`ref.current` selalu bisa `null` — pakai `?.`.',
         'Di React 19, `ref` sudah jadi prop biasa; `forwardRef` tidak lagi diperlukan.',
       ),
+      references(
+        {
+          label: 'Responding to Events',
+          href: 'https://react.dev/learn/responding-to-events',
+          source: 'React',
+          note: 'Dasar penanganan peristiwa di React sebelum tipenya ditambahkan.',
+        },
+        {
+          label: 'Common components — event props',
+          href: 'https://react.dev/reference/react-dom/components/common#common-props',
+          source: 'React',
+          note: 'Daftar seluruh prop peristiwa beserta tipe objek yang diterimanya.',
+        },
+        {
+          label: 'useRef',
+          href: 'https://react.dev/reference/react/useRef',
+          source: 'React',
+          note: 'Termasuk penegasan bahwa `ref.current` bernilai `null` sebelum React memasangnya.',
+        },
+        {
+          label: 'Manipulating the DOM with Refs',
+          href: 'https://react.dev/learn/manipulating-the-dom-with-refs',
+          source: 'React',
+          note: 'Kapan ref memang jalan keluar yang tepat, dan kapan justru menandakan rancangan yang keliru.',
+        },
+        {
+          label: 'ref as a prop',
+          href: 'https://react.dev/blog/2024/12/05/react-19#ref-as-a-prop',
+          source: 'React',
+          note: 'Perubahan React 19 yang membuat `forwardRef` tidak lagi diperlukan.',
+        },
+      ),
     ],
   ),
 
@@ -1033,6 +1641,59 @@ export const lessons: LessonDraft[] = [
     13,
     'Komponen yang tipenya menyesuaikan datanya — dan cara menghapus banyak boolean prop sekaligus.',
     [
+      terms(
+        {
+          term: 'generic',
+          meaning:
+            'Dibaca "je-ne-rik", terjemahannya **umum** atau serbaguna. Cara membuat sebuah komponen atau fungsi bekerja untuk **tipe apa pun**, sambil tetap **mengingat tipe apa yang sebenarnya dipakai**. Inilah bedanya dengan `unknown`: keduanya menerima apa saja, tapi generic mengalirkan tipenya sampai ke ujung.',
+        },
+        {
+          term: 'T',
+          meaning:
+            'Nama **parameter tipe** yang sudah jadi kebiasaan, dari kata *Type*. Sama seperti `fn` dan `arr`, ia hanya nama — kamu bebas menulis `Item` atau `Data`, dan pada komponen nyata nama yang lebih menjelaskan biasanya lebih baik. Kalau butuh lebih dari satu, kebiasaannya berlanjut ke `U` dan `V`.',
+        },
+        {
+          term: 'parameter tipe',
+          meaning:
+            'Tipe yang diserahkan ke sebuah komponen, ditulis di antara kurung sudut: `<T>`. Berperan persis seperti parameter fungsi biasa — bedanya, yang diisikan adalah **tipe**, bukan nilai.',
+        },
+        {
+          term: 'constraint',
+          meaning:
+            'Terjemahannya **batasan**, ditulis dengan `extends`: `<T extends { id: string }>`. Menyatakan bahwa tipe apa pun boleh dipakai **asalkan** memenuhi bentuk tertentu. Sangat berguna untuk komponen daftar yang butuh `id` sebagai `key`.',
+        },
+        {
+          term: 'render prop',
+          meaning:
+            'Prop yang berisi **fungsi yang mengembalikan tampilan**: `render={(item) => <li>{item.judul}</li>}`. Polanya membuat komponen bisa mengurus logika daftar sementara pemakainya yang menentukan bentuk tiap barisnya.',
+        },
+        {
+          term: 'boolean prop explosion',
+          meaning:
+            'Terjemahan bebasnya **ledakan prop boolean**. Keadaan ketika sebuah komponen mengumpulkan banyak prop `true`/`false` — `withHeader`, `isLoading`, `hasError`, `isEmpty` — sampai kombinasinya jadi mustahil ditelusuri. Empat prop boolean berarti **16 kombinasi**, dan sebagian besar di antaranya tidak masuk akal.',
+        },
+        {
+          term: 'discriminated union',
+          meaning:
+            'Terjemahannya **gabungan berpembeda**. Union yang tiap anggotanya punya satu property penanda dengan nilai tetap — misalnya `sebagai: "tautan"` versus `sebagai: "tombol"`. Kekuatannya: **kombinasi yang mustahil menjadi tidak bisa ditulis sama sekali**, dan TypeScript otomatis tahu property mana yang tersedia di tiap cabang.',
+        },
+        {
+          term: 'discriminant',
+          meaning:
+            'Terjemahannya **pembeda**. Property penanda yang membedakan tiap anggota union — `sebagai`, `status`, atau `kind`. Nilainya harus berupa **literal tetap**, bukan `string` biasa, karena dari situlah TypeScript tahu cabang mana yang sedang berlaku.',
+        },
+        {
+          term: 'exhaustiveness',
+          meaning:
+            'Terjemahannya **ketuntasan**. Jaminan bahwa **semua cabang sudah ditangani**. Caranya dengan menugaskan nilai sisa ke `never` di cabang terakhir — menambah anggota union baru lalu lupa menanganinya langsung menjadi error. Pola inilah yang dipakai `BlockRenderer` di project website ini.',
+        },
+        {
+          term: 'never',
+          meaning:
+            'Tipe yang berarti **"tidak akan pernah ada nilainya"**. Kalau TypeScript berhasil menyimpulkan sebuah nilai bertipe `never`, artinya semua kemungkinan sudah habis ditangani — dan itulah yang membuatnya berguna sebagai penjaga ketuntasan.',
+        },
+      ),
+
       h2('Masalahnya'),
       code(
         'tsx',
@@ -1189,6 +1850,38 @@ export const lessons: LessonDraft[] = [
         'Discriminated union menghapus ledakan boolean prop dan kombinasi mustahil.',
         'Polymorphic `as` berguna tapi mahal — jangan jadikan default.',
       ),
+      references(
+        {
+          label: 'Generics',
+          href: 'https://www.typescriptlang.org/docs/handbook/2/generics.html',
+          source: 'TypeScript',
+          note: 'Parameter tipe dan `extends` sebagai pembatas — dasar komponen generic di atas.',
+        },
+        {
+          label: 'Discriminated unions',
+          href: 'https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions',
+          source: 'TypeScript',
+          note: 'Beserta pemeriksaan ketuntasan memakai `never` di cabang terakhir.',
+        },
+        {
+          label: 'never',
+          href: 'https://www.typescriptlang.org/docs/handbook/2/narrowing.html#the-never-type',
+          source: 'TypeScript',
+          note: 'Penjaga ketuntasan — pola yang dipakai `BlockRenderer` di project website ini.',
+        },
+        {
+          label: 'Using TypeScript — Generic components',
+          href: 'https://react.dev/learn/typescript',
+          source: 'React',
+          note: 'Contoh resmi komponen generic, termasuk kebutuhan koma pada arrow generic di `.tsx`.',
+        },
+        {
+          label: 'ElementType',
+          href: 'https://react.dev/reference/react/createElement',
+          source: 'React',
+          note: 'Dasar pola polymorphic `as` yang membuat satu komponen bisa merender tag berbeda.',
+        },
+      ),
     ],
   ),
 
@@ -1198,6 +1891,49 @@ export const lessons: LessonDraft[] = [
     10,
     'Keputusan yang sebaiknya diambil di awal project, bukan di tengah jalan.',
     [
+      terms(
+        {
+          term: 'trade-off',
+          meaning:
+            'Terjemahannya **pertukaran untung-rugi**. Sub-bab ini bukan tentang mana yang "lebih benar" — keduanya sah. Yang dibandingkan adalah **apa yang kamu bayar** (waktu belajar, baris tipe, build sedikit lebih lama) melawan **apa yang kamu dapat** (bug tertangkap lebih awal, autocomplete akurat, refactor yang aman).',
+        },
+        {
+          term: 'beban kognitif',
+          meaning:
+            'Terjemahan dari *cognitive load*: berapa banyak hal baru yang harus ditahan di kepala **sekaligus**. Ini alasan utama kenapa belajar React sebaiknya dimulai dari JSX — menambahkan sistem tipe di saat yang sama berarti dua hal asing sekaligus, dan keduanya jadi lebih sulit dari seharusnya.',
+        },
+        {
+          term: 'prototipe',
+          meaning:
+            'Kode yang dibuat untuk **menguji sebuah gagasan lalu dibuang**. Untuk ini JSX hampir selalu pilihan yang tepat. Bahayanya cuma satu, dan sangat nyata: prototipe yang ternyata tidak jadi dibuang, lalu tumbuh menjadi produk.',
+        },
+        {
+          term: 'refactor aman',
+          meaning:
+            'Kemampuan mengubah nama atau memindahkan sesuatu dengan jaminan **tidak ada pemakai yang terlewat**. Ini manfaat TSX yang paling terasa pada project yang berumur panjang — pada JSX, mengganti nama sebuah prop berarti mencari manual dan berharap tidak ada yang tertinggal.',
+        },
+        {
+          term: 'kontrak API',
+          meaning:
+            'Bentuk data yang dijanjikan sebuah layanan. Menuliskannya sebagai tipe membuatnya **terdokumentasi di dalam kode** alih-alih di catatan terpisah yang cepat basi. Tapi ingat: tipe **tidak memeriksa apa pun saat program berjalan** — data dari jaringan tetap wajib divalidasi.',
+        },
+        {
+          term: 'validasi runtime',
+          meaning:
+            'Pemeriksaan bentuk data **saat program berjalan**, memakai pustaka seperti Zod. Wajib untuk data dari luar, karena TypeScript sudah dihapus di titik itu. Menulis `data as Tugas[]` hanya **membungkam** pemeriksa, bukan membuktikan apa pun.',
+        },
+        {
+          term: 'type assertion',
+          meaning:
+            'Bentuk `nilai as Tipe` yang berarti "percaya saja, aku tahu bentuknya". **Bukan konversi dan bukan pemeriksaan** — kalau kamu keliru, TypeScript tetap diam dan errornya muncul saat berjalan. Pakai sehemat mungkin, dan curigai setiap kemunculannya saat mereview kode.',
+        },
+        {
+          term: 'DX',
+          meaning:
+            'Singkatan *Developer Experience*, terjemahannya **pengalaman pengembang**. Seberapa nyaman kode itu dikerjakan sehari-hari: autocomplete, pesan error yang jelas, kepercayaan diri saat mengubah sesuatu. Sebagian besar nilai TSX sebenarnya jatuh ke kategori ini, bukan ke pencegahan bug.',
+        },
+      ),
+
       h2('Biaya sungguhan'),
       table(
         ['Biaya TSX', 'Imbalan TSX'],
@@ -1268,6 +2004,32 @@ export const lessons: LessonDraft[] = [
         'Migrasi bertahap: `allowJs`, mulai dari komponen daun, `strict` terakhir.',
         'TypeScript menangkap kesalahan bentuk data, bukan kesalahan logika.',
       ),
+      references(
+        {
+          label: 'Adding TypeScript to an existing project',
+          href: 'https://react.dev/learn/typescript#adding-typescript-to-an-existing-react-project',
+          source: 'React',
+          note: 'Langkah resmi migrasi bertahap dari project React yang sudah berjalan.',
+        },
+        {
+          label: 'tsconfig — allowJs',
+          href: 'https://www.typescriptlang.org/tsconfig/#allowJs',
+          source: 'TypeScript',
+          note: 'Opsi yang membuat `.jsx` dan `.tsx` bisa hidup berdampingan selama masa migrasi.',
+        },
+        {
+          label: 'Migrating from JavaScript',
+          href: 'https://www.typescriptlang.org/docs/handbook/migrating-from-javascript.html',
+          source: 'TypeScript',
+          note: 'Urutan yang dianjurkan: mulai dari berkas daun, naikkan ketegasan belakangan.',
+        },
+        {
+          label: 'Type Checking JavaScript Files',
+          href: 'https://www.typescriptlang.org/docs/handbook/type-checking-javascript-files.html',
+          source: 'TypeScript',
+          note: 'Alternatif tanpa mengubah ekstensi — memakai JSDoc seperti di Sub-bab 1.16.',
+        },
+      ),
     ],
   ),
 
@@ -1279,6 +2041,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Praktik penutup Frontend Basic. Kamu akan mengambil satu komponen JSX yang sudah bekerja, mengubahnya ke TSX, dan mencatat setiap error yang muncul.',
+      ),
+
+      terms(
+        {
+          term: 'konversi',
+          meaning:
+            'Mengubah berkas `.jsx` menjadi `.tsx`. Yang perlu diluruskan sejak awal: **error yang muncul bukan kerusakan baru**. Semuanya sudah ada sejak tadi — TypeScript hanya membuatnya terlihat sebelum kode dijalankan, alih-alih menunggu pengguna yang menemukannya.',
+        },
+        {
+          term: 'komponen daun',
+          meaning:
+            'Terjemahan dari *leaf component*: komponen yang **tidak mengimpor komponen lain**. Mulailah migrasi dari sini, karena tipenya tidak bergantung pada berkas yang belum dikonversi — sehingga errornya sedikit dan mudah dipahami.',
+        },
+        {
+          term: 'implicit any',
+          meaning:
+            'Error paling pertama yang akan kamu temui: `Parameter "tugas" implicitly has an "any" type`. Artinya TypeScript **tidak punya petunjuk apa pun** tentang bentuk prop itu. Ini bukan keluhan rewel — ia menunjukkan bahwa kontrak komponenmu memang belum pernah ditulis di mana pun.',
+        },
+        {
+          term: 'strictNullChecks',
+          meaning:
+            'Pemeriksaan yang membuat `null` dan `undefined` **tidak bisa masuk diam-diam** ke tempat yang tidak mengharapkannya. Ini yang menangkap bug `Cannot read properties of undefined` — kelas error yang paling sering muncul di produksi — sebelum kodenya sempat dijalankan.',
+        },
+        {
+          term: 'union literal',
+          meaning:
+            'Tipe seperti `"semua" | "aktif" | "selesai"` untuk prop `filter`. Manfaatnya dua sekaligus: salah ketik nilai langsung tertangkap, **dan** editor menawarkan ketiga pilihan itu saat kamu mengetik.',
+        },
+        {
+          term: 'bug yang tertangkap',
+          meaning:
+            'Inti sesungguhnya dari praktik ini. Catat setiap error yang muncul dan tanyakan: **apakah ini benar-benar bug, atau hanya tipe yang belum ditulis?** Sebagian akan ternyata bug sungguhan yang sudah lama ada di kode — dan menemukannya tanpa membuka browser adalah bukti paling meyakinkan tentang nilai TSX.',
+        },
+        {
+          term: 'error TypeScript',
+          meaning:
+            'Pesannya sering panjang dan menakutkan, tapi polanya tetap: **baris pertama menyebut masalahnya**, sisanya menjelaskan jalur penalarannya. Bacalah seperti stack trace di Sub-bab 1.1 — dari atas, dan berhenti begitu kamu paham.',
+        },
+        {
+          term: 'satisfies',
+          meaning:
+            'Operator yang memeriksa sebuah nilai **cocok dengan tipe tertentu tanpa melebarkan tipenya**. Berbeda dari `as` yang hanya membungkam pemeriksa, `satisfies` benar-benar memeriksa — sehingga ia pilihan yang lebih aman untuk objek konfigurasi.',
+        },
       ),
 
       h2('1. Titik awal'),
@@ -1439,6 +2244,38 @@ export const lessons: LessonDraft[] = [
         'Konversi ke TSX langsung menangkap salah ketik, prop hilang, dan tanda tangan salah.',
         'Boolean prop yang terpisah membolehkan keadaan mustahil; discriminated union menutupnya.',
         'Nilai TypeScript di UI bukan sekadar mencegah salah ketik — tapi membuat keadaan yang tidak masuk akal tidak bisa diekspresikan.',
+      ),
+      references(
+        {
+          label: 'Using TypeScript',
+          href: 'https://react.dev/learn/typescript',
+          source: 'React',
+          note: 'Rujukan menyeluruh untuk seluruh pola yang dipakai dalam konversi ini.',
+        },
+        {
+          label: 'tsconfig — strictNullChecks',
+          href: 'https://www.typescriptlang.org/tsconfig/#strictNullChecks',
+          source: 'TypeScript',
+          note: 'Pemeriksaan yang menangkap kelas bug `Cannot read properties of undefined`.',
+        },
+        {
+          label: 'noImplicitAny',
+          href: 'https://www.typescriptlang.org/tsconfig/#noImplicitAny',
+          source: 'TypeScript',
+          note: 'Sumber error pertama yang akan kamu temui saat mengubah ekstensi berkas.',
+        },
+        {
+          label: 'The satisfies Operator',
+          href: 'https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-9.html',
+          source: 'TypeScript',
+          note: 'Alternatif `as` yang benar-benar memeriksa alih-alih sekadar membungkam.',
+        },
+        {
+          label: 'Describing the UI',
+          href: 'https://react.dev/learn/describing-the-ui',
+          source: 'React',
+          note: 'Titik masuk Frontend Intermediate — seluruh konsep bab ini muncul lagi di sana.',
+        },
       ),
     ],
   ),

@@ -297,7 +297,9 @@ const chapter6 = defineChapter({
     { category: 'frontend-basic', chapter: 'oop-javascript' },
   ],
   stackVersions: ['React 19.2', 'TypeScript 5.9'],
-  reviewedAt: '2026-08-02',
+  // 2026-08-03: revisi ADR-0006 — setiap sub-bab kini menjelaskan istilahnya sendiri dan
+  // menunjuk halaman dokumentasi resminya. Dengan bab ini, seluruh Frontend Basic tuntas.
+  reviewedAt: '2026-08-03',
   lessons: lessonsJsxTsx,
   quiz: [
     q(
