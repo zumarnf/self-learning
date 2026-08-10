@@ -105,6 +105,9 @@ export const lessons: LessonDraft[] = [
         <Tombol type="submit" disabled aria-label="Kirim" onFocus={...} data-testid="kirim" />
         `,
       ),
+      p(
+        "Tiga bagian kecil di sini mengerjakan hampir seluruh pekerjaannya. `ComponentProps<'button'>` mewarisi **seluruh** prop `<button>` bawaan — `type`, `disabled`, semua handler, semua atribut ARIA — sehingga kelima prop di baris pemakaian bekerja tanpa satu pun ditulis di tipenya. Rest `...sisa` meneruskan semuanya ke elemen aslinya, jadi komponen ini tidak pernah menjadi penghalang seperti diperingatkan di kotak berikut. Dan `className` sengaja **dikeluarkan dari `...sisa`** lalu digabung lewat `cn(KELAS[varian], className)` — kalau ia ikut tersebar, `className` dari pemanggil akan menimpa kelas varian sepenuhnya alih-alih menambahinya. Pola tiga langkah ini — warisi, keluarkan yang perlu digabung, teruskan sisanya — berlaku untuk hampir semua komponen pembungkus elemen HTML.",
+      ),
       callout(
         'warning',
         'Komponen yang tidak meneruskan props sisa akan menghambat pemakainya',
@@ -133,6 +136,9 @@ export const lessons: LessonDraft[] = [
         <KartuArtikel artikel={a} />
         `,
       ),
+      p(
+        'Petunjuk paling jelas ada di propsnya: `produk` dan `artikel` **tidak pernah dipakai bersamaan**. Prop yang saling meniadakan seperti itu berarti tipenya harus dibuat opsional, sehingga TypeScript tidak bisa lagi menjamin salah satunya ada — dan di dalam komponen, tiap pemakaian data harus dijaga percabangan `tipe`. Memecahnya menjadi dua komponen membuat masing-masing punya satu prop yang **wajib**, satu bentuk data yang pasti, dan tidak satu pun percabangan. Perhatikan ini kelanjutan dari tanda ketiga di daftar sebelumnya: prop bernama `tipe` yang mengubah **struktur** — bukan sekadar warna atau ukuran — hampir selalu penanda dua komponen yang menyamar jadi satu.',
+      ),
 
       h2('Controlled, uncontrolled, atau keduanya'),
       code(
@@ -157,6 +163,9 @@ export const lessons: LessonDraft[] = [
           // ...
         }
         `,
+      ),
+      p(
+        'Perhatikan `terkendali = terbuka !== undefined`: ini yang menentukan mode mana yang aktif — kalau pemanggil mengoper prop `terbuka`, komponen memakainya sebagai satu-satunya sumber kebenaran dan mengabaikan `internal`; kalau tidak, ia jatuh kembali ke state internalnya sendiri. Fungsi `ubah` memanggil `setInternal` **hanya** saat mode uncontrolled, tapi selalu memanggil `onUbah` di kedua mode — sehingga pemanggil yang memang ingin tahu perubahannya tetap mendapat kabar, tanpa peduli siapa yang sedang memegang datanya.',
       ),
       callout(
         'tip',
@@ -271,6 +280,9 @@ export const lessons: LessonDraft[] = [
         // isPrimary + isDanger sekaligus artinya apa?
         `,
       ),
+      p(
+        'Dua komentar itu sudah memuat seluruh diagnosisnya, tapi perhatikan **kenapa** bentuk ini begitu mudah tumbuh: tiap boolean masuk akal saat ditambahkan sendiri-sendiri. Yang tidak terlihat adalah kombinasinya. `isPrimary` dan `isDanger` sama-sama menentukan warna, jadi keduanya sekaligus tidak punya arti — tapi tipe boolean tidak bisa menyatakan "pilih salah satu". Akibatnya komponen harus memutuskan sendiri mana yang menang, biasanya lewat urutan `if` yang tidak pernah didokumentasikan. Pola yang bisa dikenali: **boolean yang saling meniadakan sebenarnya satu prop bernilai pilihan**, dan itulah yang dikerjakan bentuk berikutnya.',
+      ),
 
       h2('Bentuk yang benar'),
       code(
@@ -333,6 +345,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Perhatikan bagaimana `cva` menggantikan seluruh kombinasi boolean yang mustahil di atas: `varian` dan `ukuran` masing-masing hanya menerima satu nilai dari daftar terbatas, sehingga `isPrimary isDanger` yang tidak bermakna sekarang tidak bisa ditulis sama sekali — TypeScript menolaknya lewat `VariantProps<typeof gaya>`. `gaya({ varian, ukuran, lebarPenuh })` menghasilkan string class yang sesuai kombinasi yang dipilih, lalu `cn(...)` menggabungkannya dengan `className` dari pemanggil. Perhatikan juga `disabled={disabled || memuat}`: tombol otomatis nonaktif saat sedang memuat, tanpa pemanggil perlu mengingat untuk menonaktifkannya sendiri setiap kali memakai prop `memuat`.',
+      ),
 
       h2('Lima detail yang sering terlewat'),
       ol(
@@ -350,6 +365,9 @@ export const lessons: LessonDraft[] = [
           return <button type={type} {...sisa} />;
         }
         `,
+      ),
+      p(
+        'Satu baris ini menutup bug yang muncul di hampir setiap aplikasi. Default `type` sebuah `<button>` di HTML adalah **`submit`**, bukan `button` — jadi tombol apa pun di dalam `<form>` yang lupa menyebut tipenya akan mengirim form saat diklik, termasuk tombol "Hapus baris" atau "Tambah field". Gejalanya membingungkan karena halaman ikut dimuat ulang tanpa ada yang menyentuh tombol kirim. Dengan `type = \'button\'` sebagai nilai bawaan parameter, komponenmu membalik default itu ke pilihan yang aman, sementara pemanggil yang memang butuh tombol kirim tetap bisa menulis `type="submit"` secara eksplisit — dan keharusan menulisnya justru membuat maksudnya terbaca.',
       ),
       callout(
         'danger',
@@ -372,6 +390,9 @@ export const lessons: LessonDraft[] = [
           );
         }
         `,
+      ),
+      p(
+        'Perhatikan `ButtonLink` memakai **fungsi `gaya` yang sama persis** dengan `Button`, hanya menempelkannya ke `<Link>` alih-alih `<button>`. Itu yang membuat keduanya terlihat identik tanpa satu baris CSS pun diduplikasi — dan sekaligus alasan `cva` dipisah sebagai konstanta, bukan ditulis di dalam komponen. Yang berbeda hanyalah **elemen yang dihasilkan**, dan justru itu inti sub-babnya: tampilan boleh sama, tapi semantiknya tidak boleh dipaksakan. Perhatikan juga `ukuran` dan `varian` tetap diteruskan sementara prop khusus tombol seperti `memuat` tidak ada di sini — tautan tidak punya keadaan memuat, dan menyediakannya hanya akan mengundang pemakaian yang keliru.',
       ),
       callout(
         'danger',
@@ -538,6 +559,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Baris `dijelaskanOleh` layak dibongkar karena bentuknya padat. `[petunjuk && petunjukId, error && errorId]` menghasilkan array berisi `id` yang **benar-benar ada** — kalau `petunjuk` kosong, elemen pertamanya `false`, bukan string. `.filter(Boolean)` membuang elemen `false` itu, menyisakan hanya `id` yang valid. `.join(\' \')` menyatukannya jadi satu string dipisah spasi — format yang memang diharapkan `aria-describedby` saat menunjuk lebih dari satu elemen sekaligus. Baris `|| undefined` di akhir menangani kasus kedua-duanya kosong: `join` pada array kosong menghasilkan string kosong `\'\'`, dan React tidak menghapus atribut HTML untuk string kosong seperti ia menghapusnya untuk `undefined` — tanpa baris ini, elemen akan mendapat `aria-describedby=""` yang berarti "dijelaskan oleh elemen tak dikenal", lebih buruk daripada tidak punya atribut itu sama sekali.',
+      ),
       callout(
         'danger',
         'Tanpa ketiganya, field itu rusak — meski terlihat baik',
@@ -558,6 +582,9 @@ export const lessons: LessonDraft[] = [
         // BENAR
         const id = useId();
         `,
+      ),
+      p(
+        'Kedua bentuk SALAH gagal karena alasan yang berbeda, dan keduanya layak dikenali. Penghitung modul gagal pada **SSR**: server memulai dari `0` dan menghasilkan `field-0`, lalu browser menjalankan modulnya lagi dari awal dan menghasilkan urutan yang bisa berbeda — atribut `id` dan `htmlFor` jadi tidak cocok, React melaporkan hydration mismatch, dan kaitan label putus. `Math.random()` lebih buruk lagi karena ia berada di badan komponen: nilainya berubah **setiap render**, sehingga `htmlFor` dan `id` sempat menunjuk nilai berbeda di antara render. `useId()` menyelesaikan keduanya karena React menghasilkannya dari **posisi komponen dalam pohon**, yang sama di server maupun browser dan stabil sepanjang umur komponennya.',
       ),
 
       h2('Kapan menampilkan error'),
@@ -586,6 +613,9 @@ export const lessons: LessonDraft[] = [
         <Field label="Nama" name="nama" autoComplete="name" spellCheck={false} />
         `,
       ),
+      p(
+        'Keempat baris ini bekerja karena `Field` meneruskan props sisa ke `<input>`, seperti pola di sub-bab anatomi — tidak satu pun atribut ini perlu ditambahkan ke tipe `Field`. Perhatikan nilai `autoComplete` berbeda-beda dan **bukan sekadar `"on"`**: `current-password` memberi tahu pengelola sandi bahwa ini kolom masuk, bukan kolom membuat sandi baru; `one-time-code` membuat ponsel menawarkan kode OTP yang baru saja tiba lewat SMS. Nilai yang tepat inilah yang membuat pengisian otomatis benar-benar berguna. `inputMode="numeric"` di baris ketiga hanya mengubah **papan tik yang muncul**, tanpa menolak karakter lain — berbeda dari `type="number"` yang menambah tombol naik-turun dan menolak awalan nol, keduanya salah untuk kode OTP.',
+      ),
       ul(
         '`autoComplete` yang benar membuat pengisian otomatis bekerja — ini fitur aksesibilitas, bukan kenyamanan.',
         '`inputMode="numeric"` memunculkan papan tik angka di ponsel tanpa menolak karakter lain.',
@@ -611,6 +641,9 @@ export const lessons: LessonDraft[] = [
           kirim(data);
         }
         `,
+      ),
+      p(
+        'Baris `e.currentTarget.querySelector(\'[aria-invalid="true"]\')` memanfaatkan atribut `aria-invalid` yang sudah dipasang komponen `Field` — bukan mencari lewat `id` atau `ref` yang harus didaftarkan manual untuk tiap field, melainkan mencari **elemen pertama di dalam form** yang punya atribut itu bernilai `true`. Karena urutan pencarian `querySelector` mengikuti urutan elemen di DOM, "pertama" di sini secara alami berarti field paling atas yang gagal validasi. Memindahkan fokus ke situ (`pertama?.focus()`) membuat pengguna keyboard maupun pembaca layar langsung diarahkan ke masalah pertama yang perlu diperbaiki, bukan dibiarkan menerka field mana yang salah dari sekian banyak yang mungkin ada di form panjang.',
       ),
 
       divider,
@@ -769,6 +802,9 @@ export const lessons: LessonDraft[] = [
         };
         `,
       ),
+      p(
+        'Perhatikan tipe `ComponentProps<\'div\'>` pada tiap bagian: ia berarti "seluruh prop yang sah dipakai pada elemen `<div>` HTML asli" — termasuk `onClick`, `id`, dan `data-*` — tanpa perlu menuliskan satu per satu. Pola `{...sisa}` di akhir meneruskan seluruh prop itu ke elemen sungguhan, sehingga `Card` tetap terasa seperti `<div>` biasa bagi pemanggilnya, hanya dengan style bawaan yang bisa ditimpa lewat `className` (`cn()` menggabungkan keduanya, dengan `className` milik pemanggil yang menang belakangan). Ini alasan `Card.Header`, `Card.Body`, dan `Card.Footer` tidak butuh Context sama sekali seperti `Tabs` di sub-bab sebelumnya — ketiganya tidak berbagi state apa pun, jadi menempelkannya sebagai static property cukup untuk menyatakan "bagian ini hanya bermakna di dalam `Card`".',
+      ),
 
       h2('Kartu yang seluruhnya bisa diklik'),
       code(
@@ -791,6 +827,9 @@ export const lessons: LessonDraft[] = [
           <button className="relative z-10" onClick={simpan}>Simpan</button>
         </article>
         `,
+      ),
+      p(
+        'Versi SALAH menempelkan `role="button"` dan `tabIndex` pada `<div>` — cara lama membuat sesuatu "terlihat bisa diklik". Masalahnya bukan tampilan melainkan **kemampuan yang hilang**: ia tidak bisa dibuka di tab baru, alamatnya tidak bisa disalin, dan tidak muncul di daftar tautan pembaca layar; belum lagi tombol "Simpan" di dalamnya jadi elemen interaktif bersarang di dalam interaktif, yang tidak sah menurut HTML. Versi BENAR membalik pendekatannya: yang interaktif tetap **satu tautan asli** di judul, dan `after:absolute after:inset-0` membuat pseudo-element tak terlihat yang membentang menutupi seluruh kartu — itulah yang memperluas area kliknya. `relative` pada `<article>` menjadi acuan posisinya. Dan `relative z-10` pada tombol menaikkannya di atas overlay itu, sehingga ia tetap bisa diklik sendiri.',
       ),
       callout(
         'tip',
@@ -822,6 +861,9 @@ export const lessons: LessonDraft[] = [
           );
         }
         `,
+      ),
+      p(
+        'Komponen `Skeleton` sendiri sengaja dibuat **tanpa ukuran apa pun** — ia hanya menyediakan warna, sudut membulat, dan animasi denyut, lalu menyerahkan tinggi dan lebar ke `className` dari pemanggil. Itu yang membuatnya bisa dipakai untuk apa saja. Perhatikan komentar di `SkeletonKartu`: tiap `Skeleton` diberi ukuran yang **menyamai elemen yang akan menggantikannya** — `h-5` untuk judul, `h-4` untuk baris teks, dan lebar `w-2/3` maupun `w-4/5` yang meniru panjang baris yang tidak rata. Kemiripan itu bukan soal estetika melainkan soal **tinggi total kartunya**, karena itulah yang menentukan ada tidaknya lompatan saat data tiba. `aria-hidden="true"` pada `Skeleton` melengkapi sisi aksesibilitasnya: kotak-kotak kosong ini tidak punya makna untuk dibacakan.',
       ),
       callout(
         'danger',
@@ -994,6 +1036,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Perhatikan `showModal()` dipanggil — bukan `show()` — dan komentarnya menyebut kenapa: hanya varian modal yang memberi focus trap dan membuat latar belakang *inert*, artinya elemen di belakangnya benar-benar tidak bisa difokus maupun diklik. Effect di atasnya memakai pola sinkronisasi, bukan pemicu: ia membandingkan prop `terbuka` dengan keadaan asli `el.open` lalu menyamakannya, sehingga aman dijalankan berulang. Dua handler di bawah menutup sisa kebutuhan. `onClose` menangkap semua cara dialog tertutup termasuk `Esc`, sehingga kamu tidak perlu mendengarkan tombol itu sendiri. Dan `e.target === ref.current` adalah cara memeriksa **klik pada backdrop**: karena backdrop secara teknis bagian dari elemen `<dialog>` itu sendiri, klik di isinya akan punya `target` berupa elemen dalam, sedangkan klik di area gelap menghasilkan target dialognya langsung.',
+      ),
       callout(
         'tip',
         '`showModal()` memberimu empat dari lima kewajiban secara gratis',
@@ -1078,6 +1123,9 @@ export const lessons: LessonDraft[] = [
           );
         }
         `,
+      ),
+      p(
+        'Bagian yang paling mudah disalahpahami adalah blok `onKey` untuk Tab: ia mencari elemen fokus **pertama** dan **terakhir** yang bisa difokus di dalam dialog (`bisaFokus[0]` dan elemen terakhir dari array itu), lalu memaksa lompatan manual di kedua ujungnya — Shift+Tab dari elemen pertama melompat ke elemen terakhir, dan Tab dari elemen terakhir melompat kembali ke elemen pertama. Tanpa `e.preventDefault()` di kedua cabang itu, browser tetap menjalankan perilaku Tab bawaannya dan fokus lolos keluar dialog. `pemicuRef.current = document.activeElement` di awal menyimpan elemen yang sedang fokus **sebelum** dialog dibuka, sehingga fungsi pembersihan di akhir bisa mengembalikan fokus ke situ persis — pola yang sama dengan `AbortController` di Bab 3 Frontend Basic: disiapkan di awal effect, dibersihkan di fungsi yang dikembalikan.',
       ),
 
       h2('Kesalahan yang paling sering'),
@@ -1240,6 +1288,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Tipe `Ctx` menyimpan tiga hal, dan yang ketiga paling mudah terlewat gunanya. `aktif` dan `setAktif` adalah state yang dibagikan seperti biasa, tapi `baseId` ada untuk **menghubungkan tab dengan panelnya** lewat `aria-controls` dan `aria-labelledby`. Karena satu halaman bisa memuat beberapa `Tabs`, id-nya harus unik per instance — itulah kenapa `useId` diimpor di baris pertama. Fungsi `useTabs()` di bawahnya menerapkan pola hook pembungkus yang sudah berulang di bab ini, dan `createContext<Ctx | null>(null)` dengan nilai awal `null` adalah pasangannya: nilai awal itu sengaja dibuat mustahil agar pemakaian di luar `<Tabs>` bisa dikenali dan dilaporkan dengan kalimat yang menyebutkan masalahnya.',
+      ),
       callout(
         'tip',
         'Melempar error saat dipakai di luar induknya',
@@ -1317,6 +1368,9 @@ export const lessons: LessonDraft[] = [
         };
         `,
       ),
+      p(
+        'Perhatikan `baseId` yang dihasilkan sekali oleh `useId()` di `Tabs`, lalu dipakai ulang untuk membangun `id` setiap tab (`${baseId}-tab-${value}`) dan panel-nya (`${baseId}-panel-${value}`). Polanya sengaja: `aria-controls` pada tab menunjuk `id` panelnya, dan `aria-labelledby` pada panel menunjuk balik ke `id` tabnya — dua atribut yang saling merujuk, bukan satu arah. Kalau `id` ditulis manual tanpa `useId`, dua instance `<Tabs>` di halaman yang sama akan bertabrakan id-nya. `Tabs.Panel` juga melakukan hal yang gampang terlewat: `if (aktif !== value) return null` berarti hanya **satu** panel yang benar-benar ada di DOM pada satu waktu — panel yang tidak aktif bukan disembunyikan dengan CSS, melainkan tidak dirender sama sekali.',
+      ),
 
       h2('Navigasi keyboard — pola ARIA'),
       code(
@@ -1352,6 +1406,9 @@ export const lessons: LessonDraft[] = [
           );
         };
         `,
+      ),
+      p(
+        'Fungsi `onKeyDown` ini memasang **pola keyboard baku ARIA untuk tablist**, dan cara penulisannya layak diperhatikan. Alih-alih rantai `if` untuk tiap tombol, ia memakai objek `peta` yang memetakan nama tombol ke indeks tujuan — pola yang sama dengan objek pencarian dari Frontend Basic. Perhatikan `(i - 1 + tabs.length) % tabs.length` pada `ArrowLeft`: penambahan `tabs.length` sebelum modulo diperlukan supaya menekan panah kiri di tab pertama berpindah ke tab **terakhir**, bukan menghasilkan indeks negatif. Baris `if (tujuan === undefined) return` memastikan tombol lain — huruf, Tab, Enter — tidak ikut dicegat, dan itu sebabnya `preventDefault()` dipanggil **setelah** pemeriksaan itu, bukan sebelumnya. Terakhir, `focus()` diikuti `click()` karena keduanya memang dua hal berbeda: yang pertama memindahkan fokus, yang kedua benar-benar mengaktifkan tabnya.',
       ),
       callout(
         'warning',
@@ -1473,6 +1530,9 @@ export const lessons: LessonDraft[] = [
         </details>
         `,
       ),
+      p(
+        'Blok ini **tidak memuat satu baris JavaScript pun** — dan itulah intinya. Pasangan `<details>` dan `<summary>` adalah accordion bawaan HTML: `<summary>` menjadi tombolnya, isi setelahnya menjadi panel, dan browser mengurus buka-tutupnya sendiri. Yang kamu dapat gratis bukan sekadar perilaku klik, melainkan seluruh daftar di kotak berikut: Enter dan Spasi, pengumuman keadaan ke pembaca layar, dan kemampuan Ctrl+F menemukan teks yang sedang tersembunyi — yang terakhir itu mustahil ditiru dengan `<div>` yang disembunyikan. Sebelum menulis komponen React untuk pola apa pun, pertanyaan pertama yang layak diajukan memang ini: apakah HTML sudah punya elemennya?',
+      ),
       callout(
         'tip',
         'Keyboard, semantik, dan pencarian di halaman — semuanya sudah benar',
@@ -1550,6 +1610,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'State-nya sengaja disimpan sebagai `string[]` — daftar `id` yang sedang terbuka, bukan `boolean` per item. Bentuk ini yang membuat satu fungsi `toggle` bisa melayani dua mode sekaligus lewat prop `tunggal`: kalau `tunggal` bernilai `true`, membuka satu item mengganti seluruh array menjadi `[id]` itu saja — otomatis menutup yang lain tanpa kode tambahan; kalau `false`, item baru ditambahkan ke array yang sudah ada lewat `[...sekarang, id]`, sehingga beberapa panel bisa terbuka bersamaan. Baris pertama di dalam `toggle` (`if (sekarang.includes(id)) return sekarang.filter(...)`) menangani menutup-kembali panel yang sudah terbuka — dicek lebih dulu supaya klik kedua pada tombol yang sama selalu berarti "tutup", terlepas dari mode `tunggal` atau tidak. Perhatikan juga atribut `hidden={!aktif}` pada panel: ini bukan sekadar menyembunyikan secara visual — atribut HTML `hidden` membuat elemen dan seluruh isinya **tidak bisa dijangkau Tab maupun dibaca screen reader**, sehingga tombol dan tautan yang tersembunyi di panel tertutup benar-benar tidak bisa diakses sampai panelnya dibuka.',
+      ),
       callout(
         'warning',
         'Bungkus tombol dengan heading yang sesuai',
@@ -1575,6 +1638,9 @@ export const lessons: LessonDraft[] = [
           overflow: hidden;
         }
         `,
+      ),
+      p(
+        'Teknik ini menyelesaikan masalah lama: **CSS tidak bisa menganimasikan `height` dari nol ke `auto`**, karena `auto` bukan angka yang bisa dihitung antaranya. Cara lama menebaknya dengan `max-height` yang dipasang lebih besar dari isi sebenarnya — dan tebakan itu selalu salah pada salah satu ujung: terlalu kecil membuat isi terpotong, terlalu besar membuat animasinya terasa tertunda. Grid menghindarinya karena `grid-template-rows` **bisa** menganimasikan `0fr` ke `1fr`, dan `1fr` di sini berarti "setinggi isinya" tanpa kamu perlu tahu angkanya. `overflow: hidden` pada anaknya wajib ada — tanpa itu isi panel tetap terlihat meluber saat barisnya menyusut ke nol.',
       ),
       callout(
         'danger',
@@ -1726,6 +1792,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        "Perhatikan `Omit<Toast, 'id'>` pada parameter `tampilkan`: pemanggil mengirim pesan, nada, dan durasi, tapi **tidak pernah** menentukan `id`-nya sendiri — itu dibuat provider lewat `crypto.randomUUID()` supaya dua toast yang tampil bersamaan tidak pernah bertabrakan `key`-nya di React. Pola `setTimeout` di dalam `tampilkan` adalah teknik yang sama dengan cleanup Effect di Bab 7: sebuah timer dijadwalkan untuk menghapus toast itu sendiri dari `daftar` setelah `t.durasi` milidetik, tanpa komponen manapun perlu tahu bahwa penghapusan itu terjadi — cukup panggil `tampilkan()`, dan toast akan membersihkan dirinya sendiri. `useCallback` dengan dependency array kosong `[]` menjaga identitas fungsi `tampilkan` tetap stabil antar-render, supaya komponen yang menerimanya lewat Context (misalnya tombol yang memanggil `useToast().tampilkan(...)` di `onClick`) tidak perlu render ulang setiap kali `ToastProvider` sendiri dirender.",
+      ),
 
       h2('`role` yang tepat menentukan apakah ia terdengar'),
       table(
@@ -1773,6 +1842,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Ada **dua tingkat pengumuman** di sini, dan keduanya perlu. Wadah luar memakai `aria-live="polite"` dan — sesuai komentarnya — harus sudah ada di DOM sejak awal meski daftarnya kosong; pembaca layar hanya memantau wilayah yang sudah ia kenali. Tiap toast lalu diberi `role` sendiri sesuai nadanya: `status` untuk kabar biasa yang boleh menunggu, `alert` untuk kegagalan yang **menyela** pembacaan berjalan. Perbedaan itu penting karena menyela pengguna untuk pesan "Tersimpan" sama menganggunya seperti tidak mengumumkan kegagalan sama sekali. `aria-atomic="false"` melengkapinya: hanya toast yang baru muncul yang dibacakan, bukan seluruh isi wadah diulang dari awal. Perhatikan juga tombol tutupnya memakai ikon ber-`aria-hidden` berpasangan dengan `<span className="sr-only">` — ikon tidak punya nama yang bisa dibacakan, jadi namanya disediakan teks tersembunyi.',
+      ),
       callout(
         'danger',
         'Wilayah live harus ada di DOM sebelum isinya muncul',
@@ -1807,6 +1879,9 @@ export const lessons: LessonDraft[] = [
           onBlur={lanjutkanTimer}
         >
         `,
+      ),
+      p(
+        'Empat handler ini datang berpasangan karena mereka melayani **dua cara berinteraksi yang berbeda**, dan melupakan salah satunya membuat fiturnya setengah jalan. `onMouseEnter`/`onMouseLeave` menangani pengguna yang mengarahkan kursor untuk membaca pesan yang lebih panjang. `onFocus`/`onBlur` menangani pengguna keyboard yang menekan Tab ke tombol "Batalkan" di dalam toast — tanpa keduanya, toast bisa menghilang tepat saat ia hendak menekan Enter. Ini penerapan dari aturan yang lebih umum: apa pun yang bisa dilakukan dengan mouse harus punya padanan keyboard, dan itu termasuk hal yang tidak terlihat seperti menahan timer.',
       ),
 
       h2('Batasi jumlah yang tampil'),
@@ -1941,6 +2016,9 @@ export const lessons: LessonDraft[] = [
         </table>
         `,
       ),
+      p(
+        'Kedua versi bisa dibuat **terlihat sama persis** dengan CSS grid, dan itulah kenapa versi `<div>` begitu umum. Yang tidak ikut tersalin adalah **hubungan antar-selnya**. Pada versi tabel, `<th scope="col">` menyatakan bahwa "Email" adalah judul kolomnya, sehingga pembaca layar bisa mengumumkan nama kolom itu setiap kali penggunanya berpindah ke sel di bawahnya. Elemen `<thead>` dan `<tbody>` melengkapinya dengan memisahkan judul dari isi. Semua informasi itu tidak punya padanan di `<div>` — bukan karena atributnya kurang, tapi karena tidak ada struktur baris-kolom yang bisa dirujuk. Akibatnya seperti dijelaskan di kotak berikut: pengguna hanya mendengar deretan teks tanpa tahu nilai mana milik kolom mana.',
+      ),
       callout(
         'danger',
         'Tabel dari `<div>` tidak bisa dinavigasi',
@@ -2001,6 +2079,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Dua detail struktural di atas mudah terlewat tapi menentukan seberapa terbaca tabel ini bagi pembaca layar. Pertama, `<caption>` diberi class `sr-only` — artinya tetap ada di DOM dan tetap dibacakan sebagai judul tabel, hanya tidak tampil secara visual, karena judul kolom di `<thead>` sudah cukup menjelaskan tabelnya secara visual. Kedua, sel pertama tiap baris ditulis sebagai `<th scope="row">`, bukan `<td>` — ini membuatnya berfungsi sebagai **header baris**: saat pengguna screen reader berpindah ke sel `{b.email}` di baris "Zum", pembaca layar mengumumkan "Email, a@b.c, baris Zum" karena `scope="row"` menghubungkan nilai sel ke nama di headernya, persis seperti `scope="col"` menghubungkan sel ke judul kolomnya. Fungsi `ariaSort` sendiri menerjemahkan state pengurutan internal (`sort.kolom`, `sort.arah` bernilai `\'asc\'`/`\'desc\'`) ke tiga nilai yang dipahami `aria-sort` — kolom yang bukan dasar pengurutan saat ini selalu mendapat `\'none\'`, bukan ikut nilai `sort.arah` yang sebenarnya berlaku untuk kolom lain.',
+      ),
 
       h2('Memisahkan state tabel dari tampilannya'),
       code(
@@ -2040,6 +2121,9 @@ export const lessons: LessonDraft[] = [
         'Kenapa `toSorted`, bukan `sort`',
         '`sort` mengubah array aslinya — dan array itu adalah state React. Memutasinya berarti React tidak melihat perubahan referensi, sehingga tampilan tidak diperbarui. `toSorted` mengembalikan array baru.',
       ),
+      p(
+        'Perhatikan urutan tiga operasi di dalam `olahBaris`: **cari dulu, baru urutkan, baru potong per halaman** — bukan urutan lain. Kalau paginasi dilakukan sebelum pencarian, hasil pencarian bisa "hilang" begitu saja karena ia berada di halaman yang sudah terpotong duluan. Fungsi filter-nya sendiri (`Object.values(b as object).some(...)`) mencari kata kunci di **semua** kolom sekaligus, bukan satu kolom tertentu — itu sebabnya ia mengubah tiap baris jadi array nilainya lebih dulu lewat `Object.values`, lalu memeriksa apakah ada satu nilai saja yang cocok lewat `.some()`. Karena `olahBaris` tidak menyentuh `useState` atau elemen DOM apa pun — ia murni menerima data dan opsi, lalu mengembalikan hasilnya — fungsi ini bisa diuji dengan array data biasa tanpa perlu merender komponen tabel sama sekali, persis seperti fungsi `saring` dan `reducer` yang dibahas di Bab 4 dan 5.',
+      ),
 
       h2('Paginasi yang mengumumkan dirinya'),
       code(
@@ -2061,6 +2145,9 @@ export const lessons: LessonDraft[] = [
         </nav>
         `,
       ),
+      p(
+        'Baris "Menampilkan 1–20 dari 143" diberi `aria-live="polite"` karena isinya berubah setiap kali tombol Sebelumnya/Berikutnya ditekan, tapi elemennya sendiri **tidak pernah berpindah posisi** — pengguna keyboard yang baru saja menekan "Berikutnya" tetap berada di tombol itu, dan `aria-live` yang mengabarkan bahwa isi tabel sudah berganti tanpa memaksa fokus berpindah kemana pun. Ini pola yang sama dengan wilayah `aria-live` pada Toast di sub-bab sebelumnya: elemen pengumumnya sudah ada di DOM sejak awal, hanya isinya yang berubah.',
+      ),
 
       h2('Empat keadaan — juga di tabel'),
       code(
@@ -2076,6 +2163,9 @@ export const lessons: LessonDraft[] = [
           </tr>
         )}
         `,
+      ),
+      p(
+        'Empat keadaan UI yang wajib ada di setiap tampilan berdata (Bab 4 Frontend Intermediate) berlaku sama persis di dalam sebuah tabel — bedanya hanya bentuknya menyesuaikan struktur `<table>`. Baris kosong ditulis sebagai satu `<tr>` berisi satu `<td colSpan={kolom.length}>` yang membentang selebar seluruh kolom, bukan satu `<td>` kosong per kolom — kalau tidak, pesan "Belum ada data" akan terpotong sempit di kolom pertama saja. Perhatikan juga pesan kosongnya dibedakan dua kasus: "Tidak ada hasil untuk ..." saat pengguna sedang mencari sesuatu, dan "Belum ada data" saat tabelnya memang kosong dari awal — dua situasi yang terasa sama bagi kode tapi berbeda maknanya bagi pengguna.',
       ),
 
       h2('Di layar kecil'),
@@ -2222,6 +2312,9 @@ export const lessons: LessonDraft[] = [
         <Alert nada="gagal" />
         `,
       ),
+      p(
+        'Ketiga boolean di baris pertama sebenarnya menjawab **satu pertanyaan yang sama**: alert ini nadanya apa. Karena jawabannya hanya boleh satu, menyatakannya sebagai tiga boolean terpisah membuka kombinasi yang tidak punya arti — dan komponennya terpaksa memilih pemenangnya lewat urutan `if` yang tidak pernah tertulis di mana pun. Union tipe literal menutup celah itu di tingkat tipe: `nada` hanya menerima satu dari tiga nilai, sehingga dua nada sekaligus **tidak bisa dituliskan**. Keuntungan sampingannya sudah dibahas di Bab 6 — editor kini menampilkan ketiga pilihannya saat kamu mengetik, sesuatu yang tidak mungkin diberikan sekumpulan boolean.',
+      ),
 
       h2('Perbaikan 2 — discriminated union untuk prop yang bergantung'),
       code(
@@ -2240,6 +2333,9 @@ export const lessons: LessonDraft[] = [
         <Alert />                                    // ok
         `,
       ),
+      p(
+        'Perhatikan `onTutup?: never` di cabang kedua: inilah yang membuat kombinasi "bisaDitutup salah tapi onTutup tetap diisi" menjadi error. Kalau `bisaDitutup` bernilai `true`, TypeScript mewajibkan `onTutup` diisi; kalau `bisaDitutup` tidak ada atau `false`, `onTutup` tidak boleh diisi sama sekali — bukan sekadar diabaikan diam-diam. Pola ini memaksa kedua prop itu selalu konsisten, tanpa perlu validasi manual saat program berjalan.',
+      ),
 
       h2('Perbaikan 3 — composition untuk bagian opsional'),
       code(
@@ -2256,6 +2352,9 @@ export const lessons: LessonDraft[] = [
         </Alert>
         `,
       ),
+      p(
+        'Perhatikan pola berpasangan di baris "Sebelum": `hasIcon` + `ikon`, `adaAksi` + `aksi`. Boolean-nya selalu bisa disimpulkan dari keberadaan pasangannya, jadi ia menambah kemungkinan salah tanpa menambah kemampuan. Composition menghapus keduanya sekaligus: bagian yang ada ditulis, yang tidak ada tidak ditulis — **keberadaannya sudah menjadi jawabannya**. Keuntungan yang lebih besar muncul belakangan: susunannya kini milik pemanggil, sehingga menaruh dua tombol aksi atau menyisipkan sesuatu di antara pesan dan aksi tidak menuntut prop baru maupun perubahan pada `Alert`.',
+      ),
 
       h2('Perbaikan 4 — pecah jadi dua komponen'),
       code(
@@ -2269,6 +2368,9 @@ export const lessons: LessonDraft[] = [
         <Drawer />                  // lebih jujur, dan masing-masing lebih sederhana
         `,
       ),
+      p(
+        'Ini perbaikan yang paling sering ditolak karena terasa seperti duplikasi — padahal yang sebenarnya terjadi kebalikannya. Komentar di baris kedua menyebutkan alasannya: drawer dan modal berbeda pada animasi, posisi, **dan perilaku keyboard**, sehingga `Modal` dengan `isDrawer` sebenarnya berisi dua komponen yang bercampur di dalam satu fungsi, dipisahkan oleh percabangan di setiap tempat yang berbeda. Memecahnya membuat masing-masing lebih pendek dan lebih mudah dibaca daripada versi gabungannya. Cara mengenali kasus ini: kalau sebuah boolean mengubah **struktur** yang dirender — bukan sekadar warna, ukuran, atau spasi — ia hampir selalu penanda dua komponen yang menyamar jadi satu.',
+      ),
 
       h2('Boolean yang memang tepat'),
       code(
@@ -2279,6 +2381,9 @@ export const lessons: LessonDraft[] = [
         <Dialog terbuka />            // keadaan biner yang jelas
         <Accordion tunggal />         // aturan perilaku, bukan tampilan
         `,
+      ),
+      p(
+        'Keempatnya lolos uji satu kalimat di kotak berikut, dan komentarnya menandai kenapa. Dua yang pertama adalah **keadaan HTML asli** — `disabled` dan `required` memang boolean di spesifikasi, jadi menirunya justru membuat komponenmu terasa seperti elemen bawaan. `terbuka` punya tepat dua keadaan yang tidak bergantung pada prop lain: dialog sedang tampil atau tidak, tidak ada kemungkinan ketiga. Dan `tunggal` mengatur **aturan perilaku**, bukan tampilan — ia menentukan apakah membuka satu panel menutup yang lain, dan itu memang pertanyaan ya-tidak. Bandingkan dengan `isDrawer` di perbaikan sebelumnya: keduanya sama-sama boolean, tapi yang satu mengubah aturan sedangkan yang lain mengubah struktur.',
       ),
       callout(
         'tip',
@@ -2428,6 +2533,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Perhatikan tiap kelompok token diberi komentar yang menyebut **kapan tiap nilai dipakai**, bukan sekadar mendaftar angkanya — "kecil untuk badge, sedang untuk kontrol, besar untuk panel". Tanpa keterangan itu, orang berikutnya akan menebak, dan sistemnya perlahan kehilangan keseragaman. Kelompok `--size-control-*` layak digarisbawahi: hanya ada **dua** tinggi kontrol, dan komentarnya menyebut alasannya — supaya tombol, input, dan select yang bersebelahan pasti sejajar. Itu masalah yang tidak akan pernah selesai kalau tiap komponen menentukan tingginya sendiri. Kelompok motion pun ikut ditokenkan, sehingga semua transisi di seluruh sistem punya kurva dan durasi yang sama; animasi yang terasa berbeda-beda antar komponen hampir selalu berasal dari nilai yang ditulis ad-hoc di tiap tempat.',
+      ),
       callout(
         'tip',
         'Batasi jumlah pilihan sejak awal',
@@ -2457,6 +2565,9 @@ export const lessons: LessonDraft[] = [
         <Alert nada="gagal" />
         `,
       ),
+      p(
+        'Versi SALAH tidak punya satu pun kesalahan teknis — tiap baris masuk akal sendiri-sendiri, dan itulah bagaimana ketidakkonsistenan ini lahir: tiga komponen ditulis pada waktu berbeda, masing-masing memilih nama yang terasa paling tepat saat itu. Ongkosnya baru terasa saat dipakai: pemakainya harus mengingat bahwa "utama" disebut `variant="primary"` di tombol tapi `type="main"` di badge, dan setiap komponen baru berarti satu kosakata lagi untuk dihafal. Versi BENAR menyeragamkan **nama propnya dan nilainya sekaligus**, sehingga `varian="utama"` berarti hal yang sama di mana pun. Perhatikan `Alert` tetap memakai `nada`, bukan dipaksa jadi `varian` — karena nada memang dimensi yang berbeda dari varian, dan menyeragamkan yang tidak sama justru menyesatkan.',
+      ),
 
       h2('3. Struktur berkas'),
       code(
@@ -2474,6 +2585,9 @@ export const lessons: LessonDraft[] = [
         ├── skeleton.tsx
         └── index.ts        # re-export
         `,
+      ),
+      p(
+        "Struktur ini datar dengan sengaja — **satu berkas per komponen, tanpa folder per komponen**. Untuk primitif UI yang masing-masing berisi satu atau dua ekspor, folder bersarang hanya menambah langkah tanpa menambah kejelasan. Perhatikan nama berkasnya semuanya huruf kecil dan tunggal, sehingga impornya bisa ditebak tanpa membuka foldernya. Berkas `index.ts` di bawah adalah re-export yang membuat `import { Button, Badge } from '@/components/ui'` mungkin — dan seperti diperingatkan di kotak berikut, kemudahan itu ada harganya: satu impor bisa menarik seluruh isi folder ke bundle. Untuk folder `ui/` yang komponennya kecil dan hampir selalu dipakai bersama, itu pertukaran yang wajar; untuk folder besar, impor langsung ke berkasnya lebih tepat.",
       ),
       callout(
         'warning',
@@ -2531,6 +2645,9 @@ export const lessons: LessonDraft[] = [
           );
         }
         `,
+      ),
+      p(
+        'Perhatikan dua `<section>` yang isinya berbeda tujuan. Yang pertama merender **semua varian satu komponen** dengan `map` atas array `as const`, sehingga menambah varian baru di `cva` otomatis muncul di sandbox tanpa mengubah halaman ini — dan varian yang lupa didefinisikan langsung terlihat sebagai tombol tanpa gaya. Yang kedua justru menaruh **komponen berbeda bersebelahan**: `Button`, `Field`, dan `Badge` dalam satu baris `items-center`. Itu susunan yang sengaja dipilih, karena ketidakcocokan tinggi kontrol — masalah yang dijaga token `--size-control-*` tadi — hanya terlihat saat ketiganya benar-benar berdampingan. Halaman seperti ini murah dibuat dan tidak ikut ke produksi, tapi ia satu-satunya cara memeriksa keseragaman dengan mata alih-alih berharap.',
       ),
       callout(
         'tip',

@@ -38,7 +38,9 @@ export const chapter = defineChapter({
   stackVersions: ['ECMAScript 2024', 'Node.js 22 LTS'],
   // 2026-08-03: revisi ADR-0006 — setiap sub-bab kini menjelaskan istilahnya sendiri dan
   // menunjuk halaman dokumentasi resminya.
-  reviewedAt: '2026-08-03',
+  // 2026-08-05: revisi kedalaman narasi (plans/revisi-kedalaman-narasi/) — paragraf penghubung
+  // ditambahkan di titik transisi kode yang sebelumnya kosong, tersebar di keempat file bab ini.
+  reviewedAt: '2026-08-05',
   lessons: [
     written(
       'apa-itu-javascript',
@@ -182,6 +184,9 @@ export const chapter = defineChapter({
           `,
           { caption: 'Console mengevaluasi ekspresi dan langsung menampilkan hasilnya.' },
         ),
+        p(
+          'Dua baris itu sengaja berbeda jenis, dan perbedaannya menjelaskan cara console bekerja. Baris pertama **memerintahkan** sesuatu dicetak, jadi teks `Halo dari browser` muncul karena kamu memintanya. Baris kedua tidak memerintahkan apa-apa — ia hanya sebuah perhitungan — tapi hasilnya `31` tetap muncul, karena console selalu menampilkan nilai dari ekspresi terakhir yang diketik. Itulah sebabnya kamu tidak perlu menulis `console.log` saat sekadar mencoba sesuatu di sini. Satu hal yang sering membingungkan pemula: setelah `console.log(...)` dijalankan, console juga menampilkan `undefined` di baris berikutnya. Itu bukan error — `console.log` memang tidak mengembalikan nilai apa pun, dan console jujur menampilkan ketiadaan itu.',
+        ),
         callout(
           'tip',
           'Console bukan cuma untuk print',
@@ -221,6 +226,9 @@ export const chapter = defineChapter({
           `,
           { filename: 'app.js' },
         ),
+        p(
+          'Dua berkas ini bekerja berpasangan, dan yang menyambungkannya hanya satu baris: `<script type="module" src="./app.js">`. Atribut `src` menunjuk berkas JavaScript-nya, dan `./` di depannya berarti "di folder yang sama dengan berkas HTML ini". Letak tag itu — di bagian bawah `<body>` — juga bukan kebetulan: browser membaca HTML dari atas ke bawah, jadi menaruh skrip di akhir menjamin seluruh isi halaman sudah ada saat skrip mulai berjalan. Perhatikan `app.js` sama sekali tidak menyebut `index.html`; hubungannya satu arah, HTML yang memanggil JS. Isi `app.js` sendiri hanya menghitung selisih dua angka lalu mencetaknya lewat template literal — dan hasilnya muncul di console, bukan di halaman, karena `console.log` memang menulis ke sana, bukan ke layar.',
+        ),
         callout(
           'warning',
           'Kenapa `type="module"` penting',
@@ -244,6 +252,9 @@ export const chapter = defineChapter({
           # Atau masuk ke mode interaktif (REPL), keluar dengan Ctrl+D
           node
           `,
+        ),
+        p(
+          'Ketiga perintah ini diketik di **terminal**, bukan di dalam berkas JavaScript — itu perbedaan pertama yang perlu dipegang. `node --version` bukan sekadar formalitas: kalau terminal menjawab `command not found`, artinya Node.js memang belum terpasang, dan itu jauh lebih baik diketahui sekarang daripada saat kamu bingung kenapa perintah berikutnya tidak jalan. `node app.js` menjalankan seluruh isi berkas dari atas ke bawah lalu keluar, persis seperti browser menjalankan `app.js` tadi — bedanya di sini tidak ada halaman, tidak ada `document`, dan hasilnya tercetak langsung di terminal. `node` tanpa argumen membuka REPL, padanan console browser yang berjalan di terminal, dan cocok untuk mencoba satu-dua baris tanpa membuat berkas. Perhatikan baris berawalan `#` — itu komentar di terminal, bukan perintah, jadi tidak perlu ikut diketik.',
         ),
         callout(
           'info',
@@ -419,6 +430,9 @@ export const chapter = defineChapter({
           // namaSitus = 'Lainnya';                // TypeError: Assignment to constant variable.
           `,
         ),
+        p(
+          'Perhatikan pilihan kata kuncinya bukan soal jenis nilai, melainkan soal **apakah nilainya akan diganti nanti**. `namaSitus` tidak pernah berubah sepanjang program, jadi `const`. `jumlahKunjungan` memang dirancang untuk naik, jadi `let`. Baris yang dikomentari di bawah menunjukkan apa yang terjadi bila aturan itu dilanggar: `TypeError` muncul **saat program berjalan**, bukan saat diketik, dan pesannya menyebut langsung "Assignment to constant variable" sehingga penyebabnya tidak perlu ditebak. Satu hal yang membingungkan di awal: baris `jumlahKunjungan = jumlahKunjungan + 1` membaca nilai lama di sisi kanan lebih dulu, baru menugaskan hasilnya ke nama yang sama di sisi kiri — tanda `=` di JavaScript berarti "isi dengan", bukan "sama dengan" seperti di matematika.',
+        ),
 
         h2('`const` bukan berarti nilainya beku'),
         p(
@@ -438,6 +452,9 @@ export const chapter = defineChapter({
           daftar.push(4);            // BOLEH — [1, 2, 3, 4]
           // daftar = [];            // TypeError
           `,
+        ),
+        p(
+          "Bandingkan baris yang boleh dengan baris yang dikomentari, karena di situlah letak seluruh perbedaannya. `pengguna.level = 2` mengubah **isi** object — objectnya masih object yang sama, hanya salah satu propertinya berganti nilai; nama `pengguna` tetap menunjuk ke alamat yang sama, sehingga `const` tidak merasa dilanggar. Sedangkan `pengguna = { nama: 'Lain' }` membuat object yang benar-benar baru di alamat baru dan meminta nama `pengguna` menunjuk ke sana — **itu** yang dilarang `const`. Cara mengingatnya: `const` menjaga panah, bukan kotak yang ditunjuk panah itu. Pasangan array di bawahnya menegaskan hal yang sama dengan cara berbeda: `push` menambah isi kotak (boleh), sedangkan `daftar = []` menyodorkan kotak baru (dilarang).",
         ),
         callout(
           'tip',
@@ -464,6 +481,9 @@ export const chapter = defineChapter({
           `,
         ),
         p(
+          'Kedua variabel dideklarasikan di tempat yang **persis sama** — di dalam blok `if` — tapi hanya satu yang masih hidup setelah blok itu ditutup. `var` mengabaikan kurung kurawal `if` sepenuhnya; satu-satunya batas yang ia kenal adalah batas fungsi, jadi `pakaiVar` seolah-olah dideklarasikan langsung di dalam `contoh()`. `let` berhenti di kurung kurawal terdekat, sehingga `pakaiLet` benar-benar lenyap begitu blok `if` selesai — dan mengaksesnya menghasilkan `ReferenceError` yang jelas menyebut namanya. Kebocoran itu terdengar seperti kemudahan, padahal justru sumber masalah: variabel yang lolos dari bloknya bisa bertabrakan dengan nama lain di bagian bawah fungsi yang sama, dan tidak ada peringatan apa pun ketika itu terjadi.',
+        ),
+        p(
           'Kebocoran itu terlihat sepele sampai kamu bertemu kasus klasik ini — perbedaan hasilnya bukan gaya penulisan, tapi bug sungguhan:',
         ),
         code(
@@ -481,6 +501,9 @@ export const chapter = defineChapter({
           // let: 0, let: 1, let: 2
           // let membuat j BARU setiap iterasi.
           `,
+        ),
+        p(
+          'Yang membuat contoh ini menjadi bug sungguhan, bukan sekadar keanehan, adalah **jeda waktunya**. `setTimeout` tidak menjalankan fungsinya saat itu juga — ia menitipkannya untuk dijalankan setelah kode yang sedang berjalan selesai, dan itu berlaku bahkan dengan jeda `0`. Jadi ketiga loop selesai lebih dulu, baru ketiga fungsi dijalankan. Pada versi `var`, ketiganya membaca satu variabel `i` yang sama, dan pada saat mereka akhirnya dijalankan nilainya sudah `3` — angka yang membuat loop berhenti. Pada versi `let`, tiap putaran menciptakan `j` yang benar-benar baru, sehingga masing-masing fungsi membawa nilainya sendiri. Pola "nilai yang dibaca terlambat" ini akan kamu temui lagi di React, ketika sebuah handler menampilkan nilai state dari render sebelumnya — akarnya persis sama dengan yang terjadi di sini.',
         ),
 
         h2('Hoisting & Temporal Dead Zone'),
@@ -665,6 +688,9 @@ export const chapter = defineChapter({
           typeof null;          // 'object'   <- BUG, sejak 1995, tidak akan diperbaiki
           `,
         ),
+        p(
+          "Enam baris pertama berperilaku persis seperti dugaanmu: `typeof` mengembalikan **teks** berisi nama tipenya, jadi hasilnya selalu berupa string — itu sebabnya pengecekan ditulis `typeof x === 'string'` dengan tanda kutip. Tiga baris berikutnya mulai jujur soal keterbatasannya. Array menjawab `'object'` karena di JavaScript array memang **sejenis object** dengan kunci berupa angka, sehingga `typeof` tidak bisa dipakai untuk membedakan keduanya — untuk itu ada `Array.isArray()`. Fungsi menjawab `'function'` meski sebenarnya juga object, dan itu pengecualian yang kebetulan berguna. Baris terakhir adalah cacat sejarah: `null` seharusnya menjawab `'null'`, tapi implementasi pertama JavaScript keliru dan memperbaikinya sekarang akan merusak situs yang tak terhitung jumlahnya. Kesimpulan praktisnya, `typeof` andal untuk primitif tapi tidak untuk membedakan jenis-jenis object.",
+        ),
         callout(
           'warning',
           '`typeof null === "object"` adalah bug yang dibiarkan',
@@ -695,6 +721,9 @@ export const chapter = defineChapter({
           console.log(null === undefined);   // false  — tipenya beda
           `,
         ),
+        p(
+          'Tiga contoh pertama semuanya menghasilkan `undefined`, tapi lewat jalan yang berbeda — dan itu inti perbedaannya. `belumDiisi` dideklarasikan tanpa nilai, jadi JavaScript mengisinya sendiri. `pengguna.email` menghasilkan `undefined` karena property itu memang tidak pernah ada; perhatikan JavaScript **tidak melempar error** untuk property yang tidak ditemukan, dan sifat pemaaf itu justru yang membuat salah ketik nama property sulit terdeteksi. Sebaliknya `fotoProfil = null` ditulis manusia, dan pesannya jelas: sudah dicek, memang tidak ada. Dua baris terakhir menegaskan konsekuensi praktisnya — `==` menganggap keduanya sama karena sama-sama berarti "kosong", sementara `===` membedakannya karena tipenya berlainan. Karena itulah `nilai == null` menjadi satu-satunya pemakaian `==` yang banyak tim izinkan: ia menangkap keduanya sekaligus dalam satu pemeriksaan.',
+        ),
 
         h2('Angka: satu tipe, satu jebakan'),
         p(
@@ -713,6 +742,9 @@ export const chapter = defineChapter({
           // Cara membandingkan desimal dengan aman:
           Math.abs(0.1 + 0.2 - 0.3) < Number.EPSILON;   // true
           `,
+        ),
+        p(
+          'Angka `0.30000000000000004` itu bukan kesalahan JavaScript, dan komentar di tengah contoh sudah menyebut alasannya — tapi analogi pecahannya layak diperjelas. Dalam desimal, sepertiga tidak bisa ditulis tepat: `0,333…` akan selalu terpotong di suatu titik. Komputer menyimpan angka dalam basis dua, dan di basis itu **`0,1` mengalami nasib yang sama** — ia jadi deretan tak berujung yang harus dipotong. Menjumlahkan dua angka yang sudah dibulatkan menghasilkan pembulatan yang meleset sedikit, dan itulah `…04` di ujung. Baris terakhir menunjukkan cara menghadapinya: alih-alih menanyakan "apakah persis sama", tanyakan "apakah selisihnya lebih kecil dari toleransi". `Number.EPSILON` adalah selisih terkecil yang masih bisa dibedakan JavaScript, dan `Math.abs` membuat perbandingannya berlaku ke dua arah — selisih `-0,0000001` sama diterimanya dengan `+0,0000001`.',
         ),
         callout(
           'danger',
@@ -733,6 +765,9 @@ export const chapter = defineChapter({
           NaN === NaN;                  // false — satu-satunya nilai yang tidak sama dengan dirinya
           Number.isNaN(NaN);            // true — ini cara mengeceknya
           `,
+        ),
+        p(
+          'Blok ini memuat dua batasan yang berbeda. Yang pertama soal **ukuran**: di atas `Number.MAX_SAFE_INTEGER`, dua bilangan bulat yang berbeda bisa dinilai sama, karena keduanya dibulatkan ke angka tersimpan yang sama — dan perhatikan tidak ada error maupun peringatan saat itu terjadi. Akhiran `n` pada `9007199254740992n` menandai **BigInt**, tipe terpisah yang dirancang untuk bilangan bulat sebesar apa pun; ia menjawab `false` dengan benar. Batasan kedua soal **kegagalan konversi**: `Number(\'12abc\')` menghasilkan `NaN`, yang meski namanya "Not a Number" justru bertipe `number` — itu terdengar aneh sampai kamu memahaminya sebagai "angka yang tidak sah", bukan "bukan angka". Sifatnya yang paling penting ada di baris berikutnya: `NaN === NaN` bernilai `false`, satu-satunya nilai di JavaScript yang tidak sama dengan dirinya sendiri. Itulah sebabnya mengecek `NaN` **wajib** lewat `Number.isNaN()`; perbandingan biasa tidak akan pernah berhasil.',
         ),
 
         h2('Primitif disalin, reference dibagikan'),
@@ -759,6 +794,9 @@ export const chapter = defineChapter({
           console.log(x.skor);   // 20 — x ikut berubah, karena x dan y menunjuk object yang SAMA
           `,
         ),
+        p(
+          'Kedua contoh punya bentuk yang identik — buat variabel, salin ke variabel kedua, ubah yang kedua, lalu periksa yang pertama — dan justru karena bentuknya sama, hasil yang berbeda jadi mudah dilihat. Pada blok primitif, `let b = a` menyalin angka `10` itu sendiri ke kotak `b`; sejak saat itu keduanya tidak punya hubungan apa pun, jadi `b = 20` tidak menyentuh `a`. Pada blok reference, `const y = x` menyalin **alamatnya**, sehingga `x` dan `y` menjadi dua nama untuk satu object yang sama — mengubah `y.skor` sama saja dengan mengubah `x.skor`, karena tidak pernah ada object kedua. Perhatikan `const` di sana tidak menghalangi apa pun, persis seperti yang dijelaskan di sub-bab variabel: yang dikunci `const` adalah alamatnya, dan `y.skor = 20` tidak mengubah alamat.',
+        ),
         callout(
           'info',
           'Analogi yang menempel',
@@ -773,13 +811,17 @@ export const chapter = defineChapter({
           10 === 10;                   // true  — nilai yang sama
           'abc' === 'abc';             // true
 
-          { a: 1 } === { a: 1 };       // false — dua object berbeda, isi kebetulan sama
-          [1, 2] === [1, 2];           // false
+          // Dibungkus console.log karena '{' di awal baris dibaca sebagai blok, bukan object
+          console.log({ a: 1 } === { a: 1 });   // false — dua object berbeda, isi kebetulan sama
+          console.log([1, 2] === [1, 2]);       // false
 
           const satu = { a: 1 };
           const dua = satu;
           satu === dua;                // true  — object yang sama persis
           `,
+        ),
+        p(
+          'Dua baris pertama berperilaku sesuai naluri: primitif dibandingkan **isinya**, jadi angka 10 mana pun sama dengan angka 10 lainnya. Dua baris di tengah adalah yang mengejutkan — isi keduanya identik sampai ke koma terakhir, tapi hasilnya tetap `false`, karena yang dibandingkan adalah **alamat**, dan setiap kali kamu menulis `{ ... }` JavaScript membuat object baru di alamat baru. Tiga baris terakhir menutup logikanya: `dua` tidak membuat object baru, ia hanya menyalin alamat dari `satu`, sehingga perbandingannya `true`. Konsekuensi praktis yang perlu dipegang: **tidak ada cara membandingkan isi dua object dengan `===`**. Untuk itu kamu harus membandingkan property yang kamu pedulikan satu per satu, atau memakai fungsi pembanding dari library.',
         ),
 
         callout(
@@ -811,6 +853,9 @@ export const chapter = defineChapter({
           dalam.alamat.kota = 'Surabaya';
           console.log(asli.alamat.kota);     // 'Jakarta' — aman
           `,
+        ),
+        p(
+          'Contoh ini sengaja menunjukkan salinan dangkal **berhasil dulu, baru gagal** — dan urutan itu yang membuatnya berbahaya. Mengubah `dangkal.nama` tidak menyentuh `asli.nama`, karena `nama` berisi string, sebuah primitif yang ikut tersalin nilainya. Sampai di sini semuanya terasa benar. Tapi `alamat` berisi object, dan spread hanya menyalin **alamatnya** — sehingga `dangkal.alamat` dan `asli.alamat` masih menunjuk object yang sama persis, dan mengubah kotanya lewat salinan ikut mengubah aslinya. Inilah sebabnya bug seperti ini sulit dilacak: kodenya terlihat benar, pengujian pada data sederhana lolos, dan kegagalannya baru muncul pada data yang kebetulan bersarang. `structuredClone` menelusuri sampai lapisan terdalam dan membuat object baru di setiap tingkat, sehingga `dalam.alamat` benar-benar terpisah.',
         ),
         callout(
           'tip',

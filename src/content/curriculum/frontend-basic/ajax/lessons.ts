@@ -109,6 +109,9 @@ export const lessons: LessonDraft[] = [
         `,
         { caption: 'Berbasis callback, penanganan error tersebar, dan tidak bisa dirangkai.' },
       ),
+      p(
+        'Tiga belas baris ini melakukan pekerjaan yang sama dengan tiga baris `fetch` di bawah, dan membandingkannya menjelaskan kenapa `fetch` lahir. Perhatikan penanganan error **terbelah dua tempat**: `onload` menangani respons yang tiba tapi statusnya gagal, sedangkan `onerror` menangani permintaan yang tidak pernah sampai. Keduanya harus ditulis terpisah dan mudah lupa salah satunya. Perhatikan juga pemeriksaan `status >= 200 && status < 300` yang ditulis tangan — belum ada `res.ok` yang meringkasnya. Dan karena semuanya berbasis callback, tidak ada nilai yang bisa dikembalikan ke pemanggil: `xhr` tidak menghasilkan apa pun yang bisa di-`await` maupun dirangkai, sehingga dua permintaan berurutan harus ditumpuk ke dalam seperti callback hell di Bab 3. Kamu masih akan menemui `XMLHttpRequest` di kode lama; memahaminya berguna untuk membaca, bukan untuk ditulis baru.',
+      ),
 
       h2('`fetch` — cara sekarang'),
       code(
@@ -118,6 +121,9 @@ export const lessons: LessonDraft[] = [
         if (!res.ok) throw new Error(\`Server balas \${res.status}\`);
         const data = await res.json();
         `,
+      ),
+      p(
+        'Tiga baris ini menggantikan tiga belas baris di atas, tapi yang berubah bukan sekadar jumlahnya. Karena `fetch` mengembalikan Promise, `await` bisa dipakai dan hasilnya bisa **dikembalikan ke pemanggil** — sesuatu yang mustahil pada gaya callback. Penanganan errornya pun menyatu: kegagalan jaringan menolak promise-nya dan langsung ditangkap `try`/`catch` di luar, tanpa jalur terpisah. Baris tengah adalah yang paling penting dan paling sering dilupakan: **`fetch` tidak menganggap `404` maupun `500` sebagai kegagalan.** Bagi `fetch`, permintaan yang sampai ke server dan dijawab adalah permintaan yang berhasil, apa pun isi jawabannya. Karena itu `res.ok` — yang bernilai `true` hanya untuk status 200–299 — wajib diperiksa sendiri; menghilangkan baris itu membuat `res.json()` mencoba mengurai halaman error sebagai data.',
       ),
       table(
         ['', '`XMLHttpRequest`', '`fetch`'],
@@ -260,6 +266,9 @@ export const lessons: LessonDraft[] = [
         {"judul":"Belajar HTTP"}
         `,
       ),
+      p(
+        'Ini bentuk mentah yang benar-benar dikirim ke server — dan melihatnya sekali membuat seluruh opsi `fetch` masuk akal. Baris pertama memuat tiga hal: method, path, dan versi protokol. Tiga baris berikutnya adalah header, masing-masing sepasang `Nama: nilai`. `Content-Type` mengumumkan format body, dan dari baris inilah server memilih cara mengurainya — tanpa itu, JSON yang kamu kirim bisa ditolak karena server tidak tahu itu JSON. `Authorization` membawa kredensial dengan awalan `Bearer`. Lalu ada **satu baris kosong** yang memisahkan header dari body; ia wajib ada, dan itulah batas yang membuat server tahu di mana isi sebenarnya dimulai. Semua opsi yang nanti kamu tulis di `fetch(url, { method, headers, body })` pada akhirnya hanya menyusun teks seperti ini.',
+      ),
 
       h2('Method'),
       table(
@@ -305,6 +314,9 @@ export const lessons: LessonDraft[] = [
         else if (res.status >= 500) tampilkan('Server sedang bermasalah. Coba lagi nanti.');
         `,
       ),
+      p(
+        'Perhatikan bahwa tiap cabang menghasilkan **tindakan yang berbeda**, bukan sekadar kalimat yang berbeda — dan itulah gunanya membedakan status code. `401` tidak ditampilkan sebagai pesan sama sekali; ia langsung mengarahkan ke halaman login, karena pengguna memang tidak bisa berbuat apa-apa selain masuk. `403` sebaliknya **tidak boleh** mengarah ke login: pengguna sudah masuk, dan melemparnya ke halaman login hanya akan membingungkan. `429` mendapat kalimat yang menyarankan menunggu, karena masalahnya memang sementara. Dan `5xx` dikelompokkan dengan `>=` alih-alih disebut satu per satu, karena bagi pengguna semua kesalahan server berarti hal yang sama: bukan salahmu, coba lagi nanti. Menyeragamkan semuanya menjadi satu pesan "Terjadi kesalahan" membuang seluruh informasi yang sebenarnya sudah tersedia.',
+      ),
 
       h2('Header yang paling sering dipakai'),
       table(
@@ -331,6 +343,9 @@ export const lessons: LessonDraft[] = [
         // Nama header TIDAK case-sensitive
         res.headers.get('Content-Type') === res.headers.get('content-type');   // true
         `,
+      ),
+      p(
+        "`res.headers` bukan object biasa, jadi `res.headers['content-type']` tidak akan bekerja — ia objek `Headers` dengan method sendiri, dan itu penyebab umum \"header-nya `undefined` padahal jelas ada\". Perhatikan nilai yang dikembalikan baris pertama memuat lebih dari sekadar tipe: `application/json; charset=utf-8` menyertakan parameter tambahan setelah titik koma, sehingga membandingkannya dengan `=== 'application/json'` akan gagal — pakai `includes` bila kamu perlu memeriksanya. Baris terakhir menegaskan sifat yang menyenangkan: nama header **tidak peka huruf besar-kecil**, jadi kamu tidak perlu menebak apakah server menulisnya `Content-Type` atau `content-type`. Yang perlu diwaspadai justru disebut di kotak berikut — pada permintaan lintas origin, sebagian header tidak bisa dibaca sama sekali meski server mengirimnya.",
       ),
       callout(
         'info',
@@ -469,6 +484,10 @@ export const lessons: LessonDraft[] = [
         await fetch(url);
         // /api/tugas?status=aktif&cari=a+b%26c
         `,
+        { caption: 'Dua baris untuk kasus paling sederhana; sisanya untuk query yang aman.' },
+      ),
+      p(
+        '`GET` adalah method bawaan `fetch`, jadi dua baris pertama tidak perlu menyebutkan apa pun selain alamatnya. Bagian bawah menangani query, dan `new URL(path, location.origin)` dipakai karena konstruktor `URL` membutuhkan alamat lengkap — argumen kedua menyediakan bagian `https://domain` sehingga kamu tetap bisa menulis path relatif. `searchParams.set()` menambahkan parameter **beserta penyandiannya**, dan hasil di baris komentar membuktikannya: spasi menjadi `+`, dan `&` di dalam nilai pencarian menjadi `%26`. Penyandian itulah yang menyelamatkanmu — tanpa itu, tanda `&` dari ketikan pengguna akan dibaca server sebagai pemisah parameter, sehingga pencarian terpotong dan muncul parameter ketiga yang tidak pernah kamu kirim. Perhatikan juga objek `url` bisa langsung dioper ke `fetch` tanpa diubah jadi string.',
       ),
       callout(
         'danger',
@@ -486,6 +505,9 @@ export const lessons: LessonDraft[] = [
           body: JSON.stringify({ judul: 'Belajar fetch' }),
         });
         `,
+      ),
+      p(
+        'Tiga baris opsi itu bersesuaian langsung dengan bentuk mentah HTTP di sub-bab sebelumnya: `method` menjadi kata pertama baris permintaan, `headers` menjadi baris-baris `Nama: nilai`, dan `body` menjadi isi setelah baris kosong. Dua di antaranya sering dilupakan dan keduanya menghasilkan gejala yang sama. `JSON.stringify` diperlukan karena **body harus berupa teks** — mengoper object mentah membuatnya diubah menjadi string `"[object Object]"`, yang tentu saja bukan JSON yang sah. Header `Content-Type` diperlukan karena server tidak menebak format body; tanpa pengumuman itu, ia tidak akan menjalankan pengurai JSON dan menganggap tidak ada data yang dikirim. Yang membuat keduanya mahal: **tidak ada error apa pun di sisi klien**. Kamu hanya menerima `400` tanpa penjelasan, dan penyebabnya ada di baris yang justru tidak kamu tulis.',
       ),
       callout(
         'warning',
@@ -511,6 +533,9 @@ export const lessons: LessonDraft[] = [
         const salinan = res.clone();
         `,
       ),
+      p(
+        'Kelima method di atas membaca **body yang sama** dengan penafsiran berbeda, dan pilihannya ditentukan oleh apa yang dikirim server: `json()` untuk data, `text()` untuk teks mentah atau saat kamu ingin melihat apa adanya, `blob()` untuk berkas dan gambar yang akan diunduh atau ditampilkan. Bagian yang paling sering menggigit ada di tengah: **body hanya bisa dibaca satu kali.** Itu bukan pembatasan yang dibuat-buat — body datang sebagai aliran data dari jaringan, dan aliran yang sudah habis dibaca tidak bisa diputar ulang. Pemanggilan kedua melempar `TypeError`, dan bugnya biasanya muncul di kode yang mencoba membaca respons dulu untuk mencatat log lalu membacanya lagi untuk dipakai. `res.clone()` adalah jalan keluarnya, dan ia harus dipanggil **sebelum** pembacaan pertama.',
+      ),
       callout(
         'tip',
         'Periksa `content-type` sebelum `res.json()`',
@@ -522,6 +547,9 @@ export const lessons: LessonDraft[] = [
         const tipe = res.headers.get('content-type') ?? '';
         const data = tipe.includes('application/json') ? await res.json() : await res.text();
         `,
+      ),
+      p(
+        "Dua baris ini mengubah kegagalan yang membingungkan menjadi kegagalan yang bisa dibaca. Ketika server bermasalah, ia sering membalas **halaman HTML** — halaman error bawaan proxy atau gateway — alih-alih JSON. Memaksa `res.json()` pada halaman itu menghasilkan `SyntaxError: Unexpected token <`, dan tanda `<` yang disebut errornya adalah awal `<!doctype html>`. Pesan itu menyesatkan karena mengarahkanmu mencurigai kode parsing, padahal masalahnya ada di server. Dengan memeriksa `content-type` lebih dulu, respons non-JSON dibaca sebagai teks apa adanya, sehingga isinya bisa kamu catat ke log dan penyebab sebenarnya langsung terlihat. Perhatikan `?? ''` di baris pertama: header itu bisa saja tidak ada sama sekali, dan memanggil `.includes` pada `null` akan melempar error tersendiri.",
       ),
 
       h2('Opsi lain yang sering dipakai'),
@@ -538,6 +566,9 @@ export const lessons: LessonDraft[] = [
           signal: AbortSignal.timeout(10_000),
         });
         `,
+      ),
+      p(
+        "Empat opsi terakhir mengatur hal-hal yang mudah terlupakan sampai ada yang rusak. `credentials: 'include'` diperlukan agar cookie ikut terkirim ke **origin yang berbeda** — bawaannya `same-origin`, jadi API di subdomain lain tidak akan menerima sesi pengguna kecuali opsi ini disebut (dan servernya mengizinkan lewat CORS). `cache: 'no-store'` memaksa permintaan benar-benar sampai ke server, berguna untuk data yang harus selalu terbaru. `redirect: 'follow'` adalah bawaan; nilai `'error'` berguna ketika pengalihan justru menandakan sesuatu yang salah, misalnya API yang diam-diam melempar ke halaman login. Dan `signal: AbortSignal.timeout(10_000)` menutup celah yang paling sering diabaikan — `fetch` tidak punya batas waktu bawaan, jadi tanpa baris ini permintaan ke server yang menggantung akan menunggu selamanya.",
       ),
       table(
         ['`credentials`', 'Artinya'],
@@ -576,6 +607,9 @@ export const lessons: LessonDraft[] = [
         });
         `,
         { caption: 'Versi lengkapnya dibangun di sub-bab 5.11.' },
+      ),
+      p(
+        'Perhatikan tiga keputusan kecil di `api()`: header default `Accept: application/json` bisa ditimpa pemanggil lewat `...opsi.headers` karena spread yang datang belakangan menang — pola yang sama seperti spread object di Bab 1; `error.status = res.status` menempelkan kode status ke objek error supaya pemanggil bisa membedakan "401 perlu login" dari "500 server bermasalah" tanpa mem-parsing pesannya; dan `res.status === 204 ? null : res.json()` mencegah `res.json()` dipanggil pada respons yang memang tidak punya body sama sekali, sesuai peringatan di rangkuman.',
       ),
 
       divider,
@@ -712,6 +746,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Versi SALAH punya `try`/`catch` yang lengkap dan terlihat bertanggung jawab — dan justru itu yang membuatnya berbahaya. Pada `404`, `fetch` tidak menolak, jadi `catch` tidak terpicu; yang terjadi adalah `r.json()` mencoba mengurai body halaman error, dan hasilnya bisa dua-duanya salah: melempar `SyntaxError` yang menyesatkan, atau — kalau server mengirim JSON berisi keterangan error — **berhasil diurai** lalu diteruskan ke `tampilkan(data)` sebagai kalau itu data yang sah. Kasus kedua yang paling buruk, karena tidak ada satu pun tanda bahwa ada yang gagal. Versi BENAR menyisipkan pemeriksaan `res.ok` **sebelum** body dibaca sama sekali, dan mengubah status gagal menjadi error yang dilempar — sehingga `catch` di pemanggil akhirnya benar-benar berfungsi seperti yang kamu harapkan.',
+      ),
 
       h2('Membedakan tiga jenis kegagalan'),
       code(
@@ -753,6 +790,12 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Perhatikan `try` di sini **hanya membungkus baris `fetch`**, bukan seluruh isi fungsi — itu disengaja. Blok itu khusus menangani kegagalan yang membuat respons tidak pernah sampai, dan ketiganya dibedakan karena artinya berbeda bagi pengguna: `AbortError` berarti kita sendiri yang membatalkan sehingga dilempar ulang apa adanya tanpa pesan; `TimeoutError` berarti server terlalu lambat; dan `TypeError` — yang namanya sama sekali tidak menyiratkan jaringan — adalah yang kamu terima saat koneksi mati, DNS gagal, atau permintaan diblokir CORS. Setelah blok itu lewat, respons sudah pasti ada, sehingga `!res.ok` bisa ditangani terpisah. Baris `error.status = res.status` menempelkan status ke objek error, dan itulah yang nanti dipakai pemanggil untuk membedakan `404` dari kegagalan lain.',
+      ),
+      p(
+        'Fungsi `pesanDariServer` di bawahnya ada untuk satu tujuan: **memakai pesan yang sudah disediakan server** kalau ada, alih-alih selalu menampilkan "Server balas 422" yang tidak berarti apa-apa bagi pengguna. Ia memeriksa `content-type` lebih dulu supaya tidak mengurai halaman HTML, lalu mencoba dua nama field yang paling lazim (`message` dan `error`) dengan `??`. Yang paling penting justru `catch` kosongnya: kalau body ternyata rusak, fungsi ini mengembalikan `null` dan **tidak melempar apa pun** — sebab error dari usaha membaca pesan tidak boleh menggantikan error asli yang sedang kamu tangani. Kegagalan saat menangani kegagalan adalah cara paling efektif menghilangkan jejak masalah sebenarnya.',
+      ),
       callout(
         'warning',
         'Perbedaan yang membingungkan saat menguji',
@@ -775,6 +818,9 @@ export const lessons: LessonDraft[] = [
           );
         }
         `,
+      ),
+      p(
+        'Satu `catch`, dua pembaca yang berbeda — dan itu pembagian yang layak dijadikan kebiasaan. Baris `console.error` ditujukan untukmu saat menelusuri masalah, jadi ia memuat **semua**: alamat yang dipanggil, status yang diterima, dan objek error utuh beserta jejak tumpukannya. Awalan `[ambilTugas]` membuatnya bisa disaring di antara log dari bagian lain aplikasi. Bagian `tampilkanError` ditujukan untuk pengguna, dan isinya dipilih berdasarkan `error.status` yang tadi ditempelkan — `404` mendapat kalimatnya sendiri karena artinya jelas dan tidak menakutkan, sedangkan sisanya diseragamkan menjadi satu pesan yang **menyebutkan tindakan berikutnya**. Perhatikan tidak ada satu pun bagian dari `error.message` yang bocor ke layar: isinya ditentukan server, dan bisa memuat jalur berkas atau nama tabel yang tidak perlu diketahui siapa pun.',
       ),
       callout(
         'danger',
@@ -902,6 +948,9 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        'Perhatikan `input.files` ditelusuri dengan `for...of` meski hanya ada satu berkas — karena atribut `multiple` di HTML membuatnya selalu berupa koleksi, bahkan saat isinya satu. Peristiwa yang didengarkan adalah `change`, yang terpicu setelah pengguna menutup dialog pemilihan berkas. Keempat property yang dibaca datang **sepenuhnya dari komputer pengguna**, dan komentar pada `file.type` menandai yang paling menyesatkan: nilainya ditebak browser dari **ekstensi nama berkas**, bukan dari isinya. Mengganti nama `virus.exe` menjadi `foto.jpg` sudah cukup membuat `file.type` melaporkan `image/jpeg`. Karena itu keempatnya berguna untuk memberi umpan balik cepat kepada pengguna, dan tidak satu pun bisa dijadikan dasar keputusan keamanan.',
+      ),
 
       h2('Mengunggah'),
       code(
@@ -916,6 +965,9 @@ export const lessons: LessonDraft[] = [
           body: fd,          // JANGAN set Content-Type sendiri
         });
         `,
+      ),
+      p(
+        'Berbeda dari POST JSON yang tadi, di sini **tidak ada objek `headers` sama sekali** — dan itu bukan kelalaian. `FormData` yang dioper sebagai `body` membuat browser menyusun sendiri header `Content-Type` yang benar, lengkap dengan *boundary*-nya. Perhatikan juga `fd.append` dipanggil dua kali dengan jenis nilai yang berbeda: teks biasa dan objek `File`. Keduanya sah, dan itulah keunggulan format multipart — satu permintaan bisa membawa data biasa dan berkas sekaligus, sehingga kamu tidak perlu mengunggah berkas dan menyimpan judulnya lewat dua permintaan terpisah. Argumen pertama `append` adalah **nama field** yang akan dibaca server, jadi ia harus cocok dengan yang diharapkan API-mu.',
       ),
       callout(
         'danger',
@@ -934,6 +986,9 @@ export const lessons: LessonDraft[] = [
         gambar.onload = () => URL.revokeObjectURL(url);
         `,
       ),
+      p(
+        '`URL.createObjectURL(file)` membuat alamat sementara berbentuk `blob:...` yang menunjuk ke berkas **di komputer pengguna sendiri** — tidak ada satu byte pun yang diunggah, sehingga pratinjaunya muncul seketika bahkan untuk berkas besar dan tetap bekerja tanpa koneksi. Harganya disebut di komentar: alamat itu **menahan berkasnya di memori** sampai dilepas, dan browser tidak bisa menebak kapan kamu selesai memakainya. Karena itu `revokeObjectURL` wajib dipanggil, dan menaruhnya di `onload` adalah waktu yang tepat — begitu gambarnya selesai digambar, alamatnya tidak dibutuhkan lagi. Melewatkan baris itu tidak menimbulkan error apa pun; gejalanya hanya pemakaian memori yang terus naik pada halaman yang memilih banyak berkas berturut-turut.',
+      ),
 
       h2('Validasi di klien — untuk kenyamanan'),
       code(
@@ -948,6 +1003,9 @@ export const lessons: LessonDraft[] = [
           return null;
         }
         `,
+      ),
+      p(
+        'Fungsi ini mengembalikan **pesan atau `null`**, bukan `true`/`false` — pola kecil yang membuat pemanggilnya bisa langsung menampilkan hasilnya tanpa memetakan kode error ke kalimat. Perhatikan `DIIZINKAN` disusun sebagai **allow-list**, bukan daftar yang dilarang: menyebutkan apa yang boleh selalu lebih aman daripada menebak semua yang tidak boleh, karena daftar larangan selalu tertinggal. Penulisan `5 * 1024 * 1024` juga disengaja alih-alih menulis `5242880` langsung — perkaliannya sendiri yang menjelaskan bahwa angkanya berarti 5 MB. Meski begitu, seperti diperingatkan di bawah, seluruh isi fungsi ini hanya bernilai sebagai **kenyamanan**: `file.size` dan `file.type` datang dari klien, dan endpoint-nya bisa dipanggil langsung tanpa halamanmu terlibat sama sekali.',
       ),
       callout(
         'danger',
@@ -978,6 +1036,9 @@ export const lessons: LessonDraft[] = [
           });
         }
         `,
+      ),
+      p(
+        "`unggahDenganProgres` membungkus API lama `XMLHttpRequest` ke dalam sebuah Promise — pola `new Promise` untuk membungkus API berbasis callback yang sudah dipelajari di Bab 3. `xhr.upload.addEventListener('progress', ...)` adalah satu-satunya alasan XHR masih dipakai di sini: `fetch` tidak punya event setara untuk melaporkan progres unggah berkas besar. Begitu unggahannya selesai, hasilnya diteruskan lewat `resolve`/`reject` seperti Promise pada umumnya, sehingga pemanggilnya tetap bisa memakai `await` seolah-olah ini `fetch` biasa.",
       ),
 
       divider,
@@ -1148,6 +1209,9 @@ export const lessons: LessonDraft[] = [
         Access-Control-Max-Age: 86400
         `,
       ),
+      p(
+        'Permintaan `OPTIONS` di atas adalah **preflight** — permintaan yang dikirim browser sendiri, sebelum permintaan aslimu, untuk bertanya "apakah aku boleh?". Kamu tidak menulisnya dan tidak bisa melihatnya di kodemu; ia hanya muncul di tab Network. Isinya berupa pengumuman niat: `Access-Control-Request-Method` menyebut method yang akan dipakai, dan `Access-Control-Request-Headers` menyebut header yang akan dikirim. Balasannya adalah izin yang harus **mencakup** semua yang diminta — kalau `authorization` tidak disebut di `Allow-Headers`, permintaan aslinya tidak pernah dikirim sama sekali. `Access-Control-Max-Age: 86400` adalah izin untuk menyimpan jawaban ini selama sehari, sehingga preflight tidak diulang di setiap permintaan. Dan yang paling penting untuk dipahami: **seluruh percakapan ini terjadi di browser, bukan di server** — `curl` dan aplikasi mobile tidak terpengaruh sama sekali.',
+      ),
       table(
         ['Tidak perlu preflight (simple request)', 'Perlu preflight'],
         [
@@ -1180,6 +1244,9 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        "Perhatikan bahwa perbaikannya **selalu di server** — tidak ada satu pun opsi `fetch` yang bisa membuat browser mengabaikan CORS, dan itu memang tujuannya. Baris kuncinya adalah `if (DIIZINKAN.includes(origin))`: server memeriksa asal permintaan terhadap daftar yang persis, lalu memantulkan kembali **origin itu sendiri**, bukan tanda bintang. Itu perlu karena `Access-Control-Allow-Origin` hanya boleh memuat satu nilai, sehingga mendukung beberapa origin berarti memilih yang cocok per permintaan. `Vary: Origin` menyertainya dan sering dilupakan: tanpa itu, cache bisa menyimpan jawaban untuk satu origin lalu menyajikannya ke origin lain, dan izinnya jadi salah. Baris `if (req.method === 'OPTIONS')` menjawab preflight dengan `204` tanpa meneruskannya ke logika aplikasi — permintaan itu memang hanya bertanya, tidak membawa data apa pun.",
+      ),
       callout(
         'danger',
         'Dua kesalahan konfigurasi yang serius',
@@ -1199,6 +1266,9 @@ export const lessons: LessonDraft[] = [
           },
         };
         `,
+      ),
+      p(
+        'Proxy ini tidak "mematikan CORS" — ia **menghilangkan alasannya**. Dengan konfigurasi itu, kode frontend memanggil `/api/tugas` di alamat dev server-nya sendiri, jadi dari sudut pandang browser tidak ada perbedaan origin sama sekali dan CORS tidak ikut campur. Dev server yang meneruskan permintaan ke `localhost:4000` bukan browser, sehingga aturan itu tidak berlaku padanya. Ada dua hal yang perlu disadari. Pertama, ini **hanya berlaku saat pengembangan**; di produksi, frontend dan API biasanya benar-benar berbeda origin, jadi konfigurasi CORS di server tetap wajib disiapkan. Kedua, karena masalahnya tersembunyi selama pengembangan, kesalahan CORS sering baru ketahuan saat deploy pertama — itu alasan bagus untuk menguji tanpa proxy sekali sebelum rilis.',
       ),
 
       divider,
@@ -1324,6 +1394,9 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        'Ciri pola ini ada pada kata **"setiap"** di komentar: token harus disertakan sendiri di tiap permintaan, karena tidak ada mekanisme browser yang melakukannya untukmu. Itu sekaligus kelebihan dan kekurangannya. Kelebihannya, kamu punya kendali penuh dan ia bekerja di mana saja — termasuk aplikasi mobile yang tidak punya konsep cookie. Kekurangannya, token itu harus **disimpan di suatu tempat yang bisa dibaca JavaScript**, dan di situlah letak risikonya. Awalan `Bearer` bukan hiasan; ia menyatakan skema autentikasi yang dipakai, dan server memang mengharapkannya persis begitu — melewatkannya adalah penyebab umum `401` yang membingungkan karena tokennya jelas-jelas sudah dikirim.',
+      ),
       table(
         ['Kelebihan', 'Kekurangan'],
         [
@@ -1360,6 +1433,9 @@ export const lessons: LessonDraft[] = [
 
         document.cookie;   // tidak berisi 'sesi' — HttpOnly menyembunyikannya
         `,
+      ),
+      p(
+        "Bandingkan dengan pola sebelumnya: **tidak ada satu pun header `Authorization` di sini**, dan tidak ada token yang disimpan kodemu. Server menyetel cookie lewat `Set-Cookie` saat login, lalu browser melampirkannya **otomatis** di setiap permintaan berikutnya. Yang perlu kamu tulis hanya `credentials: 'include'`, dan itu pun hanya diperlukan bila API-nya berbeda origin. Baris terakhir adalah inti keamanannya: `document.cookie` **tidak memuat sesi itu**, karena atribut `HttpOnly` menyembunyikannya dari JavaScript sepenuhnya. Dengan begitu, satu celah XSS di halamanmu tidak langsung berujung pada pencurian sesi — penyerang masih bisa melakukan permintaan atas nama pengguna selama halamannya terbuka, tapi ia tidak bisa membawa pulang kredensialnya. Ongkosnya: karena cookie ikut otomatis, pola ini butuh proteksi CSRF, yang dibahas di kotak berikutnya.",
       ),
       table(
         ['Atribut cookie', 'Gunanya'],
@@ -1417,6 +1493,9 @@ export const lessons: LessonDraft[] = [
           return res;
         }
         `,
+      ),
+      p(
+        'Baris `refreshBerjalan ??= refreshToken().finally(...)` adalah intinya: `??=` hanya memulai `refreshToken()` baru kalau `refreshBerjalan` memang `null` atau `undefined` — begitu permintaan pertama yang gagal memulai refresh, `refreshBerjalan` langsung terisi Promise yang sedang berjalan, sehingga sembilan permintaan lain yang gagal bersamaan cukup ikut menunggu (`await refreshBerjalan`) Promise yang sama, bukan memicu sembilan refresh terpisah. `.finally(() => { refreshBerjalan = null; })` mengosongkannya kembali begitu refresh selesai, siap menampung permintaan refresh berikutnya kalau token kedaluwarsa lagi nanti.',
       ),
 
       h2('Yang tidak boleh dilakukan'),
@@ -1556,6 +1635,9 @@ export const lessons: LessonDraft[] = [
         localStorage.getItem('x');          // '[object Object]'
         `,
       ),
+      p(
+        "Lima baris pertama adalah seluruh API-nya — sesederhana itu. Dua hal yang perlu dicatat: `getItem` mengembalikan **`null`**, bukan `undefined`, untuk kunci yang tidak ada, jadi pemeriksaannya sebaiknya `=== null`; dan `clear()` menghapus **semua** kunci milik origin itu, termasuk yang disimpan pustaka lain, sehingga hampir selalu `removeItem` yang lebih tepat. Bagian bawah menyoroti batasan yang paling sering menggigit: `localStorage` **hanya bisa menyimpan string**. Menyimpan object tidak melempar error apa pun — object itu diam-diam diubah jadi teks `'[object Object]'`, dan datanya hilang tanpa jejak. Karena itu `JSON.stringify` saat menyimpan dan `JSON.parse` saat membaca bukan pilihan gaya melainkan keharusan, dan pasangan itulah yang membuka tiga cara gagal di bagian berikutnya.",
+      ),
 
       h2('Tiga cara ia gagal'),
       code(
@@ -1585,6 +1667,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Ketiga kegagalan yang ditandai komentar punya sifat yang sama: **tidak satu pun terjadi di komputer kamu saat mengembangkan**. `QuotaExceededError` muncul pada pengguna yang penyimpanannya sudah penuh; `SecurityError` muncul di mode privat atau saat pengguna memblokir penyimpanan situs — dan perhatikan bahwa itu berarti `localStorage.setItem` bisa **melempar**, bukan sekadar gagal diam-diam, sehingga tanpa `try` seluruh fungsi pemanggil ikut berhenti. Kegagalan ketiga ada di sisi baca: `JSON.parse` melempar bila teksnya rusak atau berasal dari versi aplikasi yang bentuk datanya berbeda. Perhatikan pembagian tanggung jawabnya — `simpanAman` mengembalikan `false` supaya pemanggil bisa memberi tahu pengguna, sedangkan `muatAman` mengembalikan nilai cadangan supaya aplikasi tetap bisa dibuka. Yang sama pentingnya: `if (mentah === null) return cadangan` menangani pemakaian pertama, ketika belum ada apa pun tersimpan.',
+      ),
       callout(
         'danger',
         'Data dari penyimpanan adalah input yang tidak tepercaya',
@@ -1600,6 +1685,9 @@ export const lessons: LessonDraft[] = [
         // Untuk data besar atau sering berubah, pakai IndexedDB.
         `,
       ),
+      p(
+        'Kata "sinkron" di tabel pilihan tadi terdengar seperti kemudahan — dan memang: kamu bisa menulis `localStorage.getItem(...)` tanpa `await`, tanpa Promise, tanpa callback. Tapi konsekuensinya persis seperti loop tak berujung di Bab 1: karena JavaScript berjalan di thread yang sama dengan tampilan, **selama penulisan berlangsung, tidak ada apa pun yang bisa digambar atau diklik**. Untuk beberapa kilobyte hal ini tidak terasa. Untuk beberapa megabyte, atau untuk penulisan yang terjadi pada setiap ketikan, halaman mulai terasa tersendat tanpa penyebab yang jelas — dan ia tidak akan muncul di profil performa sebagai "kode lambat", karena yang lambat adalah operasi penyimpanannya. IndexedDB menyelesaikan ini dengan bekerja asinkron, dan itulah alasan utama memilihnya meski API-nya jauh lebih bertele-tele.',
+      ),
 
       h2('Sinkronisasi antar tab'),
       code(
@@ -1610,6 +1698,9 @@ export const lessons: LessonDraft[] = [
           if (e.key === 'tema') terapkanTema(e.newValue);
         });
         `,
+      ),
+      p(
+        'Bagian yang paling sering membingungkan disebut di komentar: peristiwa `storage` **tidak terpicu di tab yang melakukan perubahan**, hanya di tab lain. Itu disengaja — tab yang mengubah sudah tahu apa yang ia ubah, jadi memberitahunya lagi hanya akan menyebabkan pekerjaan ganda. Tapi akibatnya, mencoba menguji fitur ini dengan satu tab akan selalu terlihat "tidak jalan". Objek `e` membawa keterangan lengkap: `e.key` menyebut kunci mana yang berubah — pemeriksaannya perlu karena listener ini menerima **semua** perubahan penyimpanan, termasuk dari pustaka lain — sedangkan `e.newValue` dan `e.oldValue` membawa isi barunya dan lamanya. Perhatikan `e.newValue` bernilai `null` ketika kuncinya dihapus, jadi fungsi yang menerimanya perlu siap menghadapi itu. Ini cara paling sederhana membuat perubahan tema atau logout langsung tercermin di semua tab yang terbuka.',
       ),
 
       h2('IndexedDB, secukupnya'),
@@ -1627,6 +1718,9 @@ export const lessons: LessonDraft[] = [
         await db.put('tugas', { id: '1', judul: 'Belajar' });
         await db.get('tugas', '1');
         `,
+      ),
+      p(
+        "Perhatikan `await` di setiap baris — itu perbedaan paling terasa dari `localStorage`: IndexedDB **asinkron**, sehingga penulisan sebesar apa pun tidak membekukan tampilan. Perbedaan kedua ada pada bentuk datanya: `db.put` menerima **object apa adanya**, tanpa `JSON.stringify` sama sekali, dan ia juga sanggup menyimpan `Blob` maupun `File` — sesuatu yang mustahil di `localStorage`. `keyPath: 'id'` memberi tahu IndexedDB bahwa property `id` pada tiap object adalah kuncinya, sehingga kamu tidak perlu menyebut kunci terpisah saat menyimpan. Angka `1` pada `openDB` adalah **versi skema**: fungsi `upgrade` hanya berjalan saat versinya naik, dan di situlah struktur penyimpanan dibuat atau diubah — pola yang mirip migrasi database. Pustaka `idb` dipakai di sini karena API bawaan IndexedDB berbasis event dan sangat bertele-tele; `idb` hanya membungkusnya menjadi Promise tanpa menambah lapisan lain.",
       ),
       callout(
         'tip',
@@ -1764,6 +1858,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Fungsi ini mengembalikan `true`/`false` alih-alih melempar, dan itu pilihan yang tepat untuk operasi yang **boleh gagal tanpa merusak apa pun** — pemanggilnya cukup menampilkan "Tersalin" atau "Gagal menyalin". Perhatikan pemeriksaan `if (!navigator.clipboard)` di baris pertama: API ini benar-benar tidak ada di sebagian lingkungan, dan langsung memanggil `writeText` pada `undefined` akan melempar `TypeError` yang tidak menjelaskan apa-apa. Ini penerapan *progressive enhancement* dari kotak istilah: periksa keberadaannya dulu, jangan berasumsi. `catch` yang kosong di sini bukan kelalaian melainkan keputusan — kegagalan menyalin tidak butuh detail, cukup diketahui bahwa ia gagal, dan `return false` memastikan pemanggil tidak pernah menampilkan "Tersalin" untuk sesuatu yang tidak tersalin.',
+      ),
       callout(
         'warning',
         'Dua syarat yang sering terlupa',
@@ -1797,6 +1894,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Fungsi ini membungkus API berbasis callback menjadi Promise — pola `new Promise` dari Bab 3, dipakai karena `getCurrentPosition` memang lahir sebelum Promise ada. Bagian yang paling berguna dipelajari adalah penerjemahan `err.code`: angka `1`, `2`, dan `3` masing-masing berarti izin ditolak, posisi tidak bisa ditentukan, dan waktu habis — dan ketiganya butuh **tanggapan yang berbeda** dari aplikasimu, sehingga menyeragamkannya jadi satu pesan membuang informasi yang sudah tersedia. Objek pemetaan yang langsung diikuti `[err.code]` adalah alternatif ringkas untuk `switch`, seperti dibahas di sub-bab percabangan. Tiga opsi di akhir juga menentukan pengalaman: `enableHighAccuracy: false` memakai jaringan alih-alih GPS sehingga jauh lebih hemat baterai dan cepat, `timeout` mencegah menunggu selamanya, dan `maximumAge: 60_000` mengizinkan memakai posisi yang diperoleh kurang dari semenit lalu — cukup akurat untuk kebanyakan kebutuhan dan menghindari pengukuran ulang.',
+      ),
       callout(
         'tip',
         'Minta izin saat pengguna paham kenapa',
@@ -1821,6 +1921,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        "Empat baris penjagaan sebelum notifikasi benar-benar dibuat, dan masing-masing menangani keadaan yang berbeda. `!('Notification' in window)` menutup perangkat yang tidak mendukungnya sama sekali. Pemeriksaan `'denied'` adalah yang paling penting secara etis: begitu pengguna menolak, **menanyakannya lagi tidak akan memunculkan dialog apa pun** — browser mengingat penolakan itu, jadi memaksa hanya menghasilkan kode yang berjalan sia-sia. Keadaan `'default'` berarti belum pernah ditanya, dan hanya di situlah `requestPermission()` layak dipanggil. Perhatikan urutannya: izin diminta **di dalam** fungsi yang memang hendak mengirim notifikasi, bukan saat halaman dimuat — dan itu yang membuat pengguna melihat dialognya pada saat ia sudah paham kenapa izin itu dibutuhkan.",
+      ),
 
       h2('File API'),
       code(
@@ -1838,6 +1941,9 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        'Dua baris pertama membaca isi berkas **tanpa mengunggahnya ke mana pun** — semuanya terjadi di komputer pengguna, sehingga bisa dipakai untuk memvalidasi isi CSV atau menampilkan pratinjau sebelum permintaan jaringan pertama. `text()` untuk berkas teks, `arrayBuffer()` untuk data biner. Bagian drag-and-drop di bawahnya memuat satu keanehan yang menjebak hampir semua orang: `preventDefault()` pada `dragover` ditandai **WAJIB**, dan tanpa itu peristiwa `drop` tidak pernah terpicu sama sekali. Alasannya, perilaku bawaan browser untuk berkas yang diseret ke halaman adalah **membukanya sebagai halaman baru**, dan menahan perilaku itu adalah cara memberi tahu browser bahwa area ini bersedia menerima jatuhan. Berkas yang dijatuhkan tiba di `e.dataTransfer.files`, berbentuk koleksi yang sama persis dengan `input.files` dari sub-bab unggah.',
+      ),
 
       h2('Memeriksa izin lebih dulu'),
       code(
@@ -1848,6 +1954,9 @@ export const lessons: LessonDraft[] = [
 
         status.addEventListener('change', () => perbaruiTampilan(status.state));
         `,
+      ),
+      p(
+        'Keunggulan Permissions API adalah ia menjawab **tanpa memunculkan dialog apa pun** — kamu bisa mengetahui keadaannya lebih dulu dan menyesuaikan antarmuka sebelum meminta. Tiga nilainya masing-masing menuntun ke tindakan berbeda: `granted` berarti langsung pakai; `prompt` berarti belum pernah ditanya, jadi tampilkan tombol yang menjelaskan kenapa izinnya dibutuhkan; dan `denied` berarti dialog **tidak akan pernah muncul lagi**, sehingga yang tepat bukan mencoba meminta ulang melainkan menyediakan jalur alternatif — misalnya membiarkan pengguna mengetik kotanya sendiri. Listener `change` di baris terakhir melengkapi gambarannya: pengguna bisa mengubah izin lewat pengaturan browser kapan saja tanpa memuat ulang halaman, dan tanpa listener itu antarmukamu akan terus menampilkan keadaan yang sudah usang.',
       ),
 
       h2('Pola yang berlaku untuk semuanya'),
@@ -2006,6 +2115,9 @@ export const lessons: LessonDraft[] = [
         sumber.close();
         `,
       ),
+      p(
+        'Perhatikan tidak ada satu pun kode yang **mengirim** sesuatu di sini — dan itu ciri utama Server-Sent Events: alirannya **satu arah**, dari server ke klien saja. Untuk notifikasi, pembaruan harga, atau progres pekerjaan panjang, satu arah sudah cukup, dan pembatasan itu yang membuat SSE jauh lebih sederhana daripada WebSocket. Dua listener pertama menunjukkan bahwa server bisa memberi **nama** pada peristiwanya: `message` adalah nama bawaan, sedangkan `notifikasi` hanya terpicu untuk aliran yang secara eksplisit ditandai server dengan nama itu, sehingga satu koneksi bisa membawa beberapa jenis pesan. Bagian `error` memuat hal yang paling sering disalahpahami: `EventSource` **menyambung ulang sendiri secara otomatis**, jadi error bukan berarti koneksinya berakhir — memeriksa `readyState === CLOSED` adalah cara membedakan gangguan sesaat dari kegagalan yang sesungguhnya. Baris `close()` tetap wajib karena tanpanya koneksi dan usaha menyambung ulangnya berjalan terus meski halamannya sudah ditinggalkan.',
+      ),
 
       h2('WebSocket'),
       code(
@@ -2028,6 +2140,9 @@ export const lessons: LessonDraft[] = [
 
         ws.close(1000, 'selesai');
         `,
+      ),
+      p(
+        'Bedanya dengan SSE terlihat di baris kedua: ada `ws.send(...)`, jadi alirannya **dua arah**. Perhatikan pengirimannya diletakkan di dalam listener `open`, bukan langsung setelah `new WebSocket(...)` — koneksinya belum terbentuk pada baris itu, dan mengirim terlalu awal akan melempar error. Data yang lewat selalu berupa **teks atau biner**, tidak pernah object, sehingga `JSON.stringify` saat mengirim dan `JSON.parse` pada `e.data` saat menerima adalah pasangan yang selalu dibutuhkan. Listener `close` membawa dua keterangan penting: `e.code` adalah kode alasan penutupan, dan `e.wasClean` membedakan penutupan yang tertib dari koneksi yang putus begitu saja — pembedaan yang menentukan perlu tidaknya menyambung ulang. Angka `1000` pada `ws.close(1000, \'selesai\')` adalah kode baku untuk "selesai secara normal", dan menyebutnya secara eksplisit membantu sisi server membedakan pengguna yang pergi dari jaringan yang putus.',
       ),
       callout(
         'warning',
@@ -2065,6 +2180,9 @@ export const lessons: LessonDraft[] = [
           return () => { sengajaDitutup = true; ws?.close(1000); };
         }
         `,
+      ),
+      p(
+        'Fungsi `sambung` mengembalikan sebuah fungsi pembersihan — pola yang sama seperti fungsi yang dikembalikan `useEffect` di React. `sengajaDitutup` membedakan dua alasan koneksi tertutup: dipanggil sendiri lewat fungsi pembersihan (tidak perlu menyambung ulang) atau terputus karena sebab lain seperti jaringan (perlu menyambung ulang). `percobaan` di-reset ke `0` setiap kali koneksi berhasil terbuka, sehingga jeda backoff selalu mulai pendek lagi untuk masalah baru, bukan terus memanjang dari kegagalan lama yang sudah pulih.',
       ),
 
       h2('Yang sering terlupa'),
@@ -2192,6 +2310,9 @@ export const lessons: LessonDraft[] = [
         `,
         { filename: 'src/lib/api-error.js' },
       ),
+      p(
+        'Kelas ini menerapkan pola `extends Error` dari bab OOP, dan tiga property tambahannya masing-masing punya pemakai yang jelas. `status` dipakai pemanggil untuk membedakan `404` dari kegagalan lain. `kode` membawa penanda dari server seperti `\'EMAIL_TERPAKAI\'` — jauh lebih andal untuk dicocokkan daripada teks pesan, yang bisa berubah kapan saja saat kalimatnya diperbaiki. `detail` membawa error per field, dan itulah yang membuat pesan validasi bisa ditempelkan tepat di bawah input yang bersangkutan. Destructuring `{ status, kode, detail } = {}` di parameter memakai nilai bawaan objek kosong, sehingga `new ApiError(\'pesan\')` tanpa argumen kedua tetap sah. Yang paling berguna adalah getter `bisaDiulang`: ia menaruh keputusan "layak diulang atau tidak" **di dalam objek errornya sendiri**, sehingga logika retry di bagian bawah cukup bertanya alih-alih mengulang daftar status di banyak tempat.',
+      ),
 
       h2('Pembungkusnya'),
       code(
@@ -2262,6 +2383,9 @@ export const lessons: LessonDraft[] = [
         `,
         { filename: 'src/lib/api.js' },
       ),
+      p(
+        'Perhatikan beberapa keputusan yang menyatukan sub-bab sebelumnya dalam satu fungsi: `body instanceof FormData` diperiksa dulu sebelum menambahkan `Content-Type` sendiri, karena `FormData` butuh menyusun boundary-nya sendiri seperti dijelaskan di sub-bab unggah berkas. `signal: signal ?? AbortSignal.timeout(TIMEOUT)` memberi timeout bawaan, tapi tetap membiarkan pemanggil mengoper signal pembatalannya sendiri kalau ada. `bacaError` mencoba membaca body sebagai JSON untuk mendapat pesan yang lebih spesifik dari server, tapi dibungkus `try/catch` supaya body yang rusak atau bukan JSON tidak menutupi kode status aslinya yang sudah pasti valid. Hasilnya: pemanggil di bagian "Memakainya" di bawah tidak perlu tahu detail-detail ini sama sekali — ia cukup menangkap `ApiError`.',
+      ),
 
       h2('Memakainya'),
       code(
@@ -2284,6 +2408,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        "Inilah imbalan dari semua pekerjaan di atas: dua baris permintaan yang **tidak memuat satu pun** `res.ok`, `headers`, `JSON.stringify`, atau `AbortSignal.timeout`. Semua itu sudah dikerjakan di dalam `api`, sekali, untuk seluruh aplikasi. Blok `catch` menunjukkan pembagian penanganan yang rapi dan berlapis. Baris `if (error.name === 'AbortError') return` menyaring pembatalan yang disengaja lebih dulu — ia bukan kegagalan, jadi keluar diam-diam tanpa pesan apa pun. Lalu `error instanceof ApiError && error.detail` menangkap kasus yang paling berguna: kegagalan validasi yang membawa **error per field** dari server, sehingga pesannya bisa ditempelkan tepat di bawah input yang bersangkutan alih-alih ditampilkan sebagai satu kalimat umum. Sisanya jatuh ke cabang terakhir dengan pesan yang sudah diterjemahkan `minta` menjadi kalimat yang layak dibaca pengguna.",
+      ),
 
       h2('Menambah retry'),
       code(
@@ -2304,6 +2431,9 @@ export const lessons: LessonDraft[] = [
           }
         }
         `,
+      ),
+      p(
+        'Perhatikan `for (let percobaan = 0; ; percobaan++)` — bagian kondisinya sengaja **dikosongkan**, jadi loop ini tidak berhenti sendiri. Yang menghentikannya ada di dalam: `return` saat berhasil, atau `throw error` saat sudah tidak layak diulang. Baris penentu adalah `error instanceof ApiError && error.bisaDiulang`: hanya kegagalan yang punya kemungkinan berbeda hasilnya yang diulang, sedangkan `400` atau `404` langsung dilempar tanpa membuang waktu — mengulanginya pasti menghasilkan jawaban yang sama. Jedanya memakai formula yang sama persis dengan sub-bab retry di Bab 3: `2 ** percobaan` untuk backoff eksponensial, `Math.random()` untuk jitter. Peringatan di bawah tetap yang paling penting: pola ini hanya aman untuk permintaan yang **idempoten**, dan `POST` bukan salah satunya.',
       ),
       callout(
         'warning',
@@ -2442,6 +2572,9 @@ export const lessons: LessonDraft[] = [
         </section>
         `,
       ),
+      p(
+        'Seluruh isi wadah nanti dibangun dari data, jadi HTML ini hanya menyiapkan **bejananya** — dan justru di bejana itulah keputusan aksesibilitasnya berada. `type="search"` memberi tombol hapus bawaan dan papan ketik yang sesuai di perangkat sentuh. `autocomplete="off"` dan `spellcheck="false"` mematikan dua bantuan browser yang hanya mengganggu pada kotak pencarian. Yang paling menentukan ada di `<div id="wadah">`: `aria-live="polite"` menandai isinya sebagai berubah-ubah, sehingga pembaca layar mengumumkan hasil baru **tanpa memindahkan fokus** pengguna dari kotak ketik — nilai `polite` berarti menunggu jeda alih-alih menyela. `aria-busy` menyertainya untuk menandai bahwa isinya sedang dimuat, dan nilainya diperbarui dari JavaScript di langkah berikutnya.',
+      ),
       callout(
         'tip',
         '`aria-live` dan `aria-busy` bukan hiasan',
@@ -2501,6 +2634,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Satu fungsi menangani **keempat** keadaan, dan bentuknya sengaja memakai `return` di ujung tiap cabang — pola guard clause dari Bab 1 — sehingga tidak ada `else` bertingkat dan tiap keadaan terbaca sebagai blok yang berdiri sendiri. Perhatikan urutannya bukan kebetulan: memuat, gagal, kosong, lalu berhasil. Cabang **memuat** menampilkan lima baris skeleton dengan tinggi yang sama seperti baris asli, sehingga tata letak tidak melompat saat data tiba. Cabang **gagal** memakai `role="alert"` supaya diumumkan segera, dan menyertakan tombol "Coba lagi" yang memanggil `muat(terakhirDicari)` — pesan error tanpa jalan keluar hanya membuat pengguna buntu. Cabang **kosong** membedakan dua situasi yang sangat berbeda: "belum mencari apa pun" dan "sudah mencari tapi tidak ketemu", masing-masing dengan kalimatnya sendiri. Baru cabang terakhir yang menampilkan data, dirakit lewat `DocumentFragment` seperti pola batching di bab DOM.',
+      ),
 
       h2('3. Mengambil data, dengan pembatalan'),
       code(
@@ -2554,6 +2690,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Dua baris pertama fungsi ini yang membuat pencarian terasa benar. `kontrolAktif?.abort()` **membatalkan pencarian sebelumnya** sebelum memulai yang baru, sehingga respons lama tidak akan pernah menimpa hasil yang lebih baru — persis masalah race condition dari sub-bab jebakan async, diselesaikan dengan pembatalan alih-alih penomoran. Tanda `?.` diperlukan karena pada pemanggilan pertama belum ada controller apa pun. `AbortSignal.any([...])` menggabungkan dua alasan berhenti yang berbeda: pencarian digantikan yang baru, **atau** server terlalu lambat. Di blok `catch`, urutannya juga menentukan: `AbortError` disaring lebih dulu dan **keluar tanpa menampilkan apa-apa**, karena pembatalan yang kita sengaja lakukan bukan kegagalan — menampilkannya sebagai error justru akan membuat layar berkedip merah setiap kali pengguna mengetik satu huruf lagi.',
+      ),
 
       h2('4. Debounce pada input'),
       code(
@@ -2575,6 +2714,9 @@ export const lessons: LessonDraft[] = [
 
         muat('');   // muat awal
         `,
+      ),
+      p(
+        "Fungsi `debounce` di sini adalah yang sama persis dari sub-bab closure — timer disimpan di closure sehingga bertahan antar-pemanggilan, dan tiap ketikan baru membatalkan penundaan sebelumnya lewat `clearTimeout`. Perhatikan `cariTertunda` dibuat **sekali di luar** listener; membuatnya di dalam listener akan menghasilkan timer baru tiap ketikan dan tidak ada yang pernah dibatalkan. `e.target.value.trim()` membersihkan spasi sebelum dikirim, sehingga mengetik spasi tidak memicu pencarian yang berbeda. Baris `muat('')` di akhir memuat data awal saat halaman dibuka — tanpa itu, pengguna disambut wadah kosong sampai ia mengetik sesuatu. Seperti disebut di kotak berikut, debounce dan pembatalan **bukan pengganti satu sama lain**: yang pertama mengurangi jumlah permintaan, yang kedua mengurus permintaan yang terlanjur berangkat.",
       ),
       callout(
         'info',
@@ -2600,6 +2742,9 @@ export const lessons: LessonDraft[] = [
           return li;
         }
         `,
+      ),
+      p(
+        'Perhatikan baris `li.append(nama, \' — \', email)`: satu pemanggilan menyisipkan dua elemen **dan** satu potongan teks biasa sekaligus. Itu bentuk `append` modern dari sub-bab membuat node, dan string yang dioper ke sana selalu diperlakukan sebagai teks — jadi tanda pemisah bisa ditulis langsung tanpa perlu membuat elemen pembungkus. Dua penugasan `textContent` di atasnya adalah inti keamanannya, dan penting disadari bahwa **`pengguna.name` datang dari API, bukan dari kodemu**. Data API terasa "resmi" sehingga mudah dianggap aman, padahal isinya diketik seseorang di suatu tempat — nama, biodata, dan komentar semuanya masukan pengguna yang kebetulan singgah di server lebih dulu. Memakai `innerHTML` di sini akan membuat payload `<img src=x onerror=...>` berjalan di browser pembacamu, persis skenario XSS dari bab DOM.',
       ),
       callout(
         'warning',

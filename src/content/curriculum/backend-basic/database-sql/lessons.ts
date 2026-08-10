@@ -6,8 +6,10 @@ import {
   divider,
   h2,
   p,
+  references,
   steps,
   table,
+  terms,
   ul,
 } from '@/lib/content/builders';
 import { type LessonDraft, written } from '@/lib/curriculum/authoring';
@@ -31,6 +33,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Menyimpan data ke berkas JSON terasa cukup — sampai ada pengguna kedua. Empat masalah berikut muncul berurutan, dan database relasional dibangun persis untuk menyelesaikannya.',
+      ),
+
+      terms(
+        {
+          term: 'database relasional',
+          meaning:
+            'Penyimpanan data berbentuk tabel yang saling berhubungan. Disebut "relasional" karena hubungan antar tabel adalah bagian resmi dari modelnya — bukan sesuatu yang kamu urus sendiri di kode.',
+        },
+        {
+          term: 'concurrency (permintaan bersamaan)',
+          meaning:
+            'Dua atau lebih permintaan berjalan pada waktu yang sama. Di server ini **keadaan normal**, bukan kemungkinan kecil. Contoh di bawah menunjukkan akibatnya pada berkas biasa: satu catatan hilang tanpa error apa pun.',
+        },
+        {
+          term: 'lost update',
+          meaning:
+            'Nama masalah pada contoh pertama: dua proses membaca isi yang sama, keduanya menambah, lalu yang kedua **menimpa** hasil yang pertama. Tidak ada pengecualian yang dilempar — datanya hanya lenyap.',
+        },
+        {
+          term: 'index',
+          meaning:
+            'Struktur tambahan yang membuat database bisa menemukan baris tertentu **tanpa membaca seluruh tabel**. Ini yang membedakan pencarian di database dari `find()` pada array 500 MB yang harus dimuat ke memori lebih dulu.',
+        },
+        {
+          term: 'constraint',
+          meaning:
+            'Aturan yang ditegakkan **database sendiri**, bukan kode aplikasi: `NOT NULL`, `UNIQUE`, `FOREIGN KEY`. Bedanya menentukan — aturan di kode bisa dilupakan pada satu jalur penulisan; aturan di database tidak bisa dilewati siapa pun.',
+        },
+        {
+          term: 'NOT NULL',
+          meaning:
+            'Constraint yang melarang kolom dikosongkan. Menjawab masalah `"judul": null` di contoh: bukan lagi soal ingat memvalidasi, melainkan soal database menolak menyimpannya.',
+        },
+        {
+          term: 'UNIQUE',
+          meaning:
+            'Constraint yang melarang dua baris punya nilai sama di kolom itu. Ia yang mencegah `id` ganda — dan yang membuat "cek dulu, baru simpan" tidak lagi rawan diselipi permintaan lain di antaranya.',
+        },
+        {
+          term: 'FOREIGN KEY',
+          meaning:
+            'Constraint yang memastikan sebuah nilai benar-benar menunjuk baris yang ada di tabel lain. Ia yang membuat `penulisId: 999` ditolak kalau pengguna 999 tidak ada — masalah yang mustahil dijaga oleh berkas JSON.',
+        },
+        {
+          term: 'transaksi',
+          meaning:
+            'Sekumpulan perubahan yang **berhasil bersama atau gagal bersama**. Ia jawaban untuk masalah keempat: transfer saldo yang mati di tengah jalan tidak boleh meninggalkan uang yang lenyap.',
+        },
       ),
 
       h2('1. Dua penulis sekaligus'),
@@ -108,6 +158,32 @@ export const lessons: LessonDraft[] = [
         'Website ini memang tidak punya database',
         'Ruang Belajar Fullstack menyimpan progres di `localStorage` — satu pengguna, satu perangkat, tidak ada penulis bersamaan, dan data yang hilang bukan bencana. Keputusannya tercatat di ADR-0002. Ini contoh nyata bahwa "pakai database" bukan jawaban otomatis; ia jawaban untuk masalah tertentu.',
       ),
+      references(
+        {
+          label: 'PostgreSQL — Data Consistency Checks',
+          href: 'https://www.postgresql.org/docs/17/mvcc.html',
+          source: 'PostgreSQL',
+          note: 'Cara database menangani penulis bersamaan tanpa saling menimpa.',
+        },
+        {
+          label: 'PostgreSQL — Constraints',
+          href: 'https://www.postgresql.org/docs/17/ddl-constraints.html',
+          source: 'PostgreSQL',
+          note: '`NOT NULL`, `UNIQUE`, dan `FOREIGN KEY` yang menjawab masalah ketiga.',
+        },
+        {
+          label: 'SQLite — Appropriate Uses For SQLite',
+          href: 'https://www.sqlite.org/whentouse.html',
+          source: 'SQLite',
+          note: 'Panduan jujur kapan database memang tidak diperlukan — pelengkap tabel di atas.',
+        },
+        {
+          label: 'PostgreSQL — Transactions',
+          href: 'https://www.postgresql.org/docs/17/tutorial-transactions.html',
+          source: 'PostgreSQL',
+          note: 'Jawaban untuk masalah keempat: perubahan yang berhasil bersama atau gagal bersama.',
+        },
+      ),
     ],
   ),
 
@@ -119,6 +195,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Database relasional menyimpan data dalam **tabel**: kolom mendefinisikan bentuk, baris menyimpan datanya. Bentuknya ditetapkan lebih dulu — dan itu fitur, bukan batasan.',
+      ),
+
+      terms(
+        {
+          term: 'tabel',
+          meaning:
+            'Wadah data berbentuk kotak-kotak: **kolom** mendefinisikan bentuk, **baris** menyimpan datanya. Bentuknya ditetapkan lebih dulu lewat `CREATE TABLE` — dan itu fitur, bukan batasan.',
+        },
+        {
+          term: 'skema (schema)',
+          meaning:
+            'Definisi bentuk data: kolom apa saja, tipenya apa, dan aturan apa yang berlaku. Perbedaan pentingnya dari kode aplikasi: skema berlaku untuk **siapa pun** yang menulis — aplikasimu, skrip migrasi, atau seseorang yang menjalankan `psql` tengah malam.',
+        },
+        {
+          term: 'VARCHAR(n) vs TEXT',
+          meaning:
+            '`VARCHAR(200)` membatasi panjang; `TEXT` tidak. Di PostgreSQL keduanya sama cepat, jadi pilihannya bukan soal performa melainkan soal **validasi**: batas panjang di skema adalah satu lapis penjagaan tambahan yang gratis.',
+        },
+        {
+          term: 'NUMERIC(12,2)',
+          meaning:
+            'Tipe angka **eksak** dengan 12 digit total dan 2 di belakang koma — tipe yang benar untuk uang. Lawannya `FLOAT`, yang menyimpan perkiraan: `0.1 + 0.2` tidak sama dengan `0.3`, dan kesalahannya menumpuk diam-diam sampai laporan keuangan tidak cocok.',
+        },
+        {
+          term: 'TIMESTAMPTZ',
+          meaning:
+            'Waktu **beserta zona waktunya** — dan tipe yang harus kamu pakai. `TIMESTAMP` tanpa `TZ` menyimpan "2026-08-02 10:00" tanpa konteks: jam sepuluh **di mana**? Server yang pindah zona, atau pengguna di zona lain, langsung membuatnya ambigu.',
+        },
+        {
+          term: 'BIGSERIAL',
+          meaning:
+            'Tipe PostgreSQL yang membuat kolom angka bertambah otomatis setiap baris baru — dipakai untuk `id`. Awalan `BIG` berarti ia `BIGINT`, jadi tidak akan kehabisan angka seperti `SERIAL` biasa (~2,1 miliar).',
+        },
+        {
+          term: 'JSONB',
+          meaning:
+            'Tipe untuk data yang bentuknya tidak tetap, disimpan dalam format biner sehingga **bisa diindeks**. Peringatannya: jangan dipakai untuk semuanya — begitu data masuk JSONB, kamu kehilangan constraint dan tipe yang jadi alasan memakai database relasional.',
+        },
+        {
+          term: 'NULL',
+          meaning:
+            'Berarti **"tidak diketahui"** — bukan nol, bukan string kosong, bukan `false`. Konsekuensinya mengejutkan: `judul = NULL` **selalu** menghasilkan kosong (harus `IS NULL`), dan `100 + NULL` menghasilkan `NULL`, bukan `100`.',
+        },
+        {
+          term: 'CHECK',
+          meaning:
+            "Constraint berisi syarat yang harus dipenuhi setiap baris — `CHECK (status IN ('draf','terbit'))`. Ia mengubah aturan yang biasanya hidup di kode menjadi aturan yang **tidak bisa dilewati siapa pun**.",
+        },
       ),
 
       h2('Membuat tabel'),
@@ -213,6 +337,32 @@ export const lessons: LessonDraft[] = [
       p(
         'Batasan di database berlaku bagi siapa pun yang menulis — aplikasimu, skrip migrasi, seseorang yang menjalankan `psql` tengah malam. Validasi di kode aplikasi tidak.',
       ),
+      references(
+        {
+          label: 'PostgreSQL — Data Types',
+          href: 'https://www.postgresql.org/docs/17/datatype.html',
+          source: 'PostgreSQL',
+          note: 'Daftar lengkap tipe beserta batas nilainya.',
+        },
+        {
+          label: 'Numeric Types — arbitrary precision',
+          href: 'https://www.postgresql.org/docs/17/datatype-numeric.html#DATATYPE-NUMERIC-DECIMAL',
+          source: 'PostgreSQL',
+          note: 'Kenapa `NUMERIC` eksak dan `FLOAT` tidak — dasar aturan penyimpanan uang.',
+        },
+        {
+          label: 'Date/Time Types — timestamp with time zone',
+          href: 'https://www.postgresql.org/docs/17/datatype-datetime.html',
+          source: 'PostgreSQL',
+          note: 'Beda `TIMESTAMP` dan `TIMESTAMPTZ`, beserta akibatnya saat server pindah zona.',
+        },
+        {
+          label: 'Constraints — CHECK, NOT NULL, UNIQUE',
+          href: 'https://www.postgresql.org/docs/17/ddl-constraints.html',
+          source: 'PostgreSQL',
+          note: 'Cara memindahkan aturan dari kode aplikasi ke lapisan yang tidak bisa dilewati.',
+        },
+      ),
     ],
   ),
 
@@ -224,6 +374,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Primary key menjawab "baris ini yang mana", foreign key menjawab "milik siapa", dan index menjawab "bagaimana menemukannya cepat". Dua yang pertama soal **kebenaran**; yang ketiga soal **kecepatan**.',
+      ),
+
+      terms(
+        {
+          term: 'primary key',
+          meaning:
+            'Kolom yang menjawab **"baris ini yang mana"** — unik, tidak boleh `NULL`, dan tidak berubah. Setiap tabel harus punya satu. Ia soal **kebenaran**, bukan kecepatan.',
+        },
+        {
+          term: 'foreign key',
+          meaning:
+            'Kolom yang menjawab **"milik siapa"** dengan menunjuk primary key tabel lain. Ia menegakkan dua hal sekaligus: nilai yang menunjuk baris tak-ada akan ditolak, dan tidak ada anak yatim yang tertinggal saat induknya hilang.',
+        },
+        {
+          term: 'index',
+          meaning:
+            'Struktur pencarian yang menjawab **"bagaimana menemukannya cepat"**. Berbeda dari dua yang di atas: primary key dan foreign key soal kebenaran, index murni soal **kecepatan**.',
+        },
+        {
+          term: 'UUID',
+          meaning:
+            'Singkatan *Universally Unique Identifier* — id acak 16 byte yang tidak bisa ditebak berurutan. Kelebihannya: bisa dibuat klien sebelum insert, dan tidak membocorkan jumlah data. Kekurangannya: dua kali lebih besar dan kurang ramah index karena acak.',
+        },
+        {
+          term: 'ON DELETE CASCADE',
+          meaning:
+            'Aturan yang membuat baris anak **ikut terhapus** saat induknya dihapus. Bahayanya sering diremehkan: satu rantai `CASCADE` bisa ikut menghapus catatan, komentarnya, dan komentar orang lain di catatan itu. Untuk data penting, `RESTRICT` lebih aman.',
+        },
+        {
+          term: 'ON DELETE RESTRICT',
+          meaning:
+            'Aturan yang **menolak** penghapusan selama masih ada anak. Ia memaksa penghapusan dilakukan sadar dan berurutan, bukan sebagai efek samping yang baru disadari setelah data hilang.',
+        },
+        {
+          term: 'index gabungan (composite)',
+          meaning:
+            'Index atas beberapa kolom sekaligus — dan **urutannya penting**. `(penulis_id, dibuat_pada)` dipakai untuk `WHERE penulis_id = 42`, tapi **tidak** dipakai untuk `WHERE dibuat_pada > ...` saja. Aturannya: index bisa dipakai dari kolom paling kiri.',
+        },
+        {
+          term: 'biaya index',
+          meaning:
+            'Setiap index memperlambat `INSERT`, `UPDATE`, dan `DELETE` karena harus ikut diperbarui, dan memakan ruang disk. Tabel dengan lima belas index yang jarang dipakai **lebih lambat menulis tanpa manfaat membaca**. Tambahkan index karena query yang lambat, bukan karena berjaga-jaga.',
+        },
+        {
+          term: 'EXPLAIN ANALYZE',
+          meaning:
+            'Perintah yang menampilkan rencana eksekusi yang **benar-benar dijalankan** beserta waktunya. `Seq Scan` pada tabel besar berarti index tidak dipakai; `Index Scan` berarti dipakai. Jangan menebak — perintah ini yang menjawabnya.',
+        },
       ),
 
       h2('Primary key'),
@@ -341,6 +539,32 @@ export const lessons: LessonDraft[] = [
       p(
         'Jangan menebak. `EXPLAIN ANALYZE` menunjukkan rencana yang **benar-benar** dijalankan, beserta waktunya.',
       ),
+      references(
+        {
+          label: 'PostgreSQL — Primary & Foreign Keys',
+          href: 'https://www.postgresql.org/docs/17/ddl-constraints.html#DDL-CONSTRAINTS-FK',
+          source: 'PostgreSQL',
+          note: 'Termasuk seluruh opsi `ON DELETE` beserta akibatnya masing-masing.',
+        },
+        {
+          label: 'PostgreSQL — Indexes',
+          href: 'https://www.postgresql.org/docs/17/indexes.html',
+          source: 'PostgreSQL',
+          note: 'Jenis index, index gabungan, dan aturan kolom paling kiri.',
+        },
+        {
+          label: 'Using EXPLAIN',
+          href: 'https://www.postgresql.org/docs/17/using-explain.html',
+          source: 'PostgreSQL',
+          note: 'Membaca rencana eksekusi — cara membuktikan index dipakai, bukan menebaknya.',
+        },
+        {
+          label: 'UUID Type & gen_random_uuid()',
+          href: 'https://www.postgresql.org/docs/17/datatype-uuid.html',
+          source: 'PostgreSQL',
+          note: 'Alternatif id berurutan, beserta harga ukuran dan keramahan index-nya.',
+        },
+      ),
     ],
   ),
 
@@ -352,6 +576,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         '`SELECT` membaca data. Empat klausa di bawah menyusun hampir semua pembacaan yang akan kamu tulis.',
+      ),
+
+      terms(
+        {
+          term: 'SELECT *',
+          meaning:
+            'Meminta **semua** kolom. Boleh saat menjelajah manual di `psql`; **jangan di kode**. Tiga alasannya: mengirim kolom yang tidak dipakai lewat jaringan, ikut berubah diam-diam saat skema berubah, dan gampang membocorkan kolom sensitif seperti `password_hash` ke respons API.',
+        },
+        {
+          term: 'WHERE',
+          meaning:
+            'Klausa penyaring — hanya baris yang memenuhi syaratnya yang dikembalikan. Operatornya lebih kaya dari yang biasa dipakai: `BETWEEN`, `IN`, `ILIKE`, `IS NULL`, dan gabungan `AND`/`OR`.',
+        },
+        {
+          term: 'presedensi AND/OR',
+          meaning:
+            '`AND` dievaluasi **lebih dulu** daripada `OR`. Tanpa tanda kurung, `a = 1 OR a = 2 AND b = 3` berarti `a = 1 OR (a = 2 AND b = 3)` — hampir selalu bukan yang kamu maksud. Bug ini tidak menimbulkan error, hanya hasil yang salah.',
+        },
+        {
+          term: 'ILIKE',
+          meaning:
+            'Versi `LIKE` milik PostgreSQL yang **mengabaikan huruf besar/kecil**. Huruf `I` di depan berarti *insensitive*. Di database lain, padanannya biasanya `LOWER(kolom) LIKE LOWER(...)`.',
+        },
+        {
+          term: 'wildcard di depan',
+          meaning:
+            "Pola `LIKE '%React%'` yang diawali `%`. Ia **mematikan index** — database terpaksa memindai seluruh tabel. Untuk pencarian teks sungguhan, pakai full-text search (`to_tsvector`) atau ekstensi `pg_trgm`.",
+        },
+        {
+          term: 'LIMIT / OFFSET',
+          meaning:
+            '`LIMIT` membatasi jumlah baris, `OFFSET` melewati sekian baris pertama. Bersama, keduanya membentuk paginasi paling sederhana — dan paling lambat saat halamannya dalam.',
+        },
+        {
+          term: 'paginasi keyset',
+          meaning:
+            'Alternatif `OFFSET` yang memakai nilai baris terakhir sebagai penanda: `WHERE id < 10023 LIMIT 20`. Kecepatannya **tetap** di halaman mana pun, dan hasilnya tidak bergeser saat ada data baru. Harganya: hanya bisa maju/mundur, tidak bisa lompat ke halaman tertentu.',
+        },
+        {
+          term: 'batas LIMIT dari server',
+          meaning:
+            'Nilai maksimum yang boleh diminta klien. Kalau `?perHalaman=1000000` diterima apa adanya, satu permintaan bisa menghabiskan memori server. Batasi dengan `Math.min(diminta, 100)` — ini pertahanan sumber daya, bukan kerapian.',
+        },
+        {
+          term: 'urutan tidak stabil',
+          meaning:
+            'Ketika banyak baris punya nilai `ORDER BY` yang sama, urutannya bisa **berbeda antar pemanggilan** — dan paginasi jadi kacau: satu item bisa muncul dua kali atau terlewat. Obatnya: tambahkan pemecah seri yang unik, biasanya `id`.',
+        },
       ),
 
       h2('Bentuk dasar'),
@@ -464,6 +736,32 @@ export const lessons: LessonDraft[] = [
         ORDER BY dibuat_pada DESC, id DESC
         `,
       ),
+      references(
+        {
+          label: 'SELECT',
+          href: 'https://www.postgresql.org/docs/17/sql-select.html',
+          source: 'PostgreSQL',
+          note: 'Rujukan lengkap seluruh klausa beserta urutan evaluasinya.',
+        },
+        {
+          label: 'LIMIT and OFFSET',
+          href: 'https://www.postgresql.org/docs/17/queries-limit.html',
+          source: 'PostgreSQL',
+          note: 'Termasuk peringatan resmi bahwa `OFFSET` besar tetap memindai baris yang dilewati.',
+        },
+        {
+          label: 'Pattern Matching — LIKE & ILIKE',
+          href: 'https://www.postgresql.org/docs/17/functions-matching.html',
+          source: 'PostgreSQL',
+          note: 'Kenapa wildcard di depan mematikan index, dan alternatif pencarian teksnya.',
+        },
+        {
+          label: 'Full Text Search',
+          href: 'https://www.postgresql.org/docs/17/textsearch.html',
+          source: 'PostgreSQL',
+          note: "Pengganti `LIKE '%kata%'` untuk pencarian teks pada tabel besar.",
+        },
+      ),
     ],
   ),
 
@@ -473,6 +771,59 @@ export const lessons: LessonDraft[] = [
     10,
     'Tiga perintah yang mengubah data — dan cara tidak merusaknya.',
     [
+      terms(
+        {
+          term: 'RETURNING',
+          meaning:
+            'Klausa PostgreSQL yang mengembalikan baris yang baru dibuat atau diubah, dalam perintah yang sama. Ia menghemat satu perjalanan: tanpa itu kamu harus `INSERT` lalu `SELECT` lagi untuk mendapat id dan nilai default — dua query, dengan celah waktu di antaranya.',
+        },
+        {
+          term: 'UPDATE tanpa WHERE',
+          meaning:
+            'Kesalahan paling mahal di sub-bab ini. Satu perintah, **semua baris** berubah. Tidak ada konfirmasi, tidak ada pembatalan. Kebiasaan yang menyelamatkan: tulis `WHERE` **lebih dulu**, baru `SET`.',
+        },
+        {
+          term: 'uji dengan SELECT dulu',
+          meaning:
+            'Menjalankan `SELECT count(*)` dengan `WHERE` **yang sama persis** sebelum menjalankan `UPDATE` atau `DELETE` di data sungguhan. Angkanya memberi tahu berapa baris yang akan kena — sebelum kena.',
+        },
+        {
+          term: 'baca-lalu-tulis',
+          meaning:
+            'Pola `SELECT` nilai, hitung di aplikasi, lalu `UPDATE`. Ia **rawan balapan**: dua permintaan bersamaan sama-sama membaca `10`, sama-sama menulis `9`, dan satu penjualan hilang tanpa error apa pun.',
+        },
+        {
+          term: 'perhitungan di dalam query',
+          meaning:
+            'Obat untuk masalah di atas: `SET stok = stok - 1 WHERE id = 7 AND stok > 0`. Perhitungan terjadi **di dalam database dalam satu operasi**, jadi tidak ada celah untuk diselipi. Periksa jumlah baris terpengaruh — nol berarti stok sudah habis.',
+        },
+        {
+          term: 'soft delete',
+          meaning:
+            'Menandai baris sebagai terhapus (`dihapus_pada = NOW()`) alih-alih benar-benar menghapusnya. Berguna untuk data yang mungkin perlu dipulihkan atau diaudit — tapi ia punya biaya yang sering dilupakan.',
+        },
+        {
+          term: 'biaya soft delete',
+          meaning:
+            'Dua hal yang jarang disebut. Pertama: **setiap** query dari sekarang wajib menambahkan `WHERE dihapus_pada IS NULL` — satu yang lupa berarti data terhapus muncul lagi. Kedua: constraint `UNIQUE` tetap berlaku pada baris "terhapus", sehingga email yang dihapus tidak bisa didaftarkan ulang.',
+        },
+        {
+          term: 'UPSERT',
+          meaning:
+            'Gabungan *update* dan *insert*: simpan kalau belum ada, perbarui kalau sudah. Di PostgreSQL ditulis `ON CONFLICT ... DO UPDATE`. Ia menggantikan pola "cek dulu, lalu insert atau update" yang punya celah balapan di antaranya.',
+        },
+        {
+          term: 'EXCLUDED',
+          meaning:
+            'Tabel semu di dalam `ON CONFLICT DO UPDATE` yang berisi nilai yang **tadinya akan** dimasukkan. `SET nilai = EXCLUDED.nilai` berarti "pakai nilai baru yang barusan ditolak karena bentrok".',
+        },
+        {
+          term: 'atomik',
+          meaning:
+            'Operasi yang terjadi **utuh atau tidak sama sekali**, tanpa bisa diselipi operasi lain di tengahnya. Ini sifat yang membuat `UPSERT` dan `SET stok = stok - 1` aman dari balapan, sementara pola baca-lalu-tulis tidak.',
+        },
+      ),
+
       h2('`INSERT`'),
       code(
         'sql',
@@ -600,6 +951,32 @@ export const lessons: LessonDraft[] = [
       p(
         'Ini menggantikan pola "cek dulu, lalu insert atau update" yang punya celah balapan di antaranya. Database melakukannya dalam satu operasi atomik.',
       ),
+      references(
+        {
+          label: 'INSERT — termasuk ON CONFLICT',
+          href: 'https://www.postgresql.org/docs/17/sql-insert.html',
+          source: 'PostgreSQL',
+          note: 'Bentuk UPSERT resmi beserta arti tabel semu `EXCLUDED`.',
+        },
+        {
+          label: 'UPDATE',
+          href: 'https://www.postgresql.org/docs/17/sql-update.html',
+          source: 'PostgreSQL',
+          note: 'Termasuk bentuk `SET kolom = kolom - 1` yang menghindari pola baca-lalu-tulis.',
+        },
+        {
+          label: 'DELETE',
+          href: 'https://www.postgresql.org/docs/17/sql-delete.html',
+          source: 'PostgreSQL',
+          note: 'Perilaku penghapusan, termasuk interaksinya dengan foreign key.',
+        },
+        {
+          label: 'RETURNING Data From Modified Rows',
+          href: 'https://www.postgresql.org/docs/17/dml-returning.html',
+          source: 'PostgreSQL',
+          note: 'Mendapat id dan nilai default tanpa query kedua.',
+        },
+      ),
     ],
   ),
 
@@ -611,6 +988,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Data disimpan terpisah supaya tidak berulang, lalu disatukan saat dibaca. `JOIN` adalah cara menyatukannya.',
+      ),
+
+      terms(
+        {
+          term: 'JOIN',
+          meaning:
+            'Menggabungkan baris dari dua tabel berdasarkan sebuah syarat. Ini inti dari kata "relasional": data disimpan **terpisah** supaya tidak berulang, lalu disatukan saat dibaca.',
+        },
+        {
+          term: 'ON',
+          meaning:
+            'Syarat yang menentukan baris mana dipasangkan dengan baris mana — biasanya `ON c.penulis_id = p.id`. Bedanya dengan `WHERE` terlihat sepele tapi menentukan, dan itu jebakan utama sub-bab ini.',
+        },
+        {
+          term: 'INNER JOIN',
+          meaning:
+            'Hanya mengembalikan baris yang **punya pasangan di kedua tabel**. Pengguna tanpa catatan tidak akan muncul sama sekali. Ini default kalau kamu menulis `JOIN` tanpa kata depan.',
+        },
+        {
+          term: 'LEFT JOIN',
+          meaning:
+            'Mengembalikan **semua** baris tabel kiri, beserta pasangannya kalau ada — dan `NULL` kalau tidak. Ini yang kamu pakai untuk "semua pengguna, beserta catatannya kalau punya".',
+        },
+        {
+          term: 'RIGHT JOIN',
+          meaning:
+            'Kebalikan `LEFT JOIN`: semua dari tabel kanan. Jarang dipakai dalam praktik — membalik urutan tabel lalu memakai `LEFT JOIN` hampir selalu lebih mudah dibaca.',
+        },
+        {
+          term: 'CROSS JOIN',
+          meaning:
+            'Setiap baris kiri dipasangkan dengan **setiap** baris kanan. 1000 × 1000 baris menghasilkan sejuta. Hampir selalu tidak disengaja — biasanya akibat lupa menulis syarat `ON`.',
+        },
+        {
+          term: 'alias tabel',
+          meaning:
+            'Nama pendek untuk sebuah tabel dalam satu query — `FROM pengguna p`. Bukan sekadar penghemat ketikan: begitu dua tabel punya kolom bernama sama (`id`), alias yang membuat `p.id` dan `c.id` bisa dibedakan.',
+        },
+        {
+          term: 'WHERE membatalkan LEFT JOIN',
+          meaning:
+            'Jebakan terbesar sub-bab ini. Menaruh syarat tabel kanan di `WHERE` mengubah `LEFT JOIN` jadi `INNER JOIN` **diam-diam** — karena `NULL = FALSE` bernilai `NULL`, dan barisnya tersaring keluar. Syarat pada tabel kanan harus masuk ke `ON`.',
+        },
+        {
+          term: 'masalah N+1',
+          meaning:
+            'Satu query mengambil N baris, lalu **N query lagi** dijalankan satu per satu untuk melengkapi masing-masing. 1000 pengguna menjadi 1001 query. Ia masalah performa paling umum di backend, cepat di data uji dan runtuh di produksi — dan ORM membuatnya sangat mudah terjadi tanpa disadari.',
+        },
       ),
 
       h2('Data contoh'),
@@ -766,6 +1191,32 @@ export const lessons: LessonDraft[] = [
       p(
         'N+1 adalah masalah performa paling umum di aplikasi backend, dan ORM membuatnya sangat mudah terjadi tanpa disadari — dibahas lagi di Bab 4.9 (Eloquent) karena di sanalah ia paling sering muncul.',
       ),
+      references(
+        {
+          label: 'Table Joins',
+          href: 'https://www.postgresql.org/docs/17/tutorial-join.html',
+          source: 'PostgreSQL',
+          note: 'Pengantar resmi INNER, LEFT, dan bentuk join lainnya.',
+        },
+        {
+          label: 'FROM Clause — join types',
+          href: 'https://www.postgresql.org/docs/17/queries-table-expressions.html#QUERIES-JOIN',
+          source: 'PostgreSQL',
+          note: 'Beda `ON` dan `WHERE` — sumber jebakan yang membatalkan `LEFT JOIN`.',
+        },
+        {
+          label: 'Comparison Functions — IS NULL',
+          href: 'https://www.postgresql.org/docs/17/functions-comparison.html',
+          source: 'PostgreSQL',
+          note: 'Kenapa `NULL = FALSE` bernilai `NULL`, bukan `TRUE` — akar jebakan di atas.',
+        },
+        {
+          label: 'Using EXPLAIN',
+          href: 'https://www.postgresql.org/docs/17/using-explain.html',
+          source: 'PostgreSQL',
+          note: 'Membuktikan sebuah join memakai index, bukan memindai seluruh tabel.',
+        },
+      ),
     ],
   ),
 
@@ -775,6 +1226,54 @@ export const lessons: LessonDraft[] = [
     11,
     'Meringkas banyak baris menjadi satu angka.',
     [
+      terms(
+        {
+          term: 'agregasi',
+          meaning:
+            'Meringkas **banyak baris menjadi satu nilai** — jumlah, total, rata-rata. Ini pergeseran cara berpikir: hasilnya bukan lagi baris-baris data, melainkan angka yang menjawab pertanyaan tentang data itu.',
+        },
+        {
+          term: 'COUNT(*) vs COUNT(kolom)',
+          meaning:
+            'Perbedaan yang paling sering jadi bug. `COUNT(*)` menghitung **semua baris**. `COUNT(kolom)` hanya menghitung baris yang kolomnya **bukan `NULL`**. Kalau angkamu lebih kecil dari yang diharapkan, ini penyebab pertama yang harus diperiksa.',
+        },
+        {
+          term: 'GROUP BY',
+          meaning:
+            'Membagi baris menjadi kelompok berdasarkan nilai satu atau beberapa kolom, lalu menjalankan fungsi agregat **per kelompok**. Tanpa `GROUP BY`, agregat menghasilkan satu angka untuk seluruh tabel.',
+        },
+        {
+          term: 'aturan GROUP BY',
+          meaning:
+            'Setiap kolom di `SELECT` harus **ada di `GROUP BY`** atau **dibungkus fungsi agregat**. PostgreSQL menolak query yang melanggarnya. MySQL dalam mode longgar justru menerimanya dan mengembalikan nilai **acak** dari salah satu baris — bug diam yang jauh lebih berbahaya daripada error.',
+        },
+        {
+          term: 'HAVING',
+          meaning:
+            'Menyaring **kelompok**, setelah agregat dihitung — `HAVING COUNT(*) > 5`. Bedanya dengan `WHERE`: `WHERE` menyaring baris **sebelum** dikelompokkan dan tidak boleh memakai fungsi agregat.',
+        },
+        {
+          term: 'urutan eksekusi',
+          meaning:
+            'Urutan SQL **dijalankan** berbeda dari urutan ia **ditulis**: `FROM` → `WHERE` → `GROUP BY` → `HAVING` → `SELECT` → `ORDER BY` → `LIMIT`. Ini menjelaskan kebingungan paling sering: alias yang dibuat di `SELECT` tidak bisa dipakai di `WHERE`, tapi **bisa** di `ORDER BY`.',
+        },
+        {
+          term: 'alias (AS)',
+          meaning:
+            'Nama baru untuk kolom hasil — `COUNT(*) AS jumlah`. Karena `SELECT` berjalan setelah `WHERE`, alias belum ada saat `WHERE` dievaluasi. Itu bukan keanehan; itu konsekuensi langsung urutan di atas.',
+        },
+        {
+          term: 'COUNT(c.id) pada LEFT JOIN',
+          meaning:
+            'Detail yang sering salah. Pada `LEFT JOIN`, pengguna tanpa catatan tetap menghasilkan satu baris berisi `NULL`. `COUNT(*)` menghitungnya sebagai **1** — salah. `COUNT(c.id)` melewati `NULL` dan menghasilkan **0**, yang benar.',
+        },
+        {
+          term: 'saring sedini mungkin',
+          meaning:
+            'Aturan performa untuk agregasi: buang baris sebanyak mungkin di `WHERE`, bukan di `HAVING`. Baris yang sudah dibuang tidak perlu ikut dikelompokkan maupun dihitung.',
+        },
+      ),
+
       h2('Fungsi agregat'),
       code(
         'sql',
@@ -876,6 +1375,32 @@ export const lessons: LessonDraft[] = [
         'Pakai `COUNT(c.id)`, bukan `COUNT(*)`',
         'Pada `LEFT JOIN`, pengguna tanpa catatan tetap menghasilkan satu baris berisi `NULL`. `COUNT(*)` akan menghitungnya sebagai 1 — salah. `COUNT(c.id)` melewati `NULL` dan menghasilkan 0, yang benar.',
       ),
+      references(
+        {
+          label: 'Aggregate Functions',
+          href: 'https://www.postgresql.org/docs/17/functions-aggregate.html',
+          source: 'PostgreSQL',
+          note: 'Daftar fungsi agregat, termasuk beda `COUNT(*)` dan `COUNT(kolom)`.',
+        },
+        {
+          label: 'GROUP BY and HAVING Clauses',
+          href: 'https://www.postgresql.org/docs/17/queries-table-expressions.html#QUERIES-GROUP',
+          source: 'PostgreSQL',
+          note: 'Aturan kolom di `SELECT`, dan kapan `HAVING` yang dipakai alih-alih `WHERE`.',
+        },
+        {
+          label: 'SELECT — evaluation order',
+          href: 'https://www.postgresql.org/docs/17/sql-select.html',
+          source: 'PostgreSQL',
+          note: 'Urutan klausa dijalankan — dasar alasan alias tidak tersedia di `WHERE`.',
+        },
+        {
+          label: 'MySQL — ONLY_FULL_GROUP_BY',
+          href: 'https://dev.mysql.com/doc/refman/8.4/en/group-by-handling.html',
+          source: 'MySQL',
+          note: 'Mode longgar MySQL yang menerima query melanggar aturan dan mengembalikan nilai acak.',
+        },
+      ),
     ],
   ),
 
@@ -887,6 +1412,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Normalisasi adalah proses menghilangkan pengulangan data. Aturannya terdengar formal, tapi tujuannya satu kalimat: **satu fakta disimpan di satu tempat saja**.',
+      ),
+
+      terms(
+        {
+          term: 'normalisasi',
+          meaning:
+            'Proses menghilangkan pengulangan data. Aturannya terdengar formal, tapi tujuannya muat satu kalimat: **satu fakta disimpan di satu tempat saja.**',
+        },
+        {
+          term: 'anomali update',
+          meaning:
+            'Satu fakta tersimpan di banyak baris, jadi mengubahnya harus dilakukan di semuanya. Ana ganti email → harus diubah di setiap barisnya. **Satu terlewat, dan datanya bertentangan** — tanpa ada yang memberitahu.',
+        },
+        {
+          term: 'anomali insert',
+          meaning:
+            'Sebuah fakta tidak bisa dicatat karena terikat pada fakta lain yang belum ada. Produk baru tidak bisa dimasukkan sebelum ada yang memesannya — padahal produk jelas ada terlepas dari pesanan.',
+        },
+        {
+          term: 'anomali delete',
+          meaning:
+            'Menghapus satu fakta ikut menghapus fakta lain yang menumpang di baris yang sama. Menghapus pesanan terakhir Budi ikut menghapus satu-satunya catatan tentang Budi.',
+        },
+        {
+          term: '1NF',
+          meaning:
+            'Bentuk normal pertama: **satu nilai per sel**. `produk = "Buku A, Buku B"` melanggarnya. Perbaikannya: satu baris per produk, tidak ada daftar yang disembunyikan di dalam satu kolom.',
+        },
+        {
+          term: '2NF',
+          meaning:
+            'Bentuk normal kedua: tidak ada kolom yang hanya bergantung pada **sebagian** primary key. Berlaku saat kunci-nya gabungan — kalau kuncinya `(pesanan_id, produk_id)`, maka `nama_produk` hanya bergantung pada `produk_id`, jadi ia milik tabel `produk`.',
+        },
+        {
+          term: '3NF',
+          meaning:
+            'Bentuk normal ketiga: tidak ada kolom yang bergantung pada kolom **non-kunci**. Contohnya `kota` yang bergantung pada `kode_pos`, bukan pada primary key barisnya. Untuk hampir semua aplikasi, 3NF adalah titik berhenti yang cukup.',
+        },
+        {
+          term: 'nilai historis',
+          meaning:
+            'Nilai yang sengaja disalin karena ia **fakta yang berbeda**, bukan duplikat. `harga_saat_beli` bukan pelanggaran normalisasi: harga produk sekarang dan harga yang benar-benar dibayar waktu itu adalah dua fakta. Kalau harga naik, riwayat pesanan lama tidak boleh ikut berubah.',
+        },
+        {
+          term: 'denormalisasi',
+          meaning:
+            'Menyimpan data berulang **dengan sengaja** demi performa — misalnya `jumlah_komentar` di tabel artikel. Harganya: begitu satu fakta ada di dua tempat, **kamu** yang harus menjaganya tetap sama. Lakukan hanya setelah ada masalah performa yang terukur, bukan sebagai titik awal.',
+        },
       ),
 
       h2('Tabel yang belum dinormalisasi'),
@@ -1000,6 +1573,32 @@ export const lessons: LessonDraft[] = [
         'Denormalisasi memindahkan tanggung jawab ke kodemu',
         'Begitu satu fakta tersimpan di dua tempat, **kamu** yang harus menjaganya tetap sama. Satu jalur update yang lupa, dan datanya bertentangan tanpa ada yang memberitahu. Mulailah selalu dari bentuk ternormalisasi; denormalisasi hanya sebagai jawaban atas masalah yang sudah terukur.',
       ),
+      references(
+        {
+          label: 'Data Definition — Constraints',
+          href: 'https://www.postgresql.org/docs/17/ddl-constraints.html',
+          source: 'PostgreSQL',
+          note: 'Alat yang menegakkan hasil normalisasi: `UNIQUE`, `FOREIGN KEY`, dan `CHECK`.',
+        },
+        {
+          label: 'Numeric Types — NUMERIC untuk uang',
+          href: 'https://www.postgresql.org/docs/17/datatype-numeric.html',
+          source: 'PostgreSQL',
+          note: 'Tipe yang dipakai `harga` dan `harga_saat_beli` pada skema ternormalisasi di atas.',
+        },
+        {
+          label: 'Materialized Views',
+          href: 'https://www.postgresql.org/docs/17/rules-materializedviews.html',
+          source: 'PostgreSQL',
+          note: 'Bentuk denormalisasi yang dikelola database, bukan dijaga tangan.',
+        },
+        {
+          label: 'MySQL — Normalization & table design',
+          href: 'https://dev.mysql.com/doc/refman/8.4/en/data-size.html',
+          source: 'MySQL',
+          note: 'Sudut pandang lain soal trade-off ukuran tabel dan pengulangan data.',
+        },
+      ),
     ],
   ),
 
@@ -1009,6 +1608,54 @@ export const lessons: LessonDraft[] = [
     12,
     'Tiga bentuk hubungan antar tabel dan cara mewujudkannya.',
     [
+      terms(
+        {
+          term: 'relasi',
+          meaning:
+            'Hubungan antar tabel. Hanya ada tiga bentuk, dan mengenali yang mana **menentukan letak foreign key-nya** — satu-satunya keputusan struktural yang benar-benar perlu kamu ambil.',
+        },
+        {
+          term: 'One-to-Many (1-N)',
+          meaning:
+            'Bentuk paling umum. Satu penulis punya banyak catatan; satu catatan punya satu penulis. Aturannya satu kalimat: **foreign key diletakkan di sisi "banyak"** — kolom `penulis_id` ada di tabel `catatan`, bukan sebaliknya.',
+        },
+        {
+          term: 'One-to-One (1-1)',
+          meaning:
+            'Satu baris berpasangan dengan tepat satu baris di tabel lain. Secara teknis ia 1-N yang dibatasi: **`UNIQUE` atau `PRIMARY KEY` pada foreign key-nya** yang mengubah 1-N menjadi 1-1.',
+        },
+        {
+          term: 'Many-to-Many (N-N)',
+          meaning:
+            'Satu catatan punya banyak tag, satu tag dipakai banyak catatan. Bentuk ini **tidak bisa diwujudkan dengan dua tabel saja** — ia selalu butuh tabel ketiga.',
+        },
+        {
+          term: 'tabel pivot',
+          meaning:
+            'Tabel ketiga yang mewujudkan relasi N-N, berisi **hanya** pasangan id dari kedua sisi. Nama lainnya *junction table* atau *join table*. Kalau ia mulai menyimpan data lain, ia sudah bukan pivot melainkan entitas tersendiri.',
+        },
+        {
+          term: 'primary key gabungan',
+          meaning:
+            'Primary key yang terdiri dari dua kolom, seperti `PRIMARY KEY (catatan_id, tag_id)`. Pada tabel pivot ia mengerjakan dua hal sekaligus: memberi identitas, dan **memastikan satu pasangan tidak bisa dicatat dua kali**.',
+        },
+        {
+          term: 'foreign key tanpa index',
+          meaning:
+            'Penyebab lambat yang paling tersembunyi. **PostgreSQL tidak membuat index otomatis untuk foreign key.** Akibatnya setiap `WHERE penulis_id = ?` dan setiap `JOIN` lewat kolom itu memindai seluruh tabel — dan penghapusan induk ikut melambat karena database harus memeriksa anak-anaknya.',
+        },
+        {
+          term: 'index arah sebaliknya',
+          meaning:
+            'Pada tabel pivot, primary key gabungan `(catatan_id, tag_id)` hanya melayani pencarian yang dimulai dari `catatan_id`. Untuk "cari catatan berdasarkan tag", kamu butuh index terpisah pada `tag_id` — ini yang paling sering terlewat.',
+        },
+        {
+          term: 'kapan memisah tabel 1-1',
+          meaning:
+            'Tiga alasan sah: kolomnya **jarang dipakai**, **ukurannya besar** (teks panjang, blob), atau **aksesnya perlu dibatasi berbeda** dari tabel utama. Di luar itu, menggabungkannya dalam satu tabel lebih sederhana.',
+        },
+      ),
+
       h2('One-to-Many (1-N) — yang paling umum'),
       p(
         'Satu penulis punya banyak catatan; satu catatan punya satu penulis. **Foreign key diletakkan di sisi "banyak".**',
@@ -1126,6 +1773,32 @@ export const lessons: LessonDraft[] = [
         'Menelusuri hierarki butuh query rekursif',
         'Untuk mengambil seluruh keturunan sebuah kategori, SQL punya `WITH RECURSIVE`. Untuk hierarki yang dangkal (dua sampai tiga tingkat), beberapa `JOIN` biasa lebih sederhana dan lebih mudah dibaca.',
       ),
+      references(
+        {
+          label: 'Foreign Keys',
+          href: 'https://www.postgresql.org/docs/17/tutorial-fk.html',
+          source: 'PostgreSQL',
+          note: 'Dasar ketiga bentuk relasi — semuanya berdiri di atas foreign key.',
+        },
+        {
+          label: 'Indexes on Foreign Keys',
+          href: 'https://www.postgresql.org/docs/17/indexes-intro.html',
+          source: 'PostgreSQL',
+          note: 'Penegasan bahwa index foreign key tidak dibuat otomatis, dan akibatnya.',
+        },
+        {
+          label: 'CREATE TABLE — composite PRIMARY KEY',
+          href: 'https://www.postgresql.org/docs/17/sql-createtable.html',
+          source: 'PostgreSQL',
+          note: 'Bentuk `PRIMARY KEY (a, b)` yang menjaga pasangan pada tabel pivot tidak ganda.',
+        },
+        {
+          label: 'WITH Queries (Common Table Expressions)',
+          href: 'https://www.postgresql.org/docs/17/queries-with.html',
+          source: 'PostgreSQL',
+          note: '`WITH RECURSIVE` untuk menelusuri relasi ke diri sendiri, seperti pohon kategori.',
+        },
+      ),
     ],
   ),
 
@@ -1137,6 +1810,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Transaksi mengelompokkan beberapa perintah menjadi satu satuan yang tidak bisa dipecah. Ini yang mencegah kelas bug paling mahal di backend: **perubahan setengah jadi**.',
+      ),
+
+      terms(
+        {
+          term: 'transaksi',
+          meaning:
+            'Sekumpulan perintah yang diperlakukan sebagai **satu satuan yang tidak bisa dipecah**. Ia mencegah kelas bug paling mahal di backend: perubahan setengah jadi. Kalau server mati di antara dua `UPDATE`, database membatalkan yang pertama saat pulih.',
+        },
+        {
+          term: 'BEGIN / COMMIT / ROLLBACK',
+          meaning:
+            'Tiga perintah yang membentuk transaksi. **`BEGIN`** membukanya, **`COMMIT`** membuat semua perubahannya berlaku, **`ROLLBACK`** membatalkan semuanya. Tidak ada keadaan di antara: satu dari dua, tidak pernah sebagian.',
+        },
+        {
+          term: 'ACID',
+          meaning:
+            'Empat sifat yang dijamin transaksi: **Atomicity** (semua atau tidak sama sekali), **Consistency** (semua constraint tetap terpenuhi), **Isolation** (transaksi bersamaan tidak saling melihat keadaan setengah jadi), **Durability** (setelah `COMMIT`, data selamat meski listrik mati).',
+        },
+        {
+          term: 'atomicity',
+          meaning:
+            'Huruf **A** pada ACID, dan yang paling langsung terasa. "Atomik" berarti tidak bisa dibelah: transfer saldo yang mati di tengah jalan **tidak** meninggalkan uang yang lenyap, karena tidak ada bagian yang berlaku sendirian.',
+        },
+        {
+          term: 'isolation',
+          meaning:
+            'Huruf **I** pada ACID, dan yang paling halus. Transaksi yang berjalan bersamaan tidak boleh saling melihat keadaan setengah jadi. Seberapa ketat jaminannya bisa diatur lewat **isolation level**.',
+        },
+        {
+          term: 'isolation level',
+          meaning:
+            'Tingkat ketat isolasi, dari `READ COMMITTED` (default PostgreSQL) sampai `SERIALIZABLE`. Makin ketat makin aman dari anomali, tapi makin sering transaksi ditolak dan harus diulang. Ini trade-off sadar, bukan setelan yang boleh diabaikan.',
+        },
+        {
+          term: 'durability',
+          meaning:
+            'Huruf **D** pada ACID. Setelah `COMMIT` dijawab berhasil, data **sudah tersimpan permanen** — mati listrik sesudah itu tidak menghilangkannya. Inilah yang membedakan database dari cache di memori.',
+        },
+        {
+          term: 'transaksi panjang',
+          meaning:
+            'Transaksi yang dibiarkan terbuka lama. Ia mengunci baris lebih lama dan menahan pembersihan versi lama. Aturan praktisnya: **jangan pernah menahan transaksi terbuka melintasi panggilan jaringan** ke layanan luar — kamu tidak mengendalikan berapa lama jawabannya datang.',
+        },
+        {
+          term: 'deadlock',
+          meaning:
+            'Dua transaksi saling menunggu kunci milik yang lain, sehingga keduanya berhenti selamanya. Database mendeteksinya dan **membatalkan salah satunya**. Pencegahan paling efektif: selalu ambil kunci dalam **urutan yang sama** di seluruh kodemu.',
+        },
       ),
 
       h2('Bentuknya'),
@@ -1279,6 +2000,32 @@ export const lessons: LessonDraft[] = [
       p(
         'Mulai dari default. Naikkan tingkat isolasi hanya kalau kamu bisa menyebutkan anomali konkret yang ingin dicegah — bukan karena terdengar lebih aman.',
       ),
+      references(
+        {
+          label: 'Transactions',
+          href: 'https://www.postgresql.org/docs/17/tutorial-transactions.html',
+          source: 'PostgreSQL',
+          note: 'Pengantar `BEGIN`/`COMMIT`/`ROLLBACK` beserta jaminan yang menyertainya.',
+        },
+        {
+          label: 'Transaction Isolation',
+          href: 'https://www.postgresql.org/docs/17/transaction-iso.html',
+          source: 'PostgreSQL',
+          note: 'Setiap tingkat isolasi, anomali yang dicegahnya, dan harga yang dibayar.',
+        },
+        {
+          label: 'Explicit Locking & Deadlocks',
+          href: 'https://www.postgresql.org/docs/17/explicit-locking.html',
+          source: 'PostgreSQL',
+          note: 'Kenapa mengambil kunci dalam urutan yang sama mencegah deadlock.',
+        },
+        {
+          label: 'MySQL — InnoDB Transaction Model',
+          href: 'https://dev.mysql.com/doc/refman/8.4/en/innodb-transaction-model.html',
+          source: 'MySQL',
+          note: 'Perbandingan: default MySQL adalah `REPEATABLE READ`, bukan `READ COMMITTED`.',
+        },
+      ),
     ],
   ),
 
@@ -1290,6 +2037,59 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'SQL injection terjadi ketika masukan pengguna berubah menjadi **perintah** SQL, bukan sekadar **nilai**. Ia sudah dikenal puluhan tahun dan masih menempati peringkat teratas OWASP — karena satu baris kode yang keliru sudah cukup.',
+      ),
+
+      terms(
+        {
+          term: 'SQL injection',
+          meaning:
+            'Terjadi ketika masukan pengguna berubah menjadi **perintah** SQL, bukan sekadar **nilai**. Kerentanan tertua yang masih menempati peringkat teratas OWASP — karena satu baris kode yang keliru sudah cukup.',
+        },
+        {
+          term: 'string interpolation',
+          meaning:
+            "Merangkai query dengan menyisipkan variabel ke dalam teks — `` `... email = '${email}'` ``. Inilah **satu-satunya** akar SQL injection. Kutip yang dikirim penyerang menutup string lebih awal, dan sisanya dibaca database sebagai perintah.",
+        },
+        {
+          term: 'prepared statement',
+          meaning:
+            'Mengirim **perintah dan nilainya secara terpisah** ke database. Database sudah selesai mengurai struktur query sebelum melihat nilainya — jadi apa pun isi input, ia hanya diperlakukan sebagai teks. Ini bukan penyaringan karakter; strukturnya memang **tidak bisa lagi berubah**.',
+        },
+        {
+          term: 'placeholder ($1, ?)',
+          meaning:
+            'Penanda posisi nilai di dalam query. PostgreSQL memakai `$1`, `$2`; MySQL dan SQLite memakai `?`. Nilainya dioper sebagai array terpisah — dan itulah yang membuat celahnya tertutup.',
+        },
+        {
+          term: 'escaping manual',
+          meaning:
+            'Mencoba membersihkan input sendiri dengan mengganti karakter berbahaya. **Selalu gagal** cepat atau lambat: ada kasus tepi pada encoding, Unicode, dan multibyte yang tidak kamu duga. Ini bukan alternatif prepared statement.',
+        },
+        {
+          term: 'blocklist',
+          meaning:
+            'Menolak input yang memuat kata seperti `DROP` atau `UNION`. Pendekatan yang selalu kalah: bisa dilewati dengan variasi huruf, komentar SQL, atau encoding. Daftar hal buruk selalu tertinggal dari kreativitas penyerang.',
+        },
+        {
+          term: 'identifier tidak bisa diparameterkan',
+          meaning:
+            'Nama tabel, nama kolom, dan arah `ORDER BY` **tidak bisa** jadi placeholder — secara sintaks pun gagal. Untuk itu kamu butuh pendekatan berbeda: allow-list.',
+        },
+        {
+          term: 'allow-list',
+          meaning:
+            'Daftar nilai sah yang **kamu tulis sendiri**, dan input klien hanya dipakai sebagai kunci pencarian ke dalamnya. Kalau kuncinya tidak ada, dipakai nilai default. Tidak ada jalan bagi teks pengguna untuk sampai ke query — ini berbeda dari "sanitasi".',
+        },
+        {
+          term: 'tagged template',
+          meaning:
+            'Bentuk `` prisma.$queryRaw`... ${email}` `` — perhatikan **tidak ada tanda kurung**. Library menerima potongan teks dan nilainya secara terpisah, lalu memparameterkannya. Berbeda dari `$queryRawUnsafe(...)` yang menerima string jadi; namanya sudah memberi peringatan.',
+        },
+        {
+          term: 'hak akses minimum',
+          meaning:
+            'Lapisan pertahanan kedua: user database aplikasi hanya diberi izin yang benar-benar dibutuhkan. Aplikasi yang tidak pernah menjalankan DDL tidak boleh terkoneksi sebagai pemilik skema — sehingga injeksi yang lolos pun tidak bisa menghapus tabel.',
+        },
       ),
 
       h2('Bagaimana ia terjadi'),
@@ -1421,6 +2221,32 @@ export const lessons: LessonDraft[] = [
       p(
         'Kalau suatu hari ada injeksi yang lolos, hak akses yang sempit membatasi kerusakannya. Aplikasi yang tidak pernah mengubah skema tidak boleh terhubung sebagai pemilik skema.',
       ),
+      references(
+        {
+          label: 'SQL Injection Prevention Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Termasuk penegasan bahwa escaping manual bukan alternatif prepared statement.',
+        },
+        {
+          label: 'PREPARE',
+          href: 'https://www.postgresql.org/docs/17/sql-prepare.html',
+          source: 'PostgreSQL',
+          note: 'Mekanisme yang memisahkan struktur query dari nilainya.',
+        },
+        {
+          label: 'GRANT — hak akses',
+          href: 'https://www.postgresql.org/docs/17/sql-grant.html',
+          source: 'PostgreSQL',
+          note: 'Membatasi izin user aplikasi sebagai lapisan pertahanan kedua.',
+        },
+        {
+          label: 'MySQL — Prepared Statements',
+          href: 'https://dev.mysql.com/doc/refman/8.4/en/sql-prepared-statements.html',
+          source: 'MySQL',
+          note: 'Padanan `?` untuk placeholder pada MySQL dan MariaDB.',
+        },
+      ),
     ],
   ),
 
@@ -1432,6 +2258,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Latihan penutup: rancang skema lengkap untuk blog sederhana. Semua konsep bab ini dipakai sekaligus — tipe data, key, index, relasi, batasan, dan transaksi.',
+      ),
+
+      terms(
+        {
+          term: 'slug',
+          meaning:
+            'Versi judul yang ramah URL — `belajar-sql-dari-nol`. Ia dibuat `UNIQUE` supaya alamat artikel **stabil** meski judulnya nanti diperbaiki, dan supaya URL tidak bergantung pada id yang bisa ditebak.',
+        },
+        {
+          term: 'CHECK bersyarat',
+          meaning:
+            'Constraint yang menegakkan aturan **antar kolom**: `CHECK (status <> \'terbit\' OR terbit_pada IS NOT NULL)` berarti "artikel terbit wajib punya tanggal terbit". Aturan seperti ini biasanya hidup di kode dan terlupakan — di sini ia mustahil dilanggar.',
+        },
+        {
+          term: 'ON DELETE RESTRICT pada penulis',
+          meaning:
+            'Pilihan sadar di skema ini: menghapus pengguna **ditolak** selama ia masih punya artikel. Kalau dipakai `CASCADE`, satu penghapusan akun ikut menghapus seluruh tulisannya beserta komentar orang lain di dalamnya.',
+        },
+        {
+          term: 'induk_id NULL',
+          meaning:
+            'Relasi ke diri sendiri pada tabel komentar. `NULL` berarti komentar **tingkat atas**; nilai berisi id berarti ia balasan. Satu kolom sudah cukup untuk menyatakan struktur bertingkat.',
+        },
+        {
+          term: 'partial index',
+          meaning:
+            'Index dengan klausa `WHERE` sendiri, sehingga ia **hanya memuat baris yang relevan**. Halaman depan blog tidak pernah mencari draf atau artikel terhapus, jadi keduanya tidak perlu diindeks. Index yang lebih kecil berarti lebih banyak muat di memori.',
+        },
+        {
+          term: 'kata_sandi_hash',
+          meaning:
+            'Namanya sengaja menyebut **hash**, bukan `password`. Nama kolom adalah dokumentasi: ia mengingatkan setiap pembaca bahwa yang disimpan bukan kata sandi. Panjang 255 cukup untuk keluaran argon2 maupun bcrypt.',
+        },
+        {
+          term: 'migrasi',
+          meaning:
+            'Berkas SQL bernomor yang berisi perubahan skema, dijalankan berurutan. Nama `001_skema_blog.sql` bukan gaya penulisan: urutan itu yang membuat skema di laptopmu dan di produksi bisa dipastikan sama.',
+        },
+        {
+          term: 'pemecah seri pada ORDER BY',
+          meaning:
+            'Tambahan `, a.id DESC` setelah `ORDER BY a.terbit_pada DESC`. Tanpa itu, artikel yang terbit pada detik yang sama bisa berpindah urutan antar pemanggilan — dan paginasi menampilkan item ganda atau melewatkannya.',
+        },
       ),
 
       h2('Kebutuhan'),
@@ -1623,6 +2492,33 @@ export const lessons: LessonDraft[] = [
         'Coba `UPDATE` tanpa `WHERE` di database uji, lalu `ROLLBACK` — rasakan akibatnya',
         'Tulis satu query dengan `LEFT JOIN` + syarat di `WHERE`, lihat baris yang hilang, lalu perbaiki dengan memindahkannya ke `ON`',
         'Pastikan tidak ada satu pun query di kodemu yang dirangkai dengan penggabungan string',
+      ),
+
+      references(
+        {
+          label: 'CREATE TABLE',
+          href: 'https://www.postgresql.org/docs/17/sql-createtable.html',
+          source: 'PostgreSQL',
+          note: 'Seluruh sintaks yang dipakai skema di atas, termasuk `CHECK` antar kolom.',
+        },
+        {
+          label: 'CREATE INDEX — partial index',
+          href: 'https://www.postgresql.org/docs/17/indexes-partial.html',
+          source: 'PostgreSQL',
+          note: 'Klausa `WHERE` pada index yang membuatnya lebih kecil dan lebih cepat.',
+        },
+        {
+          label: 'Using EXPLAIN',
+          href: 'https://www.postgresql.org/docs/17/using-explain.html',
+          source: 'PostgreSQL',
+          note: 'Membuktikan index halaman depan benar-benar dipakai, sesuai checklist di atas.',
+        },
+        {
+          label: 'Password Storage Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Alasan kolomnya bernama `kata_sandi_hash`, dan panjang 255 yang dipilih.',
+        },
       ),
     ],
   ),

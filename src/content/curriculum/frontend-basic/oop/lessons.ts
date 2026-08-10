@@ -118,6 +118,9 @@ export const lessons: LessonDraft[] = [
             'Tidak ada cara membuat keranjang dengan jumlah negatif — aturannya dijaga tipe itu sendiri.',
         },
       ),
+      p(
+        'Perhatikan `#item` — awalan pagar menandai **private field**, sintaks yang membuat properti itu hanya bisa diakses dari dalam tubuh class `Keranjang` sendiri. Kode di luar class, sekalipun sudah punya instance-nya, tidak bisa menulis `keranjang.#item.push(...)` untuk melewati pengecekan di `tambah()` — mencobanya menghasilkan `SyntaxError`, bukan sekadar konvensi penamaan yang bisa dilanggar diam-diam seperti awalan `_` di kode lama. Justru di situlah nilai encapsulation terlihat konkret: aturan "jumlah harus lebih dari nol" dijamin oleh bahasa itu sendiri, bukan oleh disiplin setiap pemanggil untuk selalu lewat `tambah()`.',
+      ),
 
       h2('Kapan OOP justru menambah beban'),
       code(
@@ -134,6 +137,9 @@ export const lessons: LessonDraft[] = [
         export const jumlah = (a, b) => a + b;
         export const kali = (a, b) => a * b;
         `,
+      ),
+      p(
+        'Class `Kalkulator` di atas tidak menyimpan keadaan apa pun — tiap pemanggilan `jumlah()` atau `kali()` berdiri sendiri, tidak bergantung pada apa pun yang terjadi sebelumnya. Membungkusnya sebagai class berarti setiap pemanggil harus membuat instance dulu (`new Kalkulator()`) sebelum bisa memakai satu method saja, dan bundler tidak bisa membuang `kali()` seandainya kode hanya pernah memanggil `jumlah()` — keduanya berada di objek yang sama sehingga ikut terbawa utuh. Fungsi lepas yang diekspor satu per satu tidak punya masalah itu: masing-masing berdiri sendiri, langsung dipakai tanpa `new`, dan bisa di-tree-shake terpisah — istilah yang sudah dijelaskan di kotak istilah di atas.',
       ),
       callout(
         'tip',
@@ -271,6 +277,9 @@ export const lessons: LessonDraft[] = [
         a.sapa();   // 'Halo, Zum'
         `,
       ),
+      p(
+        'Bedanya dengan object literal cuma satu: bentuk objeknya ditulis **sekali** di dalam fungsi, lalu dicetak sebanyak yang kamu butuhkan. `a` dan `b` adalah dua objek yang benar-benar terpisah dengan bentuk identik, dan kalau suatu hari kamu perlu menambahkan property baru, cukup mengubah satu tempat. Perhatikan komentar pada `sapa`: ia memakai `nama` — parameter fungsinya — bukan `this.nama`. Itu bukan detail penulisan, melainkan pilihan yang menentukan. Karena `nama` diambil dari closure, ia terikat pada pemanggilan `buatPengguna(\'Zum\')` yang melahirkannya dan tidak bergantung sama sekali pada cara method itu nanti dipanggil. Konsekuensinya baru terasa di sub-bab tentang `this`: method seperti ini tidak bisa "kehilangan konteks".',
+      ),
       callout(
         'tip',
         'Keunggulan diam-diam factory function',
@@ -294,6 +303,9 @@ export const lessons: LessonDraft[] = [
         c.sapa();   // 'Halo, Zum'
         `,
       ),
+      p(
+        'Bandingkan strukturnya dengan factory di atas: `this.nama = nama` menempel properti `nama` ke objek yang sedang dibuat — `new`-lah yang menyediakan objek kosong itu, bukan fungsi `Pengguna` yang membuatnya sendiri. Method `sapa` sengaja ditaruh di `Pengguna.prototype`, **bukan** ditulis langsung di dalam `function Pengguna(...)` seperti gaya factory. Kalau ditulis di dalam, setiap pemanggilan `new Pengguna(...)` akan membuat fungsi `sapa` yang baru di memori — persis masalah yang diukur konkret di "Perbandingan memori" di bawah. Menaruhnya di `.prototype` membuat semua instance berbagi **satu** fungsi yang sama persis.',
+      ),
       p('Nama diawali huruf besar — konvensi yang berarti "harus dipanggil dengan `new`".'),
 
       h2('Apa yang dilakukan `new`'),
@@ -315,6 +327,9 @@ export const lessons: LessonDraft[] = [
         // Di dalam modul ES (otomatis strict): TypeError, karena this undefined
         `,
       ),
+      p(
+        'Empat langkah di komentar itu menjelaskan kenapa `function Pengguna` bisa "membuat objek" padahal tidak ada satu pun `return` di dalamnya: objeknya disediakan `new`, bukan oleh fungsinya. Langkah kedua yang paling mudah terlewat — `new` juga menyambungkan objek baru itu ke `Pengguna.prototype`, dan sambungan itulah yang membuat `c.sapa()` bisa menemukan method yang tidak pernah ditulis di dalam objeknya sendiri. Bagian bawah menunjukkan apa yang terjadi bila `new` lupa ditulis. Fungsinya tetap berjalan, tapi tidak ada objek yang dibuat, sehingga hasilnya `undefined`. Yang berbahaya adalah nasib `this`-nya: di mode non-strict ia menunjuk objek global, jadi `this.nama = nama` diam-diam membuat variabel global bernama `nama` tanpa satu pun peringatan. Di dalam modul ES yang otomatis strict, `this` bernilai `undefined` dan kamu langsung mendapat `TypeError` — kegagalan yang berisik, dan itu jauh lebih baik.',
+      ),
       callout(
         'warning',
         'Lupa `new` adalah bug klasik',
@@ -335,6 +350,9 @@ export const lessons: LessonDraft[] = [
         const p2 = new Pengguna('B');
         p1.sapa === p2.sapa;   // true — fungsi yang sama persis
         `,
+      ),
+      p(
+        'Perbandingan `===` di sini memakai aturan yang sudah kamu kenal dari sub-bab tipe data: fungsi adalah nilai reference, jadi yang dibandingkan alamatnya, bukan isinya. `x.sapa === y.sapa` bernilai `false` walaupun kedua fungsi itu ditulis dari baris kode yang sama persis — karena setiap pemanggilan `buatPengguna(...)` menjalankan ulang baris itu dan melahirkan fungsi baru di alamat baru. Sepuluh ribu objek berarti sepuluh ribu salinan `sapa` di memori. Pada versi constructor, `sapa` hanya ditulis sekali ke `Pengguna.prototype`; instance-nya tidak menyimpan fungsi apa pun, mereka hanya **menunjuk** ke sana, sehingga `p1.sapa === p2.sapa` bernilai `true`. Perlu ditegaskan bahwa untuk aplikasi biasa perbedaan ini jarang terasa — pilihlah berdasarkan perilaku `this` yang kamu inginkan, dan anggap efisiensi memori sebagai bonus, bukan alasan utama.',
       ),
       callout(
         'info',
@@ -467,6 +485,9 @@ export const lessons: LessonDraft[] = [
         Object.getPrototypeOf(kucing) === hewan;   // true
         `,
       ),
+      p(
+        '`Object.create(hewan)` membuat objek `kucing` baru yang `[[Prototype]]`-nya langsung diarahkan ke `hewan` — bukan menyalin isi `hewan` ke `kucing`, melainkan menyambungkan sebuah tautan ke sana. Saat `kucing.bernapas()` dipanggil, JavaScript mencari `bernapas` di `kucing` sendiri dulu (tidak ada), lalu naik ke `hewan` lewat tautan itu (ketemu). Itulah pencarian rantai prototype yang dijelaskan di kotak istilah — hanya method `mengeong` yang benar-benar "milik sendiri" `kucing`; `bernapas` sepenuhnya dipinjam dari `hewan`.',
+      ),
       callout(
         'info',
         '`__proto__` vs `prototype`',
@@ -509,6 +530,9 @@ export const lessons: LessonDraft[] = [
         for (const k in anak) { }       // 'b' lalu 'a' — ikut warisan
         `,
       ),
+      p(
+        '`Object.create(induk)` membuat objek kosong yang **prototype-nya** adalah `induk` — jadi `anak` sebenarnya tidak punya property `a` sama sekali; ia hanya bisa menemukannya dengan naik satu tingkat. Empat pemeriksaan berikutnya menunjukkan bahwa alat-alat JavaScript terbelah dua dalam menyikapi hal itu. `in` dan `for...in` **ikut menelusuri rantai**, sehingga keduanya melaporkan `a` seolah-olah milik `anak`. `Object.hasOwn` dan `Object.keys` **berhenti di objeknya sendiri**, sehingga keduanya tidak menyebut `a` sama sekali. Tidak ada yang salah di antara keduanya — yang salah adalah memakai kelompok pertama saat maksudmu kelompok kedua. Aturan praktisnya: kalau kamu sedang menelusuri data, kamu hampir selalu memaksudkan "milik sendiri", jadi pilih `Object.keys` atau `Object.entries`.',
+      ),
       callout(
         'warning',
         'Inilah alasan `for...in` berbahaya pada objek',
@@ -529,6 +553,9 @@ export const lessons: LessonDraft[] = [
         // memaksa standar menamai methodnya 'flat'.
         `,
       ),
+      p(
+        'Bahayanya bukan cuma teori. Contoh nyatanya sudah disinggung di kotak istilah: pustaka **MooTools** pernah menambahkan `Array.prototype.flatten` sekitar tahun 2007–2012. Situs yang memakainya jadi bergantung method itu ada di **setiap** array — termasuk array yang sama sekali tidak dibuat lewat MooTools. Bertahun-tahun kemudian, saat komite ECMAScript ingin menstandarkan method perata array, mereka **tidak bisa** memakai nama `flatten`: situs lama yang masih memuat MooTools akan rusak seandainya perilaku standarnya berbeda sedikit saja. Solusinya, method resminya dinamai `flat`. Satu baris `Array.prototype.terakhir = ...` di atas berpotensi punya dampak yang sama luasnya — bukan cuma memengaruhi file tempat ia ditulis, tapi setiap array di seluruh aplikasi, bahkan yang dipakai pustaka lain.',
+      ),
 
       h2('Membaca prototype sebuah class'),
       code(
@@ -546,6 +573,9 @@ export const lessons: LessonDraft[] = [
         typeof Hewan;                                   // 'function' — class itu fungsi
         `,
         { caption: 'Class adalah gula sintaks; mekanismenya tetap prototype.' },
+      ),
+      p(
+        '"Gula sintaks" (*syntactic sugar*) artinya `class` tidak menambahkan mekanisme baru ke JavaScript — ia hanya cara penulisan yang lebih rapi untuk sesuatu yang sebetulnya sudah bisa dilakukan sebelumnya lewat `Object.create` dan constructor function. Baris `typeof Hewan === \'function\'` di atas membuktikannya langsung: di balik kata kunci `class`, `Hewan` tetap sebuah fungsi biasa, dan `bernapas` tetap ditaruh di `Hewan.prototype` — pola yang persis sama dengan constructor function di sub-bab sebelumnya, hanya dengan sintaks yang lebih enak dibaca dan pengaman tambahan (seperti error otomatis kalau dipanggil tanpa `new`).',
       ),
 
       divider,
@@ -676,6 +706,9 @@ export const lessons: LessonDraft[] = [
         sapa();                       // TypeError di modul ES (this undefined)
         `,
       ),
+      p(
+        'Perhatikan fungsi `sapa` yang **sama persis** dipakai di tiga aturan berbeda dan menghasilkan `this` yang berlainan setiap kali. Itulah pesan utama blok ini: `this` tidak ditentukan oleh tempat fungsi ditulis, melainkan oleh **cara ia dipanggil**. Keempat aturannya berlaku menurut prioritas, dari atas ke bawah. `new` menang paling kuat karena ia menciptakan objek barunya sendiri. Berikutnya penetapan eksplisit lewat `call`, `apply`, atau `bind` — ketiganya menyerahkan konteks secara langsung, dan bedanya hanya pada cara argumen dikirim serta pada `bind` yang mengembalikan fungsi baru yang **terikat permanen**, bukan langsung menjalankannya. Lalu penetapan implisit, yaitu objek yang berada tepat sebelum tanda titik. Terakhir, bila tidak ada satu pun yang berlaku, `this` bernilai `undefined` di dalam modul ES — dan `this.nama` pada `undefined` melempar `TypeError`.',
+      ),
       callout(
         'tip',
         'Cara membacanya dalam satu detik',
@@ -702,6 +735,9 @@ export const lessons: LessonDraft[] = [
         setTimeout(pengguna.sapa.bind(pengguna), 100);  // benar juga
         `,
       ),
+      p(
+        '`lepas()` gagal karena begitu `pengguna.sapa` dipisahkan dari `pengguna` dan disimpan ke variabel `lepas`, yang tersisa hanyalah fungsinya saja — bukan objek yang tadinya berada di depan titik. Saat `lepas()` dipanggil, tidak ada apa pun sebelum tanda kurung, sehingga aturan **default binding** yang berlaku: `this` menjadi `undefined`, dan `this.nama` di dalamnya meledak dengan `TypeError`. `setTimeout(pengguna.sapa, 100)` melakukan persis hal yang sama secara diam-diam — ia hanya menerima **referensi fungsinya**, bukan `pengguna` beserta fungsinya, sehingga saat browser akhirnya memanggil fungsi itu nanti, `this` sudah terlepas dari `pengguna`.',
+      ),
 
       h2('Arrow function tidak punya `this` sendiri'),
       p(
@@ -726,6 +762,9 @@ export const lessons: LessonDraft[] = [
           },
         };
         `,
+      ),
+      p(
+        'Kuncinya ada di kata **scope tempat ia ditulis**, bukan tempat ia dipanggil. Pada `mulaiSalah`, `function () { this.detik++ }` adalah fungsi biasa yang dipanggil `setInterval` sebagai pemanggilan telanjang — persis pola `sapa()` yang gagal di atas, sehingga default binding berlaku dan `this` bukan `timer`. Pada `mulaiBenar`, arrow function `() => { this.detik++ }` sama sekali tidak punya `this` miliknya sendiri; ia meminjam `this` dari method `mulaiBenar` yang membungkusnya — dan di situ `this` memang `timer`, karena `mulaiBenar` sendiri dipanggil sebagai `timer.mulaiBenar()`.',
       ),
       callout(
         'danger',
@@ -757,6 +796,9 @@ export const lessons: LessonDraft[] = [
 
         // Polanya sama persis dengan yang kamu pelajari di sini.
         `,
+      ),
+      p(
+        'Ambil satu contoh: `const { push } = router;` mengeluarkan fungsi `push` dari objek `router`, persis seperti `const lepas = pengguna.sapa` di atas. Kalau `push` di dalamnya memakai `this` untuk membaca state internal `router`, memanggilnya sebagai `push(...)` yang sudah lepas akan gagal dengan cara yang sama seperti `lepas()` gagal. Itulah sebabnya destructuring method dari sebuah objek — pola yang sangat umum dipakai bersama React Router atau `ref` — tetap butuh kewaspadaan yang sama, meski kamu sendiri tidak pernah menulis kata kunci `this`.',
       ),
 
       divider,
@@ -891,6 +933,9 @@ export const lessons: LessonDraft[] = [
         Pengguna.jumlahDibuat;   // 1
         `,
       ),
+      p(
+        'Perhatikan urutannya: `peran = \'anggota\'` (instance field) dan `static jumlahDibuat = 0` (static field) dijalankan **sebelum** badan `constructor`, sehingga saat baris `Pengguna.jumlahDibuat++` di dalamnya berjalan, `jumlahDibuat` sudah pasti bernilai `0`, bukan `undefined`. `u.peran` bekerja karena instance field disalin ke tiap objek baru, sementara `u.sapa()` bekerja lewat pencarian rantai prototype dari sub-bab sebelumnya — method tidak pernah disalin ke `u`, hanya "dipinjam" dari `Pengguna.prototype`.',
+      ),
 
       h2('Membuktikan ia tetap prototype'),
       code(
@@ -904,6 +949,9 @@ export const lessons: LessonDraft[] = [
         // Instance field BERBEDA: ia milik tiap objek
         Object.hasOwn(u, 'peran');                        // true
         `,
+      ),
+      p(
+        "Lima pemeriksaan ini membuktikan bahwa `class` **tidak memperkenalkan mekanisme baru** — ia hanya cara penulisan yang lebih rapi untuk constructor function dan prototype yang sudah kamu pelajari. Baris pertama sudah cukup mengejutkan: `typeof Pengguna` menjawab `'function'`, bukan `'class'`, karena di balik layar sebuah class memang sebuah fungsi. Dua baris berikutnya menunjukkan letak `sapa` yang sebenarnya: bukan di objek `u`, melainkan di `Pengguna.prototype` — persis seperti saat kamu menulis `Pengguna.prototype.sapa = ...` dengan tangan di sub-bab sebelumnya. Baris `getPrototypeOf` menegaskan sambungannya. Baris terakhir memperlihatkan satu-satunya hal yang diperlakukan berbeda: **instance field** seperti `peran` benar-benar milik tiap objek, sehingga `Object.hasOwn(u, 'peran')` bernilai `true`.",
       ),
       callout(
         'info',
@@ -927,6 +975,9 @@ export const lessons: LessonDraft[] = [
         // 4. Method class tidak enumerable — tidak muncul di for...in
         `,
       ),
+      p(
+        'Keempat perbedaan ini bukan sekadar aturan sintaks yang harus dihafal — masing-masing adalah pengaman yang sengaja ditambahkan supaya class lebih sulit dipakai keliru. Poin 1 mencegah bug lama constructor function yang lupa `new` dan gagal diam-diam (dibahas di Sub-bab 2.2): sekarang error-nya selalu meledak jelas dengan pesan yang menyebut sebabnya. Poin 2 berarti kamu tidak bisa memanggil sebuah class sebelum baris deklarasinya tercapai — beda dari `function` biasa yang tetap bisa dipanggil sebelum deklarasinya karena di-*hoist* penuh. Poin 3 menutup celah bug mode longgar (seperti `this` yang diam-diam menjadi `window`, dibahas di sub-bab sebelumnya) — badan class selalu berperilaku ketat, apa pun mode berkas tempat ia ditulis.',
+      ),
 
       h2('Class expression'),
       code(
@@ -943,6 +994,9 @@ export const lessons: LessonDraft[] = [
           };
         }
         `,
+      ),
+      p(
+        "`buatTipe('Buku')` di atas mengembalikan sebuah **class baru**, bukan instance — perhatikan tidak ada `new` di dalamnya, hanya kata kunci `class` tanpa nama diikuti `return`. Getter `label` di dalam class hasil itu memakai closure untuk mengingat parameter `label` yang dioper ke `buatTipe`, mekanisme closure yang sama seperti pada factory function di Sub-bab 2.2. Bedanya, di sini closure-nya membungkus **cetakan class**, bukan objek langsung — berguna kalau kamu perlu membuat beberapa class yang mirip tapi masing-masing punya satu detail berbeda, tanpa menulis ulang seluruh class-nya.",
       ),
 
       divider,
@@ -1071,6 +1125,12 @@ export const lessons: LessonDraft[] = [
         JSON.stringify(d);// '{}' — tidak ikut ter-serialize
         `,
       ),
+      p(
+        'Tanda `#` bukan sekadar awalan nama — ia bagian dari nama field itu sendiri, dan itu sebabnya penulisannya wajib `this.#saldo`, bukan `this.saldo`. Nilai sesungguhnya baru terlihat di empat baris terakhir. `d.saldo` bekerja karena ada getter yang sengaja dibuka; `d.#saldo` bahkan **tidak bisa dijalankan sama sekali** — errornya `SyntaxError`, yang muncul sebelum program sempat berjalan, bukan `undefined` yang diam-diam mengalir. Dua baris paling bawah menunjukkan efek samping yang sering tidak diduga: field privat tidak ikut muncul di `Object.keys` maupun `JSON.stringify`. Itu menguntungkan untuk data sensitif yang tidak boleh bocor ke log, tapi perlu diingat kalau kamu bermaksud mengirim objek ini ke server — kamu harus menyediakan method sendiri yang menyusun bentuk kirimnya.',
+      ),
+      p(
+        'Perhatikan juga kedua method pengubahnya memeriksa dulu sebelum menyentuh `#saldo`: `setor` menolak angka nol atau negatif, `tarik` menolak penarikan melebihi saldo. Karena `#saldo` mustahil disentuh dari luar, kedua pemeriksaan itu **tidak bisa dilewati siapa pun** — dan di situlah letak jaminan "saldo tidak pernah negatif". Bandingkan dengan property biasa, di mana satu baris `d.saldo = -999` dari bagian lain aplikasi sudah cukup untuk membatalkan seluruh aturan yang susah payah kamu tulis.',
+      ),
       callout(
         'info',
         'Beda dari konvensi `_nama`',
@@ -1104,6 +1164,9 @@ export const lessons: LessonDraft[] = [
         s.celsius = -300;  // RangeError
         `,
       ),
+      p(
+        'Yang membuat getter dan setter berbeda dari method biasa adalah **cara memakainya**: `s.celsius = 25` ditulis persis seperti menugaskan property biasa, padahal di baliknya ada fungsi lengkap yang dijalankan beserta seluruh pemeriksaannya. Itu keunggulan sekaligus jebakannya — kode pemanggil tetap sederhana, tapi pembaca tidak melihat bahwa ada aturan yang sedang ditegakkan. Perhatikan setternya memeriksa dua hal berbeda dan melempar error yang berbeda pula: `TypeError` untuk jenis nilai yang salah, `RangeError` untuk nilai yang jenisnya benar tapi mustahil secara fisika. Membedakan keduanya membantu pemanggil menangani tiap kasus dengan tepat. Sementara `fahrenheit` hanya punya getter tanpa setter, dan nilainya **dihitung** setiap kali dibaca, bukan disimpan — sehingga ia mustahil basi; mengubah `celsius` otomatis membuat `fahrenheit` ikut benar tanpa satu baris pun kode penyelaras.',
+      ),
       callout(
         'warning',
         'Getter harus murah dan tidak punya efek samping',
@@ -1128,6 +1191,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Class `A` di atas menambah dua method hanya untuk membungkus satu property tanpa aturan tambahan apa pun — `get n()` sekadar mengembalikan `#n` apa adanya, dan `set n(v)` sekadar menyimpannya apa adanya. Ini menambah kode tanpa menambah jaminan apa pun, sehingga `class B` yang memakai property biasa lebih sederhana dan berperilaku identik dari sudut pandang pemanggil — `b.n = 5` bekerja sama saja di keduanya. Keuntungan menunggu: kalau suatu hari `n` butuh aturan (misalnya "tidak boleh negatif"), mengubah `class B` menjadi punya getter/setter **tidak mengubah cara pemanggilnya menulis kode** — `b.n = 5` tetap `b.n = 5` — karena getter/setter memang sengaja dirancang agar terlihat identik dengan property biasa.',
+      ),
 
       h2('Private method dan static privat'),
       code(
@@ -1145,6 +1211,9 @@ export const lessons: LessonDraft[] = [
           }
         }
         `,
+      ),
+      p(
+        '`#penuh()` di atas adalah **private method**: sama seperti private field, ia hanya bisa dipanggil dari dalam class `Antrean` sendiri — mencoba `antrean.#penuh()` dari luar gagal dengan `SyntaxError`, persis seperti mengakses `#saldo` langsung di contoh pertama sub-bab ini. Gunanya untuk menyembunyikan langkah perantara: pemanggil `tambah()` hanya perlu tahu "menambah bisa gagal kalau antreannya penuh", tanpa perlu tahu bagaimana caranya "penuh" itu dihitung. `static #maksimum` menggabungkan dua konsep sekaligus: **static** (milik class `Antrean` itu sendiri, dibagi semua instance, bukan disalin ke tiap objek) dan **private** (tidak bisa dibaca atau diubah dari luar) — cocok untuk konstanta bersama yang memang tidak seharusnya pernah diubah oleh siapa pun yang memakai class ini.',
       ),
 
       divider,
@@ -1292,6 +1361,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        "`super.perkenalan()` di dalam `Anjing` memanggil versi `perkenalan()` milik `Hewan` apa adanya, lalu hasilnya disambung dengan `' dengan riang'`. Ini beda penting dari overriding biasa: overriding (seperti `bersuara()` di `Kucing` sebelumnya) **mengganti total** perilaku induk, sementara `super.method()` di sini **memakai ulang** perilaku induk sebagai bahan, lalu menambahkan sesuatu di atasnya. Kalau logika `perkenalan()` di `Hewan` berubah di kemudian hari, `Anjing` otomatis ikut memakai versi terbarunya — karena ia memanggil `super.perkenalan()`, bukan menyalin ulang isinya sendiri.",
+      ),
 
       h2('Kapan inheritance salah pilih'),
       code(
@@ -1308,10 +1380,16 @@ export const lessons: LessonDraft[] = [
         // Sekarang setiap kode yang menerima Burung bisa meledak tak terduga.
         `,
       ),
+      p(
+        'Hierarki ini terlihat wajar saat ditulis: pinguin memang burung, jadi `Pinguin extends Burung` terasa benar. Masalahnya baru muncul karena `Burung` sudah terlanjur menjanjikan `terbang()` kepada **semua** turunannya, dan `Pinguin` mewarisi janji yang tidak bisa ia tepati. `Pinguin2` mencoba memperbaikinya dengan menimpa method itu, tapi perhatikan apa yang sebenarnya terjadi: kemampuan yang diwariskan tidak hilang, ia hanya diganti dengan sesuatu yang **pasti gagal saat dipanggil**. Jadi bugnya tidak hilang, ia hanya berpindah — dari "pinguin bisa terbang" yang salah secara logika, menjadi kegagalan runtime yang muncul di tempat yang jauh dari sini.',
+      ),
       callout(
         'warning',
         'Masalah "base class yang rapuh"',
         'Semakin dalam hierarki, semakin besar kemungkinan perubahan kecil di induk merusak turunan yang jauh — dan kamu tidak melihatnya saat mengedit induk. Aturan praktis: **maksimal satu tingkat**, dan berhenti kalau kamu mulai menimpa method dengan error.',
+      ),
+      p(
+        'Inilah pelanggaran **LSP** (*Liskov Substitution Principle*) yang disebut di kotak istilah, secara konkret: kode mana pun yang menerima parameter bertipe `Burung` dan berasumsi bisa memanggil `.terbang()` akan bekerja untuk elang tapi meledak untuk `Pinguin2` — padahal keduanya sama-sama "burung" secara hierarki. `Pinguin2` gagal **menggantikan** `Burung` tanpa merusak sesuatu, walau ia memang secara teknis turunannya. Tandanya paling jelas terlihat di kode: sebuah method di class turunan yang isinya cuma `throw new Error(...)` untuk membatalkan kemampuan yang justru diwariskan.',
       ),
 
       h2('Mewarisi dari class bawaan'),
@@ -1332,6 +1410,9 @@ export const lessons: LessonDraft[] = [
         e.stack;                      // jejak tumpukan tetap ada
         `,
         { caption: 'Ini pemakaian inheritance yang hampir selalu tepat: memperluas Error.' },
+      ),
+      p(
+        'Bandingkan dengan `Pinguin2` di atas: `ValidasiError extends Error` justru kasus inheritance yang **tepat**, karena `ValidasiError` benar-benar "adalah sebuah" `Error` — ia tidak membatalkan atau mengganti kemampuan apa pun milik `Error`, hanya menambah `field` untuk menyebut input mana yang bermasalah. `super(pesan)` meneruskan pesan errornya ke constructor `Error` bawaan, yang salah satu tugasnya mengisi `e.stack` — jejak tumpukan pemanggilan yang berguna saat debugging. Itulah sebabnya `e.stack` tetap ada di `ValidasiError`: ia mewarisi tanggung jawab itu utuh dari `Error`, tanpa perlu membuatnya sendiri dari nol.',
       ),
 
       divider,
@@ -1444,6 +1525,12 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Masalah pada versi ini bukan soal salah secara teknis — kodenya berjalan dengan benar. Masalahnya baru terasa enam bulan kemudian, saat metode pembayaran keenam ditambahkan: satu-satunya cara menambahkannya adalah membuka fungsi `bayar()` yang sudah dipakai di produksi, menyisipkan `if` baru di antara yang lama, lalu berharap tidak ada baris lain yang ikut rusak. Ini persis yang dimaksud istilah **rantai if** di kotak istilah di atas.',
+      ),
+      p(
+        'Risikonya konkret, bukan sekadar teori: karena tiap `if` di atas langsung `return` begitu cocok, urutannya ikut menentukan hasil. Andaikan seseorang menyisipkan `if (metode.tipe === undefined) return prosesKartu(jumlah);` di baris paling atas sebagai "penanganan default" — semua metode lain jadi tidak pernah tercapai, tapi kodenya tetap terlihat rapi dan lolos review sekilas, karena tidak ada tanda kesalahan sintaks apa pun.',
+      ),
       code(
         'js',
         `
@@ -1463,6 +1550,12 @@ export const lessons: LessonDraft[] = [
         bayar(new Transfer(), 50000);
         `,
       ),
+      p(
+        'Begini urutan kejadian saat `bayar(new Kartu(), 50000)` dijalankan: `metode` berisi instance `Kartu`, lalu `metode.proses(jumlah)` membuat JavaScript mencari method bernama `proses` — pertama di objeknya sendiri, lalu di `Kartu.prototype` lewat rantai prototype dari sub-bab sebelumnya. Ketemu, lalu dipanggil dengan `this` terikat ke instance itu. Fungsi `bayar()` sendiri **tidak pernah tahu** apakah yang dipanggilnya `Kartu` atau `Transfer` — itulah polymorphism: satu baris pemanggilan, banyak kemungkinan implementasi, dan pemanggilnya tidak perlu bercabang untuk memilih salah satunya. Konsekuensi praktisnya: menambah `class Ewallet { proses(jumlah) { ... } }` besok tidak mengubah satu baris pun di `bayar()` — persis prinsip **open–closed** yang disebut di kotak istilah di atas.',
+      ),
+      p(
+        'Pencarian method inilah yang disebut ***dynamic dispatch***: JavaScript memutuskan implementasi mana yang benar-benar dijalankan **saat baris itu dieksekusi**, bukan saat kode ditulis. Bandingkan dengan kasus gagalnya: kalau `metode` adalah objek kosong `{}`, maka `metode.proses` bernilai `undefined`, dan memanggilnya sebagai fungsi — `undefined(jumlah)` — gagal dengan `TypeError: metode.proses is not a function`. Pesan error itu sendiri sebenarnya sudah menunjukkan mekanismenya: JavaScript memang benar-benar mencari properti bernama `proses` di objeknya, bukan memeriksa "apakah ini `Kartu`?".',
+      ),
 
       h2('Duck typing'),
       p(
@@ -1473,13 +1566,26 @@ export const lessons: LessonDraft[] = [
         `
         // Tidak ada class, tidak ada inheritance — tetap polymorphic
         const tunai = { proses: (n) => \`Tunai: \${n}\` };
-        const poin  = { proses: (n) => \`Poin: \${n}\` };
 
-        bayar(tunai, 10000);   // bekerja
-        bayar(poin, 10000);    // bekerja
+        function buatDompetPoin(kurs) {
+          // Factory: fungsi biasa yang mengembalikan objek, tanpa "class" maupun "new"
+          return { proses: (n) => \`Poin (kurs \${kurs}x): \${n * kurs}\` };
+        }
+        const poin = buatDompetPoin(2);
 
-        // Objek literal, class, factory — semuanya boleh bercampur
+        // Class instance, object literal, dan hasil factory — dicampur dalam array yang sama
+        const daftarMetode = [new Kartu(), new Transfer(), tunai, poin];
+        for (const metode of daftarMetode) {
+          console.log(bayar(metode, 10000));
+        }
+        // Keempatnya lolos lewat kode bayar() yang persis sama, tanpa tahu asalnya
         `,
+      ),
+      p(
+        '`bayar()` di atas tidak pernah bertanya "kamu instance dari class apa?" — ia hanya mengakses `metode.proses` dan memanggilnya kalau properti itu ada dan berupa fungsi. Karena itu `tunai` (object literal), `poin` (hasil pemanggilan factory `buatDompetPoin`), dan `new Kartu()` (instance class) semuanya lolos lewat jalur pemanggilan yang sama persis di dalam satu `for...of`. Inilah yang dimaksud duck typing: JavaScript memeriksa **bentuk** objeknya (apakah ada method `proses`), bukan **asal-usulnya** (apakah dibuat lewat `class`, lewat fungsi factory, atau ditulis langsung sebagai objek literal).',
+      ),
+      p(
+        'Bandingkan dengan Java, bahasa yang dipakai sebagai contoh tipe nominal di kotak istilah: di sana `Kartu` harus eksplisit menulis `implements MetodeBayar` sebelum compiler mengizinkannya dipakai di tempat yang mengharapkan `MetodeBayar` — sekalipun bentuk method-nya sudah identik. JavaScript tidak punya syarat administratif seperti itu. Ini bukan berarti duck typing "lebih baik" — ia menukar jaminan yang diperiksa lebih awal (Java) dengan kebebasan menulis lebih cepat (JavaScript), dan bagian berikutnya menunjukkan harga dari kebebasan itu.',
       ),
       callout(
         'tip',
@@ -1488,11 +1594,17 @@ export const lessons: LessonDraft[] = [
       ),
 
       h2('Batasnya, dan apa yang TypeScript tambahkan'),
+      p(
+        'Fleksibilitas duck typing ada harganya: JavaScript tidak memverifikasi bentuk objek sebelum program berjalan. Kalau `proses` salah ketik jadi `prosess` saat memanggil `bayar()`, kodenya **tetap lolos ditulis dan di-*commit*** — errornya baru muncul saat baris itu benar-benar dieksekusi, yang bisa jadi saat pengguna sungguhan sedang membayar, bukan saat development. Kalau kebetulan tidak ada test otomatis yang memanggil baris itu dengan data yang tepat, bug seperti ini bisa lolos sampai production tanpa pernah ketahuan — sampai suatu hari jalur itu benar-benar dilewati pengguna nyata.',
+      ),
       code(
         'js',
         `
         bayar({ prosess: () => 1 }, 100);   // salah ketik -> TypeError saat berjalan
         `,
+      ),
+      p(
+        'Satu huruf `s` berlebih pada `prosess` sudah cukup untuk memperlihatkan batas *duck typing*. JavaScript murni tidak punya cara memeriksa bahwa objek yang dikirim benar-benar memenuhi bentuk yang diharapkan — ia baru sadar ada yang salah **pada saat `metode.proses(...)` benar-benar dipanggil**, dan pesannya `TypeError: metode.proses is not a function`. Kalau baris itu berada di jalur yang jarang dilewati — misalnya hanya berjalan saat pengguna memilih metode pembayaran tertentu — bugnya bisa lolos ke production tanpa satu pun pengujian yang menangkapnya. Kebebasan duck typing dan risiko ini adalah dua sisi dari koin yang sama.',
       ),
       code(
         'ts',
@@ -1511,6 +1623,9 @@ export const lessons: LessonDraft[] = [
         {
           caption: 'TypeScript memeriksa bentuknya (structural typing) tanpa memaksa inheritance.',
         },
+      ),
+      p(
+        "Bedanya terasa di sini: `bayar({ prosess: () => '' }, 100)` pada versi TypeScript ditolak **sebelum** program pernah dijalankan sekali pun — errornya muncul di editor, saat `npm run build`, atau di CI, bukan di production. Praktiknya, editor akan langsung menggarisbawahi merah properti `prosess` begitu diketik, jauh sebelum baris itu bahkan disimpan — jauh lebih cepat ditemukan dibanding menunggu laporan bug dari pengguna. TypeScript melakukan ini tanpa memaksa `Kartu` atau `Transfer` mewarisi (`extends`) apa pun; ia hanya memeriksa apakah bentuk objeknya cocok dengan `interface MetodeBayar`. Inilah yang dimaksud istilah **tipe struktural** di kotak istilah di atas: pemeriksaan berdasarkan bentuk objek, hanya saja dipindah dari saat program berjalan ke saat program ditulis.",
       ),
 
       divider,
@@ -1626,6 +1741,9 @@ export const lessons: LessonDraft[] = [
         [new Suhu(30), new Suhu(10)].sort(Suhu.bandingkan);
         `,
       ),
+      p(
+        '`Suhu.bandingkan` di atas adalah **comparator**: `sort` memanggilnya berulang kali dengan dua elemen array sekaligus, lalu memakai tanda hasilnya (negatif, nol, atau positif) untuk memutuskan urutan — hasil negatif berarti elemen pertama harus ditempatkan lebih dulu. Menaruhnya sebagai `static bandingkan(a, b)`, alih-alih fungsi lepas di suatu tempat, membuatnya mudah ditemukan: siapa pun yang membaca class `Suhu` langsung tahu di mana cara mengurutkan sekumpulan `Suhu` berada, tanpa perlu mencarinya di file lain.',
+      ),
 
       h2('Factory method: constructor yang punya nama'),
       p(
@@ -1665,6 +1783,9 @@ export const lessons: LessonDraft[] = [
         Pengguna.tamu();
         `,
       ),
+      p(
+        'Dua baris "SEBELUM" menunjukkan gejalanya dengan jelas: deretan `null` yang harus dihitung posisinya, dan tidak ada satu pun petunjuk tentang **untuk apa** tiap pemanggilan itu. Pemanggil harus tahu bahwa argumen ketiga bermakna "buat dari JSON", pengetahuan yang hanya ada di kepala penulis aslinya. Versi "SESUDAH" memindahkan pengetahuan itu ke dalam **nama**. `Pengguna.dariForm(fd)` menjelaskan dirinya sendiri tanpa dokumentasi, dan tiap jalur pembuatan bebas melakukan persiapan yang berbeda-beda — `dariJSON` mem-parse teks lebih dulu, `tamu` mengisi nilai bawaan. Perhatikan ketiganya berakhir memanggil `new Pengguna(nama, email)` yang sama: constructornya tetap satu dan tetap sederhana, sedangkan keragaman cara membuat dipindahkan ke method `static` yang bisa ditambah kapan saja tanpa mengubah constructor sama sekali.',
+      ),
       callout(
         'tip',
         'Factory method bisa mengembalikan objek yang sudah ada',
@@ -1691,6 +1812,9 @@ export const lessons: LessonDraft[] = [
           get(k) { return this.#data[k]; }
         }
         `,
+      ),
+      p(
+        "`Konfigurasi.data` bermasalah bukan karena `static`-nya, melainkan karena ia menyimpan **data yang berubah** dan bisa diakses dari mana saja — persis definisi keadaan global di kotak istilah, hanya dibungkus sintaks class. Dua test yang sama-sama memanggil `Konfigurasi.set('mode', 'gelap')` akan saling memengaruhi meski ditulis di file yang berbeda, karena keduanya menulis ke `data` yang persis sama. `Konfigurasi2` memperbaikinya bukan dengan membuang `class`, melainkan dengan memindahkan `#data` dari `static` (milik class, satu untuk semua) menjadi instance field (milik tiap objek) — sekarang dua `new Konfigurasi2()` benar-benar independen satu sama lain, dan setiap test bisa membuat instance-nya sendiri tanpa mengganggu test yang lain.",
       ),
 
       divider,
@@ -1798,6 +1922,9 @@ export const lessons: LessonDraft[] = [
         //   - hierarki makin dalam dan makin rapuh
         `,
       ),
+      p(
+        'Ini bukan masalah buatan. `Manajer` dan `Programmer` sama-sama mewarisi dari `Karyawan`, tapi keduanya butuh kemampuan berbeda — lalu datang kasus yang butuh **keduanya sekaligus**. Karena JavaScript tidak mendukung multiple inheritance, `Manajer` tidak bisa sekaligus `extends Karyawan` dan `extends Programmer`. Hierarki tunggal seperti ini memaksa memilih satu dari tiga opsi buruk yang disebut di komentar, dan ketiganya sama-sama membuat kode makin sulit dirawat seiring bertambahnya kombinasi peran baru di kemudian hari.',
+      ),
 
       h2('Composition'),
       code(
@@ -1830,6 +1957,9 @@ export const lessons: LessonDraft[] = [
         m.koding('TypeScript');   // 'Zum menulis TypeScript'
         `,
       ),
+      p(
+        'Setiap fungsi seperti `bisaBekerja`, `bisaMemimpin`, dan `bisaKoding` adalah **factory function** dari sub-bab sebelumnya — masing-masing berdiri sendiri dan mengembalikan objek kecil berisi satu kemampuan saja. `buatManajerTeknis` merakit ketiganya jadi satu objek memakai spread `...`, yang menyalin seluruh property tiap objek kecil ke objek besar hasil akhirnya. Inilah yang disebut **mixin** di kotak istilah: tidak ada hierarki class sama sekali, dan menambah kemampuan keempat besok cukup dengan menambah satu baris `...bisaSesuatu(nama)` — tanpa perlu mengubah `bisaBekerja`, `bisaMemimpin`, atau `bisaKoding` sedikit pun.',
+      ),
 
       h2('Composition dengan class: delegasi'),
       code(
@@ -1846,6 +1976,9 @@ export const lessons: LessonDraft[] = [
           nyalakan() { return this.#mesin.nyalakan(); }
         }
         `,
+      ),
+      p(
+        '`Mobil` di sini tidak mewarisi `Mesin` lewat `extends` — ia menyimpan sebuah instance `Mesin` di `#mesin`, lalu method `nyalakan()` miliknya sendiri sekadar **meneruskan** pemanggilan itu ke `#mesin.nyalakan()`. Inilah **delegasi**: `Mobil` tidak *menjadi* mesin, ia hanya *punya* mesin dan menyuruhnya bekerja. Bedanya penting secara praktis — kalau besok `Mobil` perlu berganti jenis mesin (misalnya ke `MesinListrik`), cukup mengubah apa yang disimpan di `#mesin`, tanpa menyentuh hierarki class apa pun.',
       ),
       callout(
         'tip',
@@ -1881,6 +2014,9 @@ export const lessons: LessonDraft[] = [
           caption:
             'Prinsip yang sama, tanpa satu pun class — dibahas tuntas di Frontend Intermediate Bab 6.',
         },
+      ),
+      p(
+        'Prinsip yang sama dari `Mobil`/`Mesin` berlaku di sini tanpa satu pun `class`: `Modal` tidak mewarisi `Header`, `Body`, atau `Footer` — ia **menyusun** ketiganya sebagai children yang dioper lewat JSX. `<Modal withHeader withFooter closable />` di komentar adalah versi "inheritance yang menyamar": tiga boolean prop yang menyalakan-matikan bagian, jumlahnya cenderung terus bertambah sampai komponennya sulit dipahami — persis pola **boolean prop** yang disebut di kotak istilah di atas. Menyusun `<Modal.Header>`, `<Modal.Body>`, `<Modal.Footer>` sebagai children memberi fleksibilitas yang sama seperti mixin: bagian mana pun bisa disertakan, dilewati, atau disusun ulang tanpa mengubah `Modal` itu sendiri.',
       ),
 
       divider,
@@ -2030,6 +2166,9 @@ export const lessons: LessonDraft[] = [
         eksporter.xml = keXML;   // menambah tanpa menyentuh ekspor()
         `,
       ),
+      p(
+        'Versi SALAH memaksa fungsi `ekspor` diedit setiap kali format baru ditambahkan — persis pola rantai `if` yang sudah dibahas di sub-bab Polymorphism. Versi BENAR memindahkan pemetaan format-ke-fungsi menjadi sebuah objek biasa, `eksporter`, sehingga menambah format `xml` cukup dengan menambah satu entri baru ke objek itu — baris `function ekspor(data, format) { ... }` tidak pernah disentuh lagi. Bandingkan dengan solusi Polymorphism sebelumnya yang memakai class dan `metode.proses()`: masalah yang sama di sini diselesaikan memakai objek dan fungsi biasa — bukti bahwa Open/Closed bukan milik OOP semata.',
+      ),
 
       h2('L — Liskov Substitution'),
       p('Turunan harus bisa menggantikan induknya tanpa mengejutkan pemanggil.'),
@@ -2044,6 +2183,9 @@ export const lessons: LessonDraft[] = [
         // Perbaikannya bukan menambal — tapi mengakui hierarkinya salah.
         // Pakai composition: kemampuan terbang jadi bagian yang dirakit.
         `,
+      ),
+      p(
+        'Contoh `Pinguin extends Burung` ini bentuk singkat dari kasus yang sudah dibahas tuntas di sub-bab Inheritance: kode yang menerima `Burung` lalu memanggil `.terbang()` akan bekerja untuk sebagian turunan tapi meledak untuk `Pinguin` — padahal keduanya sama-sama lolos `instanceof Burung`. Prinsip Liskov memberi nama formal untuk masalah itu, dan solusinya tetap sama seperti yang sudah kamu pelajari: composition, bukan hierarki yang dipaksakan.',
       ),
 
       h2('I — Interface Segregation'),
@@ -2085,6 +2227,9 @@ export const lessons: LessonDraft[] = [
         // Test — tanpa jaringan, tanpa mock global
         new LayananPengguna2({ simpan: async () => 'ok' });
         `,
+      ),
+      p(
+        "`LayananPengguna` mengambil sendiri `fetch` dari dalam method `simpan()` — kalau kamu ingin mengujinya tanpa jaringan sungguhan, satu-satunya cara adalah menambal (*mock*) `fetch` global, yang memengaruhi seluruh berkas test. `LayananPengguna2` membalik arah kebergantungan itu: `#repo` **diserahkan dari luar** lewat constructor, bukan diambil sendiri dari dalam. Di produksi ia menerima `repoAPI` yang sungguhan memanggil jaringan; di test ia menerima objek sederhana `{ simpan: async () => 'ok' }` yang sama sekali tidak menyentuh jaringan. Class-nya sendiri tidak tahu dan tidak peduli mana yang sedang dipakai — itulah **Dependency Inversion**: bagian penting bergantung pada kemampuan yang diserahkan dari luar, bukan implementasi konkret yang ia ambil sendiri.",
       ),
 
       h2('Kapan SOLID justru berlebihan'),
@@ -2221,6 +2366,9 @@ export const lessons: LessonDraft[] = [
         `,
         { filename: 'src/Tugas.js' },
       ),
+      p(
+        "Bandingkan class ini dengan fungsi `buatTugas` dari Bab 1 — datanya sama persis, yang berubah hanya cara menjaganya. Ketiga field dibuat privat, sehingga satu-satunya jalan mengubah `#selesai` adalah lewat `toggle()`, dan satu-satunya jalan mengubah `#judul` adalah lewat `ubahJudul()` yang mengulang validasi yang sama seperti di constructor. Ketiga getter membuka data itu untuk **dibaca** tanpa membuka jalan untuk ditulis — itu perbedaan yang mustahil dicapai dengan property biasa. Perhatikan `return this` di akhir `toggle` dan `ubahJudul`: ia memungkinkan pemanggilan dirangkai seperti `tugas.toggle().ubahJudul('Baru')`. Yang terakhir, `toJSON` ada karena alasan yang sudah disinggung di sub-bab encapsulation — field privat tidak ikut ter-*serialize*, jadi tanpa method ini `JSON.stringify(tugas)` akan menghasilkan `{}` kosong. Satu perbedaan penting yang perlu disadari sejak sekarang: berbeda dari versi Bab 1, `toggle()` **mengubah objeknya sendiri** alih-alih menghasilkan objek baru.",
+      ),
       code(
         'js',
         `
@@ -2261,6 +2409,9 @@ export const lessons: LessonDraft[] = [
         `,
         { filename: 'src/DaftarTugas.js' },
       ),
+      p(
+        'Perhatikan beberapa keputusan kecil yang menentukan di `Tugas`: constructor memvalidasi `judul` **sebelum** mengisi apa pun, sehingga tidak mungkin ada instance `Tugas` dengan judul kosong — aturan yang dijaga tipe itu sendiri, bukan oleh disiplin setiap pemanggil. `toggle()` dan `ubahJudul()` sama-sama diakhiri `return this;`, sehingga pemanggilannya bisa dirangkai: `tugas.toggle().ubahJudul(\'Judul baru\')` — inilah **method chaining** yang disebut di kotak istilah. Di `DaftarTugas`, `hapus()` memakai `findIndex` untuk mencari posisi tugasnya lebih dulu (bukan langsung `filter`), karena `splice` butuh **posisi**, bukan nilainya — dan `findIndex` mengembalikan `-1` yang eksplisit kalau tidak ketemu, sehingga `hapus()` bisa membedakan "berhasil dihapus" dari "id tidak ada" lewat nilai kembalian boolean-nya.',
+      ),
       callout(
         'tip',
         'Perhatikan getter `semua`',
@@ -2294,6 +2445,9 @@ export const lessons: LessonDraft[] = [
           );
         }
         `,
+      ),
+      p(
+        '`buatTugasLengkap` merakit sebuah `Tugas` dasar dengan kemampuan tambahan secara **kondisional** — kalau `tenggat` tidak diberikan, `bisaBertenggat(tenggat)` tidak pernah dipanggil, dan `Object.assign` menerima objek kosong `{}` yang tidak menambah apa pun. Ini composition yang sama seperti sub-bab sebelumnya, hanya kali ini kemampuannya dicampurkan ke **instance yang sudah jadi** (`dasar`) memakai `Object.assign`, bukan dirakit dari nol lewat spread di dalam satu factory function. Komentar di baris atas menjelaskan alasan menghindari `extends` di sini: begitu muncul kombinasi kedua (tenggat **dan** prioritas, lalu nanti kebutuhan lain lagi), inheritance tunggal JavaScript langsung mentok di masalah yang sama seperti `Manajer`/`Programmer` di sub-bab Composition over Inheritance.',
       ),
 
       h2('3. Bandingkan dengan jujur'),

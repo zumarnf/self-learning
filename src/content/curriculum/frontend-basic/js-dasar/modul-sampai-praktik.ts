@@ -113,6 +113,9 @@ export const lessons: LessonDraft[] = [
         `,
         { filename: 'src/lib/harga.js' },
       ),
+      p(
+        'Berkas ini memperlihatkan dua cara menulis named export yang hasilnya identik. Cara pertama menempelkan kata `export` langsung di depan deklarasi, seperti pada `PAJAK` dan `hitungTotal`. Cara kedua mendeklarasikan dulu secara biasa lalu mengumpulkannya di akhir berkas dengan `export { format }` — berguna ketika kamu ingin daftar "apa saja yang keluar dari berkas ini" terbaca di satu tempat. Yang paling penting justru baris yang **tidak** punya `export`: `rahasiaInternal` dan fungsi `format` sebelum dikumpulkan hanya hidup di dalam berkas ini. Perhatikan juga `hitungTotal` memakai `PAJAK` tanpa mengimpornya, karena keduanya berada di berkas yang sama — impor hanya diperlukan untuk melewati batas antar-berkas.',
+      ),
       code(
         'js',
         `
@@ -142,6 +145,9 @@ export const lessons: LessonDraft[] = [
         import ApaPun from './Tombol.js';       // namanya bebas — dan itu masalahnya
         `,
       ),
+      p(
+        "Dua baris impor itu **sama-sama sah dan sama-sama menghasilkan fungsi yang sama**, dan di situlah letak masalahnya. Named export mengharuskan namanya cocok karena yang kamu minta adalah sesuatu yang bernama tertentu; default export tidak punya nama sama sekali di berkas asalnya, sehingga penamaannya sepenuhnya diserahkan ke pengimpor. Akibat praktisnya baru terasa di project yang sudah besar: berkas yang sama bisa diimpor sebagai `Tombol` di satu tempat, `Button` di tempat lain, dan `ApaPun` di tempat ketiga — dan tidak ada alat yang bisa merapikannya, karena tidak ada satu nama pun yang bisa dijadikan patokan. Perhatikan juga tanda kurung kurawal sebagai pembeda visual: `{ nama }` berarti named, tanpa kurawal berarti default. Keduanya boleh dipakai bersamaan dalam satu baris — `import Tombol, { UkuranTombol } from './Tombol.js'`.",
+      ),
       table(
         ['', 'Named', 'Default'],
         [
@@ -170,6 +176,9 @@ export const lessons: LessonDraft[] = [
           filename: 'src/components/index.js',
           caption: 'Satu pintu masuk untuk sekelompok modul.',
         },
+      ),
+      p(
+        "Berkas ini tidak mendefinisikan apa pun — ia hanya **meneruskan**. `export { Tombol } from './Tombol.js'` adalah bentuk singkat dari mengimpor lalu mengekspor ulang, dan bedanya `Tombol` tidak pernah menjadi variabel yang bisa dipakai di dalam berkas indeks itu sendiri. Gunanya membuat pemakai cukup menulis `import { Tombol, Kartu } from '@/components'` dalam satu baris, alih-alih menelusuri jalur tiap berkas satu per satu. Baris ketiga memakai `export *`, yang meneruskan **semua** named export dari berkas tujuan sekaligus — praktis, tapi juga membuat isi berkas indeks tidak lagi bisa dibaca sebagai daftar; kamu harus membuka berkas lain untuk tahu apa saja yang sebenarnya keluar dari sini. Perlu dicatat `export *` tidak pernah meneruskan default export, jadi itu harus ditulis sendiri bila dibutuhkan.",
       ),
       callout(
         'warning',
@@ -204,6 +213,9 @@ export const lessons: LessonDraft[] = [
         import { hitung } from './harga.js';
         export { hitung };
         `,
+      ),
+      p(
+        'Kedua gaya menghasilkan hal yang sama, tapi berbeda pada **kapan** modulnya dimuat — dan dari perbedaan itulah seluruh baris di tabel di bawah berasal. `require()` adalah pemanggilan fungsi biasa yang berjalan saat barisnya tercapai, sehingga ia boleh ditaruh di dalam `if` atau di tengah fungsi, tapi isinya baru diketahui ketika program sudah berjalan. `import` bukan fungsi melainkan bagian dari bahasa, dan seluruh daftar impor sebuah berkas dianalisis **sebelum** satu baris pun dijalankan. Kemampuan menganalisis lebih awal itulah yang memungkinkan *tree-shaking* — bundler bisa memastikan `format` tidak pernah dipakai siapa pun lalu membuangnya dari hasil akhir, sesuatu yang mustahil dipastikan bila modul bisa dipanggil kapan saja lewat `require`. Kalau kamu memang butuh memuat modul secara kondisional dengan ESM, jalurnya adalah `import()` berbentuk fungsi yang menghasilkan Promise.',
       ),
       table(
         ['', 'CommonJS', 'ESM'],
@@ -371,6 +383,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Ketiga blok itu punya peran yang jelas berbeda. Isi `try` adalah kode yang **mungkin gagal** — dan begitu satu baris di dalamnya melempar error, sisa baris di blok itu langsung dilewati; pada contoh ini, kalau `JSON.parse` gagal maka `console.log(data)` tidak pernah dijalankan. `catch` menerima objek errornya sebagai parameter dan menjadi tempat memutuskan apa yang harus terjadi setelah kegagalan. `finally` berjalan **dalam kedua keadaan** — berhasil maupun gagal — dan bahkan tetap berjalan bila di dalam `try` ada `return`; itulah sebabnya ia tempat yang tepat untuk pembersihan seperti mematikan indikator memuat, yang harus terjadi apa pun hasilnya. Perlu ditegaskan `try/catch` hanya menangkap error dari kode yang **benar-benar berjalan di dalamnya**, bukan dari kode yang dijadwalkan untuk nanti — bagian itu dibahas di akhir sub-bab.',
+      ),
       code(
         'js',
         `
@@ -381,6 +396,9 @@ export const lessons: LessonDraft[] = [
           gunakanNilaiCadangan();
         }
         `,
+      ),
+      p(
+        'Bentuk ini disebut *optional catch binding*, dan gunanya menghilangkan parameter yang tidak akan dipakai. Perhatikan `catch` di sini tidak diikuti kurung sama sekali — bukan `catch ()` yang kosong, melainkan langsung `catch {`. Pakai bentuk ini hanya ketika kamu benar-benar tidak butuh detail errornya, misalnya karena sudah punya nilai cadangan yang pasti benar. Kalau kamu ragu, tetap tangkap errornya dan setidaknya catat ke `console.error` — membuang informasi kegagalan adalah keputusan yang sulit dibatalkan saat kamu sedang menelusuri bug.',
       ),
 
       h2('`throw` dan objek `Error`'),
@@ -402,6 +420,9 @@ export const lessons: LessonDraft[] = [
           error.stack;     // jejak sampai ke baris yang melempar
         }
         `,
+      ),
+      p(
+        '`throw` melakukan dua hal sekaligus: menghentikan fungsi saat itu juga — baris `return a / b` tidak pernah tercapai saat `b` bernilai nol — dan **melemparkan** errornya ke pemanggil. Kalau pemanggil juga tidak menangkapnya, ia terus naik sampai ada yang menangkap atau sampai program berhenti. Inilah bedanya dengan `return` yang mengembalikan nilai khusus seperti `null`: error tidak bisa diabaikan diam-diam, sedangkan `null` yang tidak diperiksa akan mengalir ke perhitungan berikutnya dan meledak jauh dari sumbernya. Tiga baris di dalam `catch` menunjukkan apa yang kamu dapat dari objek `Error`: `name` untuk membedakan jenisnya, `message` untuk penjelasan yang bisa dibaca, dan `stack` — jejak lengkap fungsi mana memanggil fungsi mana sampai ke baris yang melempar. `stack` inilah yang hilang bila kamu melempar string biasa.',
       ),
       callout(
         'warning',
@@ -442,6 +463,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        "Kelas ini menambahkan dua hal yang tidak dimiliki `Error` biasa. `this.name = 'ValidasiError'` memberi label yang muncul di log, dan `this.field = field` menyimpan **konteks tambahan** — pemanggil jadi tahu bukan hanya bahwa validasi gagal, tapi field mana yang salah, sehingga pesannya bisa ditempelkan tepat di bawah input yang bersangkutan. Baris `super(pesan)` wajib ada dan harus di paling atas: ia menyerahkan pesan ke `Error` induknya, dan itu yang membuat `message` maupun `stack` tetap terisi. Bagian yang paling penting justru di blok `catch`: `error instanceof ValidasiError` memeriksa **jenis** errornya, bukan mencocokkan teks pesan — pemeriksaan yang tidak akan rusak ketika suatu hari kalimat pesannya diperbaiki. Cabang `else` menutup polanya dengan benar: error yang bukan urusan blok ini dilempar ulang apa adanya, bukan ditelan.",
+      ),
       callout(
         'tip',
         'Melempar ulang bukan kemalasan',
@@ -475,6 +499,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Perhatikan progresi ketiga versi ini. Versi pertama gagal total: `catch (e) {}` menangkap error lalu membuangnya begitu saja, sehingga kegagalan penyimpanan data — sesuatu yang seharusnya sangat berisik — lewat tanpa jejak apa pun, baik di layar maupun di log. Versi kedua sedikit lebih baik karena setidaknya mencatat errornya ke console, tapi pengguna tetap tidak diberi tahu apa-apa dan mengira datanya sudah tersimpan padahal tidak. Versi ketiga menutup ketiga celah sekaligus: `console.error` menyimpan jejak untuk ditelusuri nanti, `tampilkanError` memberi tahu pengguna dengan jujur, dan tidak ada satu baris pun yang berpura-pura berhasil di jalur yang sebenarnya gagal.',
+      ),
 
       h2('Membedakan kegagalan yang diharapkan dari bug'),
       table(
@@ -501,6 +528,9 @@ export const lessons: LessonDraft[] = [
           tampilkanError('Pesanan gagal diproses. Silakan coba lagi.');
         }
         `,
+      ),
+      p(
+        'Dua baris ini adalah penerapan langsung dari tabel di atas, dan yang membuatnya bekerja adalah **pemisahan tujuan pembaca**. Baris `console.error` ditujukan untuk kamu yang akan menelusuri masalah: ia menyertakan `orderId` supaya kejadiannya bisa dicocokkan dengan pesanan tertentu, dan objek `error` utuh supaya `stack`-nya ikut tersimpan. Baris `tampilkanError` ditujukan untuk pengguna: satu kalimat yang menyebutkan apa yang gagal **dan** apa yang bisa ia lakukan berikutnya. Perhatikan awalan `[checkout]` pada pesan log — kebiasaan kecil yang sangat membantu, karena log aplikasi nyata bercampur dari banyak bagian sekaligus dan penanda seperti itu membuatnya bisa disaring. Yang harus dihindari adalah menaruh isi `error.message` ke dalam pesan yang dilihat pengguna, karena isinya ditentukan oleh sistem, bukan oleh kamu.',
       ),
       callout(
         'danger',
@@ -549,6 +579,9 @@ export const lessons: LessonDraft[] = [
         });
         `,
         { caption: 'Untuk menangkap yang lolos — bukan pengganti penanganan di tempatnya.' },
+      ),
+      p(
+        'Dua pendengar ini menangkap dua jalur kegagalan yang berbeda, dan keduanya perlu dipasang karena tidak saling menggantikan. Peristiwa `error` menangkap error biasa yang tidak ada `try/catch`-nya di sepanjang jalur — errornya tersedia lewat `e.error`. Peristiwa `unhandledrejection` menangkap Promise yang gagal tanpa pernah diberi `.catch()` maupun dibungkus `try/catch`, dan perhatikan properti yang dipakai berbeda: `e.reason`, bukan `e.error`. Perbedaan nama itu sering luput dan membuat salah satu pendengar diam-diam mengirim `undefined` ke layanan pemantauan. Keterangan pada keterangan gambar di atas layak digarisbawahi: ini **jaring pengaman**, bukan penanganan error. Ia berguna karena memberi tahu bahwa ada yang lolos, tapi pada titik itu pengguna sudah terlanjur melihat aplikasi yang rusak — penanganan yang sebenarnya tetap harus berada di tempat kegagalannya terjadi.',
       ),
 
       divider,
@@ -694,6 +727,9 @@ export const lessons: LessonDraft[] = [
         console.error('gagal');           // keduanya menampilkan jejak tumpukan
         `,
       ),
+      p(
+        'Masing-masing method di atas menjawab pertanyaan yang berbeda, dan memilih yang tepat menghemat waktu penelusuran. `console.table` mengubah array of object menjadi tabel dengan kolom yang bisa diurutkan — jauh lebih terbaca daripada `console.log` yang menampilkannya sebagai daftar object yang harus dibuka satu per satu. `console.group` dan `console.groupEnd` membungkus beberapa pesan menjadi satu blok yang bisa dilipat, berguna saat satu proses menghasilkan banyak baris log sekaligus. Pasangan `console.time` dan `console.timeEnd` mengukur durasi, dan perhatikan **label di keduanya harus sama persis** — itulah yang memasangkan awal dengan akhirnya, sehingga beberapa pengukuran bisa berjalan bersamaan tanpa tertukar. `console.assert` hanya mencetak **bila syaratnya salah**, cocok untuk menyatakan asumsi tanpa mengotori log saat semuanya normal. `console.count` menghitung berapa kali baris itu dilewati, dan itu cara tercepat menjawab "kenapa komponen ini dirender berkali-kali?".',
+      ),
       callout(
         'tip',
         'Trik yang menghemat banyak waktu',
@@ -739,6 +775,9 @@ export const lessons: LessonDraft[] = [
             'Berguna untuk kode yang sulit dicari di panel Sources. Jangan sampai ikut ter-commit.',
         },
       ),
+      p(
+        'Kata `debugger` adalah breakpoint yang ditulis **di dalam kode**, bukan diklik di panel. Ia berperilaku persis seperti breakpoint biasa: eksekusi berhenti tepat sebelum baris berikutnya dijalankan, dan seluruh panel Scope maupun Call Stack tersedia. Keunggulannya muncul pada kode yang sulit ditemukan di panel Sources — misalnya fungsi di dalam berkas yang sudah di-bundle, atau kode yang dijalankan lewat `eval` sebuah library. Sifat pentingnya ada di komentar: baris ini **tidak melakukan apa-apa bila DevTools sedang tertutup**, sehingga ia tidak akan menghentikan aplikasi pengguna. Meski begitu, ia tetap tidak boleh ikut ter-commit — bukan karena berbahaya, melainkan karena akan menghentikan browser rekan setimmu yang kebetulan sedang membuka DevTools untuk urusan lain.',
+      ),
       callout(
         'info',
         'Conditional breakpoint',
@@ -754,6 +793,9 @@ export const lessons: LessonDraft[] = [
             at renderHalaman (app.js:45:3)
             at app.js:78:1
         `,
+      ),
+      p(
+        'Jejak tumpukan terlihat menakutkan padahal susunannya sangat teratur, dan arah membacanya adalah **dari atas ke bawah, dari yang terbaru ke yang terlama**. Angka di ujung tiap baris — `profil.js:12:26` — berarti berkas `profil.js`, baris 12, karakter ke-26; kolom itu sering diabaikan padahal ia menunjuk titik yang tepat ketika satu baris memuat beberapa pemanggilan sekaligus. Baris teratas hampir selalu tempat kamu harus mulai, karena di situlah kerusakan benar-benar terjadi. Baris di bawahnya menjawab pertanyaan yang berbeda: bukan "apa yang rusak" melainkan **"kenapa fungsi ini sampai dijalankan"** — dan itu yang kamu butuhkan ketika penyebab sebenarnya adalah data cacat yang dioper dari beberapa lapis di atas. Satu catatan praktis: pada kode yang sudah di-bundle, nama berkas dan nomor barisnya akan terlihat asing kecuali *source map* aktif.',
       ),
       ol(
         '**Baris pertama** menyebut jenis dan pesannya. "reading \'nama\'" berarti sesuatu di sebelah kiri `.nama` bernilai `undefined`.',
@@ -779,6 +821,9 @@ export const lessons: LessonDraft[] = [
         // Tanpa strict: gagal diam-diam
         // Dengan strict: TypeError
         `,
+      ),
+      p(
+        "Kedua contoh memperlihatkan pola yang sama: mode ketat **tidak menambah aturan baru**, ia hanya mengubah kegagalan yang tadinya diam menjadi kegagalan yang berisik. Kasus pertama adalah yang paling sering menyelamatkan orang. Tanpa `'use strict'`, menulis `namaSalahKetik = 'Zum'` tanpa `const`/`let` tidak dianggap salah — JavaScript diam-diam membuat variabel **global** baru, sehingga salah ketik satu huruf menghasilkan variabel berbeda yang isinya tidak pernah terbaca oleh kode yang membutuhkannya, dan tidak ada satu pun pesan yang muncul. Kasus kedua serupa: menulis ke object yang sudah dibekukan `Object.freeze` tidak berpengaruh apa-apa, dan tanpa strict kamu tidak akan pernah tahu perubahanmu tidak tersimpan. Kabar baiknya, seperti disebut di atas, semua berkas yang memakai `import`/`export` sudah otomatis berada dalam mode ini — jadi di project modern kamu praktis tidak perlu menuliskannya sendiri.",
       ),
       table(
         ['Tanpa strict', 'Dengan strict'],
@@ -946,6 +991,9 @@ export const lessons: LessonDraft[] = [
         `,
         { filename: 'src/todo.js' },
       ),
+      p(
+        'Blok ini tidak menghasilkan kode apa pun saat dijalankan — ia komentar JSDoc, dan gunanya menuliskan **kontrak** bentuk data sebelum satu fungsi pun ditulis. Manfaatnya dua. Pertama, editormu membaca `@typedef` ini dan mulai memberi autocomplete serta peringatan saat kamu salah mengetik nama property, tanpa perlu memasang TypeScript. Kedua, dan yang lebih penting, keterangan di sebelah tiap property adalah **janji** yang akan ditegakkan kode di bawah: "selalu sudah di-trim, tidak pernah kosong" pada `judul` bukan harapan, melainkan alasan kenapa `buatTugas` nanti wajib memvalidasi. Perhatikan `dibuatPada` disimpan sebagai teks ISO 8601, bukan objek `Date` — bentuk teks bisa langsung dikirim sebagai JSON, diurutkan sebagai string biasa, dan tidak berubah makna saat berpindah zona waktu.',
+      ),
       callout(
         'tip',
         'Kenapa `id` bukan indeks array',
@@ -992,6 +1040,12 @@ export const lessons: LessonDraft[] = [
         }
         `,
         { filename: 'src/todo.js' },
+      ),
+      p(
+        'Lima fungsi ini memakai kembali hampir seluruh isi bab, jadi telusuri satu per satu. `buatTugas` adalah **batas masuk** sistem: ia membersihkan judul dengan `trim()`, menolak yang kosong dengan `throw`, dan hanya mengembalikan object bila keduanya lolos — karena itu setiap fungsi lain boleh mempercayai bahwa `judul` pasti bersih tanpa perlu memeriksanya lagi. `tambah` memakai spread `[...daftar, tugas]` alih-alih `push`; `hapus` memakai `filter` yang menyisakan semua yang **bukan** id itu; `toggleSelesai` dan `ubahJudul` memakai `map`, yang menjaga panjang dan urutan daftar tetap sama.',
+      ),
+      p(
+        'Baris `toggleSelesai` layak dibaca pelan karena ia menumpuk dua gagasan sekaligus: `t.id === id ? { ...t, selesai: !t.selesai } : t`. Ternary di situ berarti "kalau ini tugas yang dicari, hasilkan **salinan** dengan nilai `selesai` yang dibalik; kalau bukan, kembalikan object aslinya apa adanya". Menyalin hanya yang berubah dan membiarkan sisanya utuh itu penting — di React nanti, object yang alamatnya tidak berubah adalah tanda bahwa baris itu tidak perlu digambar ulang. Perhatikan juga `{ ...t, selesai: ... }` menempatkan property yang ditimpa **setelah** spread, sesuai aturan "yang belakangan menang"; membaliknya justru membuat nilai lama yang menang dan tombolnya seolah tidak berfungsi.',
       ),
       callout(
         'info',
@@ -1041,6 +1095,9 @@ export const lessons: LessonDraft[] = [
         `,
         { filename: 'src/todo.js' },
       ),
+      p(
+        '`saring` memakai `switch` untuk memilih jalur berdasarkan filter yang diminta — dan sengaja melempar error untuk nilai yang tidak dikenal, alih-alih diam-diam mengembalikan semua tugas, supaya kesalahan ketik nama filter langsung ketahuan alih-alih tersembunyi sebagai data yang seakan-akan benar. `cari` menormalkan dulu (trim lalu lowercase) baik kata kuncinya maupun judul yang dibandingkan, sehingga pencarian "Bab 2" dan "bab 2" menghasilkan hasil yang sama. `ringkasan` menghitung ulang seluruh angkanya dari `daftar` setiap kali dipanggil, bukan menyimpan angka yang gampang basi begitu ada tugas ditambah atau dihapus — pola yang nanti kamu kenali sebagai *derived state* saat belajar React.',
+      ),
 
       h2('4. Jalankan dan buktikan sendiri'),
       code(
@@ -1064,6 +1121,9 @@ export const lessons: LessonDraft[] = [
         // { total: 3, selesai: 1, aktif: 2, persen: 33 }
         `,
         { filename: 'src/main.js' },
+      ),
+      p(
+        "Pola `daftar = tambah(daftar, ...)` yang berulang di sini adalah harga yang dibayar karena semua fungsinya murni — tidak ada yang mengubah `daftar` di tempat, jadi hasilnya harus ditugaskan kembali. Itu sebabnya `daftar` dideklarasikan `let`, bukan `const`, dan itu satu-satunya variabel yang berubah di seluruh berkas ini. Perhatikan baris ketiga: `'  Baca bab 2  '` dikirim dengan spasi di kedua ujungnya, dan `console.log` di bawahnya membuktikan judulnya tersimpan sudah bersih — pembersihan itu terjadi di dalam `buatTugas`, bukan di sini, persis seperti yang dijanjikan kontrak data di langkah pertama. Baris `toggleSelesai(daftar, daftar[0].id)` menandai satu tugas selesai, sehingga `saring(..., FILTER.AKTIF)` menyisakan `2` dan `ringkasan` melaporkan `persen: 33` — hasil pembulatan `1/3 × 100`.",
       ),
 
       h2('5. Uji jalur yang tidak bahagia'),
@@ -1096,6 +1156,9 @@ export const lessons: LessonDraft[] = [
           console.log('OK, ditolak:', e.message);
         }
         `,
+      ),
+      p(
+        'Keempat pengujian ini memeriksa hal yang berbeda-beda, dan bersama-sama mereka menutup celah yang paling sering lolos. Kelompok pertama memastikan input cacat **ditolak dengan berisik** — kalau `buatTugas(\'   \')` berhasil tanpa error, artinya validasinya tidak bekerja dan daftar akan berisi tugas tanpa judul. Kelompok kedua menguji **daftar kosong**, keadaan yang selalu ada di aplikasi mana pun saat pertama kali dibuka, dan di sinilah penjaga pembagian nol pada `ringkasan` membuktikan gunanya: tanpa itu, `selesai / daftar.length` menghasilkan `NaN` yang lalu tampil di layar sebagai "NaN%". Kelompok ketiga memeriksa **id yang tidak ada**, dan perhatikan yang diuji bukan errornya melainkan justru ketiadaan perubahan — `filter` memang tidak protes bila tak ada yang cocok, dan perilaku itu yang ingin dipastikan. Kelompok terakhir menegaskan bahwa nilai filter salah ketik harus berteriak; kalau ia diam-diam mengembalikan semua tugas, bugnya akan terlihat seperti "filternya tidak berfungsi" dan penelusurannya bisa memakan waktu berjam-jam.',
       ),
 
       h2('Coba langsung'),

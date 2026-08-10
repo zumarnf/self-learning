@@ -25,7 +25,11 @@ const tailwind = defineChapter({
   stackVersions: ['Tailwind CSS 4.3'],
   // 2026-08-03: revisi ADR-0006 — setiap sub-bab kini menjelaskan istilahnya sendiri dan
   // menunjuk halaman dokumentasi resminya.
-  reviewedAt: '2026-08-03',
+  // 2026-08-05: revisi kedalaman narasi, pass kedua (lebih ketat) — 1 paragraf ditambahkan
+  // di sub-bab `dark-mode` untuk menjelaskan sintaks `@custom-variant dark`.
+  // 2026-08-05: pass ketiga (sisir seluruh bab) — 6 paragraf tambahan: state dasar,
+  // named group, variant lainnya, skrip pra-paint, skip-link, target sentuh.
+  reviewedAt: '2026-08-05',
   lessons: lessonsTailwind,
   quiz: [
     q(
@@ -79,7 +83,14 @@ const reactFundamental = defineChapter({
   stackVersions: ['React 19.2'],
   // 2026-08-03: revisi ADR-0006 — setiap sub-bab kini menjelaskan istilahnya sendiri dan
   // menunjuk halaman dokumentasi resminya.
-  reviewedAt: '2026-08-03',
+  // 2026-08-05: revisi kedalaman narasi (plans/revisi-kedalaman-narasi/) — sub-bab
+  // `react-compiler` mendapat paragraf penjelas mekanisme cache memoisasi.
+  // 2026-08-05: pass kedua (lebih ketat) — 3 paragraf tambahan: gotcha `aktif="false"`
+  // truthy di sub-bab props, dan dua paragraf penutup di praktik akhir bab.
+  // 2026-08-05: pass ketiga (sisir seluruh bab) — 13 paragraf tambahan: props dasar,
+  // data-turun-perubahan-naik, sisa props, kondisional, skeleton, key (×2), CSS Module,
+  // class kondisional, slot, komponen-di-dalam-komponen, posisi/identitas, memoisasi manual.
+  reviewedAt: '2026-08-05',
   lessons: lessonsReactFundamental,
   quiz: [
     q(
@@ -132,7 +143,16 @@ const komponenReact = defineChapter({
   stackVersions: ['React 19.2', 'Tailwind CSS 4.3'],
   // 2026-08-03: revisi ADR-0006 — setiap sub-bab kini menjelaskan istilahnya sendiri dan
   // menunjuk halaman dokumentasi resminya.
-  reviewedAt: '2026-08-03',
+  // 2026-08-05: revisi kedalaman narasi (plans/revisi-kedalaman-narasi/) — 4 paragraf
+  // penghubung ditambahkan di `anatomi-komponen`, `studi-button`, `studi-dialog`,
+  // `boolean-prop-explosion`.
+  // 2026-08-05: pass kedua (lebih ketat, atas permintaan user) — 7 paragraf tambahan di
+  // `studi-tabs`, `studi-card-skeleton`, `studi-field`, `studi-accordion`, `studi-toast`,
+  // `studi-data-table` (4 paragraf) — membedah implementasi yang sebelumnya lompat
+  // langsung ke sub-bagian berikutnya tanpa penjelasan.
+  // 2026-08-05: pass ketiga (sisir seluruh bab) — 1 paragraf tambahan: "Fokus ke error
+  // pertama" di `studi-field`.
+  reviewedAt: '2026-08-05',
   lessons: lessonsKomponen,
   quiz: [
     q(
@@ -185,7 +205,12 @@ const stateEvent = defineChapter({
   stackVersions: ['React 19.2'],
   // 2026-08-03: revisi ADR-0006 — setiap sub-bab kini menjelaskan istilahnya sendiri dan
   // menunjuk halaman dokumentasi resminya.
-  reviewedAt: '2026-08-03',
+  // 2026-08-05: revisi kedalaman narasi (plans/revisi-kedalaman-narasi/) — seluruh sub-bab
+  // diperiksa; sudah memenuhi standar tanpa perlu tambahan paragraf.
+  // 2026-08-05: pass kedua (lebih ketat) — 3 paragraf tambahan: walkthrough early-return
+  // `DaftarTugas`, alasan dua Context terpisah, dan penjelasan render keempat keadaan
+  // di praktik akhir bab.
+  reviewedAt: '2026-08-05',
   lessons: lessonsState,
   quiz: [
     q(
@@ -249,7 +274,11 @@ const stateManagement = defineChapter({
   ],
   prerequisites: [{ category: 'frontend-intermediate', chapter: 'state-dan-event-handler' }],
   stackVersions: ['React 19.2', 'TanStack Query 5', 'Zustand 5', 'Redux Toolkit 2'],
-  reviewedAt: '2026-08-02',
+  // Bumped by the ADR-0006 pass: every lesson now carries `terms` + `references`.
+  // 2026-08-05: revisi kedalaman narasi (plans/revisi-kedalaman-narasi/) — seluruh sub-bab
+  // diperiksa; sudah memenuhi standar tanpa perlu tambahan paragraf.
+  // 2026-08-05: pass kedua (lebih ketat) — diperiksa ulang; tidak ditemukan gap tambahan.
+  reviewedAt: '2026-08-05',
   lessons: lessonsStateManagement,
   quiz: [
     q(
@@ -301,7 +330,13 @@ const jenisKomponen = defineChapter({
   ],
   prerequisites: [{ category: 'frontend-intermediate', chapter: 'pembuatan-komponen-react' }],
   stackVersions: ['React 19.2', 'Next.js 16.2'],
-  reviewedAt: '2026-08-02',
+  // Bumped by the ADR-0006 pass: every lesson now carries `terms` + `references`.
+  // 2026-08-05: revisi kedalaman narasi (plans/revisi-kedalaman-narasi/) — seluruh sub-bab
+  // diperiksa; sudah memenuhi standar tanpa perlu tambahan paragraf.
+  // 2026-08-05: pass kedua (lebih ketat) — 4 paragraf tambahan: implementasi
+  // `Accordion.Item/Trigger/Content` + Context kedua, `withAuth` (HOC), `useUkuranJendela`,
+  // dan `createPortal` + pola SSR di `portal-layering`.
+  reviewedAt: '2026-08-05',
   lessons: lessonsJenisKomponen,
   quiz: [
     q(
@@ -353,7 +388,12 @@ const hooks = defineChapter({
   ],
   prerequisites: [{ category: 'frontend-intermediate', chapter: 'state-dan-event-handler' }],
   stackVersions: ['React 19.2'],
-  reviewedAt: '2026-08-02',
+  // Bumped by the ADR-0006 pass: every lesson now carries `terms` + `references`.
+  // 2026-08-05: revisi kedalaman narasi (plans/revisi-kedalaman-narasi/) — seluruh sub-bab
+  // diperiksa; sudah memenuhi standar tanpa perlu tambahan paragraf.
+  // 2026-08-05: pass kedua (lebih ketat) — 1 paragraf tambahan: walkthrough studi kasus
+  // `Tooltip` di sub-bab `useLayoutEffect`.
+  reviewedAt: '2026-08-05',
   lessons: lessonsReactHooks,
   quiz: [
     q(
@@ -417,7 +457,13 @@ const nextjs = defineChapter({
   ],
   prerequisites: [{ category: 'frontend-intermediate', chapter: 'jenis-komponen-react' }],
   stackVersions: ['Next.js 16.2', 'React 19.2'],
-  reviewedAt: '2026-08-02',
+  // Bumped by the ADR-0006 pass: every lesson now carries `terms` + `references`.
+  // 2026-08-05: revisi kedalaman narasi (plans/revisi-kedalaman-narasi/) — seluruh sub-bab
+  // diperiksa; sudah memenuhi standar tanpa perlu tambahan paragraf.
+  // 2026-08-05: pass kedua (lebih ketat) — 4 paragraf tambahan: implementasi Route Handler
+  // GET/POST, `ImageResponse` untuk gambar OG, pasangan `notFound()`/`not-found.tsx`, dan
+  // fungsi `ambilSesi` yang dibungkus `cache()`.
+  reviewedAt: '2026-08-05',
   lessons: lessonsNextjs,
   quiz: [
     q(

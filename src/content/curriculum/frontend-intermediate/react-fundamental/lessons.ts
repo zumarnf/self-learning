@@ -100,6 +100,9 @@ export const lessons: LessonDraft[] = [
         setDaftar((d) => d.map((t) => (t.id === id ? { ...t, selesai: !t.selesai } : t)));
         `,
       ),
+      p(
+        'Bandingkan baris ini dengan versi sebelumnya: **isi `map`-nya sama persis**, yang hilang adalah keempat pemanggilan `perbarui...` di bawahnya. Itu bukan penghematan tulisan, melainkan perubahan siapa yang bertanggung jawab. Pada versi manual, kamu yang harus mengingat setiap tempat yang menampilkan data itu — dan daftar yang harus diingat tumbuh setiap kali ada bagian layar baru. Pada React, ringkasan, filter, dan tombol semuanya **dihitung ulang dari `daftar`** saat merender, jadi tidak ada yang bisa terlewat karena tidak ada yang perlu diingat. Inilah arti kalimat di komentar: kamu mengubah data, tampilan menyusul. Sisa bab ini pada dasarnya menjelaskan bagaimana React menepati janji itu tanpa membuat halaman jadi lambat.',
+      ),
 
       h2('Masalah 2: membangun ulang merusak keadaan'),
       code(
@@ -143,6 +146,9 @@ export const lessons: LessonDraft[] = [
           );
         }
         `,
+      ),
+      p(
+        'Perhatikan ketiga hal yang tadi tersebar di tiga berkas kini berada dalam satu fungsi: **strukturnya** ada di JSX, **tampilannya** di `className`, dan **perilakunya** di `onClick`. Karena semuanya menyatu, memindahkan kartu produk ini ke halaman lain berarti memindahkan satu berkas — tidak ada potongan CSS yang tertinggal, tidak ada listener yang lupa dipasang. Perhatikan juga `onBeli` diterima sebagai prop, bukan ditulis di dalam: komponen ini tahu **bagaimana menampilkan** kartu produk, tapi tidak tahu apa yang terjadi saat tombolnya ditekan — dan justru ketidaktahuan itu yang membuatnya bisa dipakai ulang di keranjang, di halaman pencarian, maupun di daftar rekomendasi dengan perilaku yang berbeda-beda.',
       ),
 
       h2('Yang React TIDAK selesaikan'),
@@ -284,6 +290,9 @@ export const lessons: LessonDraft[] = [
         npm run dev
         `,
       ),
+      p(
+        'Perhatikan tanda `--` sebelum `--template` di baris pertama: ia memisahkan argumen milik `npm` dari argumen yang diteruskan ke `create-vite`, dan melewatkannya membuat template diabaikan sehingga kamu mendapat pilihan interaktif. Template `react-ts` dipilih, bukan `react`, karena seluruh materi ini memakai TypeScript sesuai Bab 6 — memilih yang tanpa `-ts` berarti mengonversinya belakangan, yang sudah kamu tahu lebih mahal. Tiga baris berikutnya adalah urutan yang selalu sama untuk project Node mana pun: masuk ke foldernya, pasang dependensinya, jalankan server pengembangannya. `npm run dev` menyalakan server yang memuat ulang halaman otomatis setiap kali berkas disimpan.',
+      ),
       code(
         'text',
         `
@@ -310,6 +319,9 @@ export const lessons: LessonDraft[] = [
         `,
         { filename: 'src/main.tsx' },
       ),
+      p(
+        "Berkas ini adalah **satu-satunya tempat** React bertemu DOM, dan setelah ini kamu praktis tidak akan menyentuh DOM lagi sepanjang bab. `document.getElementById('root')` mengambil satu `<div>` kosong dari `index.html`; `createRoot(...)` menyerahkan elemen itu ke React sebagai wilayah yang ia kelola; dan `.render(<App />)` menyuruhnya menggambar. Tanda seru pada `getElementById('root')!` adalah **non-null assertion** TypeScript — ia berkata \"aku tahu ini tidak `null`\", dan di sini sah karena elemennya memang ditulis di `index.html`. Perhatikan `<App />` dibungkus `<StrictMode>`, yang tidak menghasilkan apa pun di layar melainkan menyalakan pemeriksaan tambahan selama pengembangan; efeknya dijelaskan di kotak berikut dan sering mengejutkan kalau tidak tahu.",
+      ),
       callout(
         'warning',
         'StrictMode memanggil komponenmu dua kali — sengaja',
@@ -329,6 +341,9 @@ export const lessons: LessonDraft[] = [
         ├── types/
         └── App.tsx
         `,
+      ),
+      p(
+        'Pemisahan yang paling menentukan di sini adalah `components/ui/` dan `components/tugas/`. Isi `ui/` adalah primitif yang **tidak tahu apa-apa tentang aplikasimu** — sebuah `Button` tidak peduli ia dipakai untuk menyimpan tugas atau membatalkan pesanan, sehingga bisa dipakai ulang di mana saja dan diganti tampilannya tanpa menyentuh logika. Isi `tugas/` sebaliknya memang terikat pada satu fitur. Folder `lib/` menyimpan fungsi murni seperti modul `todo.js` dari Bab 1, dan komentarnya menyebut manfaat nyatanya: karena tidak menyentuh React sama sekali, isinya bisa diuji tanpa merender apa pun. Perhatikan struktur ini disebut "yang tidak menyusahkan nanti", bukan yang terbaik — dan kotak di bawahnya menjelaskan kapan ia harus ditinggalkan.',
       ),
       callout(
         'info',
@@ -440,6 +455,9 @@ export const lessons: LessonDraft[] = [
         <Sapaan />
         `,
       ),
+      p(
+        'Tidak ada kelas, tidak ada pendaftaran, tidak ada API khusus — sebuah komponen React **hanyalah fungsi JavaScript biasa** yang mengembalikan JSX. Yang membuatnya "komponen" cuma dua hal: namanya diawali huruf besar, dan ia mengembalikan sesuatu yang bisa dirender. Baris terakhir menunjukkan cara memakainya, dan sekarang alasannya sudah kamu ketahui dari Bab 6: `<Sapaan />` dikompilasi menjadi pemanggilan dengan **referensi variabel** `Sapaan` sebagai argumen pertama, sedangkan huruf kecil akan dikirim sebagai string nama tag. Perlu ditegaskan kamu **tidak pernah memanggil** `Sapaan()` sendiri — React yang memanggilnya, kapan pun ia merasa perlu, dan kebebasan itulah yang menuntut aturan-aturan di tabel berikut.',
+      ),
       table(
         ['Aturan', 'Kenapa'],
         [
@@ -471,6 +489,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        "Dua baris di dalam `Buruk` melanggar kemurnian dengan cara yang berbeda. `hitungan++` mengubah variabel **di luar** fungsi, sehingga memanggil komponen ini dua kali menghasilkan angka yang berbeda meski propsnya sama — dan React memang berhak memanggilnya dua kali, seperti yang StrictMode lakukan. `document.title = 'Halo'` menyentuh dunia luar saat render, padahal render seharusnya hanya **menghitung deskripsi tampilan**, bukan mengubah apa pun. Versi `Baik` memperbaikinya dengan cara yang mungkin mengejutkan karena sederhana: nilainya **diterima sebagai prop**, bukan disimpan sendiri. Itu pola yang akan berulang sepanjang bab — kalau sebuah komponen tergoda mengubah sesuatu untuk mengingat keadaan, biasanya keadaan itu memang milik orang lain, entah props dari induk atau state yang dibahas di bab berikutnya.",
+      ),
       callout(
         'warning',
         'Kenapa React menuntut kemurnian',
@@ -496,6 +517,9 @@ export const lessons: LessonDraft[] = [
         {
           caption: 'Menaruh log di badan komponen adalah cara tercepat melihat kapan ia dirender.',
         },
+      ),
+      p(
+        'Trik sederhana ini menghubungkan kelima langkah di atas dengan sesuatu yang bisa kamu lihat sendiri. `console.log` di badan komponen berjalan pada langkah **Render** — jadi tiap baris yang tercetak berarti React memanggil fungsimu sekali. Cobalah, dan dua hal akan terlihat. Pertama, di bawah StrictMode tiap render tercetak **dua kali**, persis seperti yang dijelaskan di sub-bab sebelumnya. Kedua, dan yang lebih penting, log bisa muncul tanpa satu piksel pun berubah di layar — karena langkah Rekonsiliasi mendapati hasilnya sama, dan langkah Commit tidak punya apa-apa untuk diterapkan. Kesalahpahaman inilah yang dikoreksi kotak berikut: "dirender ulang" tidak berarti "digambar ulang", dan menyamakan keduanya adalah sumber optimasi prematur yang paling umum di React.',
       ),
       callout(
         'info',
@@ -626,6 +650,9 @@ export const lessons: LessonDraft[] = [
         <Profil nama="Zum" onKlik={() => console.log('klik')} />
         `,
       ),
+      p(
+        'Tipe `Props` di atas mendeklarasikan bentuk yang **wajib** diberikan pemanggil komponen ini: `nama` sebagai string dan `onKlik` sebagai fungsi tanpa argumen adalah wajib, sementara tanda tanya pada `umur?: number` menandainya opsional. Nilai `= 0` pada parameter `umur = 0` adalah nilai bawaan JavaScript biasa — kalau pemanggil tidak mengoper `umur` sama sekali, `umur` di dalam fungsi otomatis bernilai `0`, tanpa perlu pengecekan manual. Pada baris pemanggilan, `nama="Zum"` dan `onKlik={...}` adalah cara mengoper nilai ke props — sama seperti mengoper atribut ke elemen HTML, hanya saja nilainya bisa berupa string, fungsi, angka, atau objek apa pun.',
+      ),
 
       h2('Props hanya-baca'),
       code(
@@ -640,6 +667,9 @@ export const lessons: LessonDraft[] = [
           return <button onClick={() => onTambah('baru')}>Tambah</button>;
         }
         `,
+      ),
+      p(
+        "Baris `items.push('baru')` di `Buruk` adalah kesalahan yang **tidak menghasilkan error apa pun** — dan justru itu masalahnya. Array yang diterima sebagai prop bukan salinan; ia object yang sama persis dengan milik induk, seperti aturan reference dari Bab 1. Jadi `push` diam-diam mengubah data milik komponen lain, dan React tidak akan memberi tahu siapa pun karena alamat arraynya tidak berubah — layar bahkan bisa tidak diperbarui sama sekali. `Baik` memperbaikinya dengan membalik arah: alih-alih mengubah data, ia **memberi tahu induknya** lewat `onTambah` bahwa ada sesuatu yang perlu diubah, lalu membiarkan pemilik data yang memutuskan. Perhatikan `Baik` sama sekali tidak menyentuh `items` — ia bahkan tidak perlu tahu bentuk datanya.",
       ),
       callout(
         'danger',
@@ -663,6 +693,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Ini pola paling dasar yang akan kamu tulis berulang-ulang di React: `Induk` memiliki data (`nilai`) dan cara mengubahnya (`setNilai`), lalu mengoper **keduanya** ke `Anak` — nilainya sebagai props biasa, dan fungsi pengubahnya sebagai prop bernama `onUbah`. `Anak` sendiri tidak tahu dari mana `nilai` berasal atau ke mana perubahannya pergi; ia hanya menampilkan `nilai` yang diterima dan memanggil `onUbah` setiap kali pengguna mengetik. Karena `setNilai` dipanggil di dalam `onUbah` yang dijalankan `Anak`, perubahan yang terjadi di komponen anak "naik" kembali ke state yang dimiliki induknya — itulah asal nama pola ini, *data turun, perubahan naik* (*data down, events up*).',
+      ),
 
       h2('`children`'),
       code(
@@ -682,6 +715,9 @@ export const lessons: LessonDraft[] = [
           <Tombol />
         </Panel>
         `,
+      ),
+      p(
+        'Bagian bawah menunjukkan perbedaan yang membuat `children` istimewa: isi `<Panel>` ditulis **di tempat pemakaian**, bukan dioper sebagai atribut. Padahal seperti dibahas di Bab 6, keduanya sebenarnya sama — `children` hanyalah prop biasa yang kebetulan punya penulisan khusus. Yang penting adalah akibatnya: `Panel` menyediakan bingkai — border, padding, judul — **tanpa perlu tahu apa yang akan ditaruh di dalamnya**, dan pemakainya bebas mengisi apa saja termasuk komponen lain. Bandingkan dengan mengoper `isi` sebagai prop string: itu akan membatasi isinya pada teks, dan setiap variasi baru menuntut prop tambahan. Kotak berikut menyebut konsekuensi yang lebih jauh — pola ini juga jalan keluar dari *prop drilling*, karena mengoper komponen jadi lebih murah daripada mengoper datanya melewati banyak lapisan.',
       ),
       callout(
         'tip',
@@ -703,6 +739,9 @@ export const lessons: LessonDraft[] = [
         <Tombol type="submit" disabled aria-label="Kirim" varian="hantu" />
         `,
       ),
+      p(
+        "`React.ComponentProps<'button'>` meminjam **seluruh** tipe atribut yang sah dimiliki elemen `<button>` HTML asli — `type`, `disabled`, `aria-label`, `onClick`, dan puluhan lainnya — tanpa kamu perlu mendaftarkannya satu per satu. `& { varian?: ... }` menambahkan satu prop milikmu sendiri di atasnya. Di dalam fungsi, `{ varian = 'utama', className, ...sisa }` memisahkan tiga hal: `varian` diambil untuk menentukan class-nya sendiri, `className` diambil terpisah supaya bisa digabung manual, dan `...sisa` menangkap **semua atribut lain** yang tidak disebut secara eksplisit — `type`, `disabled`, `aria-label` pada contoh pemanggilan di atas semuanya masuk ke `sisa` dan diteruskan lewat `{...sisa}` ke elemen `<button>` sungguhan. Tanpa pola `...sisa` ini, setiap atribut HTML yang ingin didukung `Tombol` harus didaftarkan satu per satu secara manual di tipe `Props`.",
+      ),
 
       h2('Kesalahan yang sering terjadi'),
       code(
@@ -718,6 +757,9 @@ export const lessons: LessonDraft[] = [
         <Kartu aktif="false" />               // SALAH: string "false" itu truthy
         <Kartu aktif={false} />               // BENAR
         `,
+      ),
+      p(
+        'Baris terakhir yang paling sering menjebak pemula: `aktif="false"` tanpa kurung kurawal mengoper **string** berisi empat karakter `f`, `a`, `l`, `s`, dan `e` — bukan nilai boolean `false`. Di JavaScript, string apa pun yang tidak kosong selalu dianggap *truthy*, termasuk string `"false"` itu sendiri. Kalau komponen `Kartu` melakukan `if (aktif) { ... }`, kondisinya akan **selalu benar**, meski niatnya jelas ingin menonaktifkannya. Kurung kurawal `{false}` yang mengoper nilai JavaScript asli-lah yang membuat React membaca boolean-nya dengan benar.',
       ),
 
       divider,
@@ -821,6 +863,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Ketiganya menjawab kebutuhan yang berbeda. `sudahLogin && <Profil />` cocok saat kamu hanya punya **satu** kemungkinan tampilan — tampilkan sesuatu, atau tampilkan tidak sama sekali. `? :` dipakai saat ada **dua** kemungkinan yang saling menggantikan. `early return` — memakai beberapa `if` yang masing-masing langsung `return` — cocok begitu ada **tiga atau lebih** kemungkinan, karena membaca beberapa ternary yang ditumpuk (`a ? b ? c : d : e`) jauh lebih sulit daripada membaca beberapa `if` berurutan dari atas ke bawah.',
+      ),
 
       h2('Jebakan angka nol'),
       code(
@@ -832,6 +877,9 @@ export const lessons: LessonDraft[] = [
         {items.length > 0 && <Daftar items={items} />}    // BENAR
         {Boolean(items.length) && <Daftar items={items} />}
         `,
+      ),
+      p(
+        'Jebakan ini muncul di React justru karena `length` adalah cara paling alami menanyakan "apakah ada isinya" — dan `length` menghasilkan angka, bukan boolean. Selama daftarnya berisi, `3 && <Daftar />` menghasilkan elemennya dan semuanya tampak benar; masalahnya baru terlihat pada daftar kosong, keadaan yang justru jarang diuji selama pengembangan. Kedua versi BENAR menyelesaikannya dengan cara yang sama — memastikan sisi kiri **sudah berupa boolean** sebelum bertemu `&&`. Perlu ditegaskan ini bukan aturan khusus React melainkan sifat `&&` dari Bab 1 yang bertemu keputusan React untuk merender angka; `false`, `null`, dan `undefined` diabaikan, tapi `0` adalah nilai yang sah untuk ditampilkan.',
       ),
       callout(
         'danger',
@@ -868,6 +916,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Perhatikan urutan keempat cabangnya, karena ia bukan acak: memuat, gagal, kosong, lalu berhasil — dari yang paling menghentikan ke yang paling normal. Urutan itu penting karena tiap `return` mengakhiri fungsi, sehingga cabang di bawah hanya berjalan bila semua di atasnya terlewati. Menukar `status === \'gagal\'` ke bawah `tugas.length === 0`, misalnya, akan menampilkan "belum ada tugas" pada permintaan yang sebenarnya gagal — pesan yang **berbohong** kepada pengguna. Perhatikan juga cabang gagal dan kosong sama-sama menyediakan **tindakan lanjutan** berupa tombol, bukan sekadar kalimat; itu penerapan langsung dari aturan empat keadaan UI di Bab 5. Dan cabang berhasil sengaja ditulis paling ringkas, karena ia jalur yang paling sering dibaca ulang orang.',
+      ),
       callout(
         'info',
         'Early return membuat keempat keadaan terbaca berurutan',
@@ -886,6 +937,9 @@ export const lessons: LessonDraft[] = [
           ? Array.from({ length: 5 }, (_, i) => <div key={i} className="h-16 animate-pulse rounded-md bg-raised" />)
           : items.map((i) => <Baris key={i.id} item={i} />)}
         `,
+      ),
+      p(
+        'Perbedaannya bukan soal estetika. Versi SALAH menampilkan teks "Memuat…" yang tingginya jauh lebih pendek daripada daftar isi yang akan menggantikannya — begitu datanya tiba, seluruh konten di bawahnya **melompat turun** karena tinggi elemen berubah drastis. Versi BENAR merender lima kotak abu-abu (`Array.from({ length: 5 }, ...)` membuat lima elemen tanpa perlu data sungguhan) yang tingginya (`h-16`) dibuat mendekati tinggi satu baris data aslinya, sehingga saat data sungguhan menggantikannya, tinggi totalnya tidak banyak berubah dan halaman tidak melompat.',
       ),
 
       h2('Menyembunyikan vs tidak merender'),
@@ -1000,6 +1054,9 @@ export const lessons: LessonDraft[] = [
         </ul>
         `,
       ),
+      p(
+        '`key={t.id}` bukan prop biasa yang bisa dibaca `Tugas` — React **mengambilnya sendiri** sebelum komponennya dirender, dan memakainya secara internal sebagai penanda identitas. Karena itu `key` tidak pernah muncul di `props` komponen anak, meski ditulis persis seperti prop lain di JSX.',
+      ),
 
       h2('Apa yang sebenarnya dilakukan `key`'),
       p(
@@ -1021,6 +1078,9 @@ export const lessons: LessonDraft[] = [
         //   -> React mengubah EMPAT elemen, bukan satu
         `,
       ),
+      p(
+        'Contoh ini menunjukkan biaya `key` yang salah dalam angka. Menyisipkan satu item di depan seharusnya menghasilkan **satu** perubahan, dan dengan key stabil itulah yang terjadi: React mengenali A, B, dan C sebagai item yang sama meski posisinya bergeser, jadi ia cukup menyisipkan Z. Dengan key berupa indeks, React tidak punya cara mengetahui itu — yang ia lihat hanyalah bahwa posisi 0 dulu berisi A dan sekarang berisi Z, jadi ia menyimpulkan **isinya yang berubah**. Empat baris komentar itu adalah kesimpulan yang ia ambil satu per satu, dan hasilnya empat elemen disentuh alih-alih satu. Untuk daftar pendek pemborosan ini tidak terasa; yang jauh lebih berbahaya adalah akibat keduanya, yaitu keadaan internal elemen yang ikut tertukar — dan itulah yang diperagakan bagian berikutnya.',
+      ),
 
       h2('Bug yang tampak mustahil'),
       code(
@@ -1034,6 +1094,9 @@ export const lessons: LessonDraft[] = [
           </li>
         ))}
         `,
+      ),
+      p(
+        'Perhatikan `defaultValue`, bukan `value` — artinya isi input itu **tidak dikendalikan React** setelah render pertama; apa pun yang diketik pengguna hidup di elemen DOM-nya sendiri, tidak di dalam data. Di situlah letak jebakannya. Selama tidak ada baris yang dihapus atau diurutkan ulang, `key={i}` bekerja tanpa gejala apa pun. Tapi karena identitas baris di sini ditentukan **posisi**, menghapus satu baris membuat semua baris di bawahnya bergeser naik dan mewarisi identitas milik tetangganya — sementara teks yang sudah terlanjur diketik tetap menempel di elemen input yang sama. Hasilnya persis seperti dijelaskan di kotak berikut: data tetap benar, tapi yang terlihat di layar milik item yang berbeda.',
       ),
       callout(
         'danger',
@@ -1080,6 +1143,9 @@ export const lessons: LessonDraft[] = [
         <ul>{b.map((x) => <li key={x.id}>{x.nama}</li>)}</ul>   // id yang sama pun tidak masalah
         `,
       ),
+      p(
+        'React hanya membandingkan `key` di antara elemen-elemen yang **dirender oleh `map` yang sama, dalam wadah yang sama**. Dua `<ul>` yang berbeda adalah dua "ruang lingkup" pencocokan yang terpisah sepenuhnya — kalau `a` dan `b` sama-sama punya item dengan `id: "1"`, React tidak akan pernah menganggap keduanya sebagai elemen yang sama, karena mereka bahkan tidak pernah dibandingkan satu sama lain.',
+      ),
 
       h2('`key` untuk memaksa reset'),
       code(
@@ -1091,6 +1157,9 @@ export const lessons: LessonDraft[] = [
 
         // Tanpa key: pindah ke pengguna lain akan MEMPERTAHANKAN isian form sebelumnya
         `,
+      ),
+      p(
+        'Ini pemakaian `key` yang berbeda dari semua contoh sebelumnya: **di luar daftar, pada satu komponen tunggal**. Mekanismenya tetap sama — `key` adalah identitas — tapi di sini kamu memanfaatkannya secara sengaja. Selama `penggunaId` tidak berubah, React menganggap ini komponen yang sama dan mempertahankan seluruh state di dalamnya. Begitu `penggunaId` berganti, identitasnya berbeda, sehingga React **membuang komponen lama beserta semua state-nya** dan membuat yang baru dari nol. Tanpa baris `key`, berpindah ke pengguna lain akan menampilkan form dengan isian milik pengguna sebelumnya — bug yang terlihat mustahil sampai kamu memahami bahwa React memang tidak punya alasan mengira itu form yang berbeda.',
       ),
       callout(
         'tip',
@@ -1230,6 +1299,9 @@ export const lessons: LessonDraft[] = [
         // Nama class jadi unik saat build: 'Kartu_kartu__x7f2a'
         `,
       ),
+      p(
+        "Yang membuat CSS Module berbeda dari CSS biasa: `import gaya from './Kartu.module.css'` tidak mengimpor style-nya secara langsung, melainkan mengimpor sebuah **objek** yang tiap propertinya adalah nama class asli yang dipetakan ke nama unik hasil build (`gaya.kartu` berisi string seperti `'Kartu_kartu__x7f2a'`). Karena nama aslinya (`.kartu`, `.aktif`) hanya berlaku di dalam berkas ini, dua komponen berbeda boleh sama-sama punya class bernama `.kartu` tanpa pernah bertabrakan — inilah yang dimaksud \"scope otomatis\" di tabel sebelumnya, menyelesaikan masalah tabrakan nama yang dimiliki CSS global.",
+      ),
 
       h2('Class kondisional'),
       code(
@@ -1247,6 +1319,9 @@ export const lessons: LessonDraft[] = [
         />
         `,
       ),
+      p(
+        "`clsx` menyelesaikan pekerjaan yang tampak sepele tapi berantakan kalau ditulis tangan: menggabungkan beberapa class sambil melewati yang tidak berlaku, **tanpa meninggalkan spasi ganda atau kata `false` di dalam atribut**. Ia menerima tiga bentuk masukan sekaligus, dan ketiganya terlihat di contoh: string biasa untuk class yang selalu ada; `kondisi && 'kelas'` yang menghasilkan `false` saat tidak berlaku dan diabaikan `clsx`; serta objek `{ 'kelas': kondisi }` yang berguna saat nama classnya lebih enak dibaca di depan. Bandingkan dengan merangkai template literal sendiri — di sana kamu harus mengurus spasi pemisah dan mengubah `false` menjadi string kosong secara manual, dan satu yang terlewat menghasilkan atribut `class` yang cacat.",
+      ),
       callout(
         'danger',
         'Nama class yang disusun dinamis tidak akan terdeteksi Tailwind',
@@ -1263,6 +1338,9 @@ export const lessons: LessonDraft[] = [
         <div className={WARNA[status]} />
         `,
       ),
+      p(
+        "Solusinya membalik arah pencarian: alih-alih **menyusun** nama class dari variabel (`bg-${warna}-500`, yang gagal terdeteksi), tulis **seluruh** nama class lengkap di objek `WARNA`, lalu pilih string mana yang dipakai lewat `WARNA[status]`. Karena `'bg-accent-fill text-accent'` muncul utuh sebagai teks di berkas sumber, Tailwind menemukannya saat memindai — meski nilai yang dipilih saat runtime tergantung `status`.",
+      ),
 
       h2('Style inline: hanya untuk nilai yang dihitung'),
       code(
@@ -1275,6 +1353,9 @@ export const lessons: LessonDraft[] = [
         // Tidak tepat — ini milik CSS
         <div style={{ padding: 16, borderRadius: 8, color: '#666' }} />
         `,
+      ),
+      p(
+        "Pembeda kedua kelompok ini sama seperti di Bab 4: **apakah nilainya bisa diketahui saat CSS ditulis.** `persen` dan `offset` baru ada saat program berjalan, dan kamu tidak mungkin membuat class untuk setiap kemungkinan angka — jadi style inline memang jawabannya. Tiga nilai di kelompok bawah sebaliknya bisa ditulis di CSS, dan menaruhnya inline menimbulkan tiga kerugian sekaligus: ia tidak ikut berubah di mode gelap, tidak bisa di-override lewat media query, dan yang paling merusak, `'#666'` yang ditulis langsung memotong design token — warna itu tidak akan pernah ikut berubah saat palet project diperbarui. Ini penerapan langsung dari aturan terakhir di daftar kriteria: apa pun sistem styling yang dipilih, nilai warna dan spacing tetap harus terkunci di token.",
       ),
 
       h2('Kriteria memilih'),
@@ -1409,6 +1490,9 @@ export const lessons: LessonDraft[] = [
         </Modal>
         `,
       ),
+      p(
+        'Bandingkan kedua pemakaian itu sebagai **teks yang dibaca orang**. Versi pertama menuntut pembaca menghubungkan `tombolPrimer` dengan `onPrimer` sendiri, dan menebak di mana `footerKiri` akan muncul. Lebih buruk lagi, tiap kebutuhan baru — ikon di footer, dua tombol sekunder — menambah prop lagi, dan `Modal` harus ikut diubah setiap kali. Versi kedua memindahkan strukturnya ke **tempat pemakaian**: susunan header, body, dan footer terbaca persis seperti hasilnya di layar, dan isinya bebas apa saja karena masing-masing bagian menerima `children`. Konsekuensinya paling penting: menambah sesuatu di footer **tidak menyentuh `Modal` sama sekali**. Pola `Modal.Header` yang menempel sebagai property inilah yang disebut *compound component*, dan cara membangunnya dibahas tuntas di Bab 6.',
+      ),
 
       h2('Prop drilling'),
       code(
@@ -1443,6 +1527,9 @@ export const lessons: LessonDraft[] = [
         // Layout, Sidebar, dan Menu tidak perlu tahu apa pun tentang pengguna
         `,
       ),
+      p(
+        'Kuncinya ada pada **di mana `<Avatar pengguna={pengguna} />` ditulis**. Pada versi drilling, `Avatar` bersarang di dalam `Menu` yang bersarang di `Sidebar`, sehingga data harus dititipkan melewati ketiganya. Pada versi ini, seluruh susunan itu dirakit **di dalam `Halaman`** — tempat `pengguna` memang tersedia — lalu hasilnya yang sudah jadi dioper ke `Layout` sebagai prop `sidebar`. Dari sudut pandang `Layout`, yang ia terima hanyalah JSX yang siap dirender; ia tidak tahu dan tidak perlu tahu bahwa di dalamnya ada data pengguna. Itulah kenapa komentar terakhir bisa mengatakan ketiganya tidak perlu tahu apa-apa. Perhatikan pola ini pada dasarnya sama dengan `children`, hanya diberi nama sendiri karena ada lebih dari satu lubang yang perlu diisi.',
+      ),
       callout(
         'tip',
         'Coba composition sebelum menjangkau Context',
@@ -1473,6 +1560,9 @@ export const lessons: LessonDraft[] = [
           <Pencarian />
         </Toolbar>
         `,
+      ),
+      p(
+        '`children` hanya menyediakan **satu** lubang isian — tepat di antara tag pembuka dan penutup. `Toolbar` di atas butuh tiga posisi berbeda (kiri, tengah, kanan), sehingga `children` saja tidak cukup: dua posisi tambahan (`kiri`, `kanan`) ditulis sebagai prop biasa yang nilainya berupa elemen JSX, bukan string atau angka. Pemanggil kemudian memilih elemen mana yang mengisi slot mana lewat nama prop-nya — `kiri={<Logo />}` secara eksplisit mengisi posisi kiri, sementara `<Pencarian />` yang ditulis di antara tag otomatis menjadi `children` dan mengisi posisi tengah.',
       ),
 
       h2('Compound component'),
@@ -1634,6 +1724,9 @@ export const lessons: LessonDraft[] = [
         // Elemen DOM yang sama, hanya className yang diubah
         `,
       ),
+      p(
+        'Kedua aturan ini menjelaskan hampir semua perilaku React yang tampak aneh. Aturan pertama tegas dan tidak melihat isi: begitu **tipe** elemen di posisi yang sama berubah, React membuang seluruh subpohonnya dan membangun ulang dari nol. Pada contoh itu, `<Form />` di dalam `div` dan `<Form />` di dalam `span` **bukan komponen yang sama** bagi React, meski tulisannya identik — pembungkusnya berubah, jadi seluruh isinya ikut dibongkar dan state di dalam form hilang. Aturan kedua adalah kebalikannya dan menjelaskan kenapa React murah: tipe yang sama berarti elemen DOM-nya dipertahankan, dan hanya prop yang berbeda yang diperbarui. Dari sinilah bug di kotak berikut berasal — komponen yang didefinisikan ulang tiap render menghasilkan **tipe** yang berbeda setiap kali, sehingga aturan pertama berlaku terus-menerus.',
+      ),
       callout(
         'danger',
         'Komponen yang didefinisikan di dalam komponen lain',
@@ -1658,6 +1751,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Akar masalahnya persis Aturan 1 di atas: React mengidentifikasi tipe komponen lewat **referensi fungsinya**, bukan lewat namanya. Setiap kali `Halaman` dirender ulang, `function Baris(...)` yang dideklarasikan di dalamnya membuat objek fungsi yang **baru secara referensi**, meski namanya dan isinya sama persis dengan render sebelumnya. Bagi React, itu berarti "tipe komponennya berubah" — persis kasus `div` menjadi `span` — sehingga elemen `<input>` lama dibongkar dan yang baru dipasang dari nol, membawa fokus dan apa pun yang sedang diketik pengguna ikut hilang. Mendefinisikan `Baris` di luar `Halaman` membuat referensinya tetap sama di setiap render, sehingga React mengenalinya sebagai komponen yang sama dan hanya memperbarui propsnya.',
+      ),
 
       h2('Posisi juga identitas'),
       code(
@@ -1670,6 +1766,9 @@ export const lessons: LessonDraft[] = [
         {kondisi ? <Counter key="a" /> : <Counter key="b" />}
         // key berbeda -> dianggap komponen berbeda -> state di-reset
         `,
+      ),
+      p(
+        'Contoh pertama sering mengejutkan pemula: intuisinya bilang "kondisinya berganti, jadi ini pasti komponen yang berbeda" — padahal dari sudut pandang React, keduanya adalah `<Counter />` di **posisi yang sama** dalam pohon (posisi tunggal hasil ekspresi ternary), dengan **tipe yang sama**. Karena kedua aturan pencocokan itu terpenuhi, React memperlakukannya sebagai elemen yang sama persis dan tidak pernah membongkarnya — meski secara visual terlihat seperti dua `Counter` yang berbeda karena muncul bergantian sesuai `kondisi`. Menambahkan `key` yang berbeda pada contoh kedua memberi React identitas eksplisit yang mengalahkan aturan posisi/tipe, sehingga berganti `kondisi` benar-benar membongkar `Counter` lama dan memasang yang baru dengan state yang di-reset ke awal.',
       ),
 
       h2('Apa yang tidak perlu kamu optimasi'),
@@ -1816,6 +1915,9 @@ export const lessons: LessonDraft[] = [
           notes: ['Compiler menyisipkan memoisasi', 'Kode kembali terbaca'],
         },
       ),
+      p(
+        'Perbandingan ini memperlihatkan apa yang sebenarnya dibayar oleh memoisasi manual: **kode yang lebih sulit dibaca demi optimasi yang tidak terlihat.** Kolom kanan bukan versi yang lebih lambat — ia versi yang sama, dengan memoisasi yang disisipkan compiler saat build alih-alih ditulis tangan. Yang hilang dari kolom kiri layak dicatat satu per satu: array dependensi yang harus dijaga tetap benar setiap kali kode di dalamnya berubah, pembungkus `useCallback` yang mengaburkan bahwa isinya cuma satu baris, dan `memo()` di ekspor yang mudah terlupa. Ketiganya adalah pekerjaan yang tidak menambah kemampuan apa pun bagi pengguna — dan justru karena mekanis, ia jenis pekerjaan yang paling tepat diserahkan ke alat.',
+      ),
 
       h2('Syaratnya: komponenmu harus murni'),
       code(
@@ -1829,6 +1931,9 @@ export const lessons: LessonDraft[] = [
         //   - efek samping di badan komponen
         //   - memanggil hook di dalam kondisi atau loop
         `,
+      ),
+      p(
+        'Inilah alasan kemurnian dari sub-bab komponen akhirnya punya konsekuensi yang bisa diukur. Compiler menyisipkan memoisasi dengan **menyimpulkan** kapan hasil sebuah perhitungan pasti sama — dan itu hanya mungkin kalau komponennya berperilaku seperti fungsi murni. Begitu ada yang mengubah props secara langsung atau menjalankan efek samping saat render, compiler tidak bisa lagi menjamin kesimpulannya benar, jadi ia mengambil pilihan yang aman: **melewati komponen itu sepenuhnya**. Perhatikan apa artinya secara praktis — kodenya tetap berjalan, tidak ada error, hanya optimasinya diam-diam tidak diterapkan. Karena itu kotak berikut penting: lint yang menandai pelanggaran adalah satu-satunya cara kamu tahu bahwa sebuah komponen dilewati.',
       ),
       callout(
         'info',
@@ -1850,6 +1955,9 @@ export const lessons: LessonDraft[] = [
         // 3. Nilai Context yang objek — mencegah seluruh konsumen re-render
         const value = useMemo(() => ({ pengguna, keluar }), [pengguna, keluar]);
         `,
+      ),
+      p(
+        'Ketiga kasus ini punya benang merah yang sama: Compiler memoisasi berdasarkan **struktur kode**, bukan berdasarkan **biaya sungguhan** menjalankannya — jadi kasus di mana biayanya besar atau di mana identitas referensinya sendiri yang penting (bukan sekadar nilainya) tetap butuh campur tangan manual. Kasus pertama jelas: `hitungRibuanBaris` mahal dijalankan, jadi memoisasinya bermanfaat nyata. Kasus kedua berbeda — pustaka pihak ketiga (grafik, peta, editor) kadang membandingkan objek opsi lewat referensinya, bukan isinya; tanpa `useMemo`, objek baru di tiap render membuat pustaka itu mengira konfigurasinya berubah terus-menerus meski isinya identik. Kasus ketiga mengingatkan pada Bab 3: nilai Context berupa objek yang dibuat baru setiap render akan membuat **semua** komponen yang membacanya ikut render ulang, jadi memoisasi objek itu tetap penting terlepas dari Compiler.',
       ),
 
       h2('Yang tidak berubah'),
@@ -1889,6 +1997,9 @@ export const lessons: LessonDraft[] = [
           return <ul>{aktif.map((i) => <li key={i.id}>{i.nama}</li>)}</ul>;
         }
         `,
+      ),
+      p(
+        'Perhatikan `$[0] !== items`: ini pola dasar semua memoisasi — bandingkan masukan sekarang dengan yang tersimpan dari render sebelumnya. Kalau `items` masih objek yang sama persis (*referential equality* dari kotak istilah), compiler memakai `aktif` yang sudah dihitung sebelumnya di `$[1]` tanpa menjalankan `filter` lagi. Kalau berbeda, ia menghitung ulang dan menyimpan hasil barunya. Inilah persis yang `useMemo` lakukan secara manual — compiler hanya menuliskannya untukmu, di setiap tempat yang aman untuk dilakukan.',
       ),
 
       divider,
@@ -2030,6 +2141,9 @@ export const lessons: LessonDraft[] = [
         `,
         { filename: 'src/data/profil.ts' },
       ),
+      p(
+        "Berkas ini ditulis **lebih dulu, sebelum satu komponen pun**, dan urutan itu yang dianjurkan kotak berikutnya. Perhatikan `status: 'aktif' | 'arsip'` ditulis sebagai union literal, bukan `string` — sehingga salah ketik `'arsipp'` tertangkap saat mengetik, dan `KartuProyek` nanti bisa membandingkannya dengan aman. Perhatikan juga tiap proyek punya `id` yang **terpisah dari `nama`**: id-lah yang nanti menjadi `key` saat merender daftar, dan memakai nama sebagai key akan rapuh begitu ada dua proyek bernama sama. Field `tag` berupa array karena satu proyek boleh punya beberapa label — dan bentuk array itulah yang menentukan bahwa nanti akan ada `map` bersarang di dalam kartu. Inilah maksud \"komponen mengikuti bentuk data\": hampir semua keputusan struktur komponen sudah tersirat di berkas ini.",
+      ),
       callout(
         'tip',
         'Rancang bentuk datanya sebelum komponennya',
@@ -2100,6 +2214,9 @@ export const lessons: LessonDraft[] = [
         `,
         { filename: 'src/components/KartuProyek.tsx' },
       ),
+      p(
+        '`Label` adalah komponen daun yang paling murni: ia hanya menerima `children` dan membungkusnya dengan gaya. Ia tidak tahu isinya tag proyek, dan justru itu yang membuatnya bisa dipakai untuk apa pun. `KartuProyek` di bawahnya menyusun satu tingkat lebih tinggi, dan dua `&&` di dalamnya adalah penerapan langsung dari sub-bab rendering kondisional — perhatikan `proyek.tag.length > 0`, bukan `proyek.tag.length`, sesuai jebakan angka nol yang sudah dibahas. Perhatikan juga `<article>` dipilih untuk kartu karena ia satuan yang berdiri sendiri, dan tiap tag dibungkus `<li>` di dalam `<ul>` karena ia memang daftar — semantik itulah yang membuat pembaca layar mengumumkan "daftar dengan tiga item" alih-alih membacakan tiga kata yang menggantung. Terakhir, `key={t}` di sini sah karena isi tag unik dalam satu proyek.',
+      ),
 
       h2('4. Daftar dengan keadaan kosong'),
       code(
@@ -2125,6 +2242,9 @@ export const lessons: LessonDraft[] = [
           );
         }
         `,
+      ),
+      p(
+        'Komponen ini memakai early return untuk memisahkan dua keadaan, dan perhatikan keadaan kosongnya **tidak sekadar dikosongkan** — ia punya kotak bergaris putus-putus dengan kalimat yang menjelaskan. Bedanya nyata bagi pengguna: area kosong tanpa penjelasan tidak bisa dibedakan dari halaman yang rusak. Cabang berhasil merender `<ul>` dengan `grid gap-4 sm:grid-cols-2`, artinya satu kolom di layar sempit dan dua kolom mulai ukuran `sm` — pendekatan *mobile-first* dari Bab 4. Perhatikan pembagian tanggung jawab antara komponen ini dan `KartuProyek`: `DaftarProyek` mengurus **susunan dan keadaan kosong**, sedangkan tampilan tiap kartu sepenuhnya urusan `KartuProyek`. Karena itu mengubah tata letak grid tidak menyentuh kartu, dan sebaliknya.',
       ),
       callout(
         'warning',
@@ -2163,6 +2283,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Perhatikan bagaimana `App` tidak menyimpan state atau logika apa pun — ia hanya membaca `profil` dari modul data, menata heading dan struktur semantik (`<main>`, `<header>`, `<section aria-labelledby>`), lalu menyerahkan daftar proyek ke `DaftarProyek`. Ini penerapan langsung dari "satu tanggung jawab" yang dibahas sepanjang bab ini: `App` bertanggung jawab atas **tata letak halaman**, `DaftarProyek` atas **cara menampilkan sebuah daftar** (termasuk keadaan kosongnya dari langkah sebelumnya), dan `KartuProyek` di dalamnya atas **cara menampilkan satu proyek**. Setiap komponen bisa dibaca dan diuji tanpa perlu memahami dua lainnya.',
+      ),
 
       h2('6. Kesalahan yang harus kamu hindari'),
       code(
@@ -2173,6 +2296,9 @@ export const lessons: LessonDraft[] = [
         function App() { function Kartu() {…} }    // komponen di dalam komponen
         <KartuProyek {...proyek} />                // props melebar tanpa kontrak jelas
         `,
+      ),
+      p(
+        'Keempatnya layak dibongkar satu per satu karena semuanya **type-check dengan sempurna** — tidak ada yang akan ditangkap compiler. Baris pertama: `proyek.tag.length` bernilai `0` saat array-nya kosong, dan React **merender** angka `0` sebagai teks, bukan menganggapnya `falsy` seperti yang diharapkan — solusinya `proyek.tag.length > 0 && ...` yang menghasilkan boolean sungguhan. Baris kedua: indeks array sebagai `key` terlihat bekerja sampai urutan proyeknya berubah (disaring, diurutkan ulang, satu dihapus) — di titik itu React mencocokkan elemen yang salah dan state internal komponen bisa tertukar antar-baris, persis kasus yang dibahas Sub-bab 2.1. Baris ketiga: mendefinisikan `Kartu` di dalam `App` berarti fungsi `Kartu` **dibuat ulang setiap kali `App` dirender** — dari sudut pandang React, itu selalu jadi "komponen baru", sehingga seluruh state di dalamnya di-reset setiap render. Baris keempat: `{...proyek}` menyebar seluruh properti objek `proyek` sebagai props tanpa kontrak eksplisit — kalau bentuk `proyek` berubah nanti (field ditambah atau diganti nama), `KartuProyek` ikut menerima props yang tidak diduga tanpa satu pun peringatan dari TypeScript.',
       ),
 
       checklist(

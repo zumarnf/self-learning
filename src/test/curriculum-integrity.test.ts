@@ -403,6 +403,20 @@ describe('istilah & rujukan resmi (ADR-0006)', () => {
       'frontend-intermediate/fundamental-reactjs',
       'frontend-intermediate/pembuatan-komponen-react',
       'frontend-intermediate/state-dan-event-handler',
+      'frontend-intermediate/state-management',
+      'frontend-intermediate/jenis-komponen-react',
+      'frontend-intermediate/react-hooks',
+      'frontend-intermediate/nextjs',
+      'backend-basic/fondasi-backend',
+      'backend-basic/database-sql-dasar',
+      'backend-basic/nodejs-express-basic',
+      'backend-basic/php-laravel-basic',
+      'backend-basic/auth-dasar',
+      'backend-intermediate/desain-api',
+      'backend-intermediate/express-intermediate',
+      'backend-intermediate/laravel-intermediate',
+      'backend-intermediate/menyambung-frontend-backend',
+      'backend-intermediate/keamanan-backend',
     ];
 
     const denganTerms = lessonsWithBlock('terms');
@@ -434,31 +448,49 @@ describe('istilah & rujukan resmi (ADR-0006)', () => {
     // Batch 6 (2026-08-03): Frontend Basic Bab 6 — 11 sub-bab. Kumulatif 76.
     // Batch 7 (2026-08-03): Frontend Intermediate Bab 1–2 — 23 sub-bab. Kumulatif 99.
     // Batch 8 (2026-08-03): Frontend Intermediate Bab 3–4 — 23 sub-bab. Kumulatif 122.
-    expect(lessonsWithBlock('references').size).toBeGreaterThanOrEqual(122);
+    // Batch 9 (2026-08-05): Frontend Intermediate Bab 5 & 7 — 26 sub-bab. Kumulatif 148.
+    // Batch 10 (2026-08-05): Frontend Intermediate Bab 6 & 8 — 28 sub-bab. Kumulatif 176.
+    // Batch 11 (2026-08-05): Backend Basic Bab 1–5 — 58 sub-bab. Kumulatif 234.
+    // Batch 12 (2026-08-05): Backend Intermediate Bab 1–5 — 58 sub-bab. Kumulatif 292.
+    expect(lessonsWithBlock('references').size).toBeGreaterThanOrEqual(292);
   });
 
   /**
-   * Frontend Basic is the first category to finish the ADR-0006 revision end to end. Locking it
-   * here means a lesson can never lose its terms or references block without the suite going red —
-   * the same guarantee the `toBe(330)` threshold gives the curriculum size.
+   * Categories that finished the ADR-0006 revision end to end. Locking a whole category — size
+   * included — means a lesson can never lose its terms or references block, and no lesson can be
+   * dropped to make the numbers work, without the suite going red. Same guarantee the `toBe(330)`
+   * threshold gives the curriculum as a whole.
+   *
+   * Add a category here only once every one of its lessons is revised; the per-chapter list above
+   * is the incremental ratchet, this is the finished one.
    */
-  it('seluruh Frontend Basic (76 sub-bab) punya blok istilah dan rujukan', () => {
-    const kategori = curriculum.find((c) => c.slug === 'frontend-basic');
-    const semua = kategori?.chapters.flatMap((c) => c.lessons) ?? [];
+  const kategoriTuntas = [
+    { slug: 'frontend-basic', jumlah: 76 },
+    { slug: 'frontend-intermediate', jumlah: 100 },
+    { slug: 'backend-basic', jumlah: 58 },
+    { slug: 'backend-intermediate', jumlah: 58 },
+  ] as const;
 
-    expect(semua).toHaveLength(76);
+  for (const { slug, jumlah } of kategoriTuntas) {
+    it(`seluruh ${slug} (${jumlah} sub-bab) punya blok istilah dan rujukan`, () => {
+      const kategori = curriculum.find((c) => c.slug === slug);
+      expect(kategori, `kategori "${slug}" tidak ditemukan`).toBeDefined();
 
-    const denganTerms = lessonsWithBlock('terms');
-    const denganReferences = lessonsWithBlock('references');
+      const semua = kategori?.chapters.flatMap((c) => c.lessons) ?? [];
+      expect(semua).toHaveLength(jumlah);
 
-    for (const chapter of kategori?.chapters ?? []) {
-      for (const lesson of chapter.lessons) {
-        const key = `frontend-basic/${chapter.slug}/${lesson.slug}`;
-        expect(denganTerms.has(key), `${key} belum punya blok istilah`).toBe(true);
-        expect(denganReferences.has(key), `${key} belum punya blok rujukan resmi`).toBe(true);
+      const denganTerms = lessonsWithBlock('terms');
+      const denganReferences = lessonsWithBlock('references');
+
+      for (const chapter of kategori?.chapters ?? []) {
+        for (const lesson of chapter.lessons) {
+          const key = `${slug}/${chapter.slug}/${lesson.slug}`;
+          expect(denganTerms.has(key), `${key} belum punya blok istilah`).toBe(true);
+          expect(denganReferences.has(key), `${key} belum punya blok rujukan resmi`).toBe(true);
+        }
       }
-    }
-  });
+    });
+  }
 });
 
 describe('ukuran kurikulum yang dijanjikan dokumen', () => {

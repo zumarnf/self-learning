@@ -20,7 +20,7 @@ const desainApi = defineChapter({
   ],
   prerequisites: [{ category: 'backend-basic', chapter: 'nodejs-express-basic' }],
   stackVersions: ['RFC 9457', 'OpenAPI 3.1'],
-  reviewedAt: '2026-08-02',
+  reviewedAt: '2026-08-05',
   lessons: lessonsDesainApi,
   quiz: [
     q(
@@ -85,7 +85,7 @@ const expressLanjut = defineChapter({
   ],
   prerequisites: [{ category: 'backend-basic', chapter: 'nodejs-express-basic' }],
   stackVersions: ['Express 5', 'Prisma 6', 'BullMQ 5', 'Vitest 4'],
-  reviewedAt: '2026-08-02',
+  reviewedAt: '2026-08-05',
   lessons: lessonsExpressLanjutan,
   quiz: [
     q(
@@ -150,7 +150,7 @@ const laravelLanjut = defineChapter({
   ],
   prerequisites: [{ category: 'backend-basic', chapter: 'php-laravel-basic' }],
   stackVersions: ['Laravel 12', 'PHP 8.3+', 'Pest 3'],
-  reviewedAt: '2026-08-02',
+  reviewedAt: '2026-08-05',
   lessons: lessonsLaravelLanjutan,
   quiz: [
     q(
@@ -205,7 +205,7 @@ const menyambung = defineChapter({
     { category: 'frontend-intermediate', chapter: 'state-management' },
   ],
   stackVersions: ['Next.js 16.2', 'OpenAPI 3.1'],
-  reviewedAt: '2026-08-02',
+  reviewedAt: '2026-08-05',
   lessons: lessonsIntegrasi,
   quiz: [
     q(
@@ -258,7 +258,7 @@ const keamanan = defineChapter({
   ],
   prerequisites: [{ category: 'backend-basic', chapter: 'auth-dasar' }],
   stackVersions: ['OWASP Top 10 (2021)', 'OWASP ASVS 5'],
-  reviewedAt: '2026-08-02',
+  reviewedAt: '2026-08-05',
   lessons: lessonsKeamanan,
   quiz: [
     q(

@@ -7,8 +7,10 @@ import {
   h2,
   ol,
   p,
+  references,
   steps,
   table,
+  terms,
   ul,
 } from '@/lib/content/builders';
 import { type LessonDraft, written } from '@/lib/curriculum/authoring';
@@ -30,6 +32,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Laravel tidak menyediakan folder `Services` maupun `Repositories`. Keduanya kamu buat sendiri saat memang dibutuhkan — dan sebagian besar aplikasi Laravel tidak membutuhkan keduanya sekaligus.',
+      ),
+
+      terms(
+        {
+          term: 'folder yang tidak disediakan Laravel',
+          meaning:
+            'Laravel **tidak** menyediakan `Services` maupun `Repositories`. Keduanya kamu buat sendiri saat memang dibutuhkan — dan sebagian besar aplikasi Laravel tidak membutuhkan keduanya sekaligus.',
+        },
+        {
+          term: 'service layer',
+          meaning:
+            'Tempat aturan bisnis yang **melibatkan beberapa langkah** — membuat slug, menyinkronkan tag, mengirim notifikasi, memeriksa kuota. Ia berbayar begitu logika yang sama dipanggil dari controller **dan** perintah artisan.',
+        },
+        {
+          term: 'kapan service belum perlu',
+          meaning:
+            'Kalau ia hanya **meneruskan** satu pemanggilan tanpa menambah aturan apa pun. `$layanan->buat()` yang isinya cuma `Artikel::create()` menambah satu berkas dan nol perlindungan.',
+        },
+        {
+          term: 'repository di Laravel',
+          meaning:
+            'Lapisan abstraksi di atas Eloquent. **Sering tidak diperlukan**: Eloquent sendiri sudah lapisan abstraksi atas SQL, jadi membungkusnya lagi berarti dua lapisan untuk satu tanggung jawab.',
+        },
+        {
+          term: 'kapan repository berbayar',
+          meaning:
+            'Tiga situasi sah: query rumit yang sama dipakai di banyak tempat, data yang datang dari **luar database** (API partner), atau kebutuhan menukar sumber datanya tanpa menyentuh aturan bisnis.',
+        },
+        {
+          term: 'injeksi lewat metode',
+          meaning:
+            'Laravel bisa menyuntikkan ketergantungan langsung ke **parameter metode controller** — `store(Request $r, LayananArtikel $layanan)`. Untuk ketergantungan yang hanya dipakai satu metode, ini lebih ringkas daripada konstruktor.',
+        },
+        {
+          term: 'controller tipis',
+          meaning:
+            'Prinsip yang sama seperti di Express. Controller **mengoordinasi**, tidak menghitung. Begitu ia memuat aturan bisnis, aturan itu jadi tidak bisa dipakai dari perintah artisan, job terjadwal, maupun tes.',
+        },
+        {
+          term: 'uji penghapusan',
+          meaning:
+            'Cara memutuskan apakah sebuah lapisan layak ada: kalau dihapus, apakah kerumitannya **hilang** atau justru **pindah** ke pemanggilnya? Lapisan yang layak ada adalah yang menyerap kerumitan, bukan meneruskannya.',
+        },
+        {
+          term: 'DI Laravel vs Express',
+          meaning:
+            'Laravel punya **service container** yang menyelesaikan ketergantungan dari tipe di konstruktor. Express tidak — di sana kamu merakitnya sendiri di composition root. Hasilnya sama; yang berbeda siapa yang mengerjakan perakitannya.',
+        },
       ),
 
       h2('Kapan service layer berbayar'),
@@ -186,6 +236,32 @@ export const lessons: LessonDraft[] = [
       p(
         'Untuk Laravel, action class sering pilihan yang lebih baik daripada service besar: ia tidak tumbuh menjadi kelas berisi dua puluh method yang tidak berhubungan.',
       ),
+      references(
+        {
+          label: 'Laravel — Service Container',
+          href: 'https://laravel.com/docs/12.x/container',
+          source: 'Laravel',
+          note: 'Injeksi lewat konstruktor maupun parameter metode controller.',
+        },
+        {
+          label: 'Laravel — Controllers',
+          href: 'https://laravel.com/docs/12.x/controllers',
+          source: 'Laravel',
+          note: 'Termasuk single action controller lewat `__invoke`.',
+        },
+        {
+          label: 'Eloquent — Query Scopes',
+          href: 'https://laravel.com/docs/12.x/eloquent#query-scopes',
+          source: 'Laravel',
+          note: 'Alternatif ringan repository: memberi nama pada query berulang tanpa lapisan baru.',
+        },
+        {
+          label: 'Laravel — Artisan Console',
+          href: 'https://laravel.com/docs/12.x/artisan',
+          source: 'Laravel',
+          note: 'Pemanggil kedua yang membuat service benar-benar berbayar.',
+        },
+      ),
     ],
   ),
 
@@ -195,6 +271,54 @@ export const lessons: LessonDraft[] = [
     12,
     'Memindahkan aturan berulang ke tempat yang tidak bisa dilupakan.',
     [
+      terms(
+        {
+          term: 'cast',
+          meaning:
+            'Pemetaan tipe kolom database ke tipe PHP, dideklarasikan sekali di model. Nilainya bukan kenyamanan melainkan **konsistensi**: tanpa cast, `diarsipkan` dari MySQL datang sebagai `0`/`1`, dan perbandingan `=== true` gagal diam-diam di satu tempat tapi tidak di tempat lain.',
+        },
+        {
+          term: "cast 'hashed'",
+          meaning:
+            'Meng-hash nilai **otomatis** saat diisi. Ia menutup satu kelas bug yang berbahaya: password yang tersimpan apa adanya karena satu jalur penulisan lupa memanggil `Hash::make()`.',
+        },
+        {
+          term: "cast 'encrypted'",
+          meaning:
+            'Mengenkripsi kolom di database memakai `APP_KEY`. Berbeda dari hash: ia **bisa dibaca kembali** — untuk data yang perlu ditampilkan lagi seperti nomor identitas, bukan untuk password.',
+        },
+        {
+          term: 'cast ke enum',
+          meaning:
+            'Mengubah kolom string menjadi enum PHP. Efeknya besar: nilai yang tidak sah jadi **tidak bisa dinyatakan**, dan `match` atasnya diperiksa kelengkapannya oleh analisis statis.',
+        },
+        {
+          term: 'query scope',
+          meaning:
+            'Metode `scopeNama()` di model yang membungkus potongan query. Ia memberi **nama** pada aturan berulang — `Artikel::milik($user)->terbit()` terbaca sebagai kalimat, dan aturannya hidup di satu tempat.',
+        },
+        {
+          term: 'scope pemilik',
+          meaning:
+            'Scope yang paling berharga dari sisi keamanan: `scopeMilik()`. Ia membuat pembatasan kepemilikan **sulit dilupakan** — jauh lebih sulit daripada mengingat menulis `where` yang sama di setiap query.',
+        },
+        {
+          term: 'global scope',
+          meaning:
+            'Scope yang berlaku **otomatis** untuk setiap query model itu — misalnya menyaring baris yang di-soft-delete. Kuat, tapi juga berbahaya: query yang perilakunya berbeda dari yang tertulis membuat penelusuran jadi membingungkan.',
+        },
+        {
+          term: 'accessor',
+          meaning:
+            'Properti turunan yang **dihitung saat dibaca** — `$artikel->ringkasan` dari kolom `isi`. Ia menempatkan perhitungan di dekat datanya, sehingga tidak diulang di setiap tempat yang menampilkannya.',
+        },
+        {
+          term: 'mutator',
+          meaning:
+            'Kebalikan accessor: mengubah nilai **sebelum disimpan** — misalnya menormalkan email jadi huruf kecil. Ia menutup kelas bug "dua akun dengan email yang sama tapi beda kapitalisasi".',
+        },
+      ),
+
       h2('Casts'),
       code(
         'php',
@@ -336,6 +460,32 @@ export const lessons: LessonDraft[] = [
       p(
         '`$hidden` adalah jaring pengaman, bukan rencana utama. Kolom baru yang ditambahkan bulan depan tidak akan otomatis masuk ke daftar itu — sementara API Resource memaksamu menyebut setiap field secara sadar.',
       ),
+      references(
+        {
+          label: 'Eloquent — Mutators & Casting',
+          href: 'https://laravel.com/docs/12.x/eloquent-mutators',
+          source: 'Laravel',
+          note: 'Seluruh tipe cast, termasuk `hashed`, `encrypted`, dan cast ke enum.',
+        },
+        {
+          label: 'Eloquent — Query Scopes',
+          href: 'https://laravel.com/docs/12.x/eloquent#query-scopes',
+          source: 'Laravel',
+          note: 'Scope lokal dan global, beserta cara global scope bisa dilewati.',
+        },
+        {
+          label: 'Query Builder — Logical Grouping',
+          href: 'https://laravel.com/docs/12.x/queries#logical-grouping',
+          source: 'Laravel',
+          note: 'Kenapa `orWhere` tanpa closure membatalkan syarat sebelumnya.',
+        },
+        {
+          label: 'Eloquent — Serialization & $hidden',
+          href: 'https://laravel.com/docs/12.x/eloquent-serialization',
+          source: 'Laravel',
+          note: 'Batas `$hidden` sebagai blocklist, dan alasan API Resource lebih tepat.',
+        },
+      ),
     ],
   ),
 
@@ -347,6 +497,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'N+1 sudah diperkenalkan di Backend Basic 4.9. Sub-bab ini tentang **menemukannya secara otomatis** dan menangani kasus-kasus yang lebih rumit.',
+      ),
+
+      terms(
+        {
+          term: 'preventLazyLoading',
+          meaning:
+            'Setelan yang membuat Laravel **melempar error** setiap kali relasi diakses tanpa di-eager-load. Dinyalakan hanya di luar produksi, ia mengubah N+1 dari masalah tak terlihat menjadi kegagalan yang langsung tertangkap.',
+        },
+        {
+          term: 'preventSilentlyDiscardingAttributes',
+          meaning:
+            'Melempar error kalau ada atribut yang diisi tapi **tidak ada di `$fillable`**. Tanpa itu, field yang salah ketik dibuang diam-diam — dan kamu baru sadar saat datanya ternyata tidak tersimpan.',
+        },
+        {
+          term: 'preventAccessingMissingAttributes',
+          meaning:
+            'Melempar error saat mengakses atribut yang **tidak ikut di-`select`**. Bug yang ditangkapnya halus: atribut yang tidak diambil mengembalikan `null`, dan `null` itu diperlakukan sebagai nilai yang sah di seluruh kode berikutnya.',
+        },
+        {
+          term: 'lazy loading',
+          meaning:
+            'Relasi diambil **saat pertama kali diakses**. Nyaman, dan justru itu masalahnya: di dalam perulangan ia berubah jadi N query tanpa ada yang terlihat salah di kode.',
+        },
+        {
+          term: 'eager loading bersyarat',
+          meaning:
+            "Bentuk `with(['komentar' => fn ($q) => $q->latest()->limit(3)])`. Ia menutup kasus yang sering memaksa orang kembali ke lazy loading: butuh relasi, tapi tidak semuanya.",
+        },
+        {
+          term: 'nested eager loading',
+          meaning:
+            "Memuat relasi dari relasi — `with('komentar.penulis')`. Tanpa notasi titik ini, memuat penulis tiap komentar berubah jadi N+1 di **lapisan kedua**, yang lebih sulit terlihat daripada yang pertama.",
+        },
+        {
+          term: 'lazy eager loading',
+          meaning:
+            "Memuat relasi **setelah** koleksinya sudah diambil — `$artikel->load('penulis')`. Berguna saat kebutuhannya baru diketahui belakangan, misalnya bergantung pada peran pemanggil.",
+        },
+        {
+          term: 'withCount',
+          meaning:
+            'Mengambil **jumlah** relasi tanpa memuat isinya. Ia menutup N+1 yang sering luput: menghitung komentar per artikel dengan `$artikel->komentar->count()` memuat seluruh komentarnya hanya untuk menghitung.',
+        },
+        {
+          term: 'menghitung query di tes',
+          meaning:
+            'Satu-satunya cara N+1 tidak kembali. Ia tidak menimbulkan error dan tidak terlihat saat membaca kode — tes yang **menghitung query** membuatnya gagal saat ditambahkan, bukan saat sudah mahal.',
+        },
       ),
 
       h2('Deteksi otomatis'),
@@ -490,6 +688,32 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      references(
+        {
+          label: 'Eloquent — Eager Loading',
+          href: 'https://laravel.com/docs/12.x/eloquent-relationships#eager-loading',
+          source: 'Laravel',
+          note: 'Bentuk bersarang, bersyarat, dan lazy eager loading.',
+        },
+        {
+          label: 'Preventing Lazy Loading',
+          href: 'https://laravel.com/docs/12.x/eloquent-relationships#preventing-lazy-loading',
+          source: 'Laravel',
+          note: 'Tiga setelan yang mengubah bug diam menjadi error saat pengembangan.',
+        },
+        {
+          label: 'Eloquent — Chunking results',
+          href: 'https://laravel.com/docs/12.x/eloquent#chunking-results',
+          source: 'Laravel',
+          note: 'Beda `chunk` dan `chunkById`, dan kenapa yang kedua aman terhadap perubahan data.',
+        },
+        {
+          label: 'API Resources — Conditional Relationships',
+          href: 'https://laravel.com/docs/12.x/eloquent-resources#conditional-relationships',
+          source: 'Laravel',
+          note: '`whenLoaded` dan `whenCounted` yang mencegah N+1 lahir di lapisan respons.',
+        },
+      ),
     ],
   ),
 
@@ -501,6 +725,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Sanctum menyediakan dua mekanisme yang sangat berbeda dalam satu paket. Memilih yang salah menghasilkan kombinasi yang tidak aman — atau yang tidak bekerja sama sekali.',
+      ),
+
+      terms(
+        {
+          term: 'Sanctum',
+          meaning:
+            'Paket autentikasi resmi Laravel untuk API dan SPA. Ia menyediakan **dua mekanisme yang sangat berbeda** dalam satu paket — dan memilih yang salah menghasilkan kombinasi yang tidak aman, atau yang tidak bekerja sama sekali.',
+        },
+        {
+          term: 'mode token API',
+          meaning:
+            'Token dikirim di header `Authorization: Bearer`. Stateless, tanpa cookie, tanpa CSRF — cocok untuk aplikasi mobile, integrasi partner, dan klien server-to-server.',
+        },
+        {
+          term: 'mode SPA cookie',
+          meaning:
+            'Memakai **sesi Laravel biasa** lewat cookie, bukan token. Cocok untuk SPA di domain yang sama, dan keunggulannya besar: token tidak pernah tersentuh JavaScript, jadi XSS tidak bisa mencurinya.',
+        },
+        {
+          term: 'stateful domains',
+          meaning:
+            'Daftar domain yang diperlakukan sebagai SPA milikmu sendiri, dikonfigurasi di `SANCTUM_STATEFUL_DOMAINS`. Permintaan dari domain ini memakai sesi cookie; dari luar itu memakai token.',
+        },
+        {
+          term: 'csrf-cookie',
+          meaning:
+            'Endpoint `/sanctum/csrf-cookie` yang harus dipanggil SPA **sebelum** permintaan yang mengubah data. Ia menyetel cookie CSRF yang kemudian dikirim balik sebagai header — pola double-submit.',
+        },
+        {
+          term: 'ability',
+          meaning:
+            "Cakupan izin yang menempel pada sebuah token — `['artikel:baca']`. Ia membuat token yang bocor **terbatas kerusakannya**: token untuk integrasi baca-saja tidak bisa dipakai menghapus apa pun.",
+        },
+        {
+          term: 'tokenCan',
+          meaning:
+            'Pemeriksaan ability di kode. Yang wajib diingat: ia **hanya berlaku pada mode token**. Pada mode SPA cookie, `tokenCan` selalu mengembalikan `true` — jadi otorisasi sungguhan tetap lewat Policy.',
+        },
+        {
+          term: 'pencabutan token',
+          meaning:
+            'Karena token Sanctum **disimpan di database**, mencabutnya seketika itu mungkin — berbeda dari JWT yang berdiri sendiri. Ini keunggulan yang sering jadi alasan memilih Sanctum daripada JWT.',
+        },
+        {
+          term: 'jangan campur dua mode',
+          meaning:
+            'Memakai cookie sesi **dan** token bearer di endpoint yang sama membuat model keamanannya kabur: mana yang berlaku, dan apakah CSRF perlu. Pilih satu per kelompok endpoint, dan nyatakan pilihannya di `routes/`.',
+        },
       ),
 
       h2('Dua mode'),
@@ -659,6 +931,32 @@ export const lessons: LessonDraft[] = [
         'Token tanpa `expiresAt` berlaku selamanya',
         'Sanctum tidak memberi masa berlaku secara default. Token yang bocor dari log, dari perangkat yang hilang, atau dari repositori yang salah commit akan tetap sah bertahun-tahun. Selalu tetapkan `expiresAt`, dan jadwalkan pembersihannya.',
       ),
+      references(
+        {
+          label: 'Laravel Sanctum',
+          href: 'https://laravel.com/docs/12.x/sanctum',
+          source: 'Laravel',
+          note: 'Dua mode, konfigurasi stateful domains, dan alur `csrf-cookie` untuk SPA.',
+        },
+        {
+          label: 'Sanctum — Token Abilities',
+          href: 'https://laravel.com/docs/12.x/sanctum#token-abilities',
+          source: 'Laravel',
+          note: 'Termasuk penegasan bahwa `tokenCan` selalu `true` pada mode SPA cookie.',
+        },
+        {
+          label: 'Authentication Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Pesan gagal seragam dan rate limit yang dipakai contoh login di atas.',
+        },
+        {
+          label: 'Session Management Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Daftar peristiwa yang wajib mencabut token — termasuk ganti password.',
+        },
+      ),
     ],
   ),
 
@@ -668,6 +966,54 @@ export const lessons: LessonDraft[] = [
     12,
     'Menaruh aturan "boleh apa" di satu tempat yang tidak bisa dilewati.',
     [
+      terms(
+        {
+          term: 'Policy',
+          meaning:
+            'Kelas berisi aturan otorisasi untuk **satu model** — siapa boleh melihat, mengubah, menghapus. Ia memindahkan pertanyaan "boleh atau tidak" ke satu tempat, alih-alih tersebar sebagai `if` di setiap controller.',
+        },
+        {
+          term: 'Gate',
+          meaning:
+            'Aturan otorisasi yang **tidak terikat model** — "boleh mengakses panel admin", "boleh melihat laporan keuangan". Untuk aturan yang menyentuh objek tertentu, Policy lebih tepat.',
+        },
+        {
+          term: 'before()',
+          meaning:
+            'Metode yang dijalankan **sebelum** metode Policy lain. `true` meloloskan semua, `null` melanjutkan ke pemeriksaan biasa. **Jangan kembalikan `false`** — itu menolak setiap pemeriksaan, termasuk yang seharusnya lolos.',
+        },
+        {
+          term: 'Response::deny',
+          meaning:
+            'Alternatif mengembalikan `false` yang membawa **pesan dan status code sendiri**. Berguna saat alasan penolakannya perlu dibedakan — misalnya `404` untuk data yang keberadaannya tidak boleh diketahui.',
+        },
+        {
+          term: 'authorize()',
+          meaning:
+            'Pemanggilan di controller yang menjalankan Policy dan melempar `403` kalau ditolak. Wajib ada di **setiap** aksi yang menyentuh objek milik pengguna — dan itulah yang sering terlewat pada endpoint baru.',
+        },
+        {
+          term: 'authorizeResource',
+          meaning:
+            'Memasang pemeriksaan Policy untuk **seluruh** metode resource controller sekaligus, di konstruktor. Ia mengubah "ingat memanggil `authorize`" menjadi "otorisasi terpasang secara default".',
+        },
+        {
+          term: 'can pada middleware rute',
+          meaning:
+            "Bentuk `->middleware('can:update,artikel')` yang menjalankan Policy **sebelum** controller. Kelebihannya: penjagaan terlihat di daftar rute, jadi audit lewat `route:list` bisa menemukannya.",
+        },
+        {
+          term: 'Policy tidak berlaku untuk daftar',
+          meaning:
+            'Batas yang paling sering luput. Policy memeriksa **satu objek**; untuk `index` tidak ada objek yang diperiksa. Daftar wajib di-scope lewat query — dan itu pemeriksaan yang sama sekali terpisah.',
+        },
+        {
+          term: 'pertahanan berlapis',
+          meaning:
+            'Otorisasi ada di Policy **dan** di scope query. Bukan pengulangan sia-sia: kalau satu terlewat pada endpoint baru, yang lain masih menahan — dan endpoint baru itulah yang biasanya bocor.',
+        },
+      ),
+
       h2('Policy — otorisasi per objek'),
       code(
         'php',
@@ -832,6 +1178,32 @@ export const lessons: LessonDraft[] = [
         'Lonjakan penolakan adalah sinyal serangan',
         'Satu penolakan itu wajar. Lima puluh dari satu akun dalam semenit adalah seseorang yang sedang memetakan apa yang bisa ia sentuh. Ini termasuk kegagalan nomor sembilan OWASP — log tanpa alert bukan deteksi.',
       ),
+      references(
+        {
+          label: 'Laravel — Authorization',
+          href: 'https://laravel.com/docs/12.x/authorization',
+          source: 'Laravel',
+          note: 'Gate, Policy, `before()`, dan `Response::deny` beserta perilakunya.',
+        },
+        {
+          label: 'Authorizing Actions Using Policies',
+          href: 'https://laravel.com/docs/12.x/authorization#authorizing-actions-using-policies',
+          source: 'Laravel',
+          note: '`authorize`, `authorizeResource`, dan middleware `can` pada rute.',
+        },
+        {
+          label: 'Authorization Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Kenapa periksa izin lebih tepat daripada periksa peran, dan default deny.',
+        },
+        {
+          label: 'OWASP Top 10 — Broken Access Control',
+          href: 'https://owasp.org/Top10/A01_2021-Broken_Access_Control/',
+          source: 'OWASP',
+          note: 'Endpoint daftar tanpa scope adalah bentuk paling umum kategori ini di Laravel.',
+        },
+      ),
     ],
   ),
 
@@ -841,6 +1213,54 @@ export const lessons: LessonDraft[] = [
     12,
     'Pekerjaan latar di Laravel, beserta pemantauannya.',
     [
+      terms(
+        {
+          term: 'job',
+          meaning:
+            'Kelas yang membungkus satu pekerjaan latar. Ia diserialisasi ke antrean lalu dijalankan proses **worker** terpisah — jadi apa pun yang ia bawa harus bisa diserialisasi, dan itu punya konsekuensi.',
+        },
+        {
+          term: 'SerializesModels',
+          meaning:
+            'Trait yang membuat job menyimpan **id model**, bukan seluruh objeknya, lalu mengambilnya lagi saat dijalankan. Efek sampingnya penting: kalau baris itu **dihapus** sebelum job jalan, job akan gagal — dan itu perilaku yang benar.',
+        },
+        {
+          term: 'queue connection vs queue name',
+          meaning:
+            '**Connection** adalah backend-nya (Redis, database, SQS). **Queue name** adalah jalur di dalamnya (`default`, `email`, `laporan`). Memisahkan jalur membuat job lambat tidak menghambat job cepat.',
+        },
+        {
+          term: 'tries & backoff',
+          meaning:
+            'Berapa kali job dicoba, dan jeda antar percobaan. `$backoff = [10, 60, 300]` memberi jeda berbeda per percobaan — memberi layanan yang bermasalah waktu untuk pulih sebelum dicoba lagi.',
+        },
+        {
+          term: 'failed()',
+          meaning:
+            'Metode yang dipanggil setelah job **habis percobaannya**. Di sinilah kegagalan dicatat, pengguna diberi tahu, atau keadaan dikembalikan. Job tanpa `failed()` gagal diam-diam.',
+        },
+        {
+          term: 'failed_jobs',
+          meaning:
+            'Tabel tempat job yang gagal permanen disimpan. Ia hanya berguna kalau **ada yang membukanya** — antrean gagal yang tidak pernah dilihat sama saja dengan membuang pekerjaannya.',
+        },
+        {
+          term: 'WithoutOverlapping',
+          meaning:
+            'Middleware job yang mencegah dua job dengan kunci sama berjalan bersamaan. Ia menutup kelas bug balapan pada job — misalnya dua sinkronisasi untuk akun yang sama yang saling menimpa.',
+        },
+        {
+          term: 'Horizon',
+          meaning:
+            'Dasbor pemantauan antrean Laravel untuk Redis. Ia menampilkan throughput, job gagal, dan waktu tunggu — dan **wajib dilindungi autentikasi**, karena ia menampilkan payload job.',
+        },
+        {
+          term: 'dispatchAfterResponse',
+          meaning:
+            'Menjalankan pekerjaan **setelah respons dikirim**, di proses yang sama. Cocok untuk hal ringan yang tidak perlu antrean penuh — tapi ia hilang kalau proses mati, jadi bukan untuk pekerjaan yang penting.',
+        },
+      ),
+
       h2('Membuat job'),
       code(
         'php',
@@ -1030,6 +1450,32 @@ export const lessons: LessonDraft[] = [
       p(
         'Tabel job gagal hanya berguna kalau ada yang membukanya. Pasang alert saat jumlahnya melonjak — job yang gagal diam-diam adalah pekerjaan yang hilang tanpa ada yang tahu.',
       ),
+      references(
+        {
+          label: 'Laravel — Queues',
+          href: 'https://laravel.com/docs/12.x/queues',
+          source: 'Laravel',
+          note: 'Job, connection, `tries`, `backoff`, dan `failed()` beserta perilakunya.',
+        },
+        {
+          label: 'Queues — Job Middleware',
+          href: 'https://laravel.com/docs/12.x/queues#job-middleware',
+          source: 'Laravel',
+          note: '`WithoutOverlapping` dan middleware job lain yang mencegah balapan.',
+        },
+        {
+          label: 'Queues — Job Batching & Chaining',
+          href: 'https://laravel.com/docs/12.x/queues#job-batching',
+          source: 'Laravel',
+          note: 'Beda `Bus::chain` yang berurutan dari `Bus::batch` yang paralel.',
+        },
+        {
+          label: 'Laravel Horizon',
+          href: 'https://laravel.com/docs/12.x/horizon',
+          source: 'Laravel',
+          note: 'Pemantauan antrean, termasuk gate yang melindungi dasbornya.',
+        },
+      ),
     ],
   ),
 
@@ -1041,6 +1487,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Event membuat kode yang menerbitkan artikel tidak perlu tahu bahwa ada email yang harus dikirim. Itu keuntungannya. Harganya: alur programnya menjadi **tidak terlihat** dari kode yang memicunya.',
+      ),
+
+      terms(
+        {
+          term: 'event',
+          meaning:
+            'Objek yang menyatakan **sesuatu telah terjadi** — `ArtikelDiterbitkan`. Kode yang menerbitkan tidak perlu tahu ada email yang harus dikirim. Itu keuntungannya; harganya dibahas di bawah.',
+        },
+        {
+          term: 'listener',
+          meaning:
+            'Kelas yang **bereaksi** terhadap sebuah event. Sejak Laravel 11, ia ditemukan otomatis dari tipe parameter `handle()` — jadi tidak ada pendaftaran manual yang bisa terlupa.',
+        },
+        {
+          term: 'ShouldQueue',
+          meaning:
+            'Antarmuka yang membuat listener berjalan **di antrean**, bukan di jalur permintaan. Tanpa itu, pengiriman notifikasi ke seribu pengikut terjadi sebelum respons dikirim — dan pengguna menunggu selama itu.',
+        },
+        {
+          term: 'alur yang tidak terlihat',
+          meaning:
+            'Harga yang dibayar event. Membaca kode yang memanggil `event(...)` **tidak memberi tahu** apa yang akan terjadi berikutnya — kamu harus mencari listener-nya. Ini beban nyata saat menelusuri masalah.',
+        },
+        {
+          term: 'observer',
+          meaning:
+            'Kelas yang bereaksi terhadap **peristiwa siklus hidup model** — `creating`, `updated`, `deleted`. Ia tempat yang tepat untuk hal yang **selalu** harus terjadi: membuat slug, membersihkan cache.',
+        },
+        {
+          term: 'creating vs created',
+          meaning:
+            'Bentuk **-ing** berjalan **sebelum** disimpan dan bisa mengubah datanya. Bentuk **-ed** berjalan **sesudah**, dan perubahan di sana tidak ikut tersimpan. Salah memilih menghasilkan data yang tidak berubah tanpa error.',
+        },
+        {
+          term: 'observer tidak berjalan pada query massal',
+          meaning:
+            'Jebakan yang penting. `Artikel::where(...)->delete()` dan `updateMany` **melewati** observer sepenuhnya — karena tidak ada instance model yang dibuat. Kalau observer memuat aturan yang menentukan, aturan itu terlewat diam-diam.',
+        },
+        {
+          term: 'kapan pakai event',
+          meaning:
+            'Saat efek sampingnya **opsional dan bisa bertambah** — notifikasi, analitik, pencatatan. Untuk langkah yang **wajib** bagi kebenaran operasi, panggil langsung: alur yang jelas lebih berharga daripada pemisahan.',
+        },
+        {
+          term: 'event di dalam transaksi',
+          meaning:
+            'Listener bisa berjalan **sebelum transaksinya di-commit** — jadi ia melihat data yang belum tentu tersimpan. Laravel menyediakan `afterCommit` untuk itu, dan job yang mengambil ulang dari database wajib memakainya.',
+        },
       ),
 
       h2('Event & listener'),
@@ -1186,6 +1680,32 @@ export const lessons: LessonDraft[] = [
         'Terlalu banyak event membuat alur mustahil diikuti',
         'Rantai "event memicu listener yang memancarkan event lain" berakhir sebagai sistem yang tidak bisa dijelaskan siapa pun. Kalau kamu harus mencari di seluruh codebase untuk menjawab "apa yang terjadi setelah artikel diterbitkan", event sudah dipakai terlalu banyak.',
       ),
+      references(
+        {
+          label: 'Laravel — Events',
+          href: 'https://laravel.com/docs/12.x/events',
+          source: 'Laravel',
+          note: 'Event, listener, penemuan otomatis, dan `ShouldQueue`.',
+        },
+        {
+          label: 'Eloquent — Observers',
+          href: 'https://laravel.com/docs/12.x/eloquent#observers',
+          source: 'Laravel',
+          note: 'Termasuk penegasan bahwa observer dilewati pada operasi massal.',
+        },
+        {
+          label: 'Events — Queued Event Listeners after commit',
+          href: 'https://laravel.com/docs/12.x/events#queued-event-listeners-and-database-transactions',
+          source: 'Laravel',
+          note: 'Kenapa listener bisa berjalan sebelum transaksi di-commit, dan cara mencegahnya.',
+        },
+        {
+          label: 'Laravel — Event Fakes',
+          href: 'https://laravel.com/docs/12.x/mocking#event-fake',
+          source: 'Laravel',
+          note: '`Event::fake` dan `assertDispatched` yang dipakai contoh tes di atas.',
+        },
+      ),
     ],
   ),
 
@@ -1195,6 +1715,54 @@ export const lessons: LessonDraft[] = [
     9,
     'Pekerjaan berkala yang terdefinisi di kode, bukan di crontab server.',
     [
+      terms(
+        {
+          term: 'task scheduling',
+          meaning:
+            'Menetapkan pekerjaan berkala **di dalam kode**, bukan di crontab server. Bedanya menentukan: jadwal ikut di-review, ikut di-commit, dan ikut ter-deploy — bukan pengetahuan yang hanya ada di satu mesin.',
+        },
+        {
+          term: 'satu entri cron',
+          meaning:
+            'Seluruh jadwal Laravel dijalankan **satu** entri cron yang memanggil `schedule:run` tiap menit. Server tidak perlu tahu apa pun tentang isi jadwalnya — dan itulah yang membuatnya bisa berpindah mesin tanpa konfigurasi ulang.',
+        },
+        {
+          term: 'withoutOverlapping',
+          meaning:
+            'Mencegah jadwal yang sama berjalan bersamaan kalau eksekusi sebelumnya belum selesai. Tanpa itu, tugas yang mulai memakan waktu lebih lama dari intervalnya akan menumpuk sampai server kehabisan sumber daya.',
+        },
+        {
+          term: 'onOneServer',
+          meaning:
+            'Memastikan sebuah jadwal hanya berjalan di **satu** server saat aplikasi berjalan di beberapa mesin. Tanpa itu, laporan bulanan terkirim sebanyak jumlah servermu.',
+        },
+        {
+          term: 'runInBackground',
+          meaning:
+            'Menjalankan tugas tanpa menahan penjadwal. Diperlukan untuk tugas panjang — kalau tidak, tugas berikutnya di menit yang sama tertunda menunggu yang ini selesai.',
+        },
+        {
+          term: 'zona waktu jadwal',
+          meaning:
+            'Jadwal mengikuti zona waktu aplikasi kecuali disebut lain. Menetapkannya eksplisit penting untuk laporan yang harus jatuh pada jam lokal tertentu — dan menghindari kejutan saat server dipindah.',
+        },
+        {
+          term: 'jadwal harus idempoten',
+          meaning:
+            'Alasan yang sama dengan job antrean: eksekusi bisa tumpang tindih, terlambat, atau terulang setelah kegagalan. Tugas yang mengasumsikan "berjalan tepat sekali" akan salah cepat atau lambat.',
+        },
+        {
+          term: 'pemantauan jadwal',
+          meaning:
+            'Tugas terjadwal **gagal dalam diam** — tidak ada pengguna yang melapor. Pemantauannya harus aktif: `pingOnSuccess`/`pingOnFailure` ke layanan pemantau, atau alert saat tugas tidak muncul di jendela yang diharapkan.',
+        },
+        {
+          term: 'schedule:list',
+          meaning:
+            'Perintah yang menampilkan seluruh jadwal beserta waktu jalan berikutnya. Ia cara tercepat memverifikasi jadwal benar-benar terdaftar — dan menemukan yang ternyata tidak pernah berjalan.',
+        },
+      ),
+
       h2('Mendefinisikan'),
       code(
         'php',
@@ -1298,6 +1866,32 @@ export const lessons: LessonDraft[] = [
         'Tugas terjadwal yang berhenti berjalan tidak menimbulkan error apa pun',
         'Ia hanya... tidak terjadi. Cron mati, `schedule:run` dihapus dari server baru, atau kunci `withoutOverlapping` tersangkut — dan tidak ada yang tahu sampai seseorang menyadari laporan bulanan tidak pernah datang. Pemantauan berbasis heartbeat menutupnya: yang dipantau adalah **ketiadaan** sinyal.',
       ),
+      references(
+        {
+          label: 'Laravel — Task Scheduling',
+          href: 'https://laravel.com/docs/12.x/scheduling',
+          source: 'Laravel',
+          note: 'Seluruh frekuensi, `withoutOverlapping`, `onOneServer`, dan `runInBackground`.',
+        },
+        {
+          label: 'Scheduling — Running the Scheduler',
+          href: 'https://laravel.com/docs/12.x/scheduling#running-the-scheduler',
+          source: 'Laravel',
+          note: 'Satu entri cron yang menjalankan seluruh jadwal, beserta `schedule:work` untuk lokal.',
+        },
+        {
+          label: 'Scheduling — Task Hooks & pings',
+          href: 'https://laravel.com/docs/12.x/scheduling#task-hooks',
+          source: 'Laravel',
+          note: '`onFailure` dan `pingOnSuccess` untuk pemantauan berbasis heartbeat.',
+        },
+        {
+          label: 'Laravel — Cache',
+          href: 'https://laravel.com/docs/12.x/cache',
+          source: 'Laravel',
+          note: 'Cache bersama yang dibutuhkan `onOneServer` agar benar-benar bekerja.',
+        },
+      ),
     ],
   ),
 
@@ -1307,6 +1901,54 @@ export const lessons: LessonDraft[] = [
     12,
     'Membuat cepat dengan cara yang benar, bukan dengan menutupi.',
     [
+      terms(
+        {
+          term: 'ukur sebelum optimasi',
+          meaning:
+            'Urutan yang tidak boleh dibalik. Sebelum menambah cache, jalankan `EXPLAIN ANALYZE`. **Sangat sering** penyebabnya index yang hilang — dan menambah index menyelesaikannya permanen, tanpa satu sistem lagi untuk dipelihara.',
+        },
+        {
+          term: 'whenQueryingForLongerThan',
+          meaning:
+            'Kait Laravel yang mencatat query melebihi ambang waktu. Ia mengubah "aplikasinya terasa lambat" menjadi daftar query konkret beserta durasinya — dan itu selisih antara menebak dan mengetahui.',
+        },
+        {
+          term: 'toRawSql',
+          meaning:
+            'Menampilkan SQL yang **benar-benar dihasilkan** Eloquent, lengkap dengan nilainya. Ia yang mengingatkan bahwa ORM menyembunyikan query, bukan biayanya.',
+        },
+        {
+          term: 'cache::remember',
+          meaning:
+            'Pola cache-aside satu baris: ambil dari cache, kalau kosong jalankan closure lalu simpan hasilnya. TTL **wajib** disebut — `rememberForever` menumpuk entri sampai memori habis.',
+        },
+        {
+          term: 'cache tag',
+          meaning:
+            'Label yang memungkinkan penghapusan sekelompok entri sekaligus. Catatan penting: ia **hanya didukung** driver tertentu (Redis, Memcached) — pada driver file atau database, tag diam-diam tidak bekerja.',
+        },
+        {
+          term: 'versi di kunci cache',
+          meaning:
+            'Alternatif tag yang bekerja di driver mana pun: sertakan versi di kunci (`artikel:v2:...`) dan naikkan saat bentuk datanya berubah. **Jauh lebih andal** daripada berusaha menghapus entri satu per satu.',
+        },
+        {
+          term: 'jangan cache kueri milik pengguna tanpa id',
+          meaning:
+            'Kunci cache **wajib** memuat identitas kalau hasilnya berbeda per pengguna. Kunci `dasbor` tanpa id menyajikan dasbor Ana kepada Budi — dan tidak ada error apa pun yang memberitahumu.',
+        },
+        {
+          term: 'config:cache & route:cache',
+          meaning:
+            'Optimasi produksi yang menggabungkan konfigurasi dan rute jadi berkas tunggal. Jebakannya: setelah `config:cache`, `env()` di luar folder `config/` mengembalikan **`null`** — dan itu bekerja sempurna di lokal.',
+        },
+        {
+          term: 'cache bukan penutup query lambat',
+          meaning:
+            'Kalau query lambat karena kekurangan index, cache hanya **menyembunyikannya** — dan kelambatannya kembali setiap kali cache dingin, biasanya justru setelah deploy saat trafik sedang tinggi.',
+        },
+      ),
+
       h2('Menemukan yang lambat lebih dulu'),
       code(
         'php',
@@ -1442,6 +2084,32 @@ export const lessons: LessonDraft[] = [
       p(
         'Baris kedua dari bawah adalah kesalahan yang sangat sering: `->get()->count()` mengambil **seluruh baris** ke memori PHP hanya untuk menghitungnya.',
       ),
+      references(
+        {
+          label: 'Laravel — Cache',
+          href: 'https://laravel.com/docs/12.x/cache',
+          source: 'Laravel',
+          note: '`remember`, tag, dan driver mana yang mendukung apa.',
+        },
+        {
+          label: 'Laravel — Database: Query Builder performance',
+          href: 'https://laravel.com/docs/12.x/queries',
+          source: 'Laravel',
+          note: '`count()` di database versus memuat koleksi lalu menghitungnya.',
+        },
+        {
+          label: 'Configuration Caching',
+          href: 'https://laravel.com/docs/12.x/configuration#configuration-caching',
+          source: 'Laravel',
+          note: 'Peringatan resmi bahwa `env()` mengembalikan `null` setelah config di-cache.',
+        },
+        {
+          label: 'Using EXPLAIN',
+          href: 'https://www.postgresql.org/docs/17/using-explain.html',
+          source: 'PostgreSQL',
+          note: 'Langkah pertama sebelum menambah cache: cari tahu kenapa query-nya lambat.',
+        },
+      ),
     ],
   ),
 
@@ -1451,6 +2119,54 @@ export const lessons: LessonDraft[] = [
     10,
     'Mengirim pesan lewat beberapa saluran, tanpa membuat permintaan menunggu.',
     [
+      terms(
+        {
+          term: 'Notification',
+          meaning:
+            'Satu kelas yang bisa dikirim lewat **beberapa saluran** sekaligus — email, database, Slack, SMS. Isinya ditulis sekali; saluran mana yang dipakai diputuskan `via()` per penerima.',
+        },
+        {
+          term: 'via()',
+          meaning:
+            'Metode yang menentukan saluran per penerima. Di sinilah **preferensi pengguna** dihormati: saluran yang sudah ia matikan tidak boleh dipaksa, dan itu bukan fitur tambahan melainkan kewajiban.',
+        },
+        {
+          term: 'saluran database',
+          meaning:
+            'Menyimpan notifikasi ke tabel untuk ditampilkan di dalam aplikasi. Ia tidak butuh layanan luar, tidak bisa gagal terkirim, dan tidak punya biaya per pesan — sering saluran yang paling tepat untuk dipakai default.',
+        },
+        {
+          term: 'ShouldQueue pada notifikasi',
+          meaning:
+            'Membuat pengiriman berjalan **di antrean**. Tanpa itu, permintaan HTTP menunggu SMTP menjawab — dan pengguna menanggung latensi layanan email yang tidak bisa kamu kendalikan.',
+        },
+        {
+          term: 'Mailable',
+          meaning:
+            'Kelas khusus untuk satu jenis email, terpisah dari sistem notifikasi. Dipakai saat isinya kompleks atau perlu lampiran — untuk pesan sederhana lintas saluran, Notification lebih ringkas.',
+        },
+        {
+          term: 'Markdown mail',
+          meaning:
+            'Template email berbasis Markdown dengan komponen bawaan Laravel. Ia menghasilkan HTML yang sudah diuji di banyak klien email — masalah nyata, karena klien email jauh lebih terbatas daripada browser.',
+        },
+        {
+          term: 'simpan id, bukan model',
+          meaning:
+            'Notifikasi yang di-queue diserialisasi. Menyimpan **id** lalu mengambilnya di `toMail()` memastikan isinya **segar** saat dikirim — bukan salinan yang sudah basi sejak notifikasi dibuat.',
+        },
+        {
+          term: 'jangan kirim di dalam transaksi',
+          meaning:
+            'Email yang terkirim untuk sesuatu yang akhirnya di-rollback **tidak bisa ditarik kembali**. Kirim setelah commit — lewat `afterCommit`, atau dengan menaruh pengirimannya di antrean yang menunggu commit.',
+        },
+        {
+          term: 'jangan catat isi email',
+          meaning:
+            'Isi notifikasi sering memuat data pribadi — nama, alamat, nomor pesanan, tautan reset. Mencatatnya penuh "supaya gampang debug" memindahkan data itu ke sistem log yang diakses lebih banyak orang.',
+        },
+      ),
+
       h2('Notification'),
       code(
         'php',
@@ -1592,6 +2308,32 @@ export const lessons: LessonDraft[] = [
         // php artisan queue:work --queue=email --rest=1
         `,
       ),
+      references(
+        {
+          label: 'Laravel — Notifications',
+          href: 'https://laravel.com/docs/12.x/notifications',
+          source: 'Laravel',
+          note: 'Saluran, `via()`, dan pengiriman lewat antrean.',
+        },
+        {
+          label: 'Laravel — Mail',
+          href: 'https://laravel.com/docs/12.x/mail',
+          source: 'Laravel',
+          note: 'Mailable, template Markdown, dan driver `log` untuk pengembangan.',
+        },
+        {
+          label: 'URL Generation — Signed URLs',
+          href: 'https://laravel.com/docs/12.x/urls#signed-urls',
+          source: 'Laravel',
+          note: 'Tautan bertanda tangan berbatas waktu untuk verifikasi dan reset.',
+        },
+        {
+          label: 'Forgot Password Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Aturan isi email pemulihan: sekali pakai, umur pendek, tanpa data berlebih.',
+        },
+      ),
     ],
   ),
 
@@ -1601,6 +2343,54 @@ export const lessons: LessonDraft[] = [
     13,
     'Tes yang membuktikan hal yang tidak boleh terjadi.',
     [
+      terms(
+        {
+          term: 'Pest',
+          meaning:
+            "Test runner PHP di atas PHPUnit dengan sintaks fungsional — `it('...', function () {})`. Ia tetap PHPUnit di dalamnya, jadi seluruh assertion dan fitur Laravel tetap tersedia.",
+        },
+        {
+          term: 'RefreshDatabase',
+          meaning:
+            'Trait yang membungkus setiap tes dalam **transaksi** lalu me-rollback-nya. Ia yang membuat tes saling terisolasi tanpa membangun ulang skema di setiap tes — jauh lebih cepat daripada migrasi ulang.',
+        },
+        {
+          term: 'database tes terpisah',
+          meaning:
+            'Nilai `DB_DATABASE` di `phpunit.xml` **wajib** menunjuk database khusus tes. Salah menunjuk berarti `RefreshDatabase` menghapus data pengembangan — atau, kalau `.env`-nya keliru, data produksi.',
+        },
+        {
+          term: 'QUEUE_CONNECTION=sync',
+          meaning:
+            'Setelan tes yang menjalankan job **langsung**, bukan mengantrekannya. Tanpa itu, efek job tidak pernah terjadi selama tes — dan asersi tentang hasilnya selalu gagal tanpa alasan yang jelas.',
+        },
+        {
+          term: 'actingAs',
+          meaning:
+            'Menjalankan permintaan **sebagai** pengguna tertentu tanpa melewati alur login. Ia yang membuat uji otorisasi ringkas: dua pengguna, dua token, satu asersi.',
+        },
+        {
+          term: 'assertJsonCount',
+          meaning:
+            'Memeriksa **jumlah** elemen pada jalur JSON tertentu. Untuk uji kepemilikan, ia lebih tajam daripada `assertOk`: 3 artikel milik Ana harus tetap 3, meski ada 5 milik Budi di tabel yang sama.',
+        },
+        {
+          term: 'fake',
+          meaning:
+            'Pengganti sistem luar saat tes — `Notification::fake()`, `Event::fake()`, `Queue::fake()`, `Storage::fake()`. Ia mencegah tes benar-benar mengirim email atau menulis berkas, sambil tetap bisa **memeriksa** bahwa pemanggilannya terjadi.',
+        },
+        {
+          term: 'dataset',
+          meaning:
+            'Fitur Pest untuk menjalankan tes yang sama dengan **banyak masukan**. Ia yang membuat pengujian jalur gagal — input kosong, terlalu panjang, tipe salah — tidak menjadi belasan blok tes yang hampir identik.',
+        },
+        {
+          term: 'tes yang membuktikan larangan',
+          meaning:
+            'Judul sub-bab ini. Tes yang paling berharga bukan yang membuktikan fitur berjalan, melainkan yang membuktikan sesuatu yang **seharusnya tidak bisa** memang tidak bisa: pengguna lain ditolak, batas ditegakkan, dan field terlarang diabaikan.',
+        },
+      ),
+
       h2('Menyiapkan'),
       code(
         'bash',
@@ -1774,6 +2564,32 @@ export const lessons: LessonDraft[] = [
       p(
         'Cakupan mengukur baris yang **dijalankan**, bukan perilaku yang **diperiksa**. Tes yang memanggil endpoint dan hanya memastikan statusnya `200` menaikkan angka tanpa menangkap satu bug pun.',
       ),
+      references(
+        {
+          label: 'Pest — Writing Tests',
+          href: 'https://pestphp.com/docs/writing-tests',
+          source: 'Pest',
+          note: 'Sintaks `it`, ekspektasi, dan dataset yang dipakai contoh di atas.',
+        },
+        {
+          label: 'Pest — Datasets',
+          href: 'https://pestphp.com/docs/datasets',
+          source: 'Pest',
+          note: 'Menjalankan satu tes dengan banyak masukan, tanpa menyalin bloknya.',
+        },
+        {
+          label: 'Laravel — HTTP Tests',
+          href: 'https://laravel.com/docs/12.x/http-tests',
+          source: 'Laravel',
+          note: '`actingAs`, `getJson`, dan seluruh assertion respons.',
+        },
+        {
+          label: 'Laravel — Mocking & Fakes',
+          href: 'https://laravel.com/docs/12.x/mocking',
+          source: 'Laravel',
+          note: '`Mail::fake`, `Queue::fake`, `Http::fake`, dan `travelTo` untuk menguji waktu.',
+        },
+      ),
     ],
   ),
 
@@ -1783,6 +2599,54 @@ export const lessons: LessonDraft[] = [
     10,
     'Menyimpan berkas di luar server aplikasi.',
     [
+      terms(
+        {
+          term: 'disk',
+          meaning:
+            'Abstraksi penyimpanan Laravel — `local`, `s3`, `public`. Kode yang sama bekerja di semuanya, jadi berpindah dari disk lokal ke object storage tidak menyentuh logika aplikasi.',
+        },
+        {
+          term: 'S3-compatible',
+          meaning:
+            'Layanan yang memakai **protokol yang sama** dengan Amazon S3 — Cloudflare R2, MinIO, DigitalOcean Spaces. Satu driver melayani semuanya; yang berbeda hanya nilai `endpoint`.',
+        },
+        {
+          term: 'visibility: private',
+          meaning:
+            'Default yang **wajib** untuk unggahan pengguna. Bucket publik adalah salah satu penyebab kebocoran data paling umum — dokumen, foto identitas, dan berkas internal yang bisa diakses siapa pun yang menebak URL-nya.',
+        },
+        {
+          term: 'periksa di konsol penyedia',
+          meaning:
+            'Konfigurasi aplikasi **tidak cukup**. Kebijakan bucket ditetapkan di sisi penyedia, dan bucket yang dibuat publik di sana tetap publik meski aplikasimu menulis `private`. Verifikasi di kedua tempat.',
+        },
+        {
+          term: 'temporaryUrl',
+          meaning:
+            'URL bertanda tangan yang **kedaluwarsa**. Ia cara yang benar menyajikan berkas privat: klien mengunduh langsung dari storage tanpa melewati servermu, tapi hanya selama jendela waktu yang kamu tentukan.',
+        },
+        {
+          term: 'jangan pakai URL permanen',
+          meaning:
+            'URL yang tidak kedaluwarsa akan bocor cepat atau lambat — lewat riwayat browser, log, `Referer`, atau pesan yang diteruskan. Sekali bocor, ia berlaku selamanya.',
+        },
+        {
+          term: 'storage:link',
+          meaning:
+            'Perintah yang membuat symlink dari `public/storage` ke `storage/app/public`. Ia **hanya** untuk berkas yang memang publik — logo, aset. Unggahan pengguna tidak boleh berada di sana.',
+        },
+        {
+          term: 'presigned upload',
+          meaning:
+            'Klien mengunggah **langsung** ke storage memakai URL bertanda tangan; server hanya menerbitkan URL-nya. Ia menghindarkan server dari menangani byte-nya — dengan konsekuensi: verifikasi isi harus dilakukan **setelah** unggahan selesai.',
+        },
+        {
+          term: 'Storage::fake',
+          meaning:
+            'Disk tiruan untuk tes. Ia membuat pengujian unggahan bisa memeriksa "berkasnya tersimpan dengan nama yang benar" tanpa menyentuh S3 sungguhan maupun meninggalkan berkas di disk.',
+        },
+      ),
+
       h2('Disk'),
       code(
         'php',
@@ -1945,6 +2809,32 @@ export const lessons: LessonDraft[] = [
         'Bersihkan unggahan yang tidak pernah diselesaikan lewat job terjadwal.',
         'Terapkan kebijakan retensi untuk berkas ekspor yang memuat data pribadi.',
       ),
+      references(
+        {
+          label: 'Laravel — File Storage',
+          href: 'https://laravel.com/docs/12.x/filesystem',
+          source: 'Laravel',
+          note: 'Disk, driver S3-compatible, `temporaryUrl`, dan `Storage::fake`.',
+        },
+        {
+          label: 'Validation — file & mimes rules',
+          href: 'https://laravel.com/docs/12.x/validation#rule-mimes',
+          source: 'Laravel',
+          note: 'Aturan `mimes` yang memeriksa isi berkas, bukan hanya nama atau header klien.',
+        },
+        {
+          label: 'File Upload Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Nama dari server, penyimpanan privat, dan penyajian dengan `Content-Disposition`.',
+        },
+        {
+          label: 'X-Content-Type-Options',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Content-Type-Options',
+          source: 'MDN Web Docs',
+          note: 'Header yang mencegah browser menebak tipe berkas yang disajikan kembali.',
+        },
+      ),
     ],
   ),
 
@@ -1956,6 +2846,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Bangun API blog dengan **spesifikasi identik** dengan versi Express di Bab 2.14. Membangun hal yang sama dua kali adalah cara tercepat melihat mana keputusan yang milik masalahnya, dan mana yang hanya kebiasaan framework.',
+      ),
+
+      terms(
+        {
+          term: 'spesifikasi identik',
+          meaning:
+            'Metode belajar latihan ini. Cakupannya **sama persis** dengan versi Express di Bab 2.14 — membangun hal yang sama dua kali adalah cara tercepat melihat mana keputusan yang milik **masalahnya**, dan mana yang hanya kebiasaan framework.',
+        },
+        {
+          term: 'yang sama di kedua stack',
+          meaning:
+            'Prinsip yang tidak berubah: validasi di server, otorisasi per baris **dan** di query, batas paginasi dari server, bentuk respons yang dipilih sadar, pekerjaan lambat di antrean, dan tes yang membuktikan larangan.',
+        },
+        {
+          term: 'yang berbeda',
+          meaning:
+            'Cara framework menyediakannya. Laravel memberi Policy, Form Request, dan API Resource sebagai **konvensi**; Express meminta kamu merakit padanannya sendiri. Hasil akhirnya sama — yang berbeda siapa yang menentukan bentuknya.',
+        },
+        {
+          term: 'binding by slug',
+          meaning:
+            'Perhatikan `{artikel:slug}` pada rute publik. Ia memakai kolom slug, bukan id — alamat jadi stabil dan tidak membocorkan jumlah data, sesuai keputusan URL di Bab 1.1.',
+        },
+        {
+          term: '202 + job id',
+          meaning:
+            'Endpoint ekspor memakai pola operasi panjang dari Bab 1.9. Yang wajib diingat: status job **di-scope ke pemiliknya** — job id sering bisa ditebak, dan hasilnya berisi data lengkap.',
+        },
+        {
+          term: 'penjagaan pengembangan',
+          meaning:
+            'Tiga baris di `AppServiceProvider` — `preventLazyLoading`, `preventSilentlyDiscardingAttributes`, `preventAccessingMissingAttributes`. Langkah kedua latihan ini, dan yang membuat tiga kelas bug diam menjadi error sejak awal.',
+        },
+        {
+          term: 'uji rollback migrasi',
+          meaning:
+            'Bagian langkah pertama yang sering dilewati. Jalankan `migrate` lalu `migrate:rollback` di database lokal — `down()` yang tidak pernah dicoba biasanya rusak, dan kamu menemukannya saat sedang memulihkan produksi.',
+        },
+        {
+          term: 'bandingkan dua implementasi',
+          meaning:
+            'Langkah penutup yang menentukan nilai latihan ini. Sandingkan dengan versi Express-mu, lalu tulis daftar: apa yang sama, apa yang berbeda, dan **kenapa**. Itulah yang tersisa setelah detail frameworknya terlupa.',
+        },
       ),
 
       h2('Cakupan — sama persis'),
@@ -2110,6 +3043,33 @@ export const lessons: LessonDraft[] = [
         'Disk penyimpanan privat; nama berkas dibuat server',
         'Tes membuktikan pengguna lain ditolak dan datanya tidak berubah',
         'Tes menghitung query untuk mencegah N+1 kembali',
+      ),
+
+      references(
+        {
+          label: 'Laravel — Deployment',
+          href: 'https://laravel.com/docs/12.x/deployment',
+          source: 'Laravel',
+          note: 'Langkah yang harus benar sebelum aplikasi Laravel dijalankan di produksi.',
+        },
+        {
+          label: 'Laravel Sanctum',
+          href: 'https://laravel.com/docs/12.x/sanctum',
+          source: 'Laravel',
+          note: 'Autentikasi API pada latihan ini, termasuk `expiresAt` dan pencabutan.',
+        },
+        {
+          label: 'Pest — Writing Tests',
+          href: 'https://pestphp.com/docs/writing-tests',
+          source: 'Pest',
+          note: 'Test runner yang dipakai membuktikan seluruh butir checklist di atas.',
+        },
+        {
+          label: 'REST Security Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Checklist keamanan yang berlaku sama untuk versi Express maupun Laravel.',
+        },
       ),
     ],
   ),

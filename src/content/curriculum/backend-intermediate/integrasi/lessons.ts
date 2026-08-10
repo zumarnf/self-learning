@@ -7,8 +7,10 @@ import {
   h2,
   ol,
   p,
+  references,
   steps,
   table,
+  terms,
   ul,
 } from '@/lib/content/builders';
 import { type LessonDraft, written } from '@/lib/curriculum/authoring';
@@ -31,6 +33,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Frontend dan backend punya satu kontrak, tapi biasanya dua salinan tipenya — satu ditulis di server, satu ditulis ulang dengan tangan di klien. Dua salinan akan menyimpang, dan penyimpangannya baru ketahuan sebagai bug di produksi.',
+      ),
+
+      terms(
+        {
+          term: 'dua salinan tipe',
+          meaning:
+            'Masalah inti sub-bab ini. Frontend dan backend punya **satu kontrak** tapi biasanya **dua salinan** tipenya — satu di server, satu ditulis ulang dengan tangan di klien. Dua salinan akan menyimpang, dan penyimpangannya baru ketahuan sebagai bug di produksi.',
+        },
+        {
+          term: 'tipe yang dihasilkan',
+          meaning:
+            'Tipe frontend yang **diturunkan** dari spesifikasi backend, bukan ditulis ulang. Efeknya menentukan: backend mengganti field → frontend **gagal type-check**, bukan diam-diam tetap hijau lalu rusak saat dijalankan.',
+        },
+        {
+          term: 'openapi-typescript',
+          meaning:
+            'Alat yang membaca spesifikasi OpenAPI lalu menghasilkan berkas tipe TypeScript. Ia menjadikan kontrak yang tadinya dokumen menjadi sesuatu yang **diperiksa compiler**.',
+        },
+        {
+          term: "components['schemas']",
+          meaning:
+            "Jalur di dalam tipe hasil generate tempat setiap skema berada. Mengambilnya lewat alias (`type Artikel = components['schemas']['Artikel']`) membuat kode aplikasi tidak perlu tahu bentuk berkas hasil generate itu.",
+        },
+        {
+          term: 'regenerate di CI',
+          meaning:
+            'Menjalankan generate lalu memeriksa apakah hasilnya berubah. Kalau berubah dan tidak di-commit, **CI gagal** — dan itu yang mencegah tipe frontend diam-diam tertinggal dari backend.',
+        },
+        {
+          term: 'tipe bukan validasi',
+          meaning:
+            'Batas yang wajib dipegang. Tipe TypeScript **hilang saat runtime** — respons server yang bentuknya berbeda tetap masuk tanpa perlawanan. Untuk data dari jaringan, tetap butuh validasi runtime.',
+        },
+        {
+          term: 'validasi respons di klien',
+          meaning:
+            'Memeriksa respons dengan skema sebelum dipakai. Berguna terutama untuk API pihak ketiga: kalau bentuknya berubah, kamu tahu **di titik masuknya**, bukan lima lapisan kemudian saat sebuah field bernilai `undefined`.',
+        },
+        {
+          term: 'monorepo dengan paket bersama',
+          meaning:
+            'Alternatif generate: menaruh tipe di paket yang **diimpor kedua sisi**. Bekerja baik kalau frontend dan backend satu repo dan satu bahasa — dan tidak berlaku begitu backendnya PHP.',
+        },
+        {
+          term: 'kontrak lintas bahasa',
+          meaning:
+            'Alasan OpenAPI menang atas paket bersama di kurikulum ini. Backend Laravel tidak bisa berbagi tipe TypeScript — tapi **bisa** menerbitkan OpenAPI yang menghasilkan tipe untuk frontend mana pun.',
+        },
       ),
 
       h2('Masalahnya'),
@@ -188,6 +238,32 @@ export const lessons: LessonDraft[] = [
         'ID besar yang dikirim sebagai angka rusak diam-diam',
         '`JSON.parse(\'{"id":9007199254740993}\')` menghasilkan `9007199254740992` — tanpa error, tanpa peringatan. Kalau ID-mu bisa melewati 2^53 (`BIGINT` di Postgres bisa), kirim sebagai **string** sejak awal. Menggantinya setelah ada klien adalah perubahan yang memutus.',
       ),
+      references(
+        {
+          label: 'OpenAPI Specification 3.1',
+          href: 'https://spec.openapis.org/oas/latest.html',
+          source: 'OpenAPI Initiative',
+          note: 'Kontrak yang menjadi sumber tipe di kedua sisi, lintas bahasa.',
+        },
+        {
+          label: 'Zod — Basics',
+          href: 'https://zod.dev/basics',
+          source: 'Zod',
+          note: 'Validasi runtime untuk respons — lapisan yang tidak digantikan tipe TypeScript.',
+        },
+        {
+          label: 'Number.MAX_SAFE_INTEGER',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/MAX_SAFE_INTEGER',
+          source: 'MDN Web Docs',
+          note: 'Batas 2^53 yang membuat id besar rusak diam-diam saat di-parse.',
+        },
+        {
+          label: 'RFC 3339 — Date and Time on the Internet',
+          href: 'https://www.rfc-editor.org/rfc/rfc3339.html',
+          source: 'IETF',
+          note: 'Format tanggal yang disepakati kedua sisi, tidak ambigu di zona waktu mana pun.',
+        },
+      ),
     ],
   ),
 
@@ -199,6 +275,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'CORS adalah sumber frustrasi yang khas karena errornya muncul di browser sementara perbaikannya ada di server. Godaan terbesarnya adalah menyetel `*` supaya errornya berhenti — dan itu justru membuka apa yang seharusnya dijaga.',
+      ),
+
+      terms(
+        {
+          term: 'CORS',
+          meaning:
+            'Singkatan *Cross-Origin Resource Sharing*. Sumber frustrasi yang khas karena **errornya muncul di browser sementara perbaikannya ada di server**. Godaan terbesarnya: menyetel `*` supaya errornya berhenti — dan itu justru membuka apa yang seharusnya dijaga.',
+        },
+        {
+          term: 'origin',
+          meaning:
+            'Gabungan **skema + host + port**. `https://app.contoh.com` dan `https://api.contoh.com` adalah origin **berbeda**, begitu juga `http://` dan `https://` pada host yang sama. Perbedaan sekecil apa pun membuatnya lintas-origin.',
+        },
+        {
+          term: 'preflight',
+          meaning:
+            'Permintaan `OPTIONS` yang dikirim browser **sebelum** permintaan sebenarnya, untuk menanyakan apakah diizinkan. Ia dipicu oleh method selain `GET`/`POST` sederhana, atau oleh header khusus seperti `Authorization`.',
+        },
+        {
+          term: 'permintaan sederhana',
+          meaning:
+            'Permintaan yang **tidak** memicu preflight — `GET` tanpa header khusus. Konsekuensinya penting: browser **mengirimkannya**, lalu memblokir pembacaan hasilnya. Efek sampingnya bisa sudah terjadi — salah satu alasan `GET` tidak boleh mengubah apa pun.',
+        },
+        {
+          term: 'Access-Control-Allow-Origin',
+          meaning:
+            'Header jawaban yang menyebut origin mana yang diizinkan. Ia harus **sama persis** dengan origin pemanggil — bukan awalan, bukan wildcard domain. Satu karakter berbeda berarti ditolak.',
+        },
+        {
+          term: 'credentials: include',
+          meaning:
+            'Opsi `fetch` yang menyertakan cookie pada permintaan lintas-origin. Ia menuntut server menjawab `Access-Control-Allow-Credentials: true` **dan** `Allow-Origin` yang spesifik — kombinasi dengan `*` ditolak spesifikasi.',
+        },
+        {
+          term: 'Allow-Headers',
+          meaning:
+            'Daftar header yang boleh dikirim klien. Header kustom seperti `Idempotency-Key` **wajib** disebut di sini — kalau tidak, preflight-nya gagal dengan pesan "request header field is not allowed".',
+        },
+        {
+          term: 'CORS bukan kontrol akses',
+          meaning:
+            'Penegasan yang mengikat seluruh sub-bab. CORS adalah **kontrol browser** — ia tidak menghalangi `curl`, skrip, maupun aplikasi mobile. Otorisasi tetap sepenuhnya di server.',
+        },
+        {
+          term: 'maxAge preflight',
+          meaning:
+            'Berapa lama browser boleh menyimpan hasil preflight. Tanpa itu, setiap permintaan berpasangan dengan satu `OPTIONS` — dua kali perjalanan jaringan untuk setiap aksi.',
+        },
       ),
 
       h2('Yang sebenarnya terjadi'),
@@ -346,6 +470,32 @@ export const lessons: LessonDraft[] = [
           | grep -i "access-control-allow-origin"
         `,
       ),
+      references(
+        {
+          label: 'Cross-Origin Resource Sharing (CORS)',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS',
+          source: 'MDN Web Docs',
+          note: 'Alur preflight, permintaan sederhana, dan setiap header yang terlibat.',
+        },
+        {
+          label: 'Access-Control-Expose-Headers',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Access-Control-Expose-Headers',
+          source: 'MDN Web Docs',
+          note: 'Kenapa header kustom tidak terbaca JavaScript meski terlihat di DevTools.',
+        },
+        {
+          label: 'Fetch Standard — CORS protocol',
+          href: 'https://fetch.spec.whatwg.org/#http-cors-protocol',
+          source: 'WHATWG',
+          note: 'Spesifikasi yang menetapkan larangan `*` bersama kredensial.',
+        },
+        {
+          label: 'Next.js — Rewrites',
+          href: 'https://nextjs.org/docs/app/api-reference/config/next-config-js/rewrites',
+          source: 'Next.js',
+          note: 'Proxy yang menghilangkan lintas-origin sepenuhnya, beserta harganya.',
+        },
+      ),
     ],
   ),
 
@@ -357,6 +507,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Ini keputusan yang paling menentukan di seluruh bab. Cookie dan bearer token punya profil risiko yang berbeda secara mendasar, dan memilihnya berdasarkan kemudahan implementasi akan menghasilkan sistem yang rentan di sisi yang tidak kamu perhatikan.',
+      ),
+
+      terms(
+        {
+          term: 'keputusan yang menentukan',
+          meaning:
+            'Cookie dan bearer token punya **profil risiko yang berbeda secara mendasar**. Memilihnya berdasarkan kemudahan implementasi menghasilkan sistem yang rentan di sisi yang tidak kamu perhatikan.',
+        },
+        {
+          term: 'cookie HttpOnly',
+          meaning:
+            'Kebal XSS — JavaScript **tidak bisa membacanya sama sekali**, termasuk skrip penyerang. Harganya: rawan CSRF, karena browser mengirimnya otomatis. Perlindungan CSRF sudah disediakan framework, jadi harga itu murah.',
+        },
+        {
+          term: 'bearer token',
+          meaning:
+            'Kebal CSRF — browser **tidak** menyertakannya otomatis, jadi tidak ada yang bisa ditumpangi permintaan lintas situs. Harganya: kalau disimpan di `localStorage`, satu celah XSS mencurinya.',
+        },
+        {
+          term: 'SameSite=None',
+          meaning:
+            'Setelan yang membuat cookie ikut pada permintaan lintas situs — dibutuhkan untuk cookie lintas domain berbeda. Ia **wajib** dipasangkan `Secure`, dan sebagian browser membatasinya lebih jauh lagi.',
+        },
+        {
+          term: 'SESSION_DOMAIN',
+          meaning:
+            'Setelan yang membuat cookie berlaku untuk **seluruh subdomain** — `.contoh.com` mencakup `app.` dan `api.`. Ia yang membuat cookie tetap bisa dipakai tanpa `SameSite=None` selama keduanya satu domain induk.',
+        },
+        {
+          term: 'proxy sebagai jalan tengah',
+          meaning:
+            'Rewrite di Next.js membuat browser **hanya bicara dengan satu origin** — sehingga cookie tetap bisa dipakai meski API-nya di tempat lain. Sering lebih baik daripada memaksa `SameSite=None`.',
+        },
+        {
+          term: 'token di memori',
+          meaning:
+            'Menyimpan access token di **variabel JavaScript**, bukan `localStorage`. Ia hilang saat tab ditutup — dan itu justru yang membuatnya lebih aman: XSS tidak bisa membacanya dari penyimpanan yang persisten.',
+        },
+        {
+          term: 'kombinasi yang biasa dipakai',
+          meaning:
+            'Refresh token di cookie `HttpOnly` ber-`path` sempit, access token pendek di memori. Ia menggabungkan keunggulan keduanya: token panjang tidak bisa dicuri XSS, token pendek tidak rawan CSRF.',
+        },
+        {
+          term: 'jangan pilih berdasarkan kemudahan',
+          meaning:
+            'Kalimat penutup sub-bab ini. `localStorage` dipilih karena paling mudah — dan itu justru pilihan yang paling rawan XSS. Putuskan dari **profil ancaman** aplikasimu, bukan dari jumlah baris kodenya.',
+        },
       ),
 
       h2('Perbandingan'),
@@ -505,6 +703,32 @@ export const lessons: LessonDraft[] = [
         '**Menyimpan refresh token di JavaScript** — itu menghapus seluruh keuntungan `HttpOnly`.',
         '**Menyimpulkan izin dari isi token di klien** — klien boleh menampilkan UI berdasarkan itu, tapi server tetap harus memutuskan.',
       ),
+      references(
+        {
+          label: 'Set-Cookie — SameSite',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie',
+          source: 'MDN Web Docs',
+          note: 'Perilaku `Lax`, `Strict`, dan `None` pada permintaan lintas situs.',
+        },
+        {
+          label: 'Session Management Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Kenapa `HttpOnly` cookie lebih aman daripada `localStorage` untuk token.',
+        },
+        {
+          label: 'Cross-Site Request Forgery Prevention Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Harga yang dibayar cookie, dan kenapa API murni token tidak menanggungnya.',
+        },
+        {
+          label: 'Laravel Sanctum — SPA Authentication',
+          href: 'https://laravel.com/docs/12.x/sanctum#spa-authentication',
+          source: 'Laravel',
+          note: 'Contoh nyata mode cookie untuk SPA satu domain, beserta konfigurasinya.',
+        },
+      ),
     ],
   ),
 
@@ -516,6 +740,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Rantai error punya empat titik yang masing-masing bisa gagal: server menyusunnya, jaringan mengirimnya, klien menguraikannya, dan antarmuka menampilkannya. Satu yang lemah membuat pengguna melihat layar kosong.',
+      ),
+
+      terms(
+        {
+          term: 'rantai error',
+          meaning:
+            'Empat titik yang masing-masing bisa gagal: **server menyusunnya**, **jaringan mengirimnya**, **klien menguraikannya**, dan **antarmuka menampilkannya**. Satu yang lemah membuat pengguna melihat layar kosong meski tiga lainnya benar.',
+        },
+        {
+          term: 'kode error stabil',
+          meaning:
+            'String seperti `VALIDASI_GAGAL` yang dipakai klien untuk **bercabang**. Pesan boleh berubah dan diterjemahkan; kode tidak. Klien yang mencocokkan teks pesan akan rusak begitu pesannya diperhalus.',
+        },
+        {
+          term: 'kelas error di klien',
+          meaning:
+            'Turunan `Error` yang membawa `status`, `kode`, dan `field`. Ia mengubah error API dari objek acak menjadi sesuatu yang bisa **diperiksa tipenya** dan ditangani berbeda per jenis.',
+        },
+        {
+          term: 'error jaringan vs error API',
+          meaning:
+            'Dua hal yang berbeda dan sering disamakan. `fetch` **hanya melempar** untuk kegagalan jaringan; respons `500` tetap dianggap berhasil. Keduanya butuh penanganan terpisah — dan pesan yang berbeda ke pengguna.',
+        },
+        {
+          term: 'error boundary',
+          meaning:
+            'Batas React yang menangkap error saat render sehingga satu komponen gagal tidak menjatuhkan seluruh halaman. Ia lapisan terakhir — bukan pengganti penanganan error di tempat pemanggilannya.',
+        },
+        {
+          term: 'error per field',
+          meaning:
+            'Peta `{ "judul": "wajib diisi" }` yang memungkinkan antarmuka menampilkan pesan **di sebelah input** yang bersangkutan. Satu pesan umum di atas form memaksa pengguna menebak field mana yang salah.',
+        },
+        {
+          term: 'requestId ke pengguna',
+          meaning:
+            'Menampilkan id korelasi pada pesan error. Ia yang mengubah "tadi error" menjadi laporan yang bisa ditelusuri — dan itu murah dipasang dibanding waktu yang dihemat saat menyelidiki.',
+        },
+        {
+          term: 'pesan yang bisa ditindaklanjuti',
+          meaning:
+            'Pesan yang memberi tahu pengguna **apa yang harus dilakukan**, bukan apa yang terjadi di dalam sistem. "Jaringan bermasalah, coba lagi" berguna; "Error 500" tidak.',
+        },
+        {
+          term: 'jangan tampilkan pesan server mentah',
+          meaning:
+            'Pesan `5xx` dari server bisa memuat nama tabel, jalur berkas, atau potongan query. Tampilkan pesan generik milik klien, dan sertakan `requestId` — detail lengkapnya tetap di log server.',
+        },
       ),
 
       h2('Bentuk error yang konsisten'),
@@ -714,6 +986,33 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+
+      references(
+        {
+          label: 'Using the Fetch API — Checking that the fetch was successful',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch',
+          source: 'MDN Web Docs',
+          note: 'Menjelaskan kenapa `fetch` tidak melempar untuk respons `4xx`/`5xx` — sumber kebingungan paling umum di rantai error.',
+        },
+        {
+          label: 'Error — Custom error types',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error',
+          source: 'MDN Web Docs',
+          note: 'Cara membuat turunan `Error` sendiri, dasar dari kelas `KesalahanApi` di sub-bab ini.',
+        },
+        {
+          label: 'ARIA: alert role',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/alert_role',
+          source: 'MDN Web Docs',
+          note: 'Bagaimana pesan error diumumkan ke screen reader tanpa memindahkan fokus.',
+        },
+        {
+          label: 'RFC 9457 — Problem Details for HTTP APIs',
+          href: 'https://www.rfc-editor.org/rfc/rfc9457.html',
+          source: 'RFC Editor',
+          note: 'Format error HTTP baku bila ingin memakai standar alih-alih bentuk buatan sendiri.',
+        },
+      ),
     ],
   ),
 
@@ -725,6 +1024,64 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Frontend Intermediate membahas mekanikanya. Sub-bab ini tentang bagian yang membutuhkan **kedua sisi**: apa yang harus dikembalikan server, dan bagaimana klien menyelaraskan diri setelahnya.',
+      ),
+
+      terms(
+        {
+          term: 'optimistic update',
+          meaning:
+            'Mengubah tampilan **sebelum** server menjawab, dengan asumsi permintaannya akan berhasil. Ia menghapus jeda yang terasa; harganya adalah kewajiban mengembalikan keadaan bila ternyata gagal.',
+        },
+        {
+          term: 'mutasi (mutation)',
+          meaning:
+            'Permintaan yang **mengubah** data di server — `POST`, `PATCH`, `PUT`, `DELETE`. Lawannya query, yang hanya membaca. Pustaka data memisahkan keduanya karena aturan cache-nya berbeda.',
+        },
+        {
+          term: 'cache',
+          meaning:
+            'Salinan data server yang disimpan klien supaya tidak perlu meminta ulang setiap kali. Ia mempercepat, tapi menciptakan masalah baru: salinan itu bisa **basi** dan harus diselaraskan.',
+        },
+        {
+          term: 'queryKey',
+          meaning:
+            'Kunci identitas satu potong data di cache. Semua nilai yang memengaruhi hasil — kategori, urutan, halaman, identitas pengguna — wajib masuk ke dalamnya, kalau tidak dua hasil berbeda akan berbagi satu slot.',
+        },
+        {
+          term: 'invalidate',
+          meaning:
+            'Menandai data cache sebagai **basi** sehingga pustaka mengambilnya ulang. Ini yang menyelaraskan tampilan dengan kebenaran server setelah mutasi selesai.',
+        },
+        {
+          term: 'rollback',
+          meaning:
+            'Mengembalikan cache ke snapshot sebelum perubahan optimistik, saat server menolak. Tanpa snapshot yang disimpan lebih dulu, tidak ada yang bisa dikembalikan.',
+        },
+        {
+          term: 'onMutate / onError / onSettled',
+          meaning:
+            'Tiga titik hidup sebuah mutasi: **sebelum** dikirim (tempat perubahan optimistik), saat **gagal** (tempat rollback), dan **setelah selesai** apa pun hasilnya (tempat invalidate).',
+        },
+        {
+          term: 'cancelQueries',
+          meaning:
+            'Menghentikan pengambilan data yang sedang berjalan. Wajib dipanggil sebelum perubahan optimistik — kalau tidak, respons lama bisa tiba **setelahnya** dan menimpa perubahan yang baru saja dibuat.',
+        },
+        {
+          term: 'ETag',
+          meaning:
+            'Header berisi penanda versi sebuah resource. Klien mengirimnya kembali lewat `If-Match`; server menolak dengan `412` bila versinya sudah berubah — itulah **optimistic concurrency**.',
+        },
+        {
+          term: 'lost update',
+          meaning:
+            'Dua orang menyunting data yang sama; penyimpan kedua menghapus pekerjaan penyimpan pertama. Bahayanya justru karena ia **tidak menimbulkan error apa pun** — semua terlihat berhasil.',
+        },
+        {
+          term: 'stale time',
+          meaning:
+            'Berapa lama data cache dianggap masih segar sebelum layak diambil ulang. Nilainya adalah keputusan produk: seberapa basi data ini masih boleh terlihat oleh pengguna.',
+        },
       ),
 
       h2('Kembalikan objek lengkap dari mutasi'),
@@ -885,6 +1242,33 @@ export const lessons: LessonDraft[] = [
       p(
         'Tanpa ini, editor kedua yang menyimpan akan menghapus pekerjaan editor pertama tanpa ada yang tahu — **lost update**, dan ia tidak menimbulkan error apa pun.',
       ),
+
+      references(
+        {
+          label: 'Optimistic Updates',
+          href: 'https://tanstack.com/query/latest/docs/framework/react/guides/optimistic-updates',
+          source: 'TanStack Query',
+          note: 'Pola `onMutate`/`onError`/`onSettled` yang dipakai di sub-bab ini, langsung dari dokumentasi pustakanya.',
+        },
+        {
+          label: 'Query Keys',
+          href: 'https://tanstack.com/query/latest/docs/framework/react/guides/query-keys',
+          source: 'TanStack Query',
+          note: 'Aturan menyusun kunci cache agar setiap input yang memengaruhi hasil ikut terwakili.',
+        },
+        {
+          label: 'ETag',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/ETag',
+          source: 'MDN Web Docs',
+          note: 'Penanda versi resource — dasar dari `If-Match` dan status `412`.',
+        },
+        {
+          label: 'If-Match',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-Match',
+          source: 'MDN Web Docs',
+          note: 'Cara klien menyatakan "hanya simpan bila versinya masih yang saya baca" untuk mencegah lost update.',
+        },
+      ),
     ],
   ),
 
@@ -894,6 +1278,64 @@ export const lessons: LessonDraft[] = [
     11,
     'Mengirim berkas dengan kemajuan, pembatalan, dan validasi dua sisi.',
     [
+      terms(
+        {
+          term: 'FormData',
+          meaning:
+            'Objek browser yang menyusun pasangan nama–nilai — termasuk berkas — menjadi body `multipart/form-data`. Ia yang membuat pengiriman berkas lewat `fetch` mungkin tanpa merakit body-nya sendiri.',
+        },
+        {
+          term: 'multipart/form-data',
+          meaning:
+            'Format body yang membungkus beberapa bagian sekaligus (teks dan berkas biner) dalam satu permintaan, dipisahkan oleh penanda **boundary**.',
+        },
+        {
+          term: 'boundary',
+          meaning:
+            'String acak yang memisahkan tiap bagian di dalam body multipart. Browser menghasilkannya sendiri — itulah sebabnya `Content-Type` **tidak boleh** ditulis manual untuk `FormData`.',
+        },
+        {
+          term: 'File',
+          meaning:
+            'Objek yang mewakili satu berkas pilihan pengguna, membawa `name`, `size`, dan `type`. Ia turunan `Blob`, jadi bisa langsung dikirim sebagai body permintaan.',
+        },
+        {
+          term: '`berkas.type` (MIME dari klien)',
+          meaning:
+            'Tipe berkas menurut sistem operasi pengguna. Ia **atribut yang bisa dipalsukan**, jadi hanya berguna untuk UX — server tetap wajib memverifikasi dari isi berkasnya.',
+        },
+        {
+          term: 'magic byte',
+          meaning:
+            'Beberapa byte pertama sebuah berkas yang menandai format aslinya (`\\x89PNG` untuk PNG). Itulah yang diperiksa server, karena ekstensi dan MIME dari klien tidak membuktikan apa pun.',
+        },
+        {
+          term: 'XMLHttpRequest (XHR)',
+          meaning:
+            'API permintaan HTTP generasi sebelum `fetch`. Masih diperlukan untuk satu hal: `fetch` belum bisa melaporkan **kemajuan unggah**, sedangkan `xhr.upload` bisa.',
+        },
+        {
+          term: 'AbortSignal',
+          meaning:
+            'Objek yang dilewatkan ke permintaan supaya bisa dibatalkan dari luar. Ia yang membuat tombol "batal" pada unggahan benar-benar menghentikan pengiriman, bukan sekadar menyembunyikan progres.',
+        },
+        {
+          term: 'presigned URL (URL bertanda tangan)',
+          meaning:
+            'URL berumur pendek yang diterbitkan server dan memberi izin **satu kali** mengunggah langsung ke storage. Byte berkasnya tidak pernah melewati server aplikasi.',
+        },
+        {
+          term: 'object URL',
+          meaning:
+            'URL `blob:` sementara yang dibuat `URL.createObjectURL` untuk menampilkan pratinjau berkas lokal. Ia **menahan berkas di memori** sampai dicabut dengan `revokeObjectURL`.',
+        },
+        {
+          term: 'lengthComputable',
+          meaning:
+            'Penanda pada event progress bahwa total ukurannya diketahui. Bila `false`, persentase tidak bisa dihitung — tampilkan indikator tak tentu, bukan angka yang salah.',
+        },
+      ),
+
       h2('Unggah dasar'),
       code(
         'tsx',
@@ -1065,6 +1507,39 @@ export const lessons: LessonDraft[] = [
       p(
         'Area drag-and-drop **tidak boleh** menjadi satu-satunya cara mengunggah — ia tidak bisa dioperasikan dengan keyboard. Selalu sediakan `<input type="file">` yang sungguhan di belakangnya.',
       ),
+
+      references(
+        {
+          label: 'FormData',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/FormData',
+          source: 'MDN Web Docs',
+          note: 'Cara menyusun body multipart dari berkas pilihan pengguna, termasuk catatan agar `Content-Type` tidak disetel manual.',
+        },
+        {
+          label: 'File API',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/File_API/Using_files_from_web_applications',
+          source: 'MDN Web Docs',
+          note: 'Membaca berkas dari `<input type="file">`, membuat pratinjau, dan mencabut object URL.',
+        },
+        {
+          label: 'XMLHttpRequest — Monitoring progress',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest_API/Using_XMLHttpRequest',
+          source: 'MDN Web Docs',
+          note: 'Satu-satunya jalur bawaan untuk melaporkan kemajuan unggahan sampai hari ini.',
+        },
+        {
+          label: 'ARIA: progressbar role',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/progressbar_role',
+          source: 'MDN Web Docs',
+          note: 'Membuat indikator kemajuan yang juga terbaca oleh teknologi bantu.',
+        },
+        {
+          label: 'File Upload Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Mengapa validasi sisi klien tidak pernah cukup, dan apa yang harus diperiksa server.',
+        },
+      ),
     ],
   ),
 
@@ -1074,6 +1549,59 @@ export const lessons: LessonDraft[] = [
     11,
     'Menerima pembaruan tanpa polling, dan menjaganya tetap konsisten.',
     [
+      terms(
+        {
+          term: 'realtime',
+          meaning:
+            'Pembaruan yang sampai ke pengguna **tanpa ia meminta**. Di praktiknya hampir selalu berarti satu dari tiga hal: polling berkala, aliran satu arah dari server, atau koneksi dua arah.',
+        },
+        {
+          term: 'polling',
+          meaning:
+            'Klien bertanya berulang kali dengan jeda tetap. Paling sederhana dan paling tahan gangguan, tapi setiap permintaan tetap dibayar meski tidak ada yang berubah.',
+        },
+        {
+          term: 'SSE (Server-Sent Events)',
+          meaning:
+            'Aliran teks **satu arah** dari server ke klien di atas HTTP biasa. Kelebihan terbesarnya: browser menyambung ulang sendiri, dan autentikasinya sama persis dengan permintaan HTTP lain.',
+        },
+        {
+          term: 'EventSource',
+          meaning:
+            'API browser untuk berlangganan SSE. Batasannya penting: ia **tidak bisa mengirim header kustom**, jadi hanya cocok untuk auth berbasis cookie.',
+        },
+        {
+          term: 'WebSocket',
+          meaning:
+            'Koneksi **dua arah** yang tetap terbuka, dinaikkan dari HTTP lewat proses handshake. Diperlukan saat klien juga harus mengirim terus-menerus — chat, kolaborasi, permainan.',
+        },
+        {
+          term: 'long polling',
+          meaning:
+            'Variasi polling: server menahan permintaan sampai ada yang baru, lalu menjawab. Ia mengurangi permintaan kosong, tapi menahan koneksi lebih lama.',
+        },
+        {
+          term: 'reconnect',
+          meaning:
+            'Menyambung ulang setelah koneksi terputus. SSE melakukannya otomatis; WebSocket harus diprogram sendiri — biasanya dengan backoff supaya tidak menyerbu server saat ia baru pulih.',
+        },
+        {
+          term: 'celah saat terputus',
+          meaning:
+            'Peristiwa yang terjadi selama koneksi mati dan tidak pernah terkirim. Menyambung ulang saja tidak menutupnya — setelah tersambung, data harus **diambil ulang** lewat HTTP.',
+        },
+        {
+          term: 'idempoten di sisi penerima',
+          meaning:
+            'Menangani peristiwa yang sama dua kali tanpa efek ganda. Setelah menyambung ulang, pesan yang sama bisa tiba lagi — periksa `id` sebelum menambahkannya ke daftar.',
+        },
+        {
+          term: '`aria-live`',
+          meaning:
+            'Atribut yang membuat perubahan pada sebuah area **diumumkan** oleh screen reader tanpa memindahkan fokus. Wajib untuk indikator koneksi dan pesan yang muncul sendiri.',
+        },
+      ),
+
       h2('Tiga pilihan'),
       table(
         ['', 'Polling', 'SSE', 'WebSocket'],
@@ -1223,6 +1751,33 @@ export const lessons: LessonDraft[] = [
         'Batasi laju pembaruan UI — seribu pesan per detik tidak perlu seribu render.',
         'Batasi jumlah item yang disimpan di memori pada aliran yang panjang.',
       ),
+
+      references(
+        {
+          label: 'Using server-sent events',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events',
+          source: 'MDN Web Docs',
+          note: 'Termasuk perilaku menyambung ulang otomatis dan batasan `EventSource` soal header.',
+        },
+        {
+          label: 'The WebSocket API',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API',
+          source: 'MDN Web Docs',
+          note: 'Siklus hidup koneksi dua arah, dari handshake sampai penutupan.',
+        },
+        {
+          label: 'Client API — Socket.IO',
+          href: 'https://socket.io/docs/v4/client-api/',
+          source: 'Socket.IO',
+          note: 'Opsi `auth`, `reconnection`, dan event `connect_error` yang dipakai contoh di sub-bab ini.',
+        },
+        {
+          label: 'ARIA live regions',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Guides/Live_regions',
+          source: 'MDN Web Docs',
+          note: 'Cara mengumumkan pembaruan yang datang sendiri tanpa mengganggu fokus pengguna.',
+        },
+      ),
     ],
   ),
 
@@ -1234,6 +1789,64 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Latihan penutup bab: hubungkan frontend Next.js ke **dua** backend yang sudah kamu bangun. Menyambungkan ke dua API dengan kontrak yang sama membuktikan bahwa yang kamu tulis di klien bergantung pada kontrak, bukan pada implementasinya.',
+      ),
+
+      terms(
+        {
+          term: 'kontrak identik',
+          meaning:
+            'Dua backend berbeda yang menjawab dengan **bentuk yang sama persis**: pembungkus, penamaan field, bentuk error, dan kode status. Bila frontend bisa berpindah di antara keduanya tanpa perubahan, kontraknya terbukti nyata.',
+        },
+        {
+          term: 'klien API terpusat',
+          meaning:
+            'Satu modul yang memegang base URL, kredensial, refresh token, timeout, dan penerjemahan error. Komponen yang memanggil `fetch` sendiri pasti menangani error dengan cara yang berbeda — dan perbedaan itu yang bocor ke pengguna.',
+        },
+        {
+          term: '`NEXT_PUBLIC_`',
+          meaning:
+            'Awalan Next.js yang menandai variabel environment **boleh terlihat di browser**. Konsekuensinya keras: apa pun di belakang awalan ini bukan rahasia, jadi jangan pernah menaruh kunci API di sana.',
+        },
+        {
+          term: 'ISR (Incremental Static Regeneration)',
+          meaning:
+            'Halaman dibangun sekali lalu diperbarui di latar belakang setiap `revalidate` detik. Ia memberi kecepatan halaman statis dengan data yang tetap cukup segar.',
+        },
+        {
+          term: '`revalidate`',
+          meaning:
+            'Angka detik yang menentukan seberapa sering halaman statis dibangun ulang. Nilainya keputusan produk: seberapa basi isi halaman ini masih boleh dilihat pengunjung.',
+        },
+        {
+          term: '`generateMetadata`',
+          meaning:
+            'Fungsi Next.js yang menghasilkan `<title>` dan meta tag dari data yang diambil server. Ia yang membuat pratinjau tautan dan hasil pencarian benar untuk halaman dinamis.',
+        },
+        {
+          term: '`notFound()`',
+          meaning:
+            'Fungsi Next.js yang menghentikan render dan menampilkan halaman 404 dengan status HTTP yang benar — bukan halaman kosong berstatus `200`.',
+        },
+        {
+          term: 'satu-refresh-bersama',
+          meaning:
+            'Pola yang memastikan sepuluh permintaan yang serentak menerima `401` hanya memicu **satu** panggilan refresh, bukan sepuluh. Tanpa itu, kedaluwarsanya token berubah jadi badai permintaan.',
+        },
+        {
+          term: '`AbortSignal.timeout`',
+          meaning:
+            'Sinyal bawaan yang membatalkan permintaan setelah durasi tertentu. Permintaan tanpa timeout bisa menggantung selamanya dan menahan antarmuka di keadaan memuat.',
+        },
+        {
+          term: 'validasi respons di pengembangan saja',
+          meaning:
+            'Memeriksa bentuk respons dengan skema hanya saat `NODE_ENV !== "production"`. Ia menangkap ketidakcocokan kontrak lebih awal tanpa membayar biaya penguraian ganda di produksi.',
+        },
+        {
+          term: '`curl`',
+          meaning:
+            'Perkakas baris perintah untuk memanggil HTTP tanpa browser. Cara tercepat membuktikan bahwa dua backend benar-benar menjawab dengan bentuk yang sama.',
+        },
       ),
 
       h2('Yang dibangun'),
@@ -1431,6 +2044,39 @@ export const lessons: LessonDraft[] = [
         'Data publik diambil di Server Component, bukan lewat `useEffect`',
         'Tidak ada objek API mentah yang dioper ke Client Component',
         'Bertukar `API_URL` antar backend tidak memerlukan perubahan kode frontend',
+      ),
+
+      references(
+        {
+          label: 'Server Components',
+          href: 'https://react.dev/reference/rsc/server-components',
+          source: 'React',
+          note: 'Batas antara komponen server dan klien — termasuk kenapa props yang dioper ikut terkirim ke browser.',
+        },
+        {
+          label: 'Data Fetching, Caching, and Revalidating',
+          href: 'https://nextjs.org/docs/app/getting-started/fetching-data',
+          source: 'Next.js',
+          note: 'Mengambil data di Server Component, beserta perilaku cache dan `revalidate`.',
+        },
+        {
+          label: 'generateMetadata',
+          href: 'https://nextjs.org/docs/app/api-reference/functions/generate-metadata',
+          source: 'Next.js',
+          note: 'Menyusun judul dan meta tag dari data yang diambil server.',
+        },
+        {
+          label: 'Environment Variables',
+          href: 'https://nextjs.org/docs/app/guides/environment-variables',
+          source: 'Next.js',
+          note: 'Aturan `NEXT_PUBLIC_` dan batas tegas antara konfigurasi publik dan rahasia server.',
+        },
+        {
+          label: 'AbortSignal: timeout() static method',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static',
+          source: 'MDN Web Docs',
+          note: 'Membatasi umur setiap permintaan tanpa merakit timer sendiri.',
+        },
       ),
     ],
   ),

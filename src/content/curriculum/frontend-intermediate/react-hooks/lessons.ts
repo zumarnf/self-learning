@@ -7,7 +7,9 @@ import {
   h2,
   ol,
   p,
+  references,
   table,
+  terms,
   ul,
 } from '@/lib/content/builders';
 import { type LessonDraft, written } from '@/lib/curriculum/authoring';
@@ -28,6 +30,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Hooks punya dua aturan yang terdengar sewenang-wenang sampai kamu tahu bagaimana React menyimpan state. Setelah itu, keduanya jadi konsekuensi yang tak terhindarkan.',
+      ),
+
+      terms(
+        {
+          term: 'hook',
+          meaning:
+            'Dibaca "huk", artinya **kait**. Fungsi khusus React yang namanya selalu diawali `use`. Ia "mengaitkan" komponenmu ke kemampuan React seperti ingatan, efek samping, dan konteks. Bukan fungsi biasa — ia punya dua aturan pemakaian yang **tidak bisa ditawar**, dan sub-bab ini menjelaskan kenapa keduanya bukan sekadar konvensi.',
+        },
+        {
+          term: 'level teratas',
+          meaning:
+            'Terjemahan dari *top level*. Hook hanya boleh dipanggil **langsung di badan komponen** — bukan di dalam `if`, loop, `try`, atau fungsi bersarang. Alasannya ada di bawah, dan begitu kamu tahu cara React menyimpan state, aturan ini berubah dari sewenang-wenang menjadi konsekuensi yang tak terhindarkan.',
+        },
+        {
+          term: 'urutan pemanggilan',
+          meaning:
+            'Kunci seluruh sub-bab ini. React **tidak menyimpan state berdasarkan nama variabel** — ia menyimpannya dalam daftar berurutan, dan mencocokkannya berdasarkan **urutan hook dipanggil** pada tiap render. Satu hook yang dilewati karena `if` menggeser seluruh sisanya, sehingga `useState` untuk nama tiba-tiba membaca nilai milik `useState` untuk umur.',
+        },
+        {
+          term: 'daftar hook',
+          meaning:
+            'Struktur internal React tempat state tiap komponen disimpan, satu slot per hook, berurutan. Inilah yang membuat React bisa tahu `useState` mana yang mana tanpa kamu memberi nama apa pun — dan sekaligus alasan urutannya tidak boleh berubah antar-render.',
+        },
+        {
+          term: 'aturan kedua',
+          meaning:
+            'Hook hanya boleh dipanggil dari **komponen React atau hook lain**. Memanggilnya dari fungsi biasa membuat React tidak punya komponen untuk menempelkan state-nya — dan itu memang melempar error, bukan gagal diam-diam.',
+        },
+        {
+          term: 'eslint-plugin-react-hooks',
+          meaning:
+            'Plugin lint resmi yang menegakkan kedua aturan. Dua aturan utamanya: `rules-of-hooks` menangkap hook di tempat yang salah, dan `exhaustive-deps` menangkap nilai yang dipakai Effect tapi tidak didaftarkan.',
+        },
+        {
+          term: 'exhaustive-deps',
+          meaning:
+            'Aturan lint yang memeriksa **kelengkapan dependency array**. Peringatannya hampir selalu benar. Menekannya dengan `// eslint-disable-next-line` mengubah bug yang bisa dideteksi mesin menjadi bug yang harus ditemukan pengguna — kalau kamu merasa harus mematikannya, itu tanda **struktur Effect-nya** yang perlu diubah.',
+        },
+        {
+          term: 'React Compiler',
+          meaning:
+            'Di project yang mengaktifkannya — termasuk website ini — sebagian pelanggaran pola hooks menjadi **error**, bukan peringatan. Alasannya teknis: compiler perlu bisa memprediksi kapan sebuah nilai berubah, dan kode yang melanggar aturan membuat prediksi itu mustahil.',
+        },
       ),
 
       h2('Aturan 1: hanya panggil di level teratas'),
@@ -51,9 +96,12 @@ export const lessons: LessonDraft[] = [
         // BENAR: hook di atas, kondisi di dalam
         const [nama, setNama] = useState('');
         if (masuk) {
-          // pakai nama di sini
+          // pakai nama di sini — nilainya tetap ada, hanya pemakaiannya yang bersyarat
         }
         `,
+      ),
+      p(
+        'Ketiga bentuk SALAH punya satu kesamaan yang mungkin belum terlihat: semuanya membuat **jumlah hook yang dipanggil bisa berbeda antar-render**. Kondisi bisa berubah, jumlah item di loop bisa berubah, dan `return` lebih awal membuat hook di bawahnya tidak pernah tercapai. Bentuk BENAR di bawah menunjukkan koreksinya, dan perhatikan yang dipindah **bukan pemakaiannya melainkan pemanggilan hook-nya**: `useState` naik ke atas tanpa syarat, sedangkan `if (masuk)` tetap ada untuk mengatur kapan nilainya dipakai. Itu pola umum yang berlaku untuk ketiga kasus — hook selalu dipanggil, percabangan terjadi setelahnya. Diagram di bawah menjelaskan kenapa aturan ini tidak bisa ditawar.',
       ),
 
       h2('Kenapa: React menghitung urutan, bukan nama'),
@@ -113,6 +161,32 @@ export const lessons: LessonDraft[] = [
         'React Compiler menaikkan taruhannya',
         'Di project yang mengaktifkan React Compiler — termasuk website ini — beberapa pelanggaran pola hooks menjadi **error**, bukan peringatan. Compiler perlu bisa memprediksi kapan sebuah nilai berubah; kode yang melanggar aturan membuat prediksi itu mustahil, jadi ia menolak mengompilasinya.',
       ),
+      references(
+        {
+          label: 'Rules of Hooks',
+          href: 'https://react.dev/reference/rules/rules-of-hooks',
+          source: 'React',
+          note: 'Kedua aturan beserta penjelasan resmi kenapa urutan pemanggilan menentukan segalanya.',
+        },
+        {
+          label: 'Reusing Logic with Custom Hooks',
+          href: 'https://react.dev/learn/reusing-logic-with-custom-hooks',
+          source: 'React',
+          note: 'Aturan kedua: hook hanya boleh dipanggil dari komponen atau hook lain.',
+        },
+        {
+          label: 'react-hooks/exhaustive-deps',
+          href: 'https://react.dev/reference/rules/rules-of-hooks#only-call-hooks-at-the-top-level',
+          source: 'React',
+          note: 'Aturan lint yang menangkap pelanggaran sebelum kodenya sempat dijalankan.',
+        },
+        {
+          label: 'React Compiler',
+          href: 'https://react.dev/learn/react-compiler',
+          source: 'React',
+          note: 'Alasan pelanggaran aturan hooks menjadi error, bukan peringatan, saat compiler aktif.',
+        },
+      ),
     ],
   ),
 
@@ -124,6 +198,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Kamu sudah memakai `useState` sejak Bab 4. Sub-bab ini mengumpulkan empat detail yang biasanya baru dipahami setelah tersandung olehnya.',
+      ),
+
+      terms(
+        {
+          term: 'lazy initializer',
+          meaning:
+            'Dibaca "leizi inisiailaizer", artinya **penyiap nilai awal yang malas**. Kalau kamu menulis `useState(hitungBerat())`, fungsi itu dipanggil di **setiap** render dan hasilnya dibuang kecuali render pertama. Kalau kamu menulis `useState(() => hitungBerat())`, React hanya memanggilnya saat inisialisasi. "Malas" di sini pujian: pekerjaannya ditunda sampai benar-benar dibutuhkan.',
+        },
+        {
+          term: 'setter',
+          meaning:
+            'Fungsi kedua yang dikembalikan `useState` — `setJumlah` pada `const [jumlah, setJumlah] = useState(0)`. Namanya dari *to set* (menyetel). Ia tidak mengubah variabelnya di tempat; ia memberi tahu React "untuk render berikutnya, nilainya jadi ini".',
+        },
+        {
+          term: 'bentuk fungsi (updater function)',
+          meaning:
+            'Memanggil setter dengan sebuah fungsi, bukan nilai: `setJumlah((n) => n + 1)`. React memanggil fungsi itu dengan nilai **terbaru** dalam antrean, bukan nilai yang tertangkap saat render. Aturan praktisnya: kalau nilai barumu dihitung dari nilai lama, pakai bentuk fungsi.',
+        },
+        {
+          term: 'n',
+          meaning:
+            'Sekadar singkatan dari *number* pada contoh `(n) => n + 1`. Namanya bebas — `(sebelumnya) => sebelumnya + 1` sama benarnya. Nama pendek dipakai karena fungsinya cuma satu baris dan konteksnya sudah jelas dari nama setter-nya.',
+        },
+        {
+          term: 'bailout',
+          meaning:
+            'Dibaca "beilaut", artinya **keluar lebih awal**. Kalau kamu menyetel nilai yang **sama persis** dengan nilai sekarang, React tidak melanjutkan render ke anak-anak komponen. Perbandingannya memakai `Object.is`.',
+        },
+        {
+          term: 'Object.is',
+          meaning:
+            'Fungsi bawaan JavaScript untuk membandingkan dua nilai. Hampir sama dengan `===`, dengan dua beda: `Object.is(NaN, NaN)` bernilai `true`, dan `Object.is(0, -0)` bernilai `false`. React memakainya di mana-mana untuk memutuskan "apakah ini nilai baru?".',
+        },
+        {
+          term: 'perbandingan dangkal (shallow)',
+          meaning:
+            'Membandingkan **referensi**, bukan isi. Dua objek dengan isi identik tapi dibuat terpisah tetap dianggap berbeda. Inilah alasan update immutable harus membuat objek baru — dan alasan `{...obj}` yang tidak mengubah apa pun **tetap** memicu render.',
+        },
+        {
+          term: 'key',
+          meaning:
+            'Prop khusus React. Selain untuk daftar, ia juga menjadi **identitas** sebuah komponen. Saat `key` berubah, React membuang instance lamanya beserta seluruh state di dalamnya, lalu memasang yang baru dari nol — cara paling bersih untuk mereset form saat objek yang diedit berganti.',
+        },
+        {
+          term: 'instance komponen',
+          meaning:
+            'Satu "salinan hidup" komponen di layar, lengkap dengan kotak-kotak state miliknya. Dua `<FormProfil />` di tempat berbeda adalah dua instance dengan state terpisah, meski kodenya satu.',
+        },
       ),
 
       h2('1. Nilai awal yang mahal: pakai bentuk fungsi'),
@@ -228,6 +350,35 @@ export const lessons: LessonDraft[] = [
           notes: ['Tidak ada render dengan nilai lama', 'Bekerja untuk SEMUA state di dalamnya'],
         },
       ),
+      p(
+        'Catatan pada kolom kiri layak dibaca pelan, karena keduanya menjelaskan kenapa versi Effect bukan sekadar "lebih panjang" melainkan **salah**. Effect berjalan **setelah** render selesai, jadi ada satu render penuh di mana form sudah menampilkan `userId` yang baru tapi isian namanya masih milik pengguna lama — sekejap, tapi terlihat, dan pada koneksi lambat bisa lama. Kekurangan kedua lebih dalam: `setNama(\'\')` hanya mereset satu state. Begitu form bertambah field, tiap field baru harus diingat untuk ditambahkan ke Effect itu, dan yang terlupa akan membawa nilai lama tanpa gejala. Versi `key` menghindari keduanya karena ia tidak mereset apa pun — ia **membuang seluruh komponen** dan memasang yang baru, sehingga semua state di dalamnya otomatis kembali ke awal berapa pun jumlahnya.',
+      ),
+      references(
+        {
+          label: 'useState',
+          href: 'https://react.dev/reference/react/useState',
+          source: 'React',
+          note: 'Rujukan API lengkap: lazy initializer, bentuk fungsi pada setter, dan aturan bailout.',
+        },
+        {
+          label: 'Preserving and Resetting State',
+          href: 'https://react.dev/learn/preserving-and-resetting-state',
+          source: 'React',
+          note: 'Kenapa `key` mereset seluruh state sebuah subtree, dan kapan teknik itu tepat dipakai.',
+        },
+        {
+          label: 'Queueing a Series of State Updates',
+          href: 'https://react.dev/learn/queueing-a-series-of-state-updates',
+          source: 'React',
+          note: 'Alasan `setJumlah(jumlah + 1)` dua kali hanya menambah satu.',
+        },
+        {
+          label: 'Object.is()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/is',
+          source: 'MDN Web Docs',
+          note: 'Perbandingan yang dipakai React untuk memutuskan apakah state benar-benar berubah.',
+        },
+      ),
     ],
   ),
 
@@ -239,6 +390,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Kalau kamu datang dari class component, godaan terbesarnya adalah membaca `useEffect` sebagai `componentDidMount` + `componentDidUpdate` + `componentWillUnmount`. Model itu akan menyesatkanmu terus-menerus. Model yang benar: **Effect menyinkronkan komponenmu dengan sistem di luar React.**',
+      ),
+
+      terms(
+        {
+          term: 'Effect',
+          meaning:
+            'Ditulis dengan E besar dalam dokumentasi React untuk membedakannya dari "efek samping" secara umum. Effect adalah blok kode yang **menyinkronkan komponenmu dengan sistem di luar React** — koneksi jaringan, `localStorage`, langganan event browser, widget pihak ketiga. Kalau tidak ada "sistem di luar" yang terlibat, kemungkinan besar itu bukan pekerjaan Effect.',
+        },
+        {
+          term: 'lifecycle',
+          meaning:
+            'Dibaca "laifsaikel", artinya **siklus hidup**. Istilah dari era class component: `componentDidMount`, `componentDidUpdate`, `componentWillUnmount`. Membaca `useEffect` sebagai gabungan ketiganya adalah model mental yang akan menyesatkanmu terus-menerus — itulah inti sub-bab ini.',
+        },
+        {
+          term: 'mount / unmount',
+          meaning:
+            '**Mount** = React memasang komponen ke layar untuk pertama kalinya. **Unmount** = React mencabutnya dari layar. Dua istilah ini tetap dipakai, tapi Effect tidak dirancang mengikuti keduanya — ia mengikuti **nilai yang disinkronkan**.',
+        },
+        {
+          term: 'cleanup',
+          meaning:
+            'Dibaca "kliinap", artinya **pembersihan**. Fungsi yang kamu `return` dari dalam Effect. Tugasnya **membatalkan sinkronisasi sebelumnya** — memutus koneksi, melepas listener, membatalkan timer. Ia tidak hanya berjalan saat komponen hilang: ia berjalan **setiap kali** Effect akan dijalankan ulang.',
+        },
+        {
+          term: 'dependency array',
+          meaning:
+            'Array kedua pada `useEffect(fn, [a, b])`. Isinya nilai-nilai yang Effect ini **selaraskan**. React membandingkannya dengan `Object.is` tiap render; kalau ada yang berbeda, cleanup lama dijalankan lalu Effect dijalankan ulang.',
+        },
+        {
+          term: 'event handler',
+          meaning:
+            'Fungsi yang berjalan **karena pengguna melakukan sesuatu** — mengklik, mengetik, mengirim form. Bedanya dengan Effect tegas: handler menjawab "apa yang terjadi karena aksi ini?", Effect menjawab "apa yang harus tetap selaras selama komponen ini ada?".',
+        },
+        {
+          term: 'Strict Mode',
+          meaning:
+            'Mode pengembangan React yang sengaja **memasang → melepas → memasang ulang** setiap komponen sekali, hanya di development. Efeknya: Effect yang cleanup-nya kurang akan langsung menampakkan gejala — dua koneksi terbuka, dua pemanggilan API, dua listener menumpuk. Kalau Effect-mu rusak karena Strict Mode, ia memang sudah rusak sebelumnya; kamu hanya belum melihatnya.',
+        },
+        {
+          term: 'subscription / langganan',
+          meaning:
+            'Pola "daftarkan diri untuk menerima kabar, lalu berhenti berlangganan saat selesai". Contohnya `addEventListener`, koneksi WebSocket, atau observer. Setiap langganan **wajib** punya pasangan pembatalannya di cleanup — kalau tidak, ia menumpuk diam-diam sampai jadi kebocoran memori.',
+        },
       ),
 
       h2('Perbedaan dua model itu'),
@@ -282,6 +476,9 @@ export const lessons: LessonDraft[] = [
         komponen hilang  -> cleanup terakhir -> putus dari "acak"
         `,
       ),
+      p(
+        'Baca kolom kanan dari atas ke bawah dan perhatikan satu hal: **tidak pernah ada dua koneksi terbuka bersamaan.** Itu jaminan yang diberikan React dengan selalu menjalankan cleanup lama **sebelum** Effect baru. Baris kedua dan ketiga adalah inti sub-bab ini — satu perubahan `roomId` memicu dua tindakan berpasangan, putus lalu sambung, dan keduanya terjadi selama komponen tetap hidup di layar. Karena itu menganggap cleanup sebagai "kode yang berjalan saat komponen dihapus" akan menyesatkan; ia lebih tepat dibaca sebagai **kebalikan dari Effect-nya sendiri**. Aturan praktis yang lahir dari sini: untuk setiap hal yang kamu buka, pasang, atau daftarkan di dalam Effect, tuliskan pasangannya di cleanup — dan kalau kamu kesulitan menuliskannya, biasanya itu tanda pekerjaan tersebut bukan milik Effect.',
+      ),
 
       h2('Yang BUKAN pekerjaan Effect'),
       ul(
@@ -322,12 +519,41 @@ export const lessons: LessonDraft[] = [
           notes: ['Alurnya terbaca berurutan', 'Satu state lebih sedikit'],
         },
       ),
+      p(
+        'Perhatikan state `terkirim` di kolom kiri: ia **tidak menyimpan apa pun yang ditampilkan** — ia hanya ada sebagai pemicu Effect. Itu tanda paling jelas bahwa Effect-nya tidak diperlukan. Alurnya juga terpecah: pembaca yang ingin tahu apa yang terjadi saat form dikirim harus menelusuri dari `submit` ke `setTerkirim`, lalu mencari Effect mana yang mengamati `terkirim`. Kolom kanan menyatukannya kembali menjadi tiga baris yang dibaca berurutan. Aturan yang bisa dibawa pulang: kalau sesuatu terjadi **karena pengguna melakukan sesuatu**, tempatnya di event handler; Effect adalah untuk sesuatu yang terjadi **karena komponen sedang tampil**. Perhatikan versi kanan juga menghilangkan satu jebakan yang tidak terlihat — pada versi kiri, `terkirim` yang tetap `true` membuat Effect berjalan lagi setiap kali komponen dipasang ulang.',
+      ),
 
       h2('Effect berjalan dua kali di development'),
       callout(
         'tip',
         'Itu fitur, bukan bug',
         'Dengan Strict Mode aktif, React sengaja memasang → melepas → memasang ulang setiap komponen di development. Effect yang cleanup-nya benar akan tetap berperilaku normal. Effect yang cleanup-nya kurang akan langsung menampakkan gejalanya — dua koneksi terbuka, dua pemanggilan API, dua listener menumpuk. Kalau Effect-mu rusak karena ini, ia memang sudah rusak sebelumnya; kamu hanya belum melihatnya.',
+      ),
+      references(
+        {
+          label: 'Synchronizing with Effects',
+          href: 'https://react.dev/learn/synchronizing-with-effects',
+          source: 'React',
+          note: 'Sumber model mental "sinkronisasi, bukan lifecycle" yang dipakai sub-bab ini.',
+        },
+        {
+          label: 'You Might Not Need an Effect',
+          href: 'https://react.dev/learn/you-might-not-need-an-effect',
+          source: 'React',
+          note: 'Daftar resmi kasus yang sering keliru ditulis sebagai Effect beserta penggantinya.',
+        },
+        {
+          label: 'Lifecycle of Reactive Effects',
+          href: 'https://react.dev/learn/lifecycle-of-reactive-effects',
+          source: 'React',
+          note: 'Kenapa cleanup berjalan berkali-kali selama komponen hidup, bukan hanya saat unmount.',
+        },
+        {
+          label: 'StrictMode',
+          href: 'https://react.dev/reference/react/StrictMode',
+          source: 'React',
+          note: 'Alasan Effect sengaja dijalankan dua kali di development.',
+        },
       ),
     ],
   ),
@@ -340,6 +566,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Dependency array dan cleanup adalah dua bagian `useEffect` yang paling sering ditulis sekadar untuk mendiamkan linter. Padahal keduanya yang menentukan apakah Effect-mu benar.',
+      ),
+
+      terms(
+        {
+          term: 'linter',
+          meaning:
+            'Alat yang membaca kodemu tanpa menjalankannya, lalu menandai pola yang mencurigakan. Di project React, `eslint-plugin-react-hooks` adalah linter yang menjaga dependency array. Menulis dependency "sekadar untuk mendiamkan linter" membalik tujuannya — peringatannya ada untuk memberitahumu bahwa Effect-mu belum benar.',
+        },
+        {
+          term: 'nilai primitif',
+          meaning:
+            'Nilai yang dibandingkan berdasarkan **isinya**, bukan referensinya: string, number, boolean, `null`, `undefined`, `symbol`, `bigint`. `"acak" === "acak"` bernilai `true`. Sebaliknya `{} === {}` bernilai `false` meski keduanya kosong — dan itulah sumber sebagian besar loop tak berujung pada Effect.',
+        },
+        {
+          term: 'loop tak berujung',
+          meaning:
+            'Effect jalan → memicu render → objek dependency dibuat ulang → dianggap berubah → Effect jalan lagi. Gejalanya: tab browser panas, request menumpuk di Network tab. Penyebabnya hampir selalu objek, array, atau fungsi yang dibuat langsung di badan komponen lalu didaftarkan sebagai dependency.',
+        },
+        {
+          term: 'AbortController',
+          meaning:
+            'API bawaan browser untuk **membatalkan** operasi yang sedang berjalan, terutama `fetch`. Kamu membuat satu controller, mengoper `controller.signal` ke `fetch`, lalu memanggil `controller.abort()` di cleanup. Namanya dari *abort* = membatalkan.',
+        },
+        {
+          term: 'signal',
+          meaning:
+            'Properti `controller.signal` — sebuah objek `AbortSignal` yang kamu titipkan ke `fetch`. Anggap ia tali penarik: `fetch` memegang ujungnya, dan `abort()` menariknya. Saat ditarik, `fetch` menolak promise-nya dengan error bernama `AbortError`.',
+        },
+        {
+          term: 'AbortError',
+          meaning:
+            "Nama error yang dilempar `fetch` saat dibatalkan. Pembatalan **bukan kegagalan** — inilah alasan contoh di bawah memeriksa `e.name === 'AbortError'` lalu `return` diam-diam alih-alih menampilkannya sebagai error ke pengguna.",
+        },
+        {
+          term: 'race condition',
+          meaning:
+            'Dibaca "reis kondisyen", artinya **kondisi balapan**. Dua permintaan berangkat, dan yang berangkat duluan bisa tiba belakangan lalu menimpa hasil yang lebih baru. Ketik "a" lalu cepat "ab": layar bisa menampilkan hasil untuk "a". Bug ini nyaris tidak pernah muncul di localhost dan muncul terus di jaringan sungguhan.',
+        },
+        {
+          term: 'unsubscribe',
+          meaning:
+            'Fungsi yang dikembalikan sebuah store/observer saat kamu berlangganan, dan yang harus kamu panggil untuk berhenti. Menyimpannya lalu memanggilnya di cleanup adalah satu-satunya cara menghindari langganan yang menumpuk tiap render.',
+        },
+        {
+          term: 'IntersectionObserver / ResizeObserver',
+          meaning:
+            'Dua API browser yang mengabari kamu saat sebuah elemen masuk layar (*intersection* = perpotongan dengan viewport) atau berubah ukuran (*resize*). Keduanya wajib di-`.disconnect()` di cleanup.',
+        },
       ),
 
       h2('Tiga bentuk dependency array'),
@@ -428,6 +702,9 @@ export const lessons: LessonDraft[] = [
         }, [kueri]);
         `,
       ),
+      p(
+        'Perhatikan fungsi `async` dideklarasikan **di dalam** Effect lalu dipanggil, bukan dijadikan Effect-nya sendiri. Itu keharusan: fungsi `async` selalu mengembalikan Promise, sedangkan React mengharapkan Effect mengembalikan **fungsi cleanup** — menulis `useEffect(async () => ...)` membuat React menerima Promise di tempat cleanup dan pembersihannya tidak pernah berjalan. Baris `return () => controller.abort()` adalah pasangan cleanup dari `new AbortController()` di baris pertama, dan karena `[kueri]` menjadi dependensi, ia berjalan **setiap kali kata kuncinya berubah** — bukan hanya saat komponen hilang. Di situlah race condition dicegah: permintaan untuk kata kunci lama dibatalkan sebelum yang baru berangkat. Pemeriksaan `AbortError` di dalam `catch` melengkapinya, karena pembatalan yang kita sengaja lakukan tidak boleh muncul sebagai pesan gagal.',
+      ),
       callout(
         'danger',
         'Tanpa `abort`, kamu punya race condition',
@@ -437,6 +714,32 @@ export const lessons: LessonDraft[] = [
       h2('Cleanup juga jalan saat dependency berubah'),
       p(
         'Bukan hanya saat unmount. Setiap kali Effect akan dijalankan ulang, cleanup yang lama dijalankan lebih dulu. Membaca cleanup sebagai "kode saat komponen hilang" adalah sumber kesalahan yang sama dengan model lifecycle di sub-bab sebelumnya.',
+      ),
+      references(
+        {
+          label: 'useEffect — Parameters & Caveats',
+          href: 'https://react.dev/reference/react/useEffect',
+          source: 'React',
+          note: 'Aturan resmi dependency array dan fungsi cleanup, termasuk kenapa isinya tidak boleh dinamis.',
+        },
+        {
+          label: 'Removing Effect Dependencies',
+          href: 'https://react.dev/learn/removing-effect-dependencies',
+          source: 'React',
+          note: 'Cara menghilangkan dependency berupa objek/fungsi tanpa mematikan lint.',
+        },
+        {
+          label: 'AbortController',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/AbortController',
+          source: 'MDN Web Docs',
+          note: 'API pembatalan yang dipakai pola cleanup `fetch` di atas.',
+        },
+        {
+          label: 'Fetch: aborting a request',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Window/fetch#aborting_a_fetch',
+          source: 'MDN Web Docs',
+          note: 'Perilaku `fetch` saat sinyal dibatalkan, termasuk error bernama `AbortError`.',
+        },
       ),
     ],
   ),
@@ -449,6 +752,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Dokumentasi resmi React punya satu halaman berjudul *"You Might Not Need an Effect"*, dan itu bukan kebetulan. Sebagian besar `useEffect` di kode nyata seharusnya tidak ada. Sub-bab ini adalah katalog pola yang perlu kamu kenali dan hapus.',
+      ),
+
+      terms(
+        {
+          term: 'nilai turunan (derived value)',
+          meaning:
+            'Nilai yang bisa **dihitung ulang** dari state lain kapan saja — total dari daftar item, jumlah item terpilih, teks yang sudah difilter. Menyimpannya sebagai state kedua berarti kamu punya dua sumber kebenaran yang harus dijaga tetap sama. Hitung saat render, dan ketidaksinkronan itu menjadi mustahil.',
+        },
+        {
+          term: 'sumber kebenaran (source of truth)',
+          meaning:
+            'Satu tempat yang menentukan nilai sebenarnya sebuah data. Kalau nilainya ada di dua tempat, salah satunya pasti akan basi cepat atau lambat — dan bug itu selalu kembali. Aturannya: satu data, satu tempat menyimpannya.',
+        },
+        {
+          term: 'reduce',
+          meaning:
+            'Metode array JavaScript yang "meringkas" seluruh isi array jadi satu nilai. Pada `items.reduce((n, i) => n + i.harga, 0)`: `n` adalah hasil sementara (dimulai dari `0`), `i` adalah item yang sedang diproses. Nama pendek `n`/`i` di sini konvensi umum, bukan aturan.',
+        },
+        {
+          term: 'merantai Effect (Effect chain)',
+          meaning:
+            'Effect A menyetel state yang memicu Effect B, yang menyetel state yang memicu Effect C. Untuk satu aksi pengguna, React harus merender tiga kali berturut-turut — dan alur logikanya jadi mustahil dibaca berurutan karena tersebar di tiga blok terpisah.',
+        },
+        {
+          term: 'toast',
+          meaning:
+            'Notifikasi kecil yang muncul sebentar lalu hilang sendiri, biasanya di pojok layar. Namanya dari roti panggang yang "meloncat" keluar dari pemanggang. Menampilkannya adalah reaksi terhadap **aksi**, jadi tempatnya di event handler.',
+        },
+        {
+          term: 'deduplikasi',
+          meaning:
+            'Menghindari permintaan ganda untuk data yang sama. Kalau tiga komponen membutuhkan `/api/produk` sekaligus, tanpa deduplikasi ada tiga request identik. Library server state melakukannya otomatis; `useEffect` + `fetch` tidak.',
+        },
+        {
+          term: 'refetch',
+          meaning:
+            'Mengambil ulang data yang sudah pernah diambil — misalnya saat tab kembali difokuskan, atau setelah pengguna menyimpan perubahan. Menuliskannya sendiri di atas `useEffect` berarti kamu ikut menanggung kapan harus mengambil ulang dan bagaimana menghindari tumpang tindih.',
+        },
+        {
+          term: 'server state',
+          meaning:
+            'Data yang **dimiliki server**, bukan komponenmu — daftar produk, profil pengguna, hasil pencarian. Ia punya sifat yang tidak dimiliki state biasa: bisa basi, bisa gagal diambil, dan bisa diminta beberapa komponen sekaligus. Karena itu ia ditangani library khusus (TanStack Query), bukan `useState` + `useEffect`.',
+        },
       ),
 
       h2('1. Menghitung nilai turunan'),
@@ -478,6 +824,9 @@ export const lessons: LessonDraft[] = [
           notes: ['Satu sumber kebenaran', 'Satu state lebih sedikit'],
         },
       ),
+      p(
+        'Kesalahan ini paling sering muncul karena `total` **terasa** seperti sesuatu yang harus disimpan. Padahal ia sepenuhnya bisa dihitung dari `items`, dan begitu ia disimpan terpisah, ada dua tempat yang harus dijaga tetap cocok — persis masalah "satu perubahan, beberapa pembaruan" dari sub-bab kenapa React. Catatan kedua di kolom kiri menyebut biaya yang tidak terlihat: karena Effect berjalan setelah render, ada satu render penuh yang menampilkan `total` **lama** bersama `items` yang baru. Versi kanan menghapus keduanya dengan satu baris yang dihitung saat render. Aturan yang bisa dipakai untuk mengenali kasus serupa: kalau sebuah state selalu bisa dihitung dari state lain, ia bukan state — ia **nilai turunan**, dan tempatnya di badan komponen.',
+      ),
 
       h2('2. Menyalin props ke state'),
       code(
@@ -498,6 +847,9 @@ export const lessons: LessonDraft[] = [
         <FormProfil key={user.id} user={user} />
         `,
       ),
+      p(
+        'Versi SALAH menyimpan salinan `user.nama` ke state, lalu memakai Effect untuk menjaga salinannya tetap cocok — dua sumber kebenaran lagi, dengan satu render bernilai lama seperti kasus sebelumnya. Yang membedakan sub-bab ini adalah **ada dua koreksi, dan memilihnya bergantung pada satu pertanyaan: apakah nilainya perlu diedit pengguna?** Kalau tidak, jawabannya sesederhana membaca `user.nama` langsung — tidak butuh state sama sekali, dan nilainya otomatis benar setiap kali props berubah. Kalau ya, state memang diperlukan karena pengguna harus bisa mengetik, tapi cara meresetnya bukan Effect melainkan `key` — dan seperti dibahas sebelumnya, `key` mereset **seluruh** state di dalam form, bukan hanya satu field yang kebetulan kamu ingat.',
+      ),
 
       h2('3. Menangani event pengguna'),
       p(
@@ -517,6 +869,9 @@ export const lessons: LessonDraft[] = [
           tampilkanToast('Berhasil');
         }
         `,
+      ),
+      p(
+        'Perhatikan versi BENAR **tidak punya state `produkDitambahkan` sama sekali** — dan itu petunjuk utamanya. State di versi SALAH tidak menyimpan apa pun yang ditampilkan; ia hanya jembatan agar Effect punya sesuatu untuk diamati. Begitu logikanya dipindah ke handler, jembatan itu tidak diperlukan lagi. Versi SALAH juga menyimpan bug yang tidak terlihat: `produkDitambahkan` yang tetap `true` akan memicu toast lagi setiap kali komponen dipasang ulang, misalnya saat pengguna kembali ke halaman itu. Cara paling cepat mengenali pola ini adalah membaca Effect-nya sebagai kalimat: kalau bunyinya "ketika pengguna melakukan X", ia salah tempat; Effect seharusnya berbunyi "selama komponen ini tampil dengan nilai Y".',
       ),
 
       h2('4. Merantai Effect'),
@@ -556,6 +911,9 @@ export const lessons: LessonDraft[] = [
           notes: ['Satu render', 'Seluruh alur terbaca di satu tempat'],
         },
       ),
+      p(
+        'Kolom kiri menunjukkan pola yang tumbuh perlahan dan sulit dibalik: tiap Effect mengamati state yang diubah Effect sebelumnya, sehingga satu aksi pengguna memicu **tiga render berantai** — dan tiap render itu menggambar layar dengan keadaan setengah jadi. Lebih buruk lagi, alurnya tidak bisa dibaca berurutan; untuk memahami apa yang terjadi setelah kartu bertambah, pembaca harus melompat antar-Effect dan melacak state mana memicu Effect mana. Kolom kanan menyusunnya kembali sebagai **satu fungsi yang dibaca dari atas ke bawah**, dan perhatikan trik pentingnya: `giliranBaru` dihitung sebagai variabel lokal lalu dipakai langsung, alih-alih membaca `giliran` yang belum diperbarui. Itu yang memungkinkan seluruh keputusan diambil dalam satu render.',
+      ),
 
       h2('5. Menginisialisasi sesuatu sekali'),
       code(
@@ -571,6 +929,9 @@ export const lessons: LessonDraft[] = [
 
         export function App() { ... }
         `,
+      ),
+      p(
+        'Kode yang ditulis **di luar** definisi komponen — langsung di level modul — hanya berjalan **sekali**, tepat saat berkas itu pertama kali diimpor oleh JavaScript, tidak peduli berapa kali komponennya sendiri dipasang, dilepas, atau dirender ulang. Itulah kenapa versi BENAR meletakkan `daftarkanAplikasi()` di luar `App`: pemanggilan sekali seumur aplikasi tidak butuh Effect sama sekali, karena masalah "dijalankan dua kali oleh Strict Mode" itu spesifik untuk kode yang berjalan **di dalam** siklus render komponen.',
       ),
 
       h2('6. Mengambil data'),
@@ -592,6 +953,9 @@ export const lessons: LessonDraft[] = [
         const { data } = useQuery({ queryKey: ['produk'], queryFn: ambilProduk });
         `,
       ),
+      p(
+        'Baris pertama tampak paling sederhana, dan justru itu jebakannya — ia bekerja di localhost lalu gagal dalam banyak cara di dunia nyata. Perhatikan apa yang **tidak ada** di sana: tidak ada pembatalan, jadi ada race condition; tidak ada penanganan gagal, jadi kegagalan jaringan berakhir sebagai unhandled rejection; tidak ada keadaan memuat, jadi layar kosong tanpa penjelasan; dan tidak ada cache, jadi kembali ke halaman ini mengambil ulang semuanya. Dua alternatifnya menyelesaikan itu dengan cara berbeda. Di Next.js, `await ambilProduk()` di Server Component menghapus masalahnya di akar — datanya sudah ada sebelum HTML dikirim, sehingga tidak ada Effect maupun keadaan memuat sama sekali. Di Client Component, `useQuery` menyediakan cache, deduplikasi, dan pembatalan sebagai bawaan — pekerjaan yang tidak masuk akal ditulis ulang di tiap komponen.',
+      ),
 
       h2('Kapan Effect memang jawabannya'),
       ul(
@@ -605,6 +969,32 @@ export const lessons: LessonDraft[] = [
         'Uji satu kalimat',
         'Sebelum menulis Effect, coba lengkapi: *"Effect ini menyelaraskan ___ dengan ___."* Kalau tidak ada sistem luar yang bisa mengisi bagian pertama, kemungkinan besar kamu tidak butuh Effect.',
       ),
+      references(
+        {
+          label: 'You Might Not Need an Effect',
+          href: 'https://react.dev/learn/you-might-not-need-an-effect',
+          source: 'React',
+          note: 'Halaman resmi yang menjadi kerangka seluruh katalog kesalahan di sub-bab ini.',
+        },
+        {
+          label: 'Separating Events from Effects',
+          href: 'https://react.dev/learn/separating-events-from-effects',
+          source: 'React',
+          note: 'Garis pemisah antara "karena pengguna melakukan sesuatu" dan "karena render terjadi".',
+        },
+        {
+          label: 'Fetching data with Effects (dan alternatifnya)',
+          href: 'https://react.dev/reference/react/useEffect#fetching-data-with-effects',
+          source: 'React',
+          note: 'Peringatan resmi tentang race condition, cache, dan deduplikasi saat mengambil data via Effect.',
+        },
+        {
+          label: 'Array.prototype.reduce()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce',
+          source: 'MDN Web Docs',
+          note: 'Metode yang dipakai contoh menghitung total di atas.',
+        },
+      ),
     ],
   ),
 
@@ -616,6 +1006,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Keduanya punya API yang identik. Yang berbeda hanya **kapan** ia berjalan relatif terhadap saat browser menggambar layar — dan perbedaan itu menentukan apakah pengguna melihat kedipan.',
+      ),
+
+      terms(
+        {
+          term: 'paint / menggambar',
+          meaning:
+            'Momen browser benar-benar menyalakan piksel di layar. Semua yang terjadi **sebelum** paint tidak pernah dilihat pengguna; semua yang terjadi **sesudahnya** berpotensi terlihat sebagai perubahan mendadak. Seluruh perbedaan dua hook di sub-bab ini bermuara ke satu garis ini.',
+        },
+        {
+          term: 'kedipan (flicker)',
+          meaning:
+            'Elemen sempat terlihat di posisi atau bentuk yang salah, lalu melompat ke tempat yang benar. Terjadi ketika perubahan dilakukan **setelah** paint. Ini gejala visual yang membedakan "butuh `useLayoutEffect`" dari "cukup `useEffect`".',
+        },
+        {
+          term: 'layout',
+          meaning:
+            'Tahap browser menghitung posisi dan ukuran setiap elemen. Nama `useLayoutEffect` berarti "Effect yang berjalan setelah layout dihitung tapi sebelum digambar" — persis jendela waktu yang kamu butuhkan untuk mengukur lalu memperbaiki posisi.',
+        },
+        {
+          term: 'getBoundingClientRect',
+          meaning:
+            'Metode DOM yang mengembalikan kotak posisi dan ukuran sebuah elemen relatif terhadap viewport: `top`, `left`, `width`, `height`. Inilah cara "mengukur" elemen sungguhan — dan ia hanya bisa dipanggil setelah elemennya ada di DOM.',
+        },
+        {
+          term: 'ref',
+          meaning:
+            'Singkatan dari *reference* (rujukan). Objek berisi `.current` yang React isi dengan elemen DOM sungguhan setelah dipasang. Dibahas tuntas di sub-bab berikutnya; di sini ia dipakai sekadar untuk bisa mengukur tooltip-nya.',
+        },
+        {
+          term: 'tooltip',
+          meaning:
+            'Kotak kecil berisi keterangan yang muncul di dekat elemen tertentu. Ia contoh klasik `useLayoutEffect` karena posisinya baru bisa dihitung setelah tahu ukuran aslinya — dan menghitungnya setelah paint berarti pengguna melihatnya melompat.',
+        },
+        {
+          term: 'SSR',
+          meaning:
+            'Singkatan *Server-Side Rendering* — HTML dibuat di server sebelum dikirim ke browser. Di server tidak ada layar untuk digambar, jadi `useLayoutEffect` tidak berjalan dan React memperingatkanmu. Ini relevan langsung di Next.js, yang merender di server secara default.',
+        },
+        {
+          term: 'isomorphic',
+          meaning:
+            'Dibaca "aisomorfik", artinya **berbentuk sama di dua tempat**. Pola `useIsomorphicLayoutEffect` memilih `useEffect` saat di server dan `useLayoutEffect` saat di browser, sehingga satu komponen bisa hidup di keduanya tanpa peringatan.',
+        },
       ),
 
       h2('Urutannya'),
@@ -659,6 +1092,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Urutan kejadiannya penting untuk dipahami: render pertama menghasilkan tooltip di posisi `{ atas: 0, kiri: 0 }` (nilai awal state), lalu `useLayoutEffect` langsung berjalan — **sebelum** browser sempat menggambar apa pun ke layar — untuk mengukur posisi target lewat `getBoundingClientRect()` dan menghitung posisi yang benar. Karena `setPosisi` dipanggil di dalam `useLayoutEffect`, React menggabungkan perubahan itu ke dalam gambar yang sama, sehingga posisi `0,0` tidak pernah benar-benar terlihat pengguna — beda dengan komentar di kode yang menjelaskan apa yang **akan** terjadi kalau dipakai `useEffect` biasa. `ref.current!` dengan tanda seru memastikan TypeScript bahwa `ref.current` sudah terisi elemen DOM saat baris itu dijalankan — sah di sini karena Effect (termasuk `useLayoutEffect`) selalu berjalan setelah React memasang elemennya, sehingga `ref.current` tidak lagi `null`.',
+      ),
 
       h2('Kapan memakai yang mana'),
       table(
@@ -691,6 +1127,32 @@ export const lessons: LessonDraft[] = [
           typeof window !== 'undefined' ? useLayoutEffect : useEffect;
         `,
       ),
+      references(
+        {
+          label: 'useLayoutEffect',
+          href: 'https://react.dev/reference/react/useLayoutEffect',
+          source: 'React',
+          note: 'Rujukan resmi, termasuk peringatan performa dan perilakunya saat SSR.',
+        },
+        {
+          label: 'useEffect',
+          href: 'https://react.dev/reference/react/useEffect',
+          source: 'React',
+          note: 'Pasangannya yang berjalan setelah browser menggambar layar.',
+        },
+        {
+          label: 'Element.getBoundingClientRect()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Element/getBoundingClientRect',
+          source: 'MDN Web Docs',
+          note: 'Cara mengukur posisi dan ukuran elemen sungguhan di layar.',
+        },
+        {
+          label: 'Render and Commit',
+          href: 'https://react.dev/learn/render-and-commit',
+          source: 'React',
+          note: 'Tiga tahap React — trigger, render, commit — yang menjelaskan urutan di atas.',
+        },
+      ),
     ],
   ),
 
@@ -702,6 +1164,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         '`useRef` mengembalikan objek dengan satu properti `.current` yang bertahan sepanjang umur komponen. Perbedaan pentingnya dari `useState`: **mengubah `.current` tidak memicu render**.',
+      ),
+
+      terms(
+        {
+          term: 'ref',
+          meaning:
+            'Singkatan dari *reference* (rujukan). Bayangkan sebuah kotak berlabel `.current` yang ikut hidup bersama komponenmu: isinya bertahan antar render, tapi menggantinya **tidak** memberitahu React apa pun. Dua kegunaannya berbeda jauh — memegang elemen DOM sungguhan, dan menyimpan nilai yang tidak ditampilkan.',
+        },
+        {
+          term: 'mutable',
+          meaning:
+            'Dibaca "myutabel", artinya **bisa diubah di tempat**. `ref.current = 5` mengubah isi kotaknya langsung, tanpa membuat objek baru dan tanpa memicu render. Lawannya *immutable* — pola yang dipakai `useState`, di mana kamu selalu membuat nilai baru.',
+        },
+        {
+          term: '.current',
+          meaning:
+            'Satu-satunya properti objek yang dikembalikan `useRef`. Namanya berarti "nilai saat ini". Objek pembungkusnya sendiri tidak pernah berganti sepanjang umur komponen — yang berganti hanya isi `.current`, dan itulah yang membuatnya stabil untuk dipakai di Effect.',
+        },
+        {
+          term: 'optional chaining (`?.`)',
+          meaning:
+            'Operator JavaScript `?.` yang berarti "kalau nilainya `null` atau `undefined`, berhenti di sini dan hasilkan `undefined` alih-alih melempar error". Pada `inputRef.current?.focus()` ia memang perlu — ref belum terisi saat render pertama, jadi `.current` sungguhan bisa bernilai `null`.',
+        },
+        {
+          term: 'HTMLInputElement',
+          meaning:
+            'Tipe TypeScript untuk elemen `<input>` sungguhan di DOM. Ada satu tipe seperti ini per jenis elemen — `HTMLDivElement`, `HTMLButtonElement`, dan seterusnya. Menuliskannya di `useRef<HTMLInputElement>(null)` yang membuat editor tahu metode apa saja yang tersedia di `.current`.',
+        },
+        {
+          term: 'render murni (pure render)',
+          meaning:
+            'Komponen yang, untuk props dan state yang sama, selalu menghasilkan keluaran yang sama — tanpa efek samping. Membaca atau menulis `.current` saat render melanggar ini: hasilnya jadi bergantung pada **berapa kali** komponen dirender, sesuatu yang tidak dijamin React.',
+        },
+        {
+          term: 'fitur konkuren (concurrent)',
+          meaning:
+            'Kemampuan React memulai sebuah render, menjedanya, membuangnya, lalu mengulanginya. Ini alasan aturan "jangan sentuh ref saat render" bukan sekadar kerapian: dengan render yang bisa dibatalkan, kode yang bergantung pada jumlah render pasti akan salah cepat atau lambat.',
+        },
+        {
+          term: 'forwardRef',
+          meaning:
+            'API lama untuk meneruskan `ref` dari komponen induk ke elemen di dalam komponen anak. **Sejak React 19 tidak lagi diperlukan** — `ref` bisa diterima sebagai prop biasa. `forwardRef` masih bekerja demi kode lama, tapi jangan dipakai untuk kode baru.',
+        },
+        {
+          term: 'ref berupa fungsi (callback ref)',
+          meaning:
+            'Alih-alih objek, kamu mengoper **fungsi** ke atribut `ref`. React memanggilnya dengan elemennya saat dipasang, dan dengan `null` saat dilepas. Di React 19 fungsi ini boleh mengembalikan cleanup — bentuk paling rapi untuk memasang observer pada sebuah elemen.',
+        },
       ),
 
       h2('Dua kegunaan yang berbeda'),
@@ -783,6 +1293,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Perbedaannya bukan pada baris `ref.current += 1` melainkan pada **kapan baris itu dijalankan**. Di versi SALAH ia berada di badan komponen, sehingga berjalan setiap kali React memanggil fungsinya — dan karena mengubah ref tidak memicu render, angkanya bisa berbeda-beda tanpa ada yang mengubah data apa pun. Ini pelanggaran kemurnian yang sama seperti `hitungan++` di sub-bab komponen, hanya memakai ref alih-alih variabel modul. Di versi BENAR baris itu dipindah ke dalam handler, yang berjalan **sebagai respons peristiwa**, bukan sebagai bagian dari render. Aturan praktisnya: ref boleh dibaca dan ditulis di handler maupun Effect, tapi tidak pernah di badan komponen — dan kalau nilainya memang perlu ditampilkan, yang kamu butuhkan sebenarnya state.',
+      ),
       callout(
         'warning',
         'Kenapa aturan ini penting sekarang',
@@ -821,6 +1334,35 @@ export const lessons: LessonDraft[] = [
         />
         `,
       ),
+      p(
+        'React memanggil fungsi ref ini dengan elemen DOM-nya saat elemen dipasang, dan dengan `null` saat elemen dilepas — itulah alasan baris pertama `if (node === null) return` diperlukan, supaya `ResizeObserver` tidak dipasang pada `null`. Sejak React 19, fungsi ref boleh **mengembalikan** fungsi cleanup, persis seperti `useEffect`: fungsi yang di-`return` (`() => observer.disconnect()`) dijalankan otomatis sesaat sebelum React memanggil ref lagi dengan `null`, sehingga observer yang dipasang saat elemen muncul selalu dibersihkan saat elemen itu hilang — tanpa perlu `useEffect` terpisah untuk mengelolanya.',
+      ),
+      references(
+        {
+          label: 'useRef',
+          href: 'https://react.dev/reference/react/useRef',
+          source: 'React',
+          note: 'Rujukan API, termasuk larangan membaca atau menulis `.current` saat render.',
+        },
+        {
+          label: 'Referencing Values with Refs',
+          href: 'https://react.dev/learn/referencing-values-with-refs',
+          source: 'React',
+          note: 'Perbedaan ref dan state, serta kapan sebuah nilai memang tidak perlu memicu render.',
+        },
+        {
+          label: 'Manipulating the DOM with Refs',
+          href: 'https://react.dev/learn/manipulating-the-dom-with-refs',
+          source: 'React',
+          note: 'Pola akses DOM yang aman, termasuk ref berupa fungsi dan cleanup-nya.',
+        },
+        {
+          label: 'Optional chaining (?.)',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Optional_chaining',
+          source: 'MDN Web Docs',
+          note: 'Operator yang membuat `inputRef.current?.focus()` aman saat ref masih `null`.',
+        },
+      ),
     ],
   ),
 
@@ -832,6 +1374,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Selama bertahun-tahun, `useMemo` dan `useCallback` ditaburkan di mana-mana "untuk berjaga-jaga". React Compiler mengubah situasinya secara mendasar — dan di project yang mengaktifkannya, memoisasi manual yang tidak perlu justru menjadi **error lint**.',
+      ),
+
+      terms(
+        {
+          term: 'memoisasi (memoization)',
+          meaning:
+            'Dibaca "memoaizeisyen". Menyimpan hasil sebuah perhitungan supaya tidak perlu dihitung ulang selama masukannya belum berubah. Namanya dari *memo* — catatan pengingat. Di React, yang "diingat" bukan cuma angka: bisa hasil pengurutan, sebuah fungsi, bahkan potongan JSX.',
+        },
+        {
+          term: 'useMemo',
+          meaning:
+            'Hook yang menyimpan **hasil** sebuah perhitungan. `useMemo(() => items.sort(bandingkan), [items])` berarti "jalankan pengurutannya lagi hanya kalau `items` berubah". Fungsi di dalamnya dijalankan saat render, jadi ia tidak boleh punya efek samping.',
+        },
+        {
+          term: 'useCallback',
+          meaning:
+            'Hook yang menyimpan **referensi sebuah fungsi**, agar identitasnya tidak berubah tiap render. Secara teknis `useCallback(fn, deps)` sama persis dengan `useMemo(() => fn, deps)` — ia ada semata karena membungkus fungsi adalah kasus yang sangat sering muncul.',
+        },
+        {
+          term: 'referensi fungsi',
+          meaning:
+            'Setiap kali komponen dirender, `function tangani() {}` di dalamnya menghasilkan objek fungsi **baru** — isinya sama, tapi identitasnya berbeda menurut `Object.is`. Inilah alasan fungsi sebagai dependency Effect atau prop `React.memo` bisa membuat semuanya jalan ulang tanpa alasan nyata.',
+        },
+        {
+          term: 'React Compiler',
+          meaning:
+            'Alat yang membaca komponenmu **saat build** lalu menyisipkan memoisasi otomatis — pada nilai, fungsi, dan elemen JSX. Hasilnya sering lebih baik daripada memoisasi manual, karena ia melihat seluruh komponen sekaligus dan tidak pernah lupa memperbarui dependency.',
+        },
+        {
+          term: 'error lint',
+          meaning:
+            'Di project ini, `useMemo` yang tidak bisa dipertahankan Compiler dan `setState` di dalam Effect berstatus **error**, bukan peringatan — artinya build berhenti. Ini disengaja: keduanya membuat Compiler tidak bisa memprediksi kapan sebuah nilai berubah. Perbaiki polanya, jangan matikan aturannya.',
+        },
+        {
+          term: 'React DevTools Profiler',
+          meaning:
+            'Tab di ekstensi React DevTools yang merekam render sungguhan: komponen mana yang render, berapa kali, dan berapa lama. Ini alat yang mengubah "sepertinya lambat" menjadi angka. Optimasi tanpa data darinya adalah tebakan.',
+        },
+        {
+          term: 'React.memo',
+          meaning:
+            'Berbeda dari dua hook di atas. Ia membungkus **komponen** agar tidak merender ulang saat props-nya tidak berubah (dibandingkan dangkal). Compiler tidak sepenuhnya menggantikannya — tapi aturannya sama: pasang setelah profiler menunjukkan masalahnya, bukan sebelumnya.',
+        },
       ),
 
       h2('Apa yang keduanya lakukan'),
@@ -846,6 +1431,9 @@ export const lessons: LessonDraft[] = [
 
         // useCallback(fn, deps) sama dengan useMemo(() => fn, deps)
         `,
+      ),
+      p(
+        'Komentar terakhir menyingkap sesuatu yang sering dianggap dua hal terpisah: **`useCallback` sebenarnya `useMemo` yang mengingat sebuah fungsi.** Ia ada karena kasusnya cukup sering sehingga layak diberi nama sendiri, bukan karena mekanismenya berbeda. Bedanya hanya pada apa yang kamu tulis: `useMemo(() => hitung(), deps)` mengingat **hasil** pemanggilan, sedangkan `useCallback(fn, deps)` mengingat **fungsinya sendiri** tanpa memanggilnya. Itu sebabnya `useCallback` menerima fungsi langsung sebagai argumen pertama, sementara `useMemo` menerima fungsi yang mengembalikan nilai. Salah menukar keduanya menghasilkan bug yang membingungkan: `useMemo(fn, deps)` akan menyimpan fungsi itu sebagai nilai, bukan menjalankannya.',
       ),
 
       h2('Apa yang React Compiler kerjakan'),
@@ -882,6 +1470,9 @@ export const lessons: LessonDraft[] = [
           notes: ['Compiler menyisipkan memoisasi yang setara', 'Tidak ada dependency untuk lupa'],
         },
       ),
+      p(
+        'Catatan kedua di kolom kiri menyebut biaya yang paling sering terwujud: **dependency yang tertinggal saat kode berubah.** Array `[items]` benar hari ini, tapi begitu isi `useMemo` ditambah memakai variabel lain dan array-nya lupa diperbarui, hasilnya nilai basi — bug yang tidak menghasilkan error dan hanya muncul pada urutan aksi tertentu. Compiler tidak punya masalah itu karena ia membaca isi fungsinya dan menyimpulkan dependensinya sendiri, setiap kali kamu build. Satu catatan penting yang tidak terlihat di perbandingan ini: `items.sort(...)` **mengubah array aslinya** — sesuai aturan mutasi dari Bab 1, versi yang benar-benar aman memakai `toSorted`. Compiler mengoptimalkan apa yang kamu tulis; ia tidak memperbaiki kode yang keliru.',
+      ),
 
       h2('Kenapa memoisasi manual bisa jadi error'),
       callout(
@@ -916,12 +1507,81 @@ export const lessons: LessonDraft[] = [
         '`React.memo` berbeda dan masih relevan',
         '`React.memo` membungkus komponen agar tidak merender ulang saat props-nya tidak berubah. Compiler tidak sepenuhnya menggantikannya, terutama untuk komponen berat yang menerima props stabil. Tapi sama seperti di atas: pasang setelah profiler menunjukkan masalahnya, bukan sebelumnya.',
       ),
+      references(
+        {
+          label: 'useMemo',
+          href: 'https://react.dev/reference/react/useMemo',
+          source: 'React',
+          note: 'Termasuk bagian resmi "should you add useMemo everywhere?" — jawabannya tidak.',
+        },
+        {
+          label: 'useCallback',
+          href: 'https://react.dev/reference/react/useCallback',
+          source: 'React',
+          note: 'Kapan identitas fungsi benar-benar penting, dan kapan membungkusnya cuma menambah kerumitan.',
+        },
+        {
+          label: 'React Compiler',
+          href: 'https://react.dev/learn/react-compiler',
+          source: 'React',
+          note: 'Cara compiler menyisipkan memoisasi otomatis dan apa yang masih perlu ditulis tangan.',
+        },
+        {
+          label: 'memo',
+          href: 'https://react.dev/reference/react/memo',
+          source: 'React',
+          note: 'Memoisasi pada level komponen — berbeda dari dua hook di atas.',
+        },
+      ),
     ],
   ),
 
   written('usecontext', '`useContext`', 10, 'Membaca nilai dari provider terdekat.', [
     p(
       '`useContext` membaca nilai dari `Provider` terdekat di atasnya. Bab 5 sudah membahas kapan Context tepat dipakai; sub-bab ini fokus pada mekanika hook-nya dan hal-hal yang mengejutkan saat memakainya.',
+    ),
+
+    terms(
+      {
+        term: 'context',
+        meaning:
+          'Dibaca "kontek(s)", artinya **konteks**. Cara React mengirim sebuah nilai ke seluruh komponen di bawahnya tanpa mengoper prop satu per satu di tiap lapisan. Bayangkan pengumuman lewat pengeras suara: siapa pun di dalam ruangan bisa mendengarnya tanpa harus dibisiki berantai.',
+      },
+      {
+        term: 'Provider / penyedia',
+        meaning:
+          'Komponen yang **menyediakan** nilainya, ditulis `<Konteks value={...}>`. Semua komponen di dalamnya bisa membaca nilai itu. Sejak React 19 kamu bisa menulis `<Konteks value=...>` langsung tanpa `.Provider`.',
+      },
+      {
+        term: 'createContext',
+        meaning:
+          'Fungsi yang membuat "saluran" context-nya. Argumennya adalah nilai default — dipakai hanya kalau sebuah komponen membaca context tanpa ada Provider di atasnya. Di pola ini kita sengaja memberi `null` supaya kasus itu gagal keras, bukan diam-diam salah.',
+      },
+      {
+        term: 'nilai default',
+        meaning:
+          'Argumen `createContext(...)`. Godaan terbesarnya adalah mengisinya dengan objek palsu supaya "aman". Justru sebaliknya: objek palsu membuat komponen yang lupa dipasang Provider tetap berjalan dengan nilai salah — bug diam yang sulit dilacak.',
+      },
+      {
+        term: 'custom hook pembungkus',
+        meaning:
+          'Fungsi seperti `useSidebar()` yang memanggil `useContext` lalu memeriksa hasilnya. Ia menyembunyikan objek context-nya sehingga tak seorang pun bisa memakai `useContext` mentah dan melewati pengecekan — pola yang membuat kesalahan pemakaian mustahil, bukan sekadar tidak dianjurkan.',
+      },
+      {
+        term: 'gagal keras (fail loudly)',
+        meaning:
+          'Melempar error dengan pesan jelas begitu keadaan yang mustahil terjadi, alih-alih melanjutkan dengan nilai cadangan. Yang membaca pesannya sedang bingung — jadi sebutkan persis nama hook dan Provider yang harus dipasang.',
+      },
+      {
+        term: 'provider terdekat',
+        meaning:
+          'Kalau ada dua Provider bersarang untuk context yang sama, komponen membaca nilai dari yang **paling dekat di atasnya**. Sifat ini berguna: satu bagian halaman bisa memakai tema berbeda tanpa memengaruhi sisanya.',
+      },
+      {
+        term: 'Client Component',
+        meaning:
+          'Komponen yang filenya diawali `"use client"` dan ikut dikirim ke browser. Context adalah fitur klien — `createContext` dan `useContext` tidak bisa dipakai di Server Component. Tapi Provider klien **tetap boleh membungkus** konten server lewat `children`, dan konten itu tidak ikut ke bundle browser.',
+      },
     ),
 
     h2('Pola lengkap yang layak disalin'),
@@ -1013,11 +1673,85 @@ export const lessons: LessonDraft[] = [
     p(
       'Setiap konsumen dirender ulang saat nilai context berubah, tanpa selector. Untuk nilai yang berubah sering, pecah context-nya berdasarkan frekuensi perubahan atau pindah ke store dengan selector — alasan lengkapnya ada di Bab 5.',
     ),
+    references(
+      {
+        label: 'useContext',
+        href: 'https://react.dev/reference/react/useContext',
+        source: 'React',
+        note: 'Termasuk catatan bahwa Provider tidak bisa membaca context yang ia pasang sendiri.',
+      },
+      {
+        label: 'createContext',
+        href: 'https://react.dev/reference/react/createContext',
+        source: 'React',
+        note: 'Arti nilai default dan bentuk `<Konteks value=...>` tanpa `.Provider` sejak React 19.',
+      },
+      {
+        label: 'Passing Data Deeply with Context',
+        href: 'https://react.dev/learn/passing-data-deeply-with-context',
+        source: 'React',
+        note: 'Kapan Context tepat dipakai, dan alternatif yang sebaiknya dicoba lebih dulu.',
+      },
+      {
+        label: 'Server and Client Components',
+        href: 'https://nextjs.org/docs/app/getting-started/server-and-client-components',
+        source: 'Next.js',
+        note: 'Kenapa Provider klien tetap boleh membungkus konten server lewat `children`.',
+      },
+    ),
   ]),
 
   written('usereducer-hook', '`useReducer`', 11, 'State kompleks dengan transisi yang eksplisit.', [
     p(
       '`useReducer` memindahkan logika perubahan state dari komponen ke satu fungsi murni. Alih-alih memanggil beberapa `setState` yang tersebar, komponen mengirim **aksi** dan reducer memutuskan hasilnya.',
+    ),
+
+    terms(
+      {
+        term: 'reducer',
+        meaning:
+          'Dibaca "rediuser", artinya **peringkas**. Fungsi murni bertanda tangan `(state, aksi) => stateBaru`. Namanya dari `Array.prototype.reduce`, yang juga meringkas "keadaan sekarang + item berikutnya" menjadi keadaan berikutnya. Ia tidak tahu apa-apa tentang React — cukup dua masukan, satu keluaran.',
+      },
+      {
+        term: 'aksi (action)',
+        meaning:
+          "Objek yang menggambarkan **apa yang terjadi**, bukan apa yang harus diubah: `{ type: 'gagal', pesan: '...' }`. Bedanya halus tapi penting — komponen melaporkan peristiwa, reducer yang memutuskan akibatnya.",
+      },
+      {
+        term: 'dispatch / kirim',
+        meaning:
+          'Fungsi kedua yang dikembalikan `useReducer`. Kamu memanggilnya dengan sebuah aksi, dan React menjalankan reducer-nya untuk render berikutnya. Dokumentasi resmi menamainya `dispatch`; di materi ini dinamai `kirim` supaya maksudnya langsung terbaca.',
+      },
+      {
+        term: 'type',
+        meaning:
+          "Properti wajib pada objek aksi yang menyebut jenis peristiwanya. Ia yang dipakai `switch` di dalam reducer, dan sekaligus yang dipakai TypeScript untuk mempersempit tipe — begitu `aksi.type === 'berhasil'`, TypeScript tahu `aksi.data` pasti ada.",
+      },
+      {
+        term: 'discriminated union',
+        meaning:
+          'Gabungan beberapa bentuk objek yang dibedakan satu properti penanda — di sini `type`. Inilah yang membuat TypeScript **menolak** kode kamu ketika kamu menambah jenis aksi baru dan lupa menanganinya di `switch`. Itu bukan efek samping; itu alasan utama memakai bentuk ini.',
+      },
+      {
+        term: 'keadaan mustahil (impossible state)',
+        meaning:
+          'Kombinasi state yang secara logika tidak boleh ada — misalnya "sedang memuat" **dan** "gagal" **dan** "data terisi" sekaligus. Tiga `useState` terpisah membiarkan kombinasi itu terjadi; satu field `status` dengan empat nilai membuatnya tidak bisa dinyatakan sama sekali.',
+      },
+      {
+        term: 'fungsi murni (pure function)',
+        meaning:
+          'Fungsi yang untuk masukan sama selalu menghasilkan keluaran sama, dan tidak melakukan apa pun ke dunia luar — tidak menulis `localStorage`, tidak memanggil API, tidak mengubah argumennya. Reducer **wajib** murni, karena React boleh memanggilnya lebih dari sekali untuk aksi yang sama.',
+      },
+      {
+        term: 'transisi',
+        meaning:
+          'Perpindahan dari satu keadaan ke keadaan berikutnya. Nilai `useReducer` ada di sini: satu aksi = satu transisi yang utuh, bukan tiga panggilan `setState` yang harus kamu jaga tetap konsisten satu per satu.',
+      },
+      {
+        term: 'spread (`...state`)',
+        meaning:
+          'Operator JavaScript yang menyalin seluruh properti sebuah objek ke objek baru. `{ ...state, status: \'memuat\' }` berarti "sama seperti sebelumnya, kecuali `status`". Ini cara membuat state baru tanpa mengubah yang lama — syarat agar reducer tetap murni.',
+      },
     ),
 
     h2('Bentuknya'),
@@ -1135,6 +1869,32 @@ export const lessons: LessonDraft[] = [
       'Reducer + Context = store sederhana',
       'Menggabungkan `useReducer` dengan Context memberi kamu store global tanpa library apa pun. Ingat batasnya dari Bab 5: tanpa selector, semua konsumen tetap ikut render. Untuk state yang sering berubah dan banyak pembacanya, store dengan selector tetap lebih tepat.',
     ),
+    references(
+      {
+        label: 'useReducer',
+        href: 'https://react.dev/reference/react/useReducer',
+        source: 'React',
+        note: 'Rujukan API lengkap, termasuk syarat reducer harus fungsi murni.',
+      },
+      {
+        label: 'Extracting State Logic into a Reducer',
+        href: 'https://react.dev/learn/extracting-state-logic-into-a-reducer',
+        source: 'React',
+        note: 'Kapan beberapa `useState` sebaiknya digabung menjadi satu reducer.',
+      },
+      {
+        label: 'Scaling Up with Reducer and Context',
+        href: 'https://react.dev/learn/scaling-up-with-reducer-and-context',
+        source: 'React',
+        note: 'Pola store sederhana tanpa library, beserta batasannya.',
+      },
+      {
+        label: 'Discriminated unions',
+        href: 'https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions',
+        source: 'TypeScript',
+        note: 'Mekanisme yang membuat `switch` di dalam reducer diperiksa lengkap oleh compiler.',
+      },
+    ),
   ]),
 
   written(
@@ -1145,6 +1905,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Keduanya adalah hook konkuren: mereka memberi tahu React bahwa sebagian pembaruan **tidak mendesak**, sehingga React boleh menundanya demi yang mendesak — seperti menampilkan huruf yang baru diketik.',
+      ),
+
+      terms(
+        {
+          term: 'konkuren (concurrent)',
+          meaning:
+            'Dibaca "konkuren", artinya **berjalan berdampingan**. Kemampuan React menyiapkan beberapa versi antarmuka sekaligus, menjeda salah satunya, dan mendahulukan yang lebih mendesak. Ini yang membuat "input tetap bisa diketik sementara daftar besar masih difilter" jadi mungkin.',
+        },
+        {
+          term: 'pembaruan mendesak vs tidak mendesak',
+          meaning:
+            'React membedakan keduanya. **Mendesak**: huruf yang baru diketik harus langsung muncul — jeda 100ms saja sudah terasa lengket. **Tidak mendesak**: daftar hasil boleh menyusul sedetik kemudian. Kedua hook di sub-bab ini adalah cara memberi tahu React mana yang mana.',
+        },
+        {
+          term: 'useDeferredValue',
+          meaning:
+            'Hook yang menunda **nilainya**. Ia mengembalikan salinan yang "tertinggal" dari nilai yang kamu berikan. Input memakai nilai terbaru sehingga tetap responsif; pekerjaan berat memakai salinan tertunda. Dipakai saat nilainya datang dari props atau state yang bukan milikmu.',
+        },
+        {
+          term: 'useTransition',
+          meaning:
+            'Hook yang menandai **pembaruannya**. Ia memberimu `[sedangPindah, mulaiTransisi]`: bungkus `setState`-mu di dalam `mulaiTransisi(...)`, dan `sedangPindah` menyala selama pembaruan itu diproses. Dipakai saat kamu yang mengontrol pemanggilan `setState`-nya.',
+        },
+        {
+          term: 'transisi (transition)',
+          meaning:
+            'Istilah React untuk pembaruan yang ditandai tidak mendesak. Sifat pentingnya: konten **lama tetap terlihat** sampai yang baru siap, alih-alih layar dikosongkan lebih dulu. Itu perbedaan antara "berpindah tab" dan "layar berkedip kosong lalu isinya muncul".',
+        },
+        {
+          term: 'debounce',
+          meaning:
+            'Teknik lama: tunggu jeda tetap (misalnya 300ms) setelah pengguna berhenti mengetik, baru kerjakan. Bedanya dengan hook ini tegas — debounce **selalu** menunggu selama itu bahkan di perangkat cepat, sedangkan React memakai secepat perangkatnya mampu.',
+        },
+        {
+          term: 'basi (stale)',
+          meaning:
+            'Keadaan ketika yang tampil di layar belum mencerminkan masukan terbaru. Kamu bisa mendeteksinya dengan membandingkan nilai asli dan nilai tertunda, lalu meredupkan tampilannya — supaya pengguna tahu hasilnya sedang menyusul, bukan sudah selesai.',
+        },
+        {
+          term: 'virtualisasi',
+          meaning:
+            'Hanya merender baris yang benar-benar terlihat di layar dari daftar yang panjang. Ini contoh optimasi **sungguhan** — ia mengurangi jumlah pekerjaan. Hook di sub-bab ini menjadwalkan ulang pekerjaan yang sama, tidak menguranginya.',
+        },
       ),
 
       h2('Masalahnya'),
@@ -1250,6 +2053,32 @@ export const lessons: LessonDraft[] = [
         'Kaitannya dengan pekerjaan asinkron',
         'Di React 19, fungsi async juga bisa dijalankan di dalam `startTransition`, dan `useActionState` (sub-bab berikutnya) dibangun di atas mekanisme yang sama untuk menangani status pengiriman form.',
       ),
+      references(
+        {
+          label: 'useTransition',
+          href: 'https://react.dev/reference/react/useTransition',
+          source: 'React',
+          note: 'Menandai pembaruan sebagai tidak mendesak beserta bendera `isPending`-nya.',
+        },
+        {
+          label: 'useDeferredValue',
+          href: 'https://react.dev/reference/react/useDeferredValue',
+          source: 'React',
+          note: 'Termasuk perbandingan resmi dengan debounce dan throttle.',
+        },
+        {
+          label: 'startTransition',
+          href: 'https://react.dev/reference/react/startTransition',
+          source: 'React',
+          note: 'Versi tanpa hook, untuk dipakai di luar komponen.',
+        },
+        {
+          label: 'Keeping Components Pure',
+          href: 'https://react.dev/learn/keeping-components-pure',
+          source: 'React',
+          note: 'Syarat kemurnian yang membuat React aman menjeda dan mengulang render.',
+        },
+      ),
     ],
   ),
 
@@ -1261,6 +2090,59 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'React 19 menambahkan beberapa hook yang dirancang khusus untuk alur form dan mutasi — bagian yang selama ini paling banyak memakai kode berulang.',
+      ),
+
+      terms(
+        {
+          term: 'mutasi (mutation)',
+          meaning:
+            'Operasi yang **mengubah** data di server — menyimpan profil, menambah komentar, menghapus item. Lawannya *query*, yang hanya membaca. Bagian ini dulu paling banyak memakai kode berulang: satu state untuk pesan, satu untuk status kirim, satu `try/catch`, satu `preventDefault`.',
+        },
+        {
+          term: 'useActionState',
+          meaning:
+            'Hook React 19 yang mengembalikan tiga hal sekaligus: `[keadaan, aksi, sedangKirim]`. Kamu memberinya sebuah fungsi async, dan React mengurus status pengiriman serta hasilnya. Fungsi itu menerima keadaan sebelumnya sebagai argumen pertama — polanya sama seperti reducer.',
+        },
+        {
+          term: 'FormData',
+          meaning:
+            "Objek bawaan browser berisi seluruh isi sebuah form, diambil berdasarkan atribut `name` tiap input. `formData.get('nama')` mengembalikan nilainya. Tipenya `string | File | null`, jadi memeriksanya dengan `typeof` sebelum dipakai bukan kehati-hatian berlebihan.",
+        },
+        {
+          term: 'action pada `<form>`',
+          meaning:
+            'Atribut `action` yang biasanya berisi URL, tapi di React 19 boleh diisi **fungsi**. React akan memanggilnya dengan `FormData` saat form dikirim, dan menangani `preventDefault` untukmu. Ini yang menghapus seluruh boilerplate `onSubmit`.',
+        },
+        {
+          term: 'useFormStatus',
+          meaning:
+            'Hook dari `react-dom` yang membaca status `<form>` **di atasnya**. Kegunaannya: tombol kirim bisa tahu form sedang diproses tanpa dioper prop. Syaratnya keras — ia harus dipanggil dari komponen yang berada **di dalam** form, bukan dari komponen yang merender form itu.',
+        },
+        {
+          term: 'pending',
+          meaning:
+            'Dibaca "pending", artinya **sedang berlangsung**. Bendera boolean yang bernilai `true` selama pengiriman belum selesai. Dipakai untuk menonaktifkan tombol (mencegah pengiriman ganda) dan mengganti labelnya jadi "Menyimpan…".',
+        },
+        {
+          term: 'useOptimistic',
+          meaning:
+            'Hook yang menampilkan hasil **seolah-olah** sudah berhasil, sebelum server menjawab. Kalau ternyata gagal, React mengembalikan tampilannya ke keadaan sebenarnya. Ini yang membuat "like" terasa instan padahal jaringannya butuh 300ms.',
+        },
+        {
+          term: 'optimistic update',
+          meaning:
+            'Nama polanya. "Optimis" karena kamu bertaruh permintaannya akan berhasil. Taruhannya masuk akal untuk aksi yang hampir selalu berhasil dan mudah dibatalkan — dan buruk untuk aksi yang konsekuensinya besar, seperti pembayaran.',
+        },
+        {
+          term: 'role="alert" / role="status"',
+          meaning:
+            'Atribut ARIA yang membuat screen reader **membacakan** isi elemen begitu berubah. `alert` untuk kegagalan (mendesak, memotong pembacaan lain), `status` untuk keberhasilan (sopan, menunggu giliran). Keduanya sering terlupa di form buatan tangan.',
+        },
+        {
+          term: 'aria-describedby',
+          meaning:
+            'Atribut yang mengaitkan sebuah input dengan elemen lain yang menjelaskannya — di sini pesan error-nya. Efeknya: screen reader membacakan pesan itu saat fokus masuk ke input, sehingga pengguna tahu apa yang salah tanpa harus menjelajah halaman.',
+        },
       ),
 
       h2('`useActionState` — status pengiriman tanpa state manual'),
@@ -1330,6 +2212,7 @@ export const lessons: LessonDraft[] = [
         // Tidak perlu prop, tidak perlu context buatan sendiri.
         export function TombolKirim({ children }: { children: React.ReactNode }) {
           const { pending } = useFormStatus();
+          // pending: true selama Server Action form ini masih berjalan
 
           return (
             <button disabled={pending}>
@@ -1338,6 +2221,9 @@ export const lessons: LessonDraft[] = [
           );
         }
         `,
+      ),
+      p(
+        'Perhatikan komponen ini **tidak menerima satu prop pun tentang status** — tidak ada `sedangKirim`, tidak ada `disabled`. Ia mencari sendiri `<form>` terdekat di atasnya dan membaca statusnya. Itu menyelesaikan masalah yang biasanya dijawab dengan prop drilling: tombol kirim sering berada beberapa lapis di dalam form, dan tanpa hook ini status `pending` harus dioper melewati tiap lapisan. Konsekuensinya disebut di kotak berikut dan mudah terlewat — karena ia membaca form **di atasnya**, memanggilnya di komponen yang justru merender `<form>` itu sendiri akan selalu memberi `pending: false`. Aturannya: `useFormStatus` hanya bekerja dari dalam, jadi tombol kirim harus menjadi komponen tersendiri.',
       ),
       callout(
         'warning',
@@ -1395,6 +2281,32 @@ export const lessons: LessonDraft[] = [
       p(
         'Aturan dari Bab 5 tetap berlaku dan tidak berubah karena hook-nya jadi lebih mudah: optimistic update cocok kalau kegagalannya jarang, murah, dan bisa dibatalkan tanpa merugikan. Untuk pembayaran, pemesanan berstok terbatas, atau apa pun yang tidak bisa ditarik kembali, tampilkan status "memproses" yang jujur.',
       ),
+      references(
+        {
+          label: 'useActionState',
+          href: 'https://react.dev/reference/react/useActionState',
+          source: 'React',
+          note: 'Bentuk `[keadaan, aksi, sedangKirim]` dan cara fungsi aksinya menerima keadaan sebelumnya.',
+        },
+        {
+          label: 'useOptimistic',
+          href: 'https://react.dev/reference/react/useOptimistic',
+          source: 'React',
+          note: 'Termasuk penjelasan kapan React membuang keadaan optimistik dan kembali ke data sebenarnya.',
+        },
+        {
+          label: 'useFormStatus',
+          href: 'https://react.dev/reference/react-dom/hooks/useFormStatus',
+          source: 'React',
+          note: 'Syarat resmi bahwa hook ini harus dipanggil dari dalam `<form>`, bukan dari komponen yang merendernya.',
+        },
+        {
+          label: 'FormData',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/FormData',
+          source: 'MDN Web Docs',
+          note: 'Objek yang diterima fungsi aksi form, termasuk tipe kembalian `get()`.',
+        },
+      ),
     ],
   ),
 
@@ -1406,6 +2318,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Tiga hook yang jarang muncul di tutorial, tapi masing-masing menyelesaikan masalah yang tidak punya solusi baik lainnya.',
+      ),
+
+      terms(
+        {
+          term: 'useId',
+          meaning:
+            'Hook yang menghasilkan string id unik yang **sama di server dan di browser**. Kegunaan utamanya: mengaitkan `<label htmlFor>` dengan `<input id>` di komponen yang dipakai berkali-kali di satu halaman, tanpa risiko id kembar.',
+        },
+        {
+          term: 'hydration mismatch',
+          meaning:
+            'Dibaca "haidreisyen mismatch", artinya **ketidakcocokan saat hidrasi**. Terjadi ketika HTML dari server berbeda dari yang dihasilkan browser. `Math.random()` atau penghitung sendiri pasti memicunya di SSR — dan akibat terburuknya bukan peringatan di konsol, melainkan kaitan label–input yang putus sehingga screen reader kehilangan nama input itu.',
+        },
+        {
+          term: 'htmlFor',
+          meaning:
+            'Nama JSX untuk atribut HTML `for` pada `<label>` (`for` adalah kata kunci JavaScript, jadi tidak bisa dipakai apa adanya). Nilainya harus sama persis dengan `id` input yang dituju — itulah yang membuat mengklik label memindahkan fokus ke inputnya.',
+        },
+        {
+          term: 'useSyncExternalStore',
+          meaning:
+            'Hook untuk berlangganan ke sumber data **di luar React** — `localStorage`, `matchMedia`, status jaringan, atau store buatan sendiri. Ia menerima tiga fungsi: cara berlangganan, cara membaca nilai sekarang di browser, dan cara membacanya di server.',
+        },
+        {
+          term: 'store eksternal',
+          meaning:
+            'Tempat penyimpanan data yang hidup di luar pohon komponen React dan bisa berubah kapan saja. Zustand, Redux, dan library sejenis semuanya memakai hook ini di dalamnya — jadi memahaminya berarti memahami cara kerja mereka.',
+        },
+        {
+          term: 'snapshot',
+          meaning:
+            'Nilai sebuah store **pada satu momen**. Fungsi pembacanya harus mengembalikan nilai yang sama menurut `Object.is` selama datanya belum berubah. Mengembalikan objek baru tiap panggilan membuat React merender tanpa henti — jebakan paling umum pada hook ini.',
+        },
+        {
+          term: 'getServerSnapshot',
+          meaning:
+            'Argumen ketiga, **wajib** kalau ada SSR. Di server tidak ada `window` atau `localStorage`, jadi ia harus mengembalikan nilai netral. Di website ini ia selalu mengembalikan keadaan kosong — dan itulah sebabnya setiap komponen berdata menampilkan skeleton sampai `hydrated` bernilai true.',
+        },
+        {
+          term: 'useDebugValue',
+          meaning:
+            'Hook yang **hanya** memengaruhi tampilan React DevTools: ia memberi label pada custom hook-mu sehingga terbaca "StatusJaringan: Daring" alih-alih sekadar `true`. Tidak berpengaruh apa pun di produksi — murni alat bantu saat menelusuri masalah.',
+        },
+        {
+          term: 'navigator.onLine',
+          meaning:
+            'Properti bawaan browser yang bernilai `true` saat perangkat terhubung jaringan. Ia berpasangan dengan event `online`/`offline` — kombinasi itulah yang membuat contoh `useSyncExternalStore` di bawah menjadi kasus nyata, bukan buatan.',
+        },
       ),
 
       h2('`useId` — id unik yang aman untuk SSR'),
@@ -1426,6 +2386,9 @@ export const lessons: LessonDraft[] = [
           );
         }
         `,
+      ),
+      p(
+        'Satu pemanggilan `useId` dipakai untuk **tiga** kaitan sekaligus, dan itu polanya. `htmlFor={id}` menghubungkan label dengan input, sehingga mengeklik teks "Email" memindahkan fokus ke kolomnya. `aria-describedby` menghubungkan input dengan kalimat bantuannya, sehingga pembaca layar membacakannya setelah nama kolomnya. Perhatikan id kedua dibentuk dengan **menambahkan akhiran** (`\${id}-bantuan`), bukan memanggil `useId` lagi — itu cara yang dianjurkan ketika satu komponen butuh beberapa id yang berhubungan. Kenapa harus hook dan bukan id yang ditulis tangan? Karena komponen ini bisa muncul dua kali di satu halaman, dan dua elemen dengan `id` yang sama membuat kaitan label menjadi ambigu — pembaca layar hanya akan mengenali yang pertama.',
       ),
       callout(
         'danger',
@@ -1490,6 +2453,32 @@ export const lessons: LessonDraft[] = [
       p(
         'Hanya berguna di dalam custom hook, dan hanya terlihat di DevTools. Untuk hook sederhana ia tidak perlu; untuk hook yang mengembalikan struktur rumit, ia menghemat waktu saat men-debug.',
       ),
+      references(
+        {
+          label: 'useId',
+          href: 'https://react.dev/reference/react/useId',
+          source: 'React',
+          note: 'Termasuk peringatan resmi bahwa hook ini bukan untuk `key` dalam daftar.',
+        },
+        {
+          label: 'useSyncExternalStore',
+          href: 'https://react.dev/reference/react/useSyncExternalStore',
+          source: 'React',
+          note: 'Tiga argumennya, syarat snapshot yang stabil, dan kewajiban snapshot server saat SSR.',
+        },
+        {
+          label: 'useDebugValue',
+          href: 'https://react.dev/reference/react/useDebugValue',
+          source: 'React',
+          note: 'Label custom hook di React DevTools — tidak berpengaruh di produksi.',
+        },
+        {
+          label: 'Navigator.onLine',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Navigator/onLine',
+          source: 'MDN Web Docs',
+          note: 'Sumber data untuk contoh `useStatusJaringan`, beserta event `online`/`offline`-nya.',
+        },
+      ),
     ],
   ),
 
@@ -1501,6 +2490,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Bab 6 sudah memperkenalkan custom hook sebagai pengganti HOC dan render props. Sub-bab ini membahas cara merancangnya dengan baik — dan kapan sebaiknya tidak membuatnya sama sekali.',
+      ),
+
+      terms(
+        {
+          term: 'custom hook',
+          meaning:
+            'Fungsi buatanmu sendiri yang namanya diawali `use` dan memanggil hook lain di dalamnya. Awalan `use` bukan sekadar gaya penamaan — ia yang membuat linter tahu bahwa aturan hooks berlaku di dalam fungsi itu. Tanpa awalan itu, pelanggaran tidak akan terdeteksi.',
+        },
+        {
+          term: 'mengekstrak (extract)',
+          meaning:
+            'Memindahkan sepotong logika keluar dari komponen ke tempatnya sendiri. Kata kuncinya "logika", bukan "baris". Mengekstrak untuk memendekkan komponen adalah alasan yang buruk — kompleksitasnya cuma pindah, dan sekarang pembaca harus membuka dua file untuk memahami satu alur.',
+        },
+        {
+          term: 'small ≠ shallow',
+          meaning:
+            'Prinsip yang dipakai di seluruh materi ini: **kecil tidak sama dengan dangkal**. Satu komponen panjang yang utuh sering lebih mudah dibaca daripada lima potongan dangkal yang harus dibuka bergantian. Tunggu sampai pemakai kedua benar-benar muncul sebelum mengekstrak.',
+        },
+        {
+          term: 'HOC (Higher-Order Component)',
+          meaning:
+            'Pola lama: fungsi yang menerima komponen dan mengembalikan komponen baru yang sudah "dibungkus" kemampuan tambahan. Custom hook menggantikannya untuk hampir semua kasus, karena ia berbagi **logika** tanpa menambah lapisan komponen di pohon.',
+        },
+        {
+          term: 'render props',
+          meaning:
+            'Pola lama lainnya: mengoper fungsi sebagai `children` supaya komponen bisa "meminjamkan" state-nya. Sama seperti HOC, hampir seluruh kegunaannya kini ditutupi custom hook dengan kode yang jauh lebih sedikit bersarang.',
+        },
+        {
+          term: 'nilai kembalian (return value)',
+          meaning:
+            'Bentuk yang dikembalikan hook menentukan seberapa enak ia dipakai. Aturan praktisnya: satu nilai → kembalikan langsung; sepasang nilai+setter → array (pemanggil bebas menamainya); tiga atau lebih → objek, supaya namanya sekaligus jadi dokumentasi.',
+        },
+        {
+          term: 'matchMedia',
+          meaning:
+            "API browser untuk mengevaluasi media query dari JavaScript — `window.matchMedia('(max-width: 767px)')`. Objeknya punya properti `.matches` dan event `change`, kombinasi yang persis dibutuhkan `useSyncExternalStore`.",
+        },
+        {
+          term: 'renderHook',
+          meaning:
+            'Fungsi dari `@testing-library/react` yang memasang sebuah hook di komponen uji minimal, supaya kamu bisa mengujinya tanpa membuat komponen palsu. Hasilnya dibaca lewat `result.current`.',
+        },
+        {
+          term: 'act',
+          meaning:
+            'Pembungkus dari React yang memastikan seluruh pembaruan state selesai diproses sebelum baris berikutnya dijalankan. Tanpanya, assertion-mu bisa berjalan sebelum React sempat merender ulang — dan test-nya gagal secara acak.',
+        },
       ),
 
       h2('Kapan mengekstrak'),
@@ -1538,6 +2575,9 @@ export const lessons: LessonDraft[] = [
         } { ... }
         `,
       ),
+      p(
+        'Aturan pemilihan bentuk kembalian ini bersandar pada perbedaan destructuring dari Bab 1: **array berbasis posisi, objek berbasis nama.** Untuk dua nilai, array lebih enak karena pemanggil bebas menamainya — `const [buka, toggleBuka] = useToggle()` dan `const [gelap, toggleGelap] = useToggle()` sama sahnya, persis seperti `useState`. Begitu jumlahnya tiga atau lebih, kebebasan itu berubah jadi beban: pemanggil harus mengingat urutannya, dan menukar dua posisi menghasilkan bug yang tidak terdeteksi tipe kalau tipenya kebetulan sama. Objek menghapus masalah itu karena namanya melekat pada nilainya, sekaligus membuat pemanggil bebas mengambil hanya yang ia butuhkan. Nama field-nya pun jadi dokumentasi — `{ data, memuat, gagal }` sudah menjelaskan bentuk hasilnya tanpa membuka berkas hook-nya.',
+      ),
 
       h2('Contoh lengkap: `useMediaQuery`'),
       code(
@@ -1570,6 +2610,12 @@ export const lessons: LessonDraft[] = [
         const layarKecil = useMediaQuery('(max-width: 767px)');
         `,
       ),
+      p(
+        'Inilah imbalan dari seluruh kerumitan di atas: pemakaiannya **satu baris**, dan seluruh urusan berlangganan, membaca, serta membersihkan tersembunyi di dalam hook. Perhatikan kedua contoh memakai hook yang **sama persis** dengan kueri yang berbeda — itu tanda hook-nya dirancang benar, karena ia menerima kueri sebagai parameter alih-alih menuliskannya di dalam. Contoh pertama layak diperhatikan sendiri: `prefers-reduced-motion` adalah preferensi sistem pengguna yang menandakan ia ingin animasi dikurangi, dan menghormatinya adalah bagian dari baseline aksesibilitas yang dianut project ini. Perlu diingat konsekuensi argumen ketiga tadi — pada render pertama di server, keduanya bernilai `false`, jadi jangan menjadikan nilai ini satu-satunya penentu apakah sesuatu ditampilkan.',
+      ),
+      p(
+        'Ketiga argumen `useSyncExternalStore` menjawab tiga pertanyaan berbeda tentang `matchMedia`, yang merupakan sumber data di luar kendali React. Argumen pertama menjawab "bagaimana cara berlangganan": ia mendaftarkan `beriTahu` sebagai pendengar event `change` pada `matchMedia`, dan mengembalikan fungsi untuk berhenti berlangganan — React memanggil `beriTahu` inilah yang memicu React membaca ulang nilainya. Argumen kedua menjawab "apa nilainya sekarang di browser": `.matches` bernilai `true`/`false` tergantung kueri media saat ini cocok atau tidak. Argumen ketiga menjawab "apa nilainya di server", yang wajib ada karena Server Component tidak punya `window` atau `matchMedia` sama sekali — mengembalikan `false` di sini berarti render pertama di server **selalu** mengasumsikan kuerinya tidak cocok, baru dikoreksi begitu kode berjalan di browser.',
+      ),
 
       h2('Kesalahan yang sering muncul'),
       ol(
@@ -1599,6 +2645,32 @@ export const lessons: LessonDraft[] = [
       p(
         '`renderHook` memasang hook di komponen uji minimal, dan `act` memastikan React selesai memproses pembaruan sebelum assertion dijalankan.',
       ),
+      references(
+        {
+          label: 'Reusing Logic with Custom Hooks',
+          href: 'https://react.dev/learn/reusing-logic-with-custom-hooks',
+          source: 'React',
+          note: 'Panduan resmi merancang custom hook, termasuk kapan sebaiknya tidak membuatnya.',
+        },
+        {
+          label: 'Rules of Hooks — hanya dari komponen atau hook lain',
+          href: 'https://react.dev/reference/rules/rules-of-hooks',
+          source: 'React',
+          note: 'Kenapa awalan `use` bukan sekadar konvensi penamaan.',
+        },
+        {
+          label: 'Window.matchMedia()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Window/matchMedia',
+          source: 'MDN Web Docs',
+          note: 'API yang dipakai contoh `useMediaQuery`, beserta event `change`-nya.',
+        },
+        {
+          label: 'act()',
+          href: 'https://react.dev/reference/react/act',
+          source: 'React',
+          note: 'Pembungkus yang memastikan pembaruan selesai sebelum assertion dijalankan.',
+        },
+      ),
     ],
   ),
 
@@ -1610,6 +2682,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Tiga hook berikut adalah kebutuhan nyata dari website yang sedang kamu baca. Masing-masing memakai konsep berbeda dari bab ini, dan ketiganya harus benar di lingkungan SSR — karena itu bagian yang paling sering salah.',
+      ),
+
+      terms(
+        {
+          term: 'media query',
+          meaning:
+            'Aturan CSS yang berlaku hanya pada kondisi tertentu — lebar layar, orientasi, atau preferensi pengguna. Contoh: `(max-width: 767px)`. Dari JavaScript, kondisi yang sama bisa dievaluasi dengan `window.matchMedia`.',
+        },
+        {
+          term: 'prefers-reduced-motion',
+          meaning:
+            'Media query yang membaca setelan sistem operasi pengguna: "kurangi gerak". Menghormatinya **bukan penyempurnaan** — bagi sebagian orang animasi memicu pusing dan mual, jadi ini bagian dari baseline aksesibilitas project ini.',
+        },
+        {
+          term: 'debounce',
+          meaning:
+            'Menunggu jeda tetap setelah masukan terakhir sebelum bertindak. Nama teknisnya dari elektronika: menghilangkan "pantulan" saklar. Untuk mengurangi jumlah **render**, `useDeferredValue` lebih baik; debounce tetap tepat untuk mengurangi jumlah **permintaan jaringan**.',
+        },
+        {
+          term: 'setTimeout / clearTimeout',
+          meaning:
+            'Pasangan API browser untuk menjadwalkan sesuatu di masa depan dan membatalkannya. `setTimeout` mengembalikan sebuah id; `clearTimeout(id)` membatalkannya. Di dalam Effect, pembatalan itu **wajib** ada di cleanup — kalau tidak, timer lama tetap berjalan setelah nilainya berubah.',
+        },
+        {
+          term: 'generic `<T>`',
+          meaning:
+            'Notasi TypeScript untuk "tipe yang ditentukan saat dipakai". Pada `useDebouncedValue<T>(nilai: T): T`, ia berarti "apa pun tipe yang kamu masukkan, itu juga yang keluar" — string masuk, string keluar, tanpa perlu menulis satu versi hook per tipe.',
+        },
+        {
+          term: 'Clipboard API',
+          meaning:
+            'API browser untuk membaca dan menulis papan klip lewat `navigator.clipboard`. Dua syaratnya sering mengejutkan: halaman harus dilayani lewat HTTPS (atau `localhost`), dan aksinya harus dipicu interaksi pengguna. Karena itu kegagalannya nyata dan harus ditangani.',
+        },
+        {
+          term: 'aria-live="polite"',
+          meaning:
+            'Atribut yang membuat screen reader **mengumumkan** perubahan isi sebuah elemen — "polite" berarti menunggu jeda alami, tidak memotong. Tanpa ini, umpan balik "Tersalin" hanya ada secara visual, dan pengguna screen reader tidak tahu tombolnya berhasil.',
+        },
+        {
+          term: 'umpan balik (feedback)',
+          meaning:
+            'Konfirmasi yang diberikan antarmuka setelah pengguna bertindak. Aturannya di project ini: umpan balik harus bisa **dilihat dan didengar**. Perubahan warna saja tidak cukup, dan itulah alasan poin ketiga di daftar bawah bukan sekadar saran.',
+        },
       ),
 
       h2('Hook 1 — `useMediaQuery`'),
@@ -1652,6 +2767,9 @@ export const lessons: LessonDraft[] = [
           return tertunda;
         }
         `,
+      ),
+      p(
+        'Bentuknya berbeda dari `debounce` di Frontend Basic, meski tujuannya sama. Di sana yang ditunda adalah **pemanggilan fungsi**; di sini yang ditunda adalah **nilai** — hook ini menerima nilai terbaru dan mengembalikan versi yang tertinggal beberapa ratus milidetik. Perhatikan Effect-nya memasang `setTimeout` lalu mengembalikan `clearTimeout` sebagai cleanup, dan `[nilai, jeda]` sebagai dependensi. Itu kombinasi yang menyelesaikan ketiga hal di daftar uji sekaligus: tiap ketikan mengubah `nilai`, sehingga cleanup membatalkan timer sebelumnya sebelum yang baru dipasang — hanya ketikan terakhir yang bertahan penuh selama jeda. Cleanup yang sama juga berjalan saat komponen dilepas, sehingga tidak ada `setTertunda` yang dipanggil setelah komponennya hilang. Inilah contoh yang bagus untuk aturan sub-bab cleanup: satu pasangan pasang–batalkan menutup tiga skenario berbeda tanpa kode tambahan.',
       ),
       p('Uji sendiri tiga hal ini:'),
       ol(
@@ -1718,6 +2836,33 @@ export const lessons: LessonDraft[] = [
         'Ganti satu Effect penyalin props dengan `key` atau pemakaian props langsung',
         'Pastikan setiap listener dan timer punya cleanup yang benar',
         'Jalankan dengan Strict Mode aktif dan pastikan tidak ada efek ganda yang tertinggal',
+      ),
+
+      references(
+        {
+          label: 'prefers-reduced-motion',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion',
+          source: 'MDN Web Docs',
+          note: 'Media query preferensi pengguna yang wajib dihormati oleh hook pertama.',
+        },
+        {
+          label: 'Clipboard API',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API',
+          source: 'MDN Web Docs',
+          note: 'Syarat HTTPS dan izin yang membuat kegagalan `writeText` nyata, bukan teoretis.',
+        },
+        {
+          label: 'setTimeout()',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Window/setTimeout',
+          source: 'MDN Web Docs',
+          note: 'Termasuk id kembalian yang dipakai `clearTimeout` di cleanup.',
+        },
+        {
+          label: 'ARIA live regions',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Guides/Live_regions',
+          source: 'MDN Web Docs',
+          note: 'Cara membuat umpan balik "Tersalin" juga terdengar, bukan hanya terlihat.',
+        },
       ),
     ],
   ),

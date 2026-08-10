@@ -716,11 +716,561 @@ export const glossary: GlossaryEntry[] = [
     lesson: 'frontend-intermediate/nextjs/kenapa-nextjs',
   },
   {
+    term: 'Client State',
+    category: 'frontend-intermediate',
+    definition:
+      'Data yang dimiliki browser dan tidak punya versi "benar" di tempat lain — tema, sidebar terbuka, isi keranjang. Tidak perlu disinkronkan dengan siapa pun.',
+    lesson: 'frontend-intermediate/state-management/peta-kategori-state',
+  },
+  {
+    term: 'URL State',
+    category: 'frontend-intermediate',
+    definition:
+      'State yang disimpan di query string — filter, urutan, halaman, kata kunci. Ujinya: kalau alamatnya disalin dan dikirim, penerimanya harus melihat hal yang sama.',
+    lesson: 'frontend-intermediate/state-management/url-state',
+  },
+  {
+    term: 'Selector',
+    category: 'frontend-intermediate',
+    definition:
+      'Fungsi yang memilih sepotong state dari sebuah store, sehingga komponen hanya dirender ulang saat potongan itu berubah. Context tidak punya ini.',
+    lesson: 'frontend-intermediate/state-management/zustand',
+  },
+  {
+    term: 'Query Key',
+    category: 'frontend-intermediate',
+    definition:
+      'Array yang menjadi identitas satu entri cache di TanStack Query. Aturannya: kalau sebuah nilai dipakai di `queryFn`, ia harus ada di `queryKey`.',
+    lesson: 'frontend-intermediate/state-management/tanstack-query',
+  },
+  {
+    term: 'staleTime vs gcTime',
+    category: 'frontend-intermediate',
+    definition:
+      '`staleTime` mengatur kapan data dianggap basi sehingga perlu diambil ulang; `gcTime` mengatur kapan entri cache dibuang dari memori. Dua hal berbeda yang sering tertukar.',
+    lesson: 'frontend-intermediate/state-management/tanstack-query',
+  },
+  {
+    term: 'Optimistic Update',
+    category: 'frontend-intermediate',
+    definition:
+      'Mengubah tampilan seolah operasinya sudah berhasil sebelum server menjawab, lalu membatalkannya kalau gagal. Cocok hanya jika kegagalannya jarang, murah, dan bisa ditarik.',
+    lesson: 'frontend-intermediate/state-management/optimistic-update',
+  },
+  {
+    term: 'Slice',
+    category: 'frontend-intermediate',
+    definition:
+      'Satu potongan state Redux beserta reducer, action, dan tipenya dalam satu berkas. `createSlice` menghasilkan ketiganya sekaligus.',
+    lesson: 'frontend-intermediate/state-management/redux-toolkit',
+  },
+  {
+    term: 'Immer',
+    category: 'frontend-intermediate',
+    definition:
+      'Library yang membuat `state.push()` boleh ditulis di dalam reducer Redux Toolkit. Yang diubah sebenarnya objek draft; hasilnya tetap objek baru yang immutable.',
+    lesson: 'frontend-intermediate/state-management/redux-toolkit',
+  },
+  {
+    term: 'Atom',
+    category: 'frontend-intermediate',
+    definition:
+      'Potongan state terkecil pada Jotai. Sebuah atom bisa berisi nilai biasa, atau berisi rumus yang membaca atom lain — itulah derived atom.',
+    lesson: 'frontend-intermediate/state-management/jotai',
+  },
+  {
+    term: 'Rules of Hooks',
+    category: 'frontend-intermediate',
+    definition:
+      'Dua aturan: hook hanya dipanggil di level teratas komponen, dan hanya dari komponen atau hook lain. Keduanya konsekuensi dari React mencocokkan state berdasarkan urutan pemanggilan.',
+    lesson: 'frontend-intermediate/react-hooks/aturan-hooks',
+  },
+  {
+    term: 'Lazy Initializer',
+    category: 'frontend-intermediate',
+    definition:
+      'Bentuk `useState(() => hitung())` yang membuat perhitungan awal hanya dijalankan sekali saat inisialisasi, bukan di setiap render.',
+    lesson: 'frontend-intermediate/react-hooks/usestate-mendalam',
+  },
+  {
+    term: 'Effect',
+    category: 'frontend-intermediate',
+    aliases: ['useEffect'],
+    definition:
+      'Blok kode yang menyinkronkan komponen dengan sistem di luar React. Bukan lifecycle: kalimat ujinya "selaraskan ___ dengan ___", dan tanpa sistem luar biasanya Effect tidak dibutuhkan.',
+    lesson: 'frontend-intermediate/react-hooks/useeffect-sinkronisasi',
+  },
+  {
+    term: 'Cleanup',
+    category: 'frontend-intermediate',
+    definition:
+      'Fungsi yang dikembalikan dari dalam Effect untuk membatalkan sinkronisasi sebelumnya. Ia berjalan setiap kali Effect dijalankan ulang, bukan hanya saat komponen hilang.',
+    lesson: 'frontend-intermediate/react-hooks/dependency-cleanup',
+  },
+  {
+    term: 'Dependency Array',
+    category: 'frontend-intermediate',
+    definition:
+      'Array kedua pada `useEffect` berisi nilai yang Effect itu selaraskan. Dibandingkan dengan `Object.is`, sehingga objek dan fungsi yang dibuat ulang tiap render selalu dianggap berubah.',
+    lesson: 'frontend-intermediate/react-hooks/dependency-cleanup',
+  },
+  {
+    term: 'Layout Effect',
+    category: 'frontend-intermediate',
+    aliases: ['useLayoutEffect'],
+    definition:
+      'Effect yang berjalan setelah DOM diperbarui tapi sebelum browser menggambar layar. Dipakai saat mengukur lalu memposisikan, agar pengguna tidak melihat kedipan.',
+    lesson: 'frontend-intermediate/react-hooks/uselayouteffect',
+  },
+  {
+    term: 'Ref',
+    category: 'frontend-intermediate',
+    definition:
+      'Kotak `.current` yang bertahan antar render tanpa memicu render saat isinya berubah. Dua kegunaannya: memegang elemen DOM, dan menyimpan nilai yang tidak ditampilkan.',
+    lesson: 'frontend-intermediate/react-hooks/useref',
+  },
+  {
+    term: 'Memoisasi',
+    category: 'frontend-intermediate',
+    definition:
+      'Menyimpan hasil perhitungan agar tidak dihitung ulang selama masukannya sama. Dengan React Compiler aktif, memoisasi manual yang tidak perlu justru menjadi error lint.',
+    lesson: 'frontend-intermediate/react-hooks/usememo-usecallback',
+  },
+  {
+    term: 'Transisi',
+    category: 'frontend-intermediate',
+    aliases: ['Transition'],
+    definition:
+      'Pembaruan yang ditandai tidak mendesak, sehingga React boleh menundanya demi yang mendesak. Konten lama tetap terlihat sampai yang baru siap, bukan dikosongkan lebih dulu.',
+    lesson: 'frontend-intermediate/react-hooks/usetransition-usedeferred',
+  },
+  {
+    term: 'Store Eksternal',
+    category: 'frontend-intermediate',
+    definition:
+      'Sumber data di luar pohon komponen React — `localStorage`, `matchMedia`, atau store buatan library. Disambungkan lewat `useSyncExternalStore`, yang menuntut snapshot stabil.',
+    lesson: 'frontend-intermediate/react-hooks/hook-lain',
+  },
+  {
+    term: 'Custom Hook',
+    category: 'frontend-intermediate',
+    definition:
+      'Fungsi buatan sendiri berawalan `use` yang memanggil hook lain. Awalannya bukan gaya penamaan — itu yang membuat linter menegakkan aturan hooks di dalamnya.',
+    lesson: 'frontend-intermediate/react-hooks/custom-hook',
+  },
+  {
+    term: 'Presentational vs Container',
+    category: 'frontend-intermediate',
+    definition:
+      'Pemisahan klasik antara komponen penampil dan komponen pengambil data. Bukan lagi anjuran umum: hooks memisahkan logika dari tampilan tanpa memaksa membuat komponen kedua.',
+    lesson: 'frontend-intermediate/jenis-komponen-react/presentational-container',
+  },
+  {
+    term: '"use client"',
+    category: 'frontend-intermediate',
+    definition:
+      'Penanda **batas**, bukan penanda "berjalan di browser". Semua modul yang diimpor dari file bertanda ini ikut ke bundle klien, sedalam apa pun rantainya.',
+    lesson: 'frontend-intermediate/jenis-komponen-react/use-client-boundary',
+  },
+  {
+    term: 'Serialisasi Props',
+    category: 'frontend-intermediate',
+    definition:
+      'Props dari Server ke Client Component melewati jaringan, jadi isinya terbatas pada nilai yang bisa diubah menjadi format serial. Fungsi, class instance, dan `Symbol` tidak bisa.',
+    lesson: 'frontend-intermediate/jenis-komponen-react/server-vs-client-component',
+  },
+  {
+    term: 'Render Props',
+    category: 'frontend-intermediate',
+    definition:
+      'Komponen menerima fungsi yang mengembalikan JSX: ia menyediakan datanya, pemanggil memutuskan bentuknya. Masih unggul saat komponennya juga merender struktur, bukan sekadar menghitung nilai.',
+    lesson: 'frontend-intermediate/jenis-komponen-react/render-props',
+  },
+  {
+    term: 'Higher-Order Component',
+    category: 'frontend-intermediate',
+    aliases: ['HOC'],
+    definition:
+      'Fungsi yang menerima komponen dan mengembalikan komponen terbungkus, biasanya bernama `withSesuatu`. Pola lama — dikenali saat membaca kode warisan, digantikan custom hook untuk kode baru.',
+    lesson: 'frontend-intermediate/jenis-komponen-react/hoc',
+  },
+  {
+    term: 'Polymorphic Component',
+    category: 'frontend-intermediate',
+    definition:
+      'Komponen yang elemen keluarannya ditentukan pemanggil lewat prop `as`. Ia mengubah semantik, bukan cuma tampilan — jadi yang bisa diklik tetap wajib `<button>` atau `<a>`.',
+    lesson: 'frontend-intermediate/jenis-komponen-react/polymorphic-component',
+  },
+  {
+    term: 'Error Boundary',
+    category: 'frontend-intermediate',
+    definition:
+      'Komponen yang menangkap error saat render dari pohon di bawahnya. Sampai kini hanya bisa ditulis sebagai class — satu-satunya alasan tersisa untuk menulis class di React modern.',
+    lesson: 'frontend-intermediate/jenis-komponen-react/error-suspense-boundary',
+  },
+  {
+    term: 'Suspense',
+    category: 'frontend-intermediate',
+    definition:
+      'Batas yang menampilkan `fallback` selama anak-anaknya belum siap. Ia hanya bekerja kalau penantiannya terjadi **di dalamnya**, bukan sudah di-`await` di induknya.',
+    lesson: 'frontend-intermediate/nextjs/loading-streaming',
+  },
+  {
+    term: 'Portal',
+    category: 'frontend-intermediate',
+    definition:
+      'Merender anak ke node DOM di luar hierarki induknya, tapi tetap di posisi yang sama pada pohon React — jadi event, context, dan Error Boundary tetap mengalir seperti biasa.',
+    lesson: 'frontend-intermediate/jenis-komponen-react/portal-layering',
+  },
+  {
+    term: 'Containing Block',
+    category: 'frontend-intermediate',
+    definition:
+      'Kotak acuan posisi sebuah elemen. `transform` dan `filter` pada induk membuat containing block baru, sehingga `position: fixed` berhenti mengacu ke viewport.',
+    lesson: 'frontend-intermediate/jenis-komponen-react/portal-layering',
+  },
+  {
+    term: 'App Router',
+    category: 'frontend-intermediate',
+    definition:
+      'Sistem routing Next.js berbasis folder `app/`: struktur folder adalah routing. Nama folder menjadi URL, nama berkas menentukan perannya.',
+    lesson: 'frontend-intermediate/nextjs/struktur-app-router',
+  },
+  {
+    term: 'Route Group',
+    category: 'frontend-intermediate',
+    definition:
+      'Folder bertanda kurung seperti `(pemasaran)` yang tidak muncul di URL. Dipakai memberi dua kelompok halaman layout berbeda tanpa prefiks alamat yang tidak berarti.',
+    lesson: 'frontend-intermediate/nextjs/struktur-app-router',
+  },
+  {
+    term: 'generateStaticParams',
+    category: 'frontend-intermediate',
+    definition:
+      'Memberi tahu Next.js semua kombinasi `params` yang harus dibuat saat build. Inilah yang mengubah satu berkas rute menjadi ratusan halaman statis.',
+    lesson: 'frontend-intermediate/nextjs/routing-lanjutan',
+  },
+  {
+    term: 'Parallel Route',
+    category: 'frontend-intermediate',
+    definition:
+      'Folder berawalan `@` yang menjadi prop pada layout. Manfaat sebenarnya bukan tata letak: setiap slot punya batas loading dan error sendiri.',
+    lesson: 'frontend-intermediate/nextjs/routing-lanjutan',
+  },
+  {
+    term: 'Intercepting Route',
+    category: 'frontend-intermediate',
+    definition:
+      'Rute yang mencegat navigasi dan menampilkannya dengan cara berbeda — modal saat diklik dari daftar, halaman penuh saat alamatnya dibuka langsung.',
+    lesson: 'frontend-intermediate/nextjs/routing-lanjutan',
+  },
+  {
+    term: 'Waterfall',
+    category: 'frontend-intermediate',
+    definition:
+      'Permintaan yang berangkat berurutan padahal tidak saling membutuhkan, sehingga totalnya menjadi jumlah semuanya. Obatnya `Promise.all`.',
+    lesson: 'frontend-intermediate/nextjs/server-component-fetching',
+  },
+  {
+    term: 'ISR',
+    category: 'frontend-intermediate',
+    definition:
+      'Incremental Static Regeneration — halaman statis yang dibuat ulang di latar belakang setelah masa berlakunya lewat. Titik tengah antara SSG dan SSR.',
+    lesson: 'frontend-intermediate/nextjs/rendering-caching',
+  },
+  {
+    term: 'Cache Tag',
+    category: 'frontend-intermediate',
+    definition:
+      'Label pada sebuah `fetch` yang membuat `revalidateTag` bisa menandai semua pemakaiannya sebagai basi sekaligus — tanpa perlu tahu di halaman mana saja ia dipakai.',
+    lesson: 'frontend-intermediate/nextjs/rendering-caching',
+  },
+  {
+    term: 'Server Action',
+    category: 'frontend-intermediate',
+    definition:
+      'Fungsi server yang bisa dipanggil langsung dari komponen. Ia **endpoint publik**: wajib memvalidasi input dan memeriksa otorisasinya sendiri, persis seperti route handler.',
+    lesson: 'frontend-intermediate/nextjs/server-action',
+  },
+  {
+    term: 'Route Handler',
+    category: 'frontend-intermediate',
+    definition:
+      'Berkas `route.ts` yang mengekspor fungsi bernama metode HTTP-nya. Dipakai untuk API publik dan webhook — URL-nya bagian dari kontrak yang kamu janjikan.',
+    lesson: 'frontend-intermediate/nextjs/route-handler',
+  },
+  {
+    term: 'Mass Assignment',
+    category: 'frontend-intermediate',
+    definition:
+      'Menyebar body permintaan langsung ke query (`data: { ...isi }`), sehingga klien bisa mengirim `{ peran: "admin" }` dan tersimpan. Ambil field satu per satu dari hasil validasi.',
+    lesson: 'frontend-intermediate/nextjs/route-handler',
+  },
+  {
+    term: 'Open Graph',
+    category: 'frontend-intermediate',
+    definition:
+      'Standar tag yang dipakai WhatsApp, Slack, dan LinkedIn untuk membuat pratinjau tautan. Perayapnya membaca HTML, bukan hasil render JavaScript.',
+    lesson: 'frontend-intermediate/nextjs/metadata-seo',
+  },
+  {
+    term: 'Streaming',
+    category: 'frontend-intermediate',
+    definition:
+      'Mengirim HTML bertahap: bagian yang siap tampil duluan, yang lambat menyusul. Pengguna melihat kerangka halaman seketika, bukan layar kosong sampai query terlambat selesai.',
+    lesson: 'frontend-intermediate/nextjs/loading-streaming',
+  },
+  {
+    term: 'First Load JS',
+    category: 'frontend-intermediate',
+    definition:
+      'Total JavaScript yang harus diunduh sebelum sebuah rute bisa dipakai, tercetak di keluaran `next build`. Lonjakan di satu rute hampir selalu satu impor yang menarik sesuatu besar.',
+    lesson: 'frontend-intermediate/nextjs/produksi',
+  },
+  {
+    term: 'NEXT_PUBLIC_',
+    category: 'frontend-intermediate',
+    definition:
+      'Prefiks yang menanam nilai ke bundle browser. Ia berarti **publik tanpa pengecualian** — tidak ada "rahasia yang cuma dipakai memanggil API".',
+    lesson: 'frontend-intermediate/nextjs/env-batas-server-klien',
+  },
+  {
+    term: 'server-only',
+    category: 'frontend-intermediate',
+    definition:
+      'Paket yang menggagalkan build kalau sebuah modul terimpor dari komponen klien. Ia mengubah kebocoran yang diam menjadi kegagalan yang terlihat.',
+    lesson: 'frontend-intermediate/nextjs/env-batas-server-klien',
+  },
+  {
     term: 'Idempoten',
     category: 'backend-basic',
     definition:
       'Operasi yang memberi hasil akhir sama meski dijalankan berkali-kali. `PUT` dan `DELETE` idempoten; `POST` biasanya tidak.',
     lesson: 'backend-basic/fondasi-backend/http-mendalam',
+  },
+  {
+    term: 'Stateless',
+    category: 'backend-basic',
+    definition:
+      'HTTP tidak mengingat apa pun antar permintaan. Setiap permintaan harus membawa buktinya sendiri — dan itulah yang membuat server bisa ditambah jumlahnya tanpa ada yang kehilangan sesinya.',
+    lesson: 'backend-basic/fondasi-backend/client-server',
+  },
+  {
+    term: 'Masukan Tak Tepercaya',
+    category: 'backend-basic',
+    definition:
+      'Semua yang datang dari klien — body, query, header, cookie. Bukan sebagian: siapa pun bisa memakai `curl`, jadi validasi di browser adalah kenyamanan, bukan kontrol keamanan.',
+    lesson: 'backend-basic/fondasi-backend/client-server',
+  },
+  {
+    term: 'Aman vs Idempoten',
+    category: 'backend-basic',
+    definition:
+      '**Aman** berarti tidak mengubah apa pun (`GET`). **Idempoten** berarti hasil akhirnya sama meski diulang (`DELETE`). Sering dikira sama — `DELETE` idempoten tapi jelas tidak aman.',
+    lesson: 'backend-basic/fondasi-backend/http-mendalam',
+  },
+  {
+    term: '401 vs 403',
+    category: 'backend-basic',
+    definition:
+      '`401` berarti "aku tidak tahu kamu siapa" — soal autentikasi. `403` berarti "aku tahu, dan kamu tidak boleh". Untuk data privat, `404` sering lebih aman daripada keduanya.',
+    lesson: 'backend-basic/fondasi-backend/http-mendalam',
+  },
+  {
+    term: 'REST',
+    category: 'backend-basic',
+    definition:
+      'Gaya arsitektur, bukan protokol. Intinya: kata benda di URL, kata kerja di method HTTP — sehingga perilaku endpoint bisa ditebak tanpa dokumentasi.',
+    lesson: 'backend-basic/fondasi-backend/rest',
+  },
+  {
+    term: '12-Factor App',
+    category: 'backend-basic',
+    definition:
+      'Dua belas prinsip aplikasi yang mudah di-deploy. Tiga yang paling menentukan: config di environment, proses stateless, dan log ke stdout.',
+    lesson: 'backend-basic/fondasi-backend/environment-12factor',
+  },
+  {
+    term: 'Log Terstruktur',
+    category: 'backend-basic',
+    definition:
+      'Log berupa JSON dengan field bernama, bukan kalimat bebas. Bedanya praktis: ia bisa disaring dan dicari, sementara kalimat bebas hanya bisa dibaca satu per satu.',
+    lesson: 'backend-basic/nodejs-express-basic/logging',
+  },
+  {
+    term: 'Constraint',
+    category: 'backend-basic',
+    definition:
+      'Aturan yang ditegakkan database sendiri — `NOT NULL`, `UNIQUE`, `FOREIGN KEY`, `CHECK`. Berbeda dari validasi di kode: ia tidak bisa dilewati jalur penulisan mana pun.',
+    lesson: 'backend-basic/database-sql-dasar/konsep-tabel',
+  },
+  {
+    term: 'Index',
+    category: 'backend-basic',
+    definition:
+      'Struktur yang membuat baris bisa ditemukan tanpa memindai seluruh tabel. Tidak gratis: setiap index memperlambat tulis. PostgreSQL tidak membuatnya otomatis untuk foreign key.',
+    lesson: 'backend-basic/database-sql-dasar/key-index',
+  },
+  {
+    term: 'EXPLAIN ANALYZE',
+    category: 'backend-basic',
+    definition:
+      'Menampilkan rencana eksekusi yang benar-benar dijalankan beserta waktunya. `Seq Scan` pada tabel besar berarti index tidak dipakai.',
+    lesson: 'backend-basic/database-sql-dasar/key-index',
+  },
+  {
+    term: 'Paginasi Keyset',
+    category: 'backend-basic',
+    definition:
+      'Paginasi memakai nilai baris terakhir sebagai penanda, bukan `OFFSET`. Kecepatannya tetap di halaman mana pun, dan hasilnya tidak bergeser saat ada data baru.',
+    lesson: 'backend-basic/database-sql-dasar/select-dasar',
+  },
+  {
+    term: 'Prepared Statement',
+    category: 'backend-basic',
+    definition:
+      'Mengirim perintah dan nilainya terpisah ke database. Strukturnya tidak bisa lagi berubah — ini bukan penyaringan karakter, melainkan penutupan celahnya.',
+    lesson: 'backend-basic/database-sql-dasar/sql-injection',
+  },
+  {
+    term: 'Normalisasi',
+    category: 'backend-basic',
+    definition:
+      'Menyusun tabel supaya satu fakta hanya tersimpan di satu tempat. Tujuannya menghilangkan anomali update, insert, dan delete.',
+    lesson: 'backend-basic/database-sql-dasar/normalisasi',
+  },
+  {
+    term: 'Tabel Pivot',
+    category: 'backend-basic',
+    definition:
+      'Tabel ketiga yang mewujudkan relasi N-N, berisi hanya pasangan id kedua sisi. Begitu ia menyimpan data lain, ia sudah menjadi entitas tersendiri.',
+    lesson: 'backend-basic/database-sql-dasar/relasi',
+  },
+  {
+    term: 'Event Loop',
+    category: 'backend-basic',
+    definition:
+      'Putaran yang menjalankan callback saat call stack kosong. Node satu utas: satu perhitungan berat memblokir **semua** pengguna, bukan hanya pemicunya.',
+    lesson: 'backend-basic/nodejs-express-basic/nodejs-runtime',
+  },
+  {
+    term: 'ESM vs CommonJS',
+    category: 'backend-basic',
+    definition:
+      'Dua sistem modul Node. ESM (`import`) untuk kode baru; CommonJS (`require`) di kode lama. Di ESM, ekstensi berkas wajib ditulis — Node tidak menebaknya seperti bundler.',
+    lesson: 'backend-basic/nodejs-express-basic/modul-node',
+  },
+  {
+    term: 'Graceful Shutdown',
+    category: 'backend-basic',
+    definition:
+      'Menutup server dengan menyelesaikan permintaan yang sedang berjalan. Tanpanya, setiap deploy memutus permintaan di tengah jalan — termasuk yang sedang menulis ke database.',
+    lesson: 'backend-basic/nodejs-express-basic/express-setup',
+  },
+  {
+    term: 'Kebocoran Lapisan',
+    category: 'backend-basic',
+    definition:
+      'Ketika satu lapisan menyentuh urusan lapisan lain — misalnya service yang memanggil `res.status()`. Begitu terjadi, logikanya tidak bisa lagi dipakai dari CLI, job, maupun tes.',
+    lesson: 'backend-basic/nodejs-express-basic/struktur-folder',
+  },
+  {
+    term: 'Trust Proxy',
+    category: 'backend-basic',
+    definition:
+      'Setelan yang menentukan seberapa jauh header `X-Forwarded-*` dipercaya. Beri angka, jangan `true` — `true` membuat klien bisa memalsukan IP-nya dan melewati rate limit.',
+    lesson: 'backend-basic/nodejs-express-basic/praktik-crud-express',
+  },
+  {
+    term: 'Service Container',
+    category: 'backend-basic',
+    definition:
+      'Tempat Laravel menyimpan cara membuat objek. Kelas cukup menyebutkan tipe yang ia butuhkan di konstruktor — container yang menyediakannya, dan tes bisa menggantinya.',
+    lesson: 'backend-basic/php-laravel-basic/siklus-request-laravel',
+  },
+  {
+    term: 'Route Model Binding',
+    category: 'backend-basic',
+    definition:
+      'Laravel mengambil model dari database berdasarkan parameter rute dan otomatis 404. Ia mengambil datanya, **tidak** memeriksa kewenangannya — itu tetap tugasmu.',
+    lesson: 'backend-basic/php-laravel-basic/routing-laravel',
+  },
+  {
+    term: 'Eloquent',
+    category: 'backend-basic',
+    definition:
+      'ORM Laravel dengan pola Active Record — model sendiri yang tahu cara menyimpan dirinya. Ia menyembunyikan query, tapi tidak pernah menyembunyikan biayanya.',
+    lesson: 'backend-basic/php-laravel-basic/eloquent-dasar',
+  },
+  {
+    term: 'Eager Loading',
+    category: 'backend-basic',
+    definition:
+      'Mengambil relasi di depan dengan `with()`, sehingga jumlah query tetap dua berapa pun barisnya. Obat langsung untuk N+1.',
+    lesson: 'backend-basic/php-laravel-basic/relasi-eloquent',
+  },
+  {
+    term: 'Form Request',
+    category: 'backend-basic',
+    definition:
+      'Kelas Laravel yang memuat aturan validasi **dan** otorisasi untuk satu jenis permintaan. `validated()` hanya mengembalikan field yang punya aturan — itulah perlindungan mass assignment-nya.',
+    lesson: 'backend-basic/php-laravel-basic/form-request',
+  },
+  {
+    term: 'API Resource',
+    category: 'backend-basic',
+    definition:
+      'Kelas yang menentukan bentuk JSON secara eksplisit. Allow-list, bukan blocklist: kolom baru otomatis tersembunyi sampai kamu menyebutnya.',
+    lesson: 'backend-basic/php-laravel-basic/api-resource',
+  },
+  {
+    term: 'Autentikasi vs Otorisasi',
+    category: 'backend-basic',
+    definition:
+      '"Siapa kamu" versus "kamu boleh apa". Yang pertama terjadi sekali saat masuk; yang kedua di **setiap** permintaan, untuk **setiap** objek.',
+    lesson: 'backend-basic/auth-dasar/auth-vs-authz',
+  },
+  {
+    term: 'Default Deny',
+    category: 'backend-basic',
+    definition:
+      'Menolak semuanya, lalu membuka akses secara eksplisit. Dengan pola sebaliknya, setiap endpoint baru terbuka sampai seseorang ingat mendaftarkannya.',
+    lesson: 'backend-basic/auth-dasar/auth-vs-authz',
+  },
+  {
+    term: 'Hashing Adaptif',
+    category: 'backend-basic',
+    definition:
+      'argon2id, bcrypt, atau scrypt — algoritma yang biayanya bisa dinaikkan seiring perangkat keras. Untuk password, **cepat adalah kelemahan**, bukan keunggulan.',
+    lesson: 'backend-basic/auth-dasar/hashing-password',
+  },
+  {
+    term: 'Salt',
+    category: 'backend-basic',
+    definition:
+      'Nilai acak unik per password yang ikut di-hash, sehingga dua password identik menghasilkan hash berbeda. Sudah ditangani algoritmanya — jangan membuatnya sendiri.',
+    lesson: 'backend-basic/auth-dasar/hashing-password',
+  },
+  {
+    term: 'Session Fixation',
+    category: 'backend-basic',
+    definition:
+      'Penyerang menentukan id sesi korban lebih dulu. Kalau id tidak berubah setelah login, ia kini memegang sesi yang sudah terautentikasi. Regenerasi setelah login menutupnya.',
+    lesson: 'backend-basic/auth-dasar/session-cookie',
+  },
+  {
+    term: 'Rotasi Refresh Token',
+    category: 'backend-basic',
+    definition:
+      'Setiap pemakaian mencabut token lama dan menerbitkan yang baru. Nilainya ada pada **deteksi pemakaian ulang**: token yang muncul dua kali berarti dicuri, dan seluruh keluarganya dicabut.',
+    lesson: 'backend-basic/auth-dasar/refresh-token',
+  },
+  {
+    term: 'Enumerasi Akun',
+    category: 'backend-basic',
+    definition:
+      'Memetakan email mana yang terdaftar dari beda pesan atau beda waktu respons. Langkah pertama serangan — ditutup dengan pesan identik dan waktu yang seragam.',
+    lesson: 'backend-basic/auth-dasar/rate-limit-login',
   },
   {
     term: 'Middleware',
@@ -792,6 +1342,151 @@ export const glossary: GlossaryEntry[] = [
     category: 'backend-intermediate',
     definition:
       'Prinsip bahwa posisi di dalam jaringan bukan bukti kewenangan. Setiap permintaan diverifikasi, termasuk lalu lintas antar-layanan.',
+    lesson: 'backend-intermediate/keamanan-backend/insecure-design',
+  },
+  {
+    term: 'IDOR',
+    category: 'backend-intermediate',
+    aliases: ['Insecure Direct Object Reference'],
+    definition:
+      'Id sumber daya dipakai langsung dari input pengguna tanpa memeriksa kepemilikan, sehingga menaikkan angka di URL sudah cukup untuk membaca data orang lain.',
+    lesson: 'backend-intermediate/keamanan-backend/broken-access-control',
+  },
+  {
+    term: 'Mass Assignment',
+    category: 'backend-intermediate',
+    definition:
+      'Menyalin seluruh isi body permintaan ke objek yang disimpan, sehingga field seperti `peran` atau `status` bisa diselipkan penyerang.',
+    lesson: 'backend-intermediate/keamanan-backend/broken-access-control',
+  },
+  {
+    term: 'Credential Stuffing',
+    category: 'backend-intermediate',
+    definition:
+      'Mencoba pasangan email–password yang bocor dari situs lain. Berhasil karena password dipakai ulang, bukan karena sistem ditembus.',
+    lesson: 'backend-intermediate/keamanan-backend/auth-failures',
+  },
+  {
+    term: 'Timing Attack',
+    category: 'backend-intermediate',
+    definition:
+      'Menyimpulkan rahasia dari selisih waktu respons. Ditutup dengan perbandingan waktu-konstan dan verifikasi terhadap hash palsu.',
+    lesson: 'backend-intermediate/keamanan-backend/auth-failures',
+  },
+  {
+    term: 'Session Fixation',
+    category: 'backend-intermediate',
+    definition:
+      'Penyerang menanamkan ID sesi lebih dulu lalu menunggu korban login memakainya. Dicegah dengan meregenerasi ID sesi setelah login berhasil.',
+    lesson: 'backend-intermediate/keamanan-backend/auth-failures',
+  },
+  {
+    term: 'HMAC',
+    category: 'backend-intermediate',
+    aliases: ['Hash-based Message Authentication Code'],
+    definition:
+      'Sidik jari pesan yang hanya bisa dibuat pemegang secret bersama. Dasar verifikasi tanda tangan webhook, dihitung dari body mentah.',
+    lesson: 'backend-intermediate/keamanan-backend/integrity-failures',
+  },
+  {
+    term: 'Replay Attack',
+    category: 'backend-intermediate',
+    definition:
+      'Mengirim ulang permintaan sah yang direkam sebelumnya. Tanda tangannya tetap valid, jadi yang menutupnya adalah timestamp dengan masa berlaku pendek.',
+    lesson: 'backend-intermediate/keamanan-backend/integrity-failures',
+  },
+  {
+    term: 'DNS Rebinding',
+    category: 'backend-intermediate',
+    definition:
+      'Nama domain yang saat diperiksa menunjuk IP publik lalu berubah menunjuk alamat internal sebelum permintaan dikirim. Ditutup dengan allow-list host.',
+    lesson: 'backend-intermediate/keamanan-backend/ssrf',
+  },
+  {
+    term: 'Content-Security-Policy',
+    category: 'backend-intermediate',
+    aliases: ['CSP'],
+    definition:
+      'Header yang membatasi sumber skrip dan gaya yang boleh dimuat halaman. Lapisan kedua terhadap XSS — bukan pengganti escaping keluaran.',
+    lesson: 'backend-intermediate/keamanan-backend/security-misconfiguration',
+  },
+  {
+    term: 'Typosquatting',
+    category: 'backend-intermediate',
+    definition:
+      'Menerbitkan paket berbahaya dengan nama mirip paket populer, menunggu seseorang salah ketik saat memasang.',
+    lesson: 'backend-intermediate/keamanan-backend/vulnerable-components',
+  },
+  {
+    term: 'Lockfile',
+    category: 'backend-intermediate',
+    definition:
+      'Berkas yang mengunci versi persis setiap paket. `npm ci` mematuhinya dan gagal bila tidak cocok; `npm install` boleh menulisnya ulang.',
+    lesson: 'backend-intermediate/keamanan-backend/vulnerable-components',
+  },
+  {
+    term: 'Alert Fatigue',
+    category: 'backend-intermediate',
+    definition:
+      'Kelelahan akibat terlalu banyak alert palsu sampai yang sungguhan ikut diabaikan. Cara paling umum pemantauan mahal menjadi tidak berguna.',
+    lesson: 'backend-intermediate/keamanan-backend/logging-monitoring-failures',
+  },
+  {
+    term: 'Optimistic Concurrency',
+    category: 'backend-intermediate',
+    aliases: ['ETag', 'If-Match'],
+    definition:
+      'Klien mengirim versi yang ia baca; server menolak dengan `412` bila sudah berubah. Ini yang mencegah lost update tanpa mengunci baris.',
+    lesson: 'backend-intermediate/menyambung-frontend-backend/optimistic-sinkronisasi',
+  },
+  {
+    term: 'Lost Update',
+    category: 'backend-intermediate',
+    definition:
+      'Penyimpan kedua menghapus pekerjaan penyimpan pertama pada data yang sama. Berbahaya karena tidak menimbulkan error apa pun.',
+    lesson: 'backend-intermediate/menyambung-frontend-backend/optimistic-sinkronisasi',
+  },
+  {
+    term: 'Optimistic Update',
+    category: 'backend-intermediate',
+    definition:
+      'Mengubah tampilan sebelum server menjawab, dengan kewajiban mengembalikan keadaan bila permintaannya ternyata gagal.',
+    lesson: 'backend-intermediate/menyambung-frontend-backend/optimistic-sinkronisasi',
+  },
+  {
+    term: 'Server-Sent Events',
+    category: 'backend-intermediate',
+    aliases: ['SSE'],
+    definition:
+      'Aliran satu arah dari server ke klien di atas HTTP biasa. Browser menyambung ulang sendiri, dan autentikasinya sama dengan permintaan HTTP lain.',
+    lesson: 'backend-intermediate/menyambung-frontend-backend/realtime-frontend',
+  },
+  {
+    term: 'Presigned URL',
+    category: 'backend-intermediate',
+    definition:
+      'URL berumur pendek yang memberi izin sekali pakai mengunggah langsung ke storage, sehingga byte berkas tidak melewati server aplikasi.',
+    lesson: 'backend-intermediate/menyambung-frontend-backend/upload-frontend',
+  },
+  {
+    term: 'Preflight Request',
+    category: 'backend-intermediate',
+    definition:
+      'Permintaan `OPTIONS` yang dikirim browser sebelum permintaan lintas-origin tertentu, untuk menanyakan apakah ia diizinkan.',
+    lesson: 'backend-intermediate/menyambung-frontend-backend/cors-praktik',
+  },
+  {
+    term: 'Egress Firewall',
+    category: 'backend-intermediate',
+    definition:
+      'Pembatasan lalu lintas keluar dari server. Membuat SSRF yang lolos validasi tetap tidak bisa menjangkau tujuan yang berharga.',
+    lesson: 'backend-intermediate/keamanan-backend/ssrf',
+  },
+  {
+    term: 'Threat Modeling',
+    category: 'backend-intermediate',
+    definition:
+      'Menelaah sebuah fitur untuk menemukan apa yang bisa disalahgunakan sebelum ia dibangun, lewat empat pertanyaan dan daftar ancaman STRIDE.',
     lesson: 'backend-intermediate/keamanan-backend/insecure-design',
   },
   {

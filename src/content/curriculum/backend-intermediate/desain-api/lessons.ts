@@ -7,8 +7,10 @@ import {
   h2,
   ol,
   p,
+  references,
   steps,
   table,
+  terms,
   ul,
 } from '@/lib/content/builders';
 import { type LessonDraft, written } from '@/lib/curriculum/authoring';
@@ -32,6 +34,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'URL adalah bagian API yang paling permanen. Field bisa ditambah, respons bisa diperkaya, tapi mengubah alamat berarti memutus setiap klien yang sudah memakainya — termasuk aplikasi mobile yang tidak bisa kamu paksa memperbarui diri.',
+      ),
+
+      terms(
+        {
+          term: 'kontrak API',
+          meaning:
+            'Janji yang kamu buat ke pemanggil: bentuk URL, method, bentuk body, dan status code-nya. URL adalah bagian yang **paling permanen** — field bisa ditambah, respons bisa diperkaya, tapi mengubah alamat memutus setiap klien yang sudah memakainya.',
+        },
+        {
+          term: 'klien yang tidak bisa diperbarui',
+          meaning:
+            'Aplikasi mobile yang sudah terpasang di ponsel orang. Ia akan terus memanggil endpoint versi lama **berbulan-bulan** setelah kamu merasa sudah pindah — dan itulah alasan seluruh sub-bab ini ada.',
+        },
+        {
+          term: 'kata benda jamak',
+          meaning:
+            'Konvensi penamaan resource: `/artikel`, bukan `/getArtikel` maupun `/artikelList`. Kata kerja hidup di **method HTTP**, bukan di URL. Menaruhnya di URL berarti setiap aksi baru butuh alamat baru.',
+        },
+        {
+          term: 'kedalaman bersarang',
+          meaning:
+            'Berapa tingkat kepemilikan yang dinyatakan di path. Satu tingkat (`/artikel/42/komentar`) baik; dua masih wajar; **lebih dari itu** sulit dibaca, sulit di-cache, dan sulit diubah. Obatnya: pecah jadi endpoint tingkat atas dengan filter.',
+        },
+        {
+          term: 'sub-resource aksi',
+          meaning:
+            'Bentuk untuk operasi yang **bukan** perubahan data biasa — `POST /pesanan/42/pembatalan`. Ia membuat aturan bisnisnya eksplisit: satu endpoint, satu aturan, satu kumpulan status code. Memaksanya jadi `PATCH` field status menyembunyikan aturan itu di dalam validasi.',
+        },
+        {
+          term: 'pola /saya/...',
+          meaning:
+            'Alamat untuk sumber daya yang hanya ada satu per pengguna — `/saya/profil`. Selain pengecualian sah dari aturan "selalu jamak", ia menghilangkan **satu kelas IDOR**: tidak ada id yang bisa diganti, karena identitasnya berasal dari token.',
+        },
+        {
+          term: 'konsistensi bahasa',
+          meaning:
+            'Satu bahasa untuk seluruh API — mana pun. Yang merusak bukan pilihan bahasanya melainkan **campurannya**: `/artikel/{id}/comments` memaksa setiap pembaca menebak istilah mana yang dipakai di endpoint berikutnya.',
+        },
+        {
+          term: 'bentuk pembungkus',
+          meaning:
+            'Keputusan apakah respons dibungkus (`{ "data": ... }`) atau telanjang. Ini **sangat sulit diubah nanti**: begitu klien mengharapkan array, menambahkan metadata paginasi menjadi perubahan yang memutus mereka. Mulai dengan pembungkus sejak endpoint pertama.',
+        },
+        {
+          term: 'lima keputusan sekali pakai',
+          meaning:
+            'Bahasa, bentuk id, penamaan field, bentuk pembungkus, dan format tanggal. Kelimanya **diambil sekali di awal dan dipegang** — bukan karena satu pilihan lebih benar, melainkan karena ketidakkonsistenan yang membuat API sulit dipakai.',
+        },
       ),
 
       h2('Aturan penamaan'),
@@ -149,6 +199,32 @@ export const lessons: LessonDraft[] = [
         'Array telanjang di tingkat atas adalah keputusan yang menyulitkan',
         'Mengembalikan `[{...}, {...}]` terlihat bersih sampai kamu perlu menambahkan paginasi. Menambahkan pembungkus setelah ada klien berarti perubahan yang memutus mereka. Mulailah dengan `{ "data": [...], "meta": {...} }` sejak endpoint pertama.',
       ),
+      references(
+        {
+          label: 'RFC 9110 — HTTP Semantics',
+          href: 'https://www.rfc-editor.org/rfc/rfc9110.html',
+          source: 'IETF',
+          note: 'Dasar semantik yang membuat "kata benda di URL, kata kerja di method" masuk akal.',
+        },
+        {
+          label: 'RFC 3986 — URI Generic Syntax',
+          href: 'https://www.rfc-editor.org/rfc/rfc3986.html',
+          source: 'IETF',
+          note: 'Bentuk resmi URL beserta bagian-bagiannya yang dinamai di sub-bab ini.',
+        },
+        {
+          label: 'REST Security Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Termasuk larangan menaruh token dan data pribadi di URL.',
+        },
+        {
+          label: 'Referer header',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Referer',
+          source: 'MDN Web Docs',
+          note: 'Salah satu jalur bocornya URL ke pihak lain saat pengguna mengeklik tautan keluar.',
+        },
+      ),
     ],
   ),
 
@@ -160,6 +236,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Status code bukan hiasan — ia adalah bagian dari kontrak yang menentukan **apa yang klien lakukan berikutnya**. Klien memutuskan untuk mencoba lagi, meminta login ulang, atau menampilkan pesan berdasarkan angka itu.',
+      ),
+
+      terms(
+        {
+          term: 'status code sebagai kontrak',
+          meaning:
+            'Status code **bukan hiasan** — ia menentukan **apa yang klien lakukan berikutnya**. Klien memutuskan mencoba lagi, meminta login ulang, atau menampilkan pesan berdasarkan angka itu, bukan berdasarkan isi body.',
+        },
+        {
+          term: '4xx vs 5xx',
+          meaning:
+            'Garis pemisah yang paling menentukan. `4xx` berarti **"kamu yang salah"** — mengulang permintaan yang sama tidak akan menolong. `5xx` berarti **"aku yang salah"** — mencoba lagi masuk akal.',
+        },
+        {
+          term: 'biaya salah memakai 500',
+          meaning:
+            'Bukan sekadar kerapian. Klien **akan mencoba lagi** karena `5xx` berarti "mungkin sementara". Permintaan cacat itu diulang terus, membebani server, dan **membanjiri alarm** sehingga kegagalan server yang sungguhan tenggelam.',
+        },
+        {
+          term: '400 vs 422',
+          meaning:
+            '`400` berarti **parser gagal** — server tidak bisa memahami bentuknya. `422` berarti bentuknya sah tapi **isinya melanggar aturan**. Bedanya berguna: `400` menandakan bug di kode klien; `422` menandakan pengguna perlu memperbaiki isiannya.',
+        },
+        {
+          term: '409 Conflict',
+          meaning:
+            'Permintaannya sah, tapi **bentrok dengan keadaan sekarang** — pesanan sudah dikirim, email sudah terdaftar, versi yang diubah sudah usang. Berbeda dari `422`: bentuk dan isinya benar, keadaannya yang tidak memungkinkan.',
+        },
+        {
+          term: '409 yang membocorkan akun',
+          meaning:
+            'Pada pendaftaran publik, membedakan "email sudah ada" dari "berhasil" **memberi penyerang daftar akun**. Kalau alurmu memakai verifikasi email, jawab `202` yang sama untuk keduanya — yang membedakan hanya isi email yang diterima pemiliknya.',
+        },
+        {
+          term: '201 + Location',
+          meaning:
+            'Jawaban untuk pembuatan sumber daya baru, dipasangkan dengan header `Location` berisi alamatnya. Klien jadi tahu ke mana harus pergi **tanpa menebak** bentuk URL dari id yang dikembalikan.',
+        },
+        {
+          term: '204 tanpa body',
+          meaning:
+            'Aturan spesifikasi, bukan gaya: `204` **tidak boleh punya body**. Sebagian klien HTTP gagal mengurainya, sebagian lain diam-diam mengabaikannya. Kalau perlu mengirim sesuatu setelah `DELETE`, pakai `200`.',
+        },
+        {
+          term: 'konsistensi > kesempurnaan',
+          meaning:
+            'Ada perdebatan sah antara `400` dan `422`, atau `403` dan `404`. Yang **tidak** bisa ditawar: endpoint berbeda tidak boleh menjawab kasus yang sama dengan kode berbeda. Tulis keputusanmu, lalu tegakkan di seluruh API.',
+        },
       ),
 
       h2('Kelompok besar'),
@@ -270,6 +394,32 @@ export const lessons: LessonDraft[] = [
       p(
         'Ada perdebatan sah antara `400` dan `422`, atau `403` dan `404`. Yang **tidak** bisa ditawar: endpoint yang berbeda tidak boleh menjawab kasus yang sama dengan kode berbeda. Tulis keputusanmu, dan tegakkan di seluruh API.',
       ),
+      references(
+        {
+          label: 'RFC 9110 §15 — Status Codes',
+          href: 'https://www.rfc-editor.org/rfc/rfc9110.html#name-status-codes',
+          source: 'IETF',
+          note: 'Definisi resmi setiap kode, termasuk larangan body pada `204`.',
+        },
+        {
+          label: 'HTTP response status codes',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status',
+          source: 'MDN Web Docs',
+          note: 'Rujukan yang lebih mudah dibaca, dengan contoh pemakaian tiap kode.',
+        },
+        {
+          label: '422 Unprocessable Content',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/422',
+          source: 'MDN Web Docs',
+          note: 'Batas antara "tidak bisa diurai" (`400`) dan "ditolak aturan" (`422`).',
+        },
+        {
+          label: 'Authentication Cheat Sheet — account enumeration',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Kenapa `409` pada pendaftaran publik bisa menjadi alat enumerasi akun.',
+        },
+      ),
     ],
   ),
 
@@ -281,6 +431,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Klien harus bisa menangani kegagalan tanpa menebak. Kalau setiap endpoint mengembalikan bentuk error yang berbeda, setiap pemanggilan butuh penanganan khusus — dan satu yang terlewat menghasilkan layar putih.',
+      ),
+
+      terms(
+        {
+          term: 'bentuk error seragam',
+          meaning:
+            'Satu bentuk badan error untuk **seluruh** API. Tanpanya, setiap pemanggilan butuh penanganan khusus — dan satu yang terlewat menghasilkan layar putih. Nilainya bagi klien: satu penangan error, bukan satu per endpoint.',
+        },
+        {
+          term: 'RFC 9457',
+          meaning:
+            'Standar resmi bentuk error HTTP, dulu bernama RFC 7807. Ia menetapkan sekumpulan field baku — `type`, `title`, `status`, `detail`, `instance` — dan **membolehkan** kamu menambah field sendiri di sampingnya.',
+        },
+        {
+          term: 'application/problem+json',
+          meaning:
+            '`Content-Type` khusus untuk badan error RFC 9457. Ia memberi tahu klien bahwa bentuknya bisa diandalkan — sebelum ia sempat membaca isinya.',
+        },
+        {
+          term: 'type sebagai URI',
+          meaning:
+            'Field `type` bukan sekadar string bebas: ia **URI yang mengidentifikasi jenis masalah**, dan idealnya bisa dibuka untuk membaca dokumentasinya. Ia yang stabil, sementara `detail` boleh berubah per kejadian.',
+        },
+        {
+          term: 'kode error stabil',
+          meaning:
+            'String seperti `VALIDASI_GAGAL` atau `SALDO_TIDAK_CUKUP`. **Pesan boleh berubah, diterjemahkan, atau diperhalus; kode tidak.** Perlakukan ia sebagai bagian kontrak: menambah kode baru aman, mengubah arti kode lama tidak.',
+        },
+        {
+          term: 'requestId di badan error',
+          meaning:
+            'Id korelasi yang ikut dikirim ke klien. Ia yang membuat detail lengkap bisa tinggal di **log server** sementara pengguna tetap punya sesuatu untuk dilaporkan — dan kamu bisa menemukan permintaannya persis.',
+        },
+        {
+          term: 'pesan database sebagai peta',
+          meaning:
+            'Bahaya yang sering diremehkan. `duplicate key value violates unique constraint "pengguna_email_key"` memberi tahu **nama tabel, nama kolom, dan nama constraint** — struktur databasemu, tanpa penyerang perlu menebak.',
+        },
+        {
+          term: 'error per field',
+          meaning:
+            'Peta `{ "judul": "wajib diisi" }` yang menyebut **field mana** yang salah. Ia yang membuat antarmuka bisa menampilkan pesan di sebelah input yang bersangkutan, alih-alih satu pesan umum di atas form.',
+        },
+        {
+          term: 'notasi titik untuk nested',
+          meaning:
+            'Bentuk `"tag_ids.2"` yang menunjuk elemen ketiga sebuah array, atau `"alamat.kota"` untuk objek bersarang. Konvensi ini yang membuat error pada struktur dalam tetap bisa dipetakan ke input yang tepat.',
+        },
       ),
 
       h2('Masalahnya'),
@@ -429,6 +627,32 @@ export const lessons: LessonDraft[] = [
       p(
         'Saat pengguna melapor "tadi gagal", satu id membuatmu menemukan persis permintaan itu di log — tanpa menebak dari perkiraan waktu, dan tanpa harus membocorkan detail apa pun ke klien.',
       ),
+      references(
+        {
+          label: 'RFC 9457 — Problem Details for HTTP APIs',
+          href: 'https://www.rfc-editor.org/rfc/rfc9457.html',
+          source: 'IETF',
+          note: 'Spesifikasi lengkap beserta arti setiap field baku.',
+        },
+        {
+          label: 'Error Handling Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Error_Handling_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Batas antara pesan yang boleh sampai ke klien dan yang harus tinggal di log.',
+        },
+        {
+          label: 'Content-Type',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Type',
+          source: 'MDN Web Docs',
+          note: 'Peran `application/problem+json` sebagai penanda bentuk badan error.',
+        },
+        {
+          label: 'Improper Error Handling',
+          href: 'https://owasp.org/www-community/Improper_Error_Handling',
+          source: 'OWASP',
+          note: 'Contoh nyata bagaimana pesan error database dipakai memetakan sistem.',
+        },
+      ),
     ],
   ),
 
@@ -440,6 +664,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Setiap endpoint daftar **wajib** berpaginasi. Endpoint tanpa batas adalah cara paling mudah menjatuhkan server: satu permintaan yang mengembalikan seluruh tabel cukup untuk menghabiskan memori.',
+      ),
+
+      terms(
+        {
+          term: 'paginasi wajib',
+          meaning:
+            'Setiap endpoint daftar **harus** berpaginasi — tanpa pengecualian. Endpoint tanpa batas adalah cara paling mudah menjatuhkan server: satu permintaan yang mengembalikan seluruh tabel cukup untuk menghabiskan memori.',
+        },
+        {
+          term: 'paginasi offset',
+          meaning:
+            'Melewati sekian baris pertama lalu mengambil sekian berikutnya — `?hal=2&per_hal=20`. Mudah dipahami dan bisa lompat ke halaman mana pun. Dua harganya besar: **makin dalam makin lambat**, dan item bisa terlewat atau ganda.',
+        },
+        {
+          term: 'masalah pergeseran',
+          meaning:
+            'Konsekuensi offset yang jarang disadari. Pengguna membuka halaman 1 (item 1–20). Sementara ia membaca, 5 artikel baru ditambahkan. Di halaman 2, **item 16–20 muncul lagi** dan sebagian item lain tidak pernah muncul. Ini terjadi setiap kali datanya aktif.',
+        },
+        {
+          term: 'biaya COUNT',
+          meaning:
+            'Menghitung total baris untuk `totalHalaman` memaksa database memindai tabel — mahal pada tabel besar, dan **tidak bisa memakai index** untuk kebanyakan filter. Ini alasan lain paginasi cursor lebih murah.',
+        },
+        {
+          term: 'paginasi cursor',
+          meaning:
+            'Memakai **posisi baris terakhir** sebagai penanda, bukan angka halaman. Kecepatannya **sama** di halaman 1 maupun halaman 500, dan hasilnya tidak bergeser saat ada data baru. Harganya: hanya bisa maju/mundur, tidak bisa lompat.',
+        },
+        {
+          term: 'cursor',
+          meaning:
+            'Nilai yang meng-encode posisi terakhir — biasanya id dan kolom urut, dalam base64url. Ia **bukan rahasia**, tapi juga **bukan sesuatu yang boleh dipercaya**: isinya datang dari klien dan wajib divalidasi setelah di-decode.',
+        },
+        {
+          term: 'base64url',
+          meaning:
+            'Varian base64 yang aman dipakai di URL — tidak memuat `+`, `/`, maupun `=` yang perlu di-encode ulang. Dipakai untuk cursor supaya bisa langsung ditempel di query string tanpa masalah.',
+        },
+        {
+          term: 'kolom urut yang unik',
+          meaning:
+            'Cursor bekerja dengan membandingkan nilai (`WHERE id < 10023`). Kalau kolom urutnya **tidak unik** — misalnya `dibuat_pada` saja — dua baris dengan nilai sama bisa terlewat atau ganda. Selalu pasangkan dengan `id` sebagai pemecah seri.',
+        },
+        {
+          term: 'batas atas limit',
+          meaning:
+            'Nilai maksimum yang boleh diminta klien, ditegakkan **di server**. Tanpa itu, `?limit=999999` membatalkan seluruh manfaat paginasi — dan pertahanan sumber dayanya ikut hilang bersama itu.',
+        },
       ),
 
       h2('Offset — sederhana'),
@@ -588,6 +860,32 @@ export const lessons: LessonDraft[] = [
         'Tanpa batas atas, `?per_hal=999999` adalah serangan satu baris',
         'Ia memaksa database mengembalikan seluruh tabel, memuat semuanya ke memori aplikasi, lalu menyerialisasinya menjadi JSON raksasa. Tidak perlu alat apa pun untuk melakukannya — cukup mengubah angka di URL.',
       ),
+      references(
+        {
+          label: 'LIMIT and OFFSET',
+          href: 'https://www.postgresql.org/docs/17/queries-limit.html',
+          source: 'PostgreSQL',
+          note: 'Peringatan resmi bahwa `OFFSET` besar tetap memindai baris yang dilewati.',
+        },
+        {
+          label: 'Indexes and ORDER BY',
+          href: 'https://www.postgresql.org/docs/17/indexes-ordering.html',
+          source: 'PostgreSQL',
+          note: 'Kenapa paginasi cursor bisa memakai index sementara offset dalam tidak.',
+        },
+        {
+          label: 'Base64 — base64url',
+          href: 'https://developer.mozilla.org/en-US/docs/Glossary/Base64',
+          source: 'MDN Web Docs',
+          note: 'Varian yang aman dipakai di URL, dipakai meng-encode cursor.',
+        },
+        {
+          label: 'REST Security Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Batas ukuran respons sebagai kontrol anti-penyalahgunaan sumber daya.',
+        },
+      ),
     ],
   ),
 
@@ -597,6 +895,54 @@ export const lessons: LessonDraft[] = [
     11,
     'Membiarkan klien menyempitkan hasil, tanpa membiarkannya menyusun query.',
     [
+      terms(
+        {
+          term: 'filter terdaftar',
+          meaning:
+            'Setiap filter punya **nama yang kamu daftarkan** dan kolom yang kamu tentukan. Bukan pemetaan otomatis dari query string ke kolom: yang boleh disaring adalah keputusan desain, bukan konsekuensi bentuk tabelmu.',
+        },
+        {
+          term: 'query builder di URL',
+          meaning:
+            'Anti-pola berbahaya: API yang menerima `?where[peran]=admin` atau `?filter={"$ne":null}`. Itu **menyerahkan penyusunan query kepada klien** — bukan fitur fleksibel, melainkan injeksi dengan pintu depan terbuka.',
+        },
+        {
+          term: 'sorting dengan tanda minus',
+          meaning:
+            'Konvensi `?urut=-dibuat_pada` — tanda minus berarti menurun, tanpa minus berarti menaik. Beberapa kunci dipisah koma. Konvensi ini dipakai luas, jadi klien kemungkinan besar sudah mengenalnya.',
+        },
+        {
+          term: 'identifier tidak bisa diparameterkan',
+          meaning:
+            'Alasan teknis di balik seluruh sub-bab ini. Nama kolom dan arah `ORDER BY` **tidak bisa** jadi placeholder SQL — secara sintaks pun gagal. Satu-satunya cara aman adalah allow-list.',
+        },
+        {
+          term: 'allow-list kolom',
+          meaning:
+            "Objek pemetaan milikmu sendiri: `{ dibuat_pada: 'dibuat_pada', populer: 'jumlah_dibaca' }`. Yang masuk ke SQL adalah **nilai dari objekmu**; input klien hanya kunci pencarian. Tidak ada jalan bagi teksnya untuk sampai ke query.",
+        },
+        {
+          term: 'nama publik ≠ nama kolom',
+          meaning:
+            'Perhatikan `populer` yang memetakan ke `jumlah_dibaca`. Allow-list sekaligus menjadi **lapisan penerjemah**: nama di API tidak perlu mengikuti nama kolom, dan mengganti kolom tidak memutus klien.',
+        },
+        {
+          term: 'batas jumlah kunci urut',
+          meaning:
+            'Potongan `.slice(0, 3)` di contoh. Tanpa batas, `?urut=a,b,c,...` berisi ratusan kunci memaksa database menyusun pengurutan yang sangat mahal — bentuk lain dari penyalahgunaan sumber daya.',
+        },
+        {
+          term: 'default + pemecah seri',
+          meaning:
+            'Dua hal yang **selalu** ditambahkan di akhir: urutan default kalau klien tidak menyebut apa pun, dan `id` sebagai pemecah seri. Tanpa yang kedua, paginasi bisa menampilkan item ganda atau melewatkannya.',
+        },
+        {
+          term: 'sparse fieldset',
+          meaning:
+            'Membiarkan klien meminta sebagian field saja — `?fields=id,judul`. Berguna untuk klien mobile yang jaringannya terbatas. Sama seperti sorting: nama field harus lewat allow-list, bukan langsung dimasukkan ke `SELECT`.',
+        },
+      ),
+
       h2('Filter'),
       code(
         'text',
@@ -721,6 +1067,32 @@ export const lessons: LessonDraft[] = [
       p(
         'Filter, sort, dan paginasi dipakai bersamaan. Nyatakan dengan jelas: filter mana yang bisa digabung, kolom mana yang bisa diurutkan, dan berapa batas atas `limit`. Yang tidak didokumentasikan akan dicoba klien — lalu menjadi kontrak tak sengaja yang tidak bisa kamu ubah.',
       ),
+      references(
+        {
+          label: 'SQL Injection Prevention Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Bagian "allow-list input validation" — satu-satunya cara aman untuk nama kolom.',
+        },
+        {
+          label: 'Full Text Search',
+          href: 'https://www.postgresql.org/docs/17/textsearch-controls.html',
+          source: 'PostgreSQL',
+          note: 'Beda `plainto_tsquery` dan `to_tsquery`, beserta alasan yang pertama lebih aman.',
+        },
+        {
+          label: 'Pattern Matching — LIKE & ILIKE',
+          href: 'https://www.postgresql.org/docs/17/functions-matching.html',
+          source: 'PostgreSQL',
+          note: 'Kenapa wildcard di depan mematikan index pada tabel besar.',
+        },
+        {
+          label: 'Zod — Basics',
+          href: 'https://zod.dev/basics',
+          source: 'Zod',
+          note: 'Skema filter dengan `.strict()` dan `z.coerce` yang dipakai contoh di atas.',
+        },
+      ),
     ],
   ),
 
@@ -732,6 +1104,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'API adalah janji kepada klien yang tidak bisa kamu deploy ulang: aplikasi mobile di perangkat pengguna, integrasi partner, skrip yang berjalan terjadwal. Kompatibilitas mundur bukan kesopanan — ia syarat agar API-mu bisa dipakai.',
+      ),
+
+      terms(
+        {
+          term: 'kompatibilitas mundur',
+          meaning:
+            'Kemampuan klien lama tetap bekerja setelah API berubah. **Bukan kesopanan** melainkan syarat agar API-mu bisa dipakai: aplikasi mobile di perangkat pengguna, integrasi partner, dan skrip terjadwal tidak bisa kamu deploy ulang.',
+        },
+        {
+          term: 'perubahan yang aman',
+          meaning:
+            'Menambah field opsional di respons, menambah endpoint, menambah parameter query opsional, menambah header, dan **melonggarkan** validasi. Polanya satu: menambah kemungkinan, bukan menghapus atau mempersempit.',
+        },
+        {
+          term: 'aturan validasi baru = memutus',
+          meaning:
+            'Yang paling sering tidak disadari. Menjadikan field opsional jadi **wajib**, atau menurunkan batas panjang dari 500 ke 200, akan menolak permintaan yang sebelumnya berhasil. Klien lama tidak berubah — tapi tiba-tiba mendapat `422`.',
+        },
+        {
+          term: 'nilai enum baru',
+          meaning:
+            'Aman **hanya kalau** klien memang menanganinya dengan anggun. Klien yang menulis `switch` dengan `default: throw` akan meledak begitu kamu menambah status `ditinjau`. Karena itu "tangani nilai tak dikenal" harus jadi bagian kontrak sejak awal.',
+        },
+        {
+          term: 'versi di URL',
+          meaning:
+            '`/api/v1/artikel` — pilihan yang benar untuk kebanyakan project. Ia **terlihat** di log, di `curl`, di dokumentasi, dan di kunci cache. Versi lewat header lebih "murni" secara REST tapi menambah gesekan di setiap alat diagnosis.',
+        },
+        {
+          term: 'header Deprecation',
+          meaning:
+            'Header yang menandai sebuah endpoint atau field sudah usang. Dipasangkan dengan **`Sunset`** yang menyebut tanggal penghapusannya — sehingga klien punya peringatan yang bisa dibaca mesin, bukan hanya catatan di dokumentasi.',
+        },
+        {
+          term: 'expand–contract',
+          meaning:
+            'Pola tiga langkah untuk berubah tanpa versi baru: **tambah** yang baru sambil mempertahankan yang lama, **tandai** yang lama usang, lalu **hapus** setelah pemakaiannya nol. Pola yang sama dengan migrasi database.',
+        },
+        {
+          term: 'pantau pemakaian sebelum menghapus',
+          meaning:
+            'Langkah yang paling sering dilewati. Catat setiap permintaan yang masih membaca field lama, **lengkap dengan identitas kliennya**. Tanpa data ini, kamu tidak akan pernah berani menghapusnya — dan field usang itu hidup selamanya.',
+        },
+        {
+          term: 'kontrak tak sengaja',
+          meaning:
+            'Perilaku yang tidak pernah kamu janjikan tapi terlanjur diandalkan klien — urutan default, field yang kebetulan ikut, atau parameter yang tidak didokumentasikan tapi bekerja. Begitu dipakai, ia jadi sama mengikatnya dengan kontrak resmi.',
+        },
       ),
 
       h2('Aman vs memutus'),
@@ -828,6 +1248,32 @@ export const lessons: LessonDraft[] = [
         'Setiap versi yang hidup adalah kode yang harus dipelihara',
         'Tiga versi berarti tiga jalur kode, tiga kumpulan tes, dan tiga tempat yang harus diperbaiki saat ada bug keamanan. Jangan menambah versi untuk perubahan yang bisa dilakukan secara aditif — biayanya jauh lebih besar daripada yang terlihat saat memulainya.',
       ),
+      references(
+        {
+          label: 'RFC 9745 — The Deprecation HTTP Header Field',
+          href: 'https://www.rfc-editor.org/rfc/rfc9745.html',
+          source: 'IETF',
+          note: 'Header `Deprecation` yang membuat peringatan usang bisa dibaca mesin.',
+        },
+        {
+          label: 'RFC 8594 — The Sunset HTTP Header Field',
+          href: 'https://www.rfc-editor.org/rfc/rfc8594.html',
+          source: 'IETF',
+          note: 'Pasangan `Deprecation` yang menyebut tanggal penghapusannya.',
+        },
+        {
+          label: 'RFC 9110 §12 — Content Negotiation',
+          href: 'https://www.rfc-editor.org/rfc/rfc9110.html#name-content-negotiation',
+          source: 'IETF',
+          note: 'Dasar teknis versioning lewat header `Accept`, alternatif dari versi di URL.',
+        },
+        {
+          label: 'REST Security Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Termasuk anjuran memberi versi pada API dan menghapus versi lama secara terencana.',
+        },
+      ),
     ],
   ),
 
@@ -839,6 +1285,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Jaringan tidak bisa diandalkan. Klien mengirim permintaan, koneksinya putus sebelum jawaban tiba, lalu ia mencoba lagi — padahal permintaan pertama **sudah berhasil** di server. Tanpa penjagaan, pengguna terkena tagihan dua kali.',
+      ),
+
+      terms(
+        {
+          term: 'idempotency',
+          meaning:
+            'Sifat operasi yang **hasil akhirnya sama** meski dijalankan berkali-kali. Ia bukan soal kerapian melainkan soal jaringan: klien mengirim permintaan, koneksinya putus sebelum jawaban tiba, lalu ia mencoba lagi — padahal yang pertama **sudah berhasil**.',
+        },
+        {
+          term: 'POST tidak idempoten',
+          meaning:
+            'Setiap panggilan `POST` membuat sesuatu yang baru. Tanpa penjagaan, percobaan ulang yang wajar dari sisi klien menghasilkan **tagihan dua kali** — dan klien tidak punya cara mengetahui yang pertama berhasil.',
+        },
+        {
+          term: 'Idempotency-Key',
+          meaning:
+            'Header berisi kunci acak yang dibuat klien **sekali per operasi logis**, dan dipakai ulang saat mencoba lagi. Server mengingat hasil untuk kunci itu, lalu mengembalikan **jawaban yang sama persis** alih-alih memproses ulang.',
+        },
+        {
+          term: 'scope kunci per pengguna',
+          meaning:
+            'Kunci disimpan sebagai `idem:{userId}:{kunci}`, bukan kunci telanjang. Tanpa itu, satu pengguna bisa **membaca hasil operasi pengguna lain** hanya dengan menebak kuncinya — IDOR yang muncul di tempat yang tidak terduga.',
+        },
+        {
+          term: 'sidik jari body',
+          meaning:
+            'Hash isi permintaan yang disimpan bersama kuncinya. Kunci yang sama dengan **isi berbeda** adalah bug klien, dan menjawabnya `422` mencegah kesalahan itu berubah jadi hasil yang salah diam-diam.',
+        },
+        {
+          term: 'klaim atomik',
+          meaning:
+            'Pola "cek dulu, lalu tulis" punya **celah di antaranya**: dua permintaan bersamaan bisa sama-sama melihat kunci belum ada, lalu keduanya memproses. Klaimnya harus satu `INSERT` yang mengandalkan `UNIQUE` — gagal karena bentrok berarti sudah ada yang menang.',
+        },
+        {
+          term: 'status diproses',
+          meaning:
+            'Keadaan antara: kunci sudah diklaim tapi hasilnya belum ada. Permintaan kedua yang tiba di jendela ini dijawab `409`, bukan diproses ulang maupun dibiarkan menunggu tanpa batas.',
+        },
+        {
+          term: 'kembalikan hasil identik',
+          meaning:
+            'Termasuk **status code**-nya, bukan hanya body. Percobaan ulang yang berhasil harus terlihat sama persis dengan yang pertama dari sudut pandang klien — kalau tidak, ia akan bercabang ke jalur yang salah.',
+        },
+        {
+          term: 'masa berlaku kunci',
+          meaning:
+            'Kunci idempotensi disimpan **berbatas waktu** — biasanya 24 jam. Menyimpannya selamanya membuat tabelnya tumbuh tanpa henti; menghapusnya terlalu cepat membuat percobaan ulang yang terlambat diproses dua kali.',
+        },
       ),
 
       h2('Yang sudah idempoten secara alami'),
@@ -962,6 +1456,32 @@ export const lessons: LessonDraft[] = [
         'Webhook pasti akan terkirim lebih dari sekali',
         'Hampir semua penyedia webhook memakai jaminan **at-least-once**: kalau jawabanmu lambat atau gagal, mereka mengirim ulang. Handler webhook yang tidak idempoten akan memproses pembayaran yang sama dua kali. Simpan id peristiwa dari pengirim dan abaikan yang sudah pernah diproses.',
       ),
+      references(
+        {
+          label: 'RFC 9110 §9.2.2 — Idempotent Methods',
+          href: 'https://www.rfc-editor.org/rfc/rfc9110.html#name-idempotent-methods',
+          source: 'IETF',
+          note: 'Definisi resmi idempotensi, dan method mana yang sudah idempoten secara alami.',
+        },
+        {
+          label: 'The Idempotency-Key HTTP Header Field',
+          href: 'https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/',
+          source: 'IETF',
+          note: 'Draf standar header yang dipakai contoh di atas, beserta perilaku yang diharapkan.',
+        },
+        {
+          label: 'INSERT ... ON CONFLICT',
+          href: 'https://www.postgresql.org/docs/17/sql-insert.html',
+          source: 'PostgreSQL',
+          note: 'Mekanisme klaim atomik yang mengandalkan `UNIQUE`, bukan cek-lalu-tulis.',
+        },
+        {
+          label: '409 Conflict',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/409',
+          source: 'MDN Web Docs',
+          note: 'Status yang dipakai saat permintaan pertama dengan kunci yang sama masih diproses.',
+        },
+      ),
     ],
   ),
 
@@ -973,6 +1493,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Permintaan tercepat adalah yang tidak pernah dikirim. Caching HTTP sudah tersedia di setiap browser dan CDN — yang perlu kamu lakukan hanyalah menyatakan aturannya dengan benar.',
+      ),
+
+      terms(
+        {
+          term: 'caching HTTP',
+          meaning:
+            'Menyimpan jawaban agar tidak perlu diminta ulang. **Permintaan tercepat adalah yang tidak pernah dikirim** — dan mekanismenya sudah tersedia di setiap browser dan CDN. Yang perlu kamu lakukan hanya menyatakan aturannya dengan benar.',
+        },
+        {
+          term: 'no-cache ≠ jangan simpan',
+          meaning:
+            'Penamaan paling membingungkan di HTTP, dan sumber kebocoran nyata. `no-cache` berarti **"boleh disimpan, tapi validasikan dulu sebelum dipakai"**. Yang berarti "jangan pernah disimpan" adalah **`no-store`**.',
+        },
+        {
+          term: 'public vs private',
+          meaning:
+            '`public` membolehkan cache **bersama** — CDN, proxy — menyimpannya. `private` membatasi ke browser pengguna itu saja. Salah memilih berarti jawaban milik satu orang bisa tersaji ke orang lain.',
+        },
+        {
+          term: 'stale-while-revalidate',
+          meaning:
+            'Membolehkan cache menyajikan jawaban **yang sudah basi** sambil menyegarkannya di latar belakang. Pengguna mendapat jawaban seketika; kesegarannya menyusul. Trade-off yang sadar antara kecepatan dan kemutakhiran.',
+        },
+        {
+          term: 'ETag',
+          meaning:
+            'Sidik jari isi sebuah respons. Klien menyimpannya, lalu mengirimkannya kembali lewat `If-None-Match`. Kalau isinya belum berubah, server menjawab **`304` tanpa body** — query tetap jalan, tapi bandwidth dan waktu parsing di klien terhemat.',
+        },
+        {
+          term: '304 Not Modified',
+          meaning:
+            'Jawaban yang mengatakan "yang kamu punya masih benar". Ia **tidak boleh punya body** — itulah sumber penghematannya. Untuk respons besar di jaringan lambat, perbedaannya terasa langsung.',
+        },
+        {
+          term: 'If-Match & 412',
+          meaning:
+            'Pasangan untuk **optimistic concurrency**. Klien mengirim ETag yang ia baca tadi; kalau isinya sudah berubah, server menolak `412 Precondition Failed`. Ini yang menutup lost update: perubahan editor pertama tidak lagi hilang tanpa jejak.',
+        },
+        {
+          term: 'Vary',
+          meaning:
+            'Header yang memberitahu cache **apa saja yang memengaruhi isi respons**. Melewatkannya berbahaya: kalau respons bergantung pada `Authorization` tapi cache tidak diberi tahu, proxy bersama bisa menyimpan jawaban milik Ana lalu menyajikannya kepada Budi.',
+        },
+        {
+          term: 'cache poisoning',
+          meaning:
+            'Nama kelas bug di atas: cache menyimpan jawaban yang salah lalu menyajikannya berkali-kali. Ia berulang muncul di layanan besar, dan hampir selalu berakar pada `Vary` yang kurang atau `public` yang seharusnya `private`.',
+        },
       ),
 
       h2('`Cache-Control`'),
@@ -1108,6 +1676,32 @@ export const lessons: LessonDraft[] = [
       p(
         'Menghapus entri cache yang tersebar di banyak CDN dan proxy sulit dijamin. Mengubah kunci selalu bekerja — inilah alasan bundler menaruh hash di nama berkas.',
       ),
+      references(
+        {
+          label: 'Cache-Control',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control',
+          source: 'MDN Web Docs',
+          note: 'Setiap direktif beserta artinya — termasuk beda `no-cache` dan `no-store`.',
+        },
+        {
+          label: 'ETag',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/ETag',
+          source: 'MDN Web Docs',
+          note: 'Pemakaian bersama `If-None-Match` untuk `304`, dan `If-Match` untuk `412`.',
+        },
+        {
+          label: 'Vary',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Vary',
+          source: 'MDN Web Docs',
+          note: 'Header yang mencegah cache bersama menyajikan jawaban milik orang lain.',
+        },
+        {
+          label: 'RFC 9111 — HTTP Caching',
+          href: 'https://www.rfc-editor.org/rfc/rfc9111.html',
+          source: 'IETF',
+          note: 'Spesifikasi caching HTTP, termasuk aturan validasi bersyarat.',
+        },
+      ),
     ],
   ),
 
@@ -1119,6 +1713,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Ekspor 500.000 baris, pembuatan laporan, pemrosesan video, sinkronisasi ke pihak ketiga — semuanya tidak boleh dikerjakan di dalam permintaan HTTP. Klien akan timeout, dan pekerjaannya tetap berjalan tanpa ada yang tahu hasilnya.',
+      ),
+
+      terms(
+        {
+          term: '202 Accepted',
+          meaning:
+            'Jawaban yang berarti **"diterima, akan diproses"** — bukan "selesai". Ia dipasangkan dengan `Location` berisi alamat untuk memantau kemajuannya. Tanpa cara memantau, `202` hanya memindahkan ketidakpastian ke klien.',
+        },
+        {
+          term: 'operasi panjang',
+          meaning:
+            'Pekerjaan yang tidak boleh dikerjakan di dalam permintaan HTTP: ekspor 500.000 baris, pembuatan laporan, pemrosesan video, sinkronisasi ke pihak ketiga. Klien akan **timeout**, dan pekerjaannya tetap berjalan tanpa ada yang tahu hasilnya.',
+        },
+        {
+          term: 'job',
+          meaning:
+            'Satuan pekerjaan latar yang punya id dan **keadaan**: `antre`, `diproses`, `selesai`, `gagal`, `dibatalkan`. Id-nya yang dipegang klien untuk bertanya "sudah sampai mana".',
+        },
+        {
+          term: 'status job harus di-scope',
+          meaning:
+            'Job id sering bisa ditebak, dan hasilnya sering berisi data sensitif. `GET /ekspor/job_a1b2c3` yang **tidak memeriksa pemiliknya** adalah IDOR — dengan hadiah berupa berkas ekspor lengkap.',
+        },
+        {
+          term: 'job ganda',
+          meaning:
+            'Pengguna menekan tombol dua kali → dua ekspor identik berjalan, memakan sumber daya dua kali. `Idempotency-Key` menutupnya: kembalikan job yang **sudah ada**, jangan buat yang baru.',
+        },
+        {
+          term: 'Retry-After',
+          meaning:
+            'Header yang memberi tahu klien **berapa lama harus menunggu** sebelum bertanya lagi. Tanpa itu, polling agresif dari banyak klien bisa membebani server lebih berat daripada pekerjaannya sendiri.',
+        },
+        {
+          term: 'keadaan akhir',
+          meaning:
+            'Setiap job **wajib** punya keadaan akhir, dan batas waktu yang memindahkannya ke `gagal` kalau macet terlalu lama. Job yang gagal diam-diam lebih buruk daripada yang gagal keras: pengguna menunggu tanpa batas untuk sesuatu yang tidak akan pernah selesai.',
+        },
+        {
+          term: 'bisaDiulang',
+          meaning:
+            'Bendera pada job yang gagal, yang memberi tahu klien apakah mencoba lagi masuk akal. Kegagalan jaringan sementara bisa diulang; input yang salah bentuk tidak — dan membedakannya menghemat percobaan sia-sia.',
+        },
+        {
+          term: 'URL bertanda tangan',
+          meaning:
+            'Alamat unduhan yang memuat tanda tangan berbatas waktu, bukan alamat tetap yang bisa ditebak. Dipasangkan dengan penghapusan otomatis setelah kedaluwarsa — karena data ekspor sering memuat informasi sensitif.',
+        },
       ),
 
       h2('Polanya'),
@@ -1241,6 +1883,32 @@ export const lessons: LessonDraft[] = [
         'Hapus otomatis setelah kedaluwarsa — data ekspor sering memuat informasi sensitif.',
         'Sertakan `Content-Disposition` supaya browser mengunduhnya, bukan merendernya.',
       ),
+      references(
+        {
+          label: '202 Accepted',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/202',
+          source: 'MDN Web Docs',
+          note: 'Semantik "diterima, belum selesai" beserta kewajiban menyediakan cara memantau.',
+        },
+        {
+          label: 'Retry-After',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Retry-After',
+          source: 'MDN Web Docs',
+          note: 'Memberi klien jeda polling yang wajar alih-alih membiarkannya menebak.',
+        },
+        {
+          label: 'Server-Sent Events',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events',
+          source: 'MDN Web Docs',
+          note: 'Alternatif polling untuk kemajuan waktu-nyata satu arah, lebih ringan dari WebSocket.',
+        },
+        {
+          label: 'Content-Disposition',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Disposition',
+          source: 'MDN Web Docs',
+          note: 'Membuat browser mengunduh berkas hasil, bukan merendernya di tab.',
+        },
+      ),
     ],
   ),
 
@@ -1252,6 +1920,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Dokumentasi yang ditulis terpisah dari kode akan basi. OpenAPI menutup celah itu: ia bisa dihasilkan dari skema validasi yang sudah kamu tulis, dan bisa dipakai untuk menghasilkan klien, memvalidasi respons, dan menguji kontrak.',
+      ),
+
+      terms(
+        {
+          term: 'OpenAPI',
+          meaning:
+            'Format standar untuk mendeskripsikan API HTTP, ditulis dalam YAML atau JSON. Yang membedakannya dari dokumentasi biasa: ia **bisa dibaca mesin** — dan karena itu bisa dipakai menghasilkan klien, memvalidasi respons, dan menguji kontrak.',
+        },
+        {
+          term: 'dokumentasi yang basi',
+          meaning:
+            'Masalah yang diselesaikan sub-bab ini. Dokumentasi yang ditulis terpisah dari kode **pasti** akan berbeda — bukan karena orang malas, tapi karena **tidak ada yang membuatnya gagal** saat menyimpang.',
+        },
+        {
+          term: 'satu sumber kebenaran',
+          meaning:
+            'Menghasilkan OpenAPI dari **skema validasi yang sudah kamu tulis**, bukan menulisnya terpisah. Dengan begitu keduanya tidak bisa berbeda: mengubah aturan validasi otomatis mengubah dokumentasinya.',
+        },
+        {
+          term: 'components/schemas',
+          meaning:
+            'Bagian OpenAPI tempat bentuk data didefinisikan sekali lalu dirujuk berkali-kali dengan `$ref`. Ia mencegah definisi objek yang sama ditulis ulang di setiap endpoint — dan ikut menyimpang satu per satu.',
+        },
+        {
+          term: 'securitySchemes',
+          meaning:
+            'Deklarasi cara autentikasi API-mu — bearer token, API key, OAuth. Ia yang membuat alat penghasil klien tahu harus mengirim header apa, tanpa pemakainya perlu menebak dari contoh.',
+        },
+        {
+          term: 'openapi-typescript',
+          meaning:
+            'Alat yang menghasilkan **tipe TypeScript** dari spesifikasi OpenAPI. Ini yang membuat kontrak benar-benar berguna: frontend memakai tipe yang **diturunkan** dari API, bukan ditulis ulang dengan tangan.',
+        },
+        {
+          term: 'uji kontrak',
+          meaning:
+            'Pengujian yang membandingkan **respons sungguhan** dengan spesifikasi. Ia menangkap penyimpangan yang tidak tertangkap unit test — misalnya field yang diam-diam berubah tipe atau hilang.',
+        },
+        {
+          term: 'respons gagal yang tidak didokumentasikan',
+          meaning:
+            'Penyebab bug klien yang sering luput. Klien yang tidak tahu sebuah endpoint bisa menjawab `409` **tidak akan menanganinya** — dan penggunanya melihat pesan error mentah. Dokumentasi yang hanya memuat jalur sukses mendokumentasikan separuh kontrak.',
+        },
+        {
+          term: 'spesifikasi juga endpoint',
+          meaning:
+            'Peringatan keamanan yang sering dilewat. Spesifikasi lengkap memberi **peta seluruh API**, termasuk endpoint admin yang tidak ditautkan di mana pun. Kalau API-mu tidak publik, lindungi `/openapi.json` dengan autentikasi yang sama.',
+        },
       ),
 
       h2('Bentuknya'),
@@ -1376,6 +2092,32 @@ export const lessons: LessonDraft[] = [
         'Endpoint dokumentasi juga endpoint',
         'Spesifikasi lengkap memberi peta seluruh API-mu — termasuk endpoint admin yang tidak ditautkan di mana pun. Kalau API-mu tidak publik, lindungi `/openapi.json` dan halaman dokumentasinya dengan autentikasi yang sama seperti endpoint lain. "Tidak ada yang tahu alamatnya" bukan kontrol akses.',
       ),
+      references(
+        {
+          label: 'OpenAPI Specification 3.1',
+          href: 'https://spec.openapis.org/oas/latest.html',
+          source: 'OpenAPI Initiative',
+          note: 'Spesifikasi resmi — struktur `paths`, `components`, dan `securitySchemes`.',
+        },
+        {
+          label: 'Zod — Basics',
+          href: 'https://zod.dev/basics',
+          source: 'Zod',
+          note: 'Skema validasi yang menjadi sumber tunggal bagi dokumentasi yang dihasilkan.',
+        },
+        {
+          label: 'Laravel — Validation & API Resources',
+          href: 'https://laravel.com/docs/12.x/validation',
+          source: 'Laravel',
+          note: 'Sumber yang dibaca alat penghasil dokumentasi di sisi Laravel.',
+        },
+        {
+          label: 'REST Security Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Termasuk anjuran melindungi endpoint dokumentasi pada API non-publik.',
+        },
+      ),
     ],
   ),
 
@@ -1387,6 +2129,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Ambil API catatan yang kamu bangun di Backend Basic — versi Express maupun Laravel. Bab ini memberi kamu daftar periksa; sekarang jalankan pada kodemu sendiri dan catat temuannya.',
+      ),
+
+      terms(
+        {
+          term: 'audit',
+          meaning:
+            'Pemeriksaan sistematis terhadap sesuatu yang **sudah** ada, memakai daftar periksa yang ditetapkan lebih dulu. Bedanya dari "membaca ulang kode": urutannya ditentukan daftar, bukan oleh apa yang kebetulan menarik perhatianmu.',
+        },
+        {
+          term: 'panggil, jangan baca',
+          meaning:
+            'Disiplin inti latihan ini. Audit yang dilakukan dengan **membaca kode** akan menemukan yang kamu **ingat**, bukan yang kamu **tulis**. Panggil endpoint-nya dan catat apa yang benar-benar terjadi.',
+        },
+        {
+          term: 'catat yang diterima',
+          meaning:
+            'Tulis status code dan body yang **sungguhan keluar**, bukan yang menurutmu seharusnya. Selisih antara keduanya persis daftar pekerjaan yang tersisa — dan selisih itu tidak akan terlihat kalau kamu hanya membaca.',
+        },
+        {
+          term: 'temuan',
+          meaning:
+            'Satu penyimpangan konkret dari daftar periksa, ditulis dengan endpoint, apa yang diharapkan, dan apa yang terjadi. Temuan tanpa ketiganya tidak bisa ditindaklanjuti — ia jadi catatan perasaan, bukan pekerjaan.',
+        },
+        {
+          term: 'urutkan berdasarkan dampak',
+          meaning:
+            'Langkah penutup yang menentukan. Bocornya data pengguna lain jauh lebih mendesak daripada URL yang penamaannya tidak konsisten. Daftar temuan yang tidak berurutan membuat yang penting tenggelam di antara yang sepele.',
+        },
+        {
+          term: 'header yang menyebut teknologi',
+          meaning:
+            '`X-Powered-By: Express` atau `Server: nginx/1.24.0`. Ia tidak membuka celah sendiri, tapi memberi tahu penyerang **kerentanan mana yang layak dicoba**. Matikan — ia tidak memberi manfaat apa pun bagi klien sah.',
+        },
+        {
+          term: 'audit lintas dua stack',
+          meaning:
+            'Latihan ini dijalankan pada versi Express **dan** Laravel milikmu. Temuan yang muncul di keduanya adalah masalah **prinsip**; yang hanya di satu adalah kebiasaan framework — dan membedakannya itu bagian dari pelajarannya.',
+        },
+        {
+          term: 'daftar periksa sebagai kontrak',
+          meaning:
+            'Enam belas butir di akhir sub-bab bukan saran melainkan **kriteria selesai**. Setiap butir bisa dijawab ya atau tidak dengan satu perintah `curl` — bukan dengan membaca ulang kode dan merasa yakin.',
+        },
       ),
 
       h2('Cara mengaudit'),
@@ -1555,6 +2340,33 @@ export const lessons: LessonDraft[] = [
         '201 menyertakan header `Location`; 204 tidak punya body',
         'Endpoint yang mengubah uang atau stok menerima `Idempotency-Key`',
         'Temuan ditulis dan diurutkan berdasarkan dampak',
+      ),
+
+      references(
+        {
+          label: 'REST Security Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Daftar periksa keamanan API yang melengkapi audit desain di atas.',
+        },
+        {
+          label: 'HTTP response status codes',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status',
+          source: 'MDN Web Docs',
+          note: 'Rujukan untuk memeriksa kedelapan kasus status code pada langkah audit.',
+        },
+        {
+          label: 'RFC 9457 — Problem Details for HTTP APIs',
+          href: 'https://www.rfc-editor.org/rfc/rfc9457.html',
+          source: 'IETF',
+          note: 'Acuan bentuk error seragam yang diaudit di langkah keenam.',
+        },
+        {
+          label: 'Express — Production Best Practices: Security',
+          href: 'https://expressjs.com/en/advanced/best-practice-security.html',
+          source: 'Express',
+          note: 'Termasuk mematikan header yang menyebut teknologi dan versinya.',
+        },
       ),
     ],
   ),

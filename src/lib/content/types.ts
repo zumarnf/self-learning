@@ -59,6 +59,7 @@ export const OFFICIAL_DOC_HOSTS = [
   'web.dev',
   // JavaScript / TypeScript tooling
   'nodejs.org',
+  'docs.npmjs.com',
   'www.typescriptlang.org',
   'vitest.dev',
   'vite.dev',
@@ -70,6 +71,20 @@ export const OFFICIAL_DOC_HOSTS = [
   'react.dev',
   'nextjs.org',
   'tailwindcss.com',
+  // React ecosystem libraries — each entry is the library's own docs site, published by its
+  // maintainers. They are here for the same reason `react.dev` is: a lesson that teaches a
+  // library must be able to point at that library's primary reference.
+  'tanstack.com',
+  'zustand.docs.pmnd.rs',
+  'redux.js.org',
+  'redux-toolkit.js.org',
+  'jotai.org',
+  'zod.dev',
+  // Backend libraries — each entry is the library's own docs site
+  'www.prisma.io',
+  'docs.bullmq.io',
+  'pestphp.com',
+  'socket.io',
   // Backend
   'expressjs.com',
   'laravel.com',
@@ -88,6 +103,9 @@ export const OFFICIAL_DOC_HOSTS = [
   'vercel.com',
   'nginx.org',
   'httpd.apache.org',
+  // Methodology & specification bodies that ARE the primary source for their concept
+  '12factor.net',
+  'spec.openapis.org',
   // Security & specifications
   'owasp.org',
   'cheatsheetseries.owasp.org',

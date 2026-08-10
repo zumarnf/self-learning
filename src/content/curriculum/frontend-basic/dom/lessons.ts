@@ -104,6 +104,9 @@ export const lessons: LessonDraft[] = [
         `,
         { caption: 'Teks pun sebuah node — ini menjelaskan beberapa perilaku yang tampak aneh.' },
       ),
+      p(
+        'Bandingkan kedua blok itu baris demi baris. HTML yang kamu tulis adalah **teks datar**; yang dipegang browser setelah membacanya adalah **pohon** — dan seluruh sub-bab ini pada dasarnya tentang perbedaan itu. Perhatikan `#text "Halo"` di bawah `h1`: teksnya bukan bagian dari elemen `h1`, melainkan node tersendiri yang menjadi anaknya. Hal yang sama terjadi pada `p`, yang ternyata punya **dua** anak — potongan teks `"Isi "` dan elemen `strong` — padahal di HTML keduanya terlihat menyatu dalam satu baris. Kenyataan bahwa teks pun sebuah node inilah yang menjelaskan perilaku yang tampak aneh nanti: kenapa jumlah "anak" sebuah elemen bisa lebih banyak daripada tag yang kamu lihat, dan kenapa spasi serta baris baru dalam HTML-mu ikut terhitung.',
+      ),
 
       h2('Jenis node yang perlu kamu tahu'),
       table(
@@ -125,6 +128,9 @@ export const lessons: LessonDraft[] = [
 
         // Hampir selalu kamu ingin 'children', bukan 'childNodes'.
         `,
+      ),
+      p(
+        'Angka `2` versus `1` di sini adalah akibat langsung dari pohon yang baru saja kamu baca. `childNodes` menghitung **semua jenis node**, termasuk potongan teks `"Isi "` dan komentar; `children` hanya menghitung **element**. Perbedaannya jauh lebih besar di HTML sungguhan daripada di contoh ringkas ini: begitu tag ditulis di baris terpisah dengan indentasi rapi, setiap pergantian baris beserta spasinya menjadi text node tersendiri, sehingga sebuah `<ul>` berisi tiga `<li>` bisa punya **tujuh** `childNodes` — tiga elemen diselingi empat potongan spasi. Itu sebabnya kode yang memakai `childNodes[0]` sering mendapat spasi kosong alih-alih elemen yang dimaksud, dan kenapa saran di komentar terakhir layak diikuti tanpa banyak berpikir.',
       ),
       callout(
         'info',
@@ -149,6 +155,9 @@ export const lessons: LessonDraft[] = [
           document.querySelector('h1');   // sekarang ada
         });
         `,
+      ),
+      p(
+        'Masalahnya soal urutan: kalau `<script>` diletakkan di `<head>` tanpa `defer` atau `type="module"`, browser menjalankannya **saat itu juga**, sebelum sempat mengurai `<body>` — sehingga `<h1>` belum ada di pohon DOM ketika `querySelector` mencarinya. Ketiga solusi di atas sama-sama menunda eksekusi skrip sampai HTML selesai diurai, hanya dengan cara berbeda: `type="module"` dan `defer` menunda otomatis tanpa perlu memindahkan letak tag-nya, sementara menaruh `<script>` di akhir `<body>` menunda secara manual karena browser sudah pasti selesai mengurai semua yang di atasnya lebih dulu.',
       ),
 
       divider,
@@ -262,6 +271,9 @@ export const lessons: LessonDraft[] = [
         document.querySelector('input[type="email"]');
         `,
       ),
+      p(
+        'Perbedaan `querySelector` dan `querySelectorAll` bukan sekadar jumlah, melainkan **jenis** yang kamu terima: yang pertama mengembalikan satu elemen atau `null`, yang kedua selalu mengembalikan NodeList — kosong sekalipun. Karena itu `querySelectorAll` tidak pernah menghasilkan `null`, dan memeriksa `.length` adalah cara yang benar untuk mengetahui apakah ada yang cocok. `getElementById` masih disebut karena ia jalur tercepat, tapi selisih kecepatannya tidak relevan untuk kode aplikasi biasa; yang membuatnya kadang tetap dipilih adalah kejelasan maksud. Tiga baris terakhir menunjukkan keunggulan sesungguhnya `querySelector`: **selector CSS apa pun berlaku**, sehingga pengetahuan CSS yang sudah kamu punya langsung terpakai — kombinator `>`, pseudo-class `:first-child`, dan selector atribut seperti `[data-status="aktif"]` semuanya sah.',
+      ),
       callout(
         'warning',
         '`querySelector` mengembalikan `null`, bukan error',
@@ -277,6 +289,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        "Pembungkus sependek ini memindahkan kegagalan ke tempat yang benar. Tanpanya, selector yang salah ketik menghasilkan `null` yang diam, lalu meledak beberapa baris kemudian dengan pesan `Cannot read properties of null` — pesan yang **tidak menyebut selector mana** yang bermasalah, sehingga kamu harus menelusuri sendiri. Dengan `wajibAda`, errornya muncul tepat di titik pencarian dan membawa selectornya di dalam pesan. Parameter kedua `akar = document` adalah nilai bawaan yang membuatnya bisa dipakai dua cara: `wajibAda('.kartu')` mencari di seluruh dokumen, sedangkan `wajibAda('.tombol', kartu)` membatasi pencarian ke dalam satu elemen — persis pembatasan yang dibahas di bagian berikutnya. Pakai ini untuk elemen yang **wajib** ada; untuk elemen yang memang boleh tidak ada, `querySelector` biasa beserta pemeriksaan `if (el)` justru yang tepat.",
+      ),
 
       h2('Menyeleksi di dalam elemen, bukan seluruh dokumen'),
       code(
@@ -291,6 +306,9 @@ export const lessons: LessonDraft[] = [
         const tombol2 = kartu.querySelector('.tombol');
         `,
       ),
+      p(
+        "Bayangkan halaman dengan banyak kartu produk, masing-masing punya tombol \"Beli\". `document.querySelector('.tombol')` mencari ke **seluruh halaman** dan selalu mengembalikan tombol kartu **pertama**, apa pun kartu yang sedang kamu proses — bug yang sangat mudah lolos saat testing dengan satu kartu saja, dan baru terlihat begitu ada dua kartu atau lebih. `kartu.querySelector('.tombol')` membatasi pencariannya hanya ke dalam elemen `kartu` itu sendiri, sehingga selalu mendapat tombol yang benar-benar berpasangan dengan kartu yang sedang dipegang.",
+      ),
 
       h2('NodeList bukan array'),
       code(
@@ -304,6 +322,9 @@ export const lessons: LessonDraft[] = [
         [...semua].map((el) => el.id);        // ubah jadi array dulu
         Array.from(semua).filter(...);
         `,
+      ),
+      p(
+        'Kejutan di sini adalah `forEach` **ada** tapi `map` **tidak** — kombinasi yang membingungkan karena keduanya terasa satu paket. Penyebabnya, `NodeList` bukan array melainkan jenis koleksi tersendiri yang kebetulan diberi `forEach` karena terlalu sering dibutuhkan; sisa method array seperti `map`, `filter`, dan `reduce` tidak pernah ditambahkan. Karena itu memanggil `semua.map(...)` menghasilkan `TypeError`, dan pesannya menyebut `map is not a function` — bukan sesuatu yang langsung membuat orang teringat pada perbedaan NodeList dan array. Dua baris terakhir menunjukkan obatnya, dan keduanya setara: spread `[...semua]` maupun `Array.from(semua)` menyalin isinya ke array sungguhan, setelah itu seluruh method array berlaku seperti biasa.',
       ),
 
       h2('Koleksi hidup vs statis — jebakan nyata'),
@@ -322,6 +343,10 @@ export const lessons: LessonDraft[] = [
         hidup.length;    // 2 — ikut berubah sendiri
         statis.length;   // 3 — potret saat dipanggil
         `,
+        { caption: 'Dua koleksi dari dokumen yang sama, berperilaku berbeda setelah DOM berubah.' },
+      ),
+      p(
+        'Kedua baris deklarasi terlihat mengerjakan hal yang sama, dan sebelum DOM berubah keduanya memang melaporkan `3`. Perbedaannya baru muncul setelah satu elemen dihapus. `getElementsByClassName` mengembalikan **koleksi hidup** — ia bukan daftar hasil, melainkan kueri yang terus tersambung ke dokumen dan menghitung ulang dirinya setiap kali dibaca. `querySelectorAll` mengembalikan **potret**: hasilnya dikunci pada saat pemanggilan dan tidak pernah berubah lagi, meski dokumennya berubah total. Tidak ada yang lebih benar di antara keduanya, tapi yang hidup jauh lebih mudah mengejutkan — terutama di dalam loop, seperti yang diperingatkan di bawah. Kalau kamu tidak punya alasan khusus membutuhkan koleksi yang memperbarui diri, pilih `querySelectorAll` supaya jumlah yang kamu pegang tidak berubah di tengah pekerjaan.',
       ),
       callout(
         'danger',
@@ -441,6 +466,9 @@ export const lessons: LessonDraft[] = [
         // Menampilkan: tebal (huruf tebal sungguhan)
         `,
       ),
+      p(
+        'String yang ditugaskan **sama persis** di kedua baris, tapi hasil di layar berbeda total — dan itu satu-satunya hal yang perlu kamu pahami dari sub-bab ini. `textContent` memperlakukan apa pun yang kamu berikan sebagai **teks murni**: tanda `<` ditampilkan sebagai karakter `<`, bukan sebagai awal tag. `innerHTML` memperlakukannya sebagai **kode HTML** yang harus diurai menjadi elemen sungguhan. Perbedaan itu terasa seperti soal tampilan, padahal ia soal keamanan: begitu kamu memilih `innerHTML`, kamu memberi izin kepada isi string itu untuk **menjadi elemen apa pun**, termasuk elemen yang menjalankan kode. Bagian berikutnya menunjukkan persis apa artinya bagi teks yang datang dari orang lain.',
+      ),
 
       h2('Kenapa `innerHTML` berbahaya'),
       code(
@@ -453,6 +481,9 @@ export const lessons: LessonDraft[] = [
         // Gambar gagal dimuat -> onerror berjalan -> cookie sesi terkirim ke penyerang.
         // Ini XSS, dan tidak butuh tag <script> sama sekali.
         `,
+      ),
+      p(
+        'Bedah serangan ini pelan-pelan, karena kecerdikannya justru pada apa yang **tidak** ada di dalamnya. Tidak ada tag `<script>` — jadi penyaringan naif yang hanya memblokir kata "script" tidak menangkapnya sama sekali. Yang dikirim hanyalah sebuah `<img>` dengan `src=x`, alamat yang sudah pasti gagal dimuat. Kegagalan itulah yang disengaja: gambar yang gagal memicu `onerror`, dan isi `onerror` adalah JavaScript yang **dijalankan browser dengan hak penuh halamanmu** — termasuk hak membaca `document.cookie` dan mengirimkannya ke server penyerang. Pelajaran umumnya: bahaya `innerHTML` bukan terletak pada tag tertentu yang bisa didaftar hitam, melainkan pada puluhan atribut penangan peristiwa yang tersebar di seluruh spesifikasi HTML. Itu sebabnya jawabannya bukan "saring yang berbahaya", melainkan "jangan pakai `innerHTML` untuk data pengguna".',
       ),
       callout(
         'danger',
@@ -471,6 +502,9 @@ export const lessons: LessonDraft[] = [
         el.innerHTML = DOMPurify.sanitize(htmlDariEditor);
         `,
       ),
+      p(
+        'Baris pertama adalah jawaban untuk hampir semua kasus: `textContent` aman **apa pun isi variabelnya**, karena ia tidak pernah menafsirkan isinya sebagai HTML. Payload penyerang yang sama tadi akan tampil apa adanya sebagai teks — jelek, tapi tidak berbahaya. Bagian bawah menangani kasus yang jarang tapi nyata: konten dari editor teks kaya memang **harus** berupa HTML, karena itulah bentuk datanya. Untuk itu jalannya adalah sanitasi — membuang tag dan atribut berbahaya sebelum menyerahkannya ke `innerHTML`. Perhatikan peringatan di komentar: **jangan menyaring sendiri**. Daftar hitam buatan sendiri selalu tertinggal dari kreativitas penyerang, dan pustaka seperti DOMPurify dipelihara justru untuk mengejar celah-celah baru yang terus ditemukan.',
+      ),
 
       h2('`innerHTML` juga merusak yang sudah ada'),
       code(
@@ -487,6 +521,9 @@ export const lessons: LessonDraft[] = [
         wadah.append(buatItem('baru'));
         `,
       ),
+      p(
+        'Empat kerusakan yang disebut di komentar bukan kebetulan — semuanya berasal dari satu akar yang sama: `innerHTML += ...` tidak menambahkan elemen baru ke pohon yang sudah ada, ia **membongkar seluruh isi wadah menjadi teks HTML, lalu mem-parse ulang semuanya dari nol**. Elemen-elemen lama benar-benar dihancurkan dan digantikan elemen baru yang terlihat identik tapi sebenarnya objek yang sama sekali berbeda — itulah sebabnya event listener yang terpasang di elemen lama (yang sudah tidak ada lagi) tidak ikut pindah ke elemen barunya. `wadah.append(...)` tidak punya masalah ini karena ia benar-benar **menambahkan** node baru ke pohon yang ada, tanpa pernah menyentuh node-node lama sama sekali.',
+      ),
 
       h2('Kapan `innerText` berbeda'),
       code(
@@ -500,6 +537,9 @@ export const lessons: LessonDraft[] = [
         // Di dalam loop, ini penyebab lambat yang sering tidak disadari.
         `,
       ),
+      p(
+        'Selisih satu kata — `tersembunyi` — berasal dari perbedaan sudut pandang keduanya. `textContent` membaca **pohon DOM**, dan `<span>` yang di-`display:none` tetap ada di sana beserta teksnya. `innerText` membaca **apa yang benar-benar terlihat**, jadi ia menghormati CSS dan melewatkan bagian yang tersembunyi. Perbedaan itu kadang justru yang kamu inginkan — misalnya saat menyalin teks yang tampil ke clipboard. Tapi ada harganya, dan komentar terakhir menyebutnya: untuk tahu apa yang terlihat, browser harus **menghitung tata letak halaman lebih dulu**. Membaca `innerText` sekali tidak terasa; membacanya di dalam loop untuk seratus elemen memaksa seratus perhitungan tata letak, dan itu salah satu penyebab lambat yang paling jarang dicurigai karena kodenya terlihat sederhana.',
+      ),
 
       h2('Menyisipkan HTML dengan aman: `insertAdjacentHTML`'),
       code(
@@ -511,6 +551,9 @@ export const lessons: LessonDraft[] = [
         // Posisi: 'beforebegin' | 'afterbegin' | 'beforeend' | 'afterend'
         // TETAP tidak boleh dipakai untuk data pengguna — ia tetap mem-parse HTML.
         `,
+      ),
+      p(
+        '`insertAdjacentHTML` menutup satu dari dua masalah `innerHTML +=`, bukan keduanya — dan membedakannya penting supaya kamu tidak salah menyimpulkan. Yang **ditutup**: ia benar-benar menyisipkan, tanpa membongkar dan mem-parse ulang isi yang sudah ada, sehingga listener, fokus, dan nilai input yang sedang diketik selamat. Yang **tidak ditutup**: ia tetap mem-parse string sebagai HTML, jadi payload `<img onerror=...>` dari bagian sebelumnya tetap berjalan persis sama. Empat nilai posisi di komentar menentukan titik sisipnya relatif terhadap elemen: `beforebegin` dan `afterend` menaruhnya **di luar** elemen (sebelum dan sesudahnya), sedangkan `afterbegin` dan `beforeend` menaruhnya **di dalam** sebagai anak pertama atau anak terakhir. `beforeend` adalah yang paling sering dipakai, karena ia setara dengan "tambahkan di akhir daftar".',
       ),
 
       divider,
@@ -629,6 +672,9 @@ export const lessons: LessonDraft[] = [
         input.defaultValue;             // 'awal'   — property yang mencerminkan atribut
         `,
       ),
+      p(
+        "Ketiga baris ini membaca `<input>` yang sama dan memberi tiga jawaban berbeda — dan itu bukan kejanggalan, melainkan pembagian tugas yang disengaja. **Atribut** adalah apa yang tertulis di HTML, dan ia dibekukan pada keadaan **awal**; berapa pun banyaknya pengguna mengetik, `getAttribute('value')` tetap menjawab `'awal'`. **Property** hidup di objek DOM dan mencerminkan keadaan **sekarang**, jadi `input.value` mengikuti ketikan pengguna. `defaultValue` ada sebagai jembatan: ia property yang isinya sengaja mencerminkan atribut, berguna misalnya untuk mengembalikan form ke nilai semula. Kesalahan yang lahir dari sini selalu terlihat sama — form yang mengirim data lama meski pengguna sudah jelas-jelas mengubahnya di layar.",
+      ),
       callout(
         'warning',
         'Selalu pakai `.value`, bukan `getAttribute("value")`',
@@ -641,6 +687,9 @@ export const lessons: LessonDraft[] = [
         checkbox.getAttribute('checked');    // '' atau null — hanya keadaan AWAL
         `,
       ),
+      p(
+        "Checkbox membuat perbedaan tadi jadi lebih menjebak, karena bentuk jawabannya pun berbeda. `checkbox.checked` menjawab boolean sungguhan, `true` atau `false`. `getAttribute('checked')` menjawab **string kosong** kalau atributnya ada di HTML, atau `null` kalau tidak — dan tidak satu pun dari keduanya berubah ketika pengguna mengeklik. Yang berbahaya, string kosong bernilai falsy sedangkan string apa pun yang tidak kosong bernilai truthy, sehingga kode seperti `if (checkbox.getAttribute('checked'))` justru menjawab terbalik dari yang kamu duga. Aturannya sederhana dan berlaku untuk `checked`, `selected`, maupun `disabled`: untuk **membaca keadaan sekarang**, selalu lewat property.",
+      ),
 
       h2('`class` vs `className`'),
       code(
@@ -650,6 +699,9 @@ export const lessons: LessonDraft[] = [
         el.getAttribute('class');      // sama
         el.classList;                  // API yang sebaiknya kamu pakai (sub-bab berikutnya)
         `,
+      ),
+      p(
+        'Namanya `className`, bukan `class`, karena `class` sudah menjadi kata kunci JavaScript — sisa sejarah yang tidak bisa diperbaiki lagi. Dua baris pertama setara dan sama-sama memberi **satu string utuh** berisi semua kelas yang dipisah spasi, dan di situlah masalahnya: menambah satu kelas berarti merangkai string, dan menghapus satu kelas berarti memotong string dengan hati-hati agar tidak meninggalkan spasi ganda atau menghapus kelas lain yang namanya mirip. `classList` menghindarkan seluruh urusan itu dengan memperlakukan kelas sebagai **daftar**, bukan teks — dan itulah yang dibahas tuntas di sub-bab berikutnya.',
       ),
 
       h2('Kapan memakai atribut'),
@@ -668,6 +720,9 @@ export const lessons: LessonDraft[] = [
         el.disabled = false;                    // atau lewat property
         `,
       ),
+      p(
+        "Kelompok pertama menunjukkan kapan `setAttribute` memang **satu-satunya jalan**: atribut ARIA dan atribut kustom tidak punya property padanan di objek DOM, jadi `el.ariaExpanded = true` tidak akan berpengaruh apa pun pada sebagian besar lingkungan. Kelompok kedua memuat jebakan yang paling sering memakan waktu. Untuk **atribut boolean** seperti `disabled`, yang menentukan adalah **ada atau tidak adanya atribut itu**, bukan nilainya — sehingga `setAttribute('disabled', 'false')` justru **menonaktifkan** tombolnya, karena atributnya kini ada. Kata `false` di sana dibaca browser sebagai nilai yang tidak relevan, bukan sebagai pembatalan. Dua baris terakhir menunjukkan dua cara yang benar: hapus atributnya, atau setel property-nya ke `false`. Untuk atribut boolean, jalur property hampir selalu lebih sulit dipakai keliru.",
+      ),
 
       h2('`data-*` dan `dataset`'),
       code('html', `<button data-id="42" data-status-kirim="menunggu">Kirim</button>`),
@@ -684,6 +739,9 @@ export const lessons: LessonDraft[] = [
 
         delete btn.dataset.statusKirim;           // menghapus atributnya
         `,
+      ),
+      p(
+        "Atribut `data-*` adalah satu-satunya atribut kustom yang sah menurut spesifikasi HTML, dan `dataset` adalah pintu masuknya yang jauh lebih nyaman daripada `getAttribute('data-id')`. Ada dua aturan penerjemahan yang perlu diingat. Pertama, **tanda hubung berubah jadi camelCase**: `data-status-kirim` di HTML diakses sebagai `dataset.statusKirim` di JavaScript, dan awalan `data-` selalu dibuang. Kedua, dan yang paling sering menggigit, **isinya selalu string** — `dataset.id` menghasilkan `'42'` dengan tanda kutip, bukan angka `42`, sehingga membandingkannya dengan `=== 42` selalu bernilai `false`. Baris `Number(btn.dataset.id)` adalah konversi yang harus kamu tulis sendiri. Perhatikan juga `dataset` bekerja dua arah: menugaskan nilai padanya benar-benar mengubah atribut di HTML, dan `delete` menghapusnya.",
       ),
       callout(
         'tip',
@@ -798,6 +856,9 @@ export const lessons: LessonDraft[] = [
         el.classList.add('a', 'b', 'c');           // beberapa sekaligus
         `,
       ),
+      p(
+        'Seluruh method di sini bekerja pada **satu kelas sebagai satuan**, bukan pada string gabungan — itulah keunggulannya atas `className`. `add` yang dipanggil untuk kelas yang sudah ada tidak menggandakannya, dan `remove` untuk kelas yang tidak ada tidak melempar error; keduanya aman dipanggil berulang, sehingga kamu tidak perlu memeriksa dulu dengan `contains`. Dua baris `toggle` layak dibedakan. Bentuk satu argumen adalah sakelar: ada jadi hilang, tidak ada jadi muncul. Bentuk dua argumen **memaksa** hasilnya mengikuti boolean — dan bentuk inilah yang jauh lebih sering kamu butuhkan, karena tampilan biasanya harus mengikuti keadaan data, bukan berganti-ganti sendiri. Bedanya terasa saat fungsinya dipanggil dua kali berturut-turut dengan keadaan yang sama: bentuk sakelar akan salah, bentuk berkondisi tetap benar.',
+      ),
       callout(
         'tip',
         'Bentuk `toggle(nama, kondisi)` menghapus banyak `if`',
@@ -829,6 +890,9 @@ export const lessons: LessonDraft[] = [
         tooltip.style.transform = \`translate(\${x}px, \${y}px)\`;
         `,
       ),
+      p(
+        'Kedua nilai ini punya sifat yang sama: **tidak mungkin diketahui saat CSS ditulis**. Lebar bar progres bergantung pada angka yang baru ada ketika program berjalan, dan posisi tooltip bergantung pada di mana kursor berada. Kamu tidak bisa membuat kelas CSS untuk setiap persentase dari 0 sampai 100, jadi di sinilah `style` langsung memang jawabannya. Perhatikan bedanya dengan contoh SALAH di atas: yang ditulis dari JavaScript hanya **satu nilai yang berubah-ubah**, bukan keseluruhan tampilan — warna, tinggi, dan sudut lengkung bar tetap urusan CSS. Aturan pembedanya bisa diringkas begini: kalau nilainya bisa ditulis di berkas CSS, tulis di sana; kalau ia hasil perhitungan saat berjalan, barulah lewat `style`.',
+      ),
 
       h2('CSS custom property — jembatan terbaik'),
       code(
@@ -851,6 +915,9 @@ export const lessons: LessonDraft[] = [
         getComputedStyle(bar).getPropertyValue('--progres');
         `,
       ),
+      p(
+        "Bandingkan kedua blok itu sebagai satu kesatuan, karena di situlah pembagian tugasnya terlihat. Blok CSS memutuskan **segalanya tentang tampilan**: bahwa nilainya dipakai sebagai lebar, warnanya apa, dan bahwa perubahannya dianimasikan selama 300 milidetik. Blok JavaScript hanya mengoper satu angka lewat `setProperty('--progres', ...)` dan tidak tahu apa-apa tentang bagaimana angka itu dipakai. Keuntungannya nyata: mengubah bar menjadi vertikal, mengganti animasinya, atau membuatnya berbeda di mode gelap semuanya bisa dilakukan **tanpa menyentuh satu baris JavaScript pun**. Perhatikan juga `var(--progres, 0%)` punya argumen kedua — itu nilai cadangan yang dipakai sebelum JavaScript sempat menyetel apa pun, sehingga bar tidak tampil rusak saat halaman baru dimuat.",
+      ),
       callout(
         'info',
         'Ini pola yang dipakai website ini sendiri',
@@ -866,6 +933,9 @@ export const lessons: LessonDraft[] = [
 
         // getComputedStyle memaksa perhitungan layout. Jangan panggil di dalam loop.
         `,
+      ),
+      p(
+        'Ini perbedaan yang membuat banyak orang mengira kodenya tidak bekerja. `el.style` **hanya melihat style inline** — yaitu atribut `style="..."` pada elemen itu sendiri, atau nilai yang kamu tulis sendiri lewat JavaScript. Warna yang berasal dari berkas CSS tidak pernah muncul di sana, sehingga `el.style.color` menghasilkan string kosong meski teksnya jelas-jelas berwarna di layar. `getComputedStyle` memberi **hasil akhir** setelah browser menggabungkan semua sumber: berkas CSS, style inline, pewarisan, dan media query. Perhatikan bentuk nilainya ikut dinormalkan — warna yang kamu tulis sebagai `#191713` akan dibaca kembali sebagai `rgb(25, 23, 19)`, jadi membandingkannya dengan string aslinya tidak akan cocok. Peringatan di komentar sama dengan `innerText` sebelumnya: memberi hasil akhir berarti browser harus menghitung tata letak lebih dulu.',
       ),
 
       divider,
@@ -978,6 +1048,9 @@ export const lessons: LessonDraft[] = [
         const teks = document.createTextNode('halo');
         `,
       ),
+      p(
+        'Elemen yang baru dibuat `createElement` **belum ada di halaman** — ia mengambang di memori sampai kamu menyisipkannya, dan itu justru menguntungkan: kamu bisa mengaturnya sepuasnya tanpa satu pun perubahan yang terlihat berkedip di layar. Perhatikan `li.textContent = judul` dan komentarnya: karena judul bisa berasal dari ketikan pengguna, memakai `textContent` di sini bukan sekadar kebiasaan melainkan penerapan langsung aturan XSS dari sub-bab sebelumnya. Perhatikan juga seluruh penyusunan ini memakai **property**, bukan merangkai string HTML — itulah cara membuat elemen yang aman apa pun isi datanya. `createTextNode` jarang dibutuhkan langsung, karena menugaskan `textContent` sudah membuatnya untukmu; ia berguna hanya saat kamu perlu menyelipkan potongan teks di antara dua elemen.',
+      ),
 
       h2('Menyisipkan'),
       code(
@@ -991,6 +1064,9 @@ export const lessons: LessonDraft[] = [
 
         wadah.append(a, b, 'teks biasa');   // campur elemen dan string
         `,
+      ),
+      p(
+        'Perhatikan pembagian yang rapi di sini: dua baris pertama dipanggil pada **wadahnya** dan menyisipkan ke dalam, sedangkan tiga baris berikutnya dipanggil pada **elemen acuan** dan menyisipkan relatif terhadapnya. Membaca kodenya jadi seperti membaca kalimat — `acuan.before(li)` berarti "taruh `li` sebelum acuan". Baris terakhir menunjukkan dua kemudahan yang tidak dimiliki API lama: beberapa argumen sekaligus dalam satu pemanggilan, dan **string yang otomatis diperlakukan sebagai teks**. Kemudahan kedua itu penting untuk keamanan: `wadah.append(\'<b>x</b>\')` menampilkan tanda kurung siku apa adanya sebagai teks, tidak pernah sebagai tag — jadi berbeda dari `innerHTML`, jalur ini aman untuk data pengguna.',
       ),
       callout(
         'info',
@@ -1011,6 +1087,9 @@ export const lessons: LessonDraft[] = [
 
         const salinan = el.cloneNode(true);     // true = ikut seluruh isinya
         `,
+      ),
+      p(
+        "Bagian tengah adalah yang paling sering mengejutkan: sebuah node hanya bisa berada di **satu tempat** dalam pohon DOM. Jadi menyisipkan elemen yang sudah tampil di halaman tidak menggandakannya — ia dicabut dari tempat lamanya dan dipindahkan. Sifat itu sebenarnya sangat berguna untuk mengurutkan ulang daftar tanpa membuat elemen baru, karena elemen yang dipindahkan **membawa serta semua listener dan keadaannya**. Kalau yang kamu mau memang salinan, `cloneNode` jawabannya, dan argumennya menentukan kedalaman: `true` menyalin beserta seluruh isinya, `false` hanya kulit terluarnya. Satu hal penting yang **tidak** ikut tersalin adalah event listener yang dipasang dengan `addEventListener` — jadi salinan hasil `cloneNode` selalu perlu dipasangi listener sendiri, atau ditangani lewat delegation di sub-bab berikutnya. Baris `replaceChildren()` tanpa argumen adalah cara terpendek mengosongkan wadah, dan lebih baik daripada `innerHTML = ''` karena tidak melibatkan pengurai HTML sama sekali.",
       ),
 
       h2('Kenapa menyisipkan di dalam loop itu mahal'),
@@ -1036,6 +1115,9 @@ export const lessons: LessonDraft[] = [
         // Alternatif yang sama cepatnya dan lebih pendek:
         wadah.append(...seribuItem.map(buatBaris));
         `,
+      ),
+      p(
+        'Kedua versi membuat seribu baris yang sama, jadi perbedaannya bukan pada pekerjaan membuat elemen melainkan pada **berapa kali DOM yang sedang tampil disentuh**. Versi lambat menyentuhnya seribu kali, dan tiap sentuhan berpotensi memaksa browser menghitung ulang tata letak halaman. Versi cepat merakit seluruh baris di dalam `DocumentFragment` — sebuah wadah yang **tidak berada di dalam dokumen**, sehingga menambahkan apa pun ke dalamnya tidak memicu perhitungan apa-apa — lalu menyisipkannya sekali. Baris terakhir menunjukkan bahwa fragment tidak selalu perlu ditulis eksplisit: `append` menerima banyak argumen, jadi spread dari hasil `map` mencapai efek yang sama dengan satu baris. Pilih yang mana pun; yang penting prinsipnya, yaitu **rakit dulu di luar, sisipkan sekali**.',
       ),
       callout(
         'tip',
@@ -1079,6 +1161,9 @@ export const lessons: LessonDraft[] = [
           wadah.append(fragment);
         }
         `,
+      ),
+      p(
+        'Perhatikan bagaimana fungsi ini merangkum semua yang baru dipelajari sekaligus: `replaceChildren()` mengosongkan wadah tanpa `innerHTML = ""`, keadaan kosong ditangani secara eksplisit alih-alih membiarkan wadah kosong tanpa penjelasan apa pun, `textContent` dipakai untuk `item.judul` karena datanya bisa saja berasal dari pengguna, dan seluruh baris dirakit dulu ke dalam `fragment` sebelum satu kali `wadah.append(fragment)` di akhir — bukan `append` satu per satu di dalam loop. Pola inilah yang React lakukan secara otomatis di balik layar; di sini kamu menulisnya sendiri supaya tahu persis apa yang nanti sedang diautomasi.',
       ),
 
       divider,
@@ -1196,6 +1281,9 @@ export const lessons: LessonDraft[] = [
         tombol.removeEventListener('click', tangani);   // butuh referensi fungsi YANG SAMA
         `,
       ),
+      p(
+        'Perhatikan `tangani` dioper **tanpa kurung** di kedua baris — kamu menyerahkan fungsinya, bukan memanggilnya sekarang; menambahkan kurung akan menjalankannya seketika dan mendaftarkan nilai kembaliannya sebagai listener. Fungsi itu nanti dipanggil browser dengan satu argumen, objek `event`, yang membawa seluruh keterangan tentang apa yang terjadi. Bagian yang paling menentukan ada di baris kedua: `removeEventListener` mencocokkan **berdasarkan alamat fungsi**, bukan namanya maupun isinya. Karena itu fungsinya harus disimpan di suatu variabel supaya alamat yang sama bisa disebut dua kali — dan karena itu pula fungsi anonim, seperti diperingatkan di bawah, mustahil dilepas.',
+      ),
       callout(
         'warning',
         'Fungsi anonim tidak bisa dilepas',
@@ -1213,6 +1301,9 @@ export const lessons: LessonDraft[] = [
 
         controller.abort();   // ketiganya lepas sekaligus
         `,
+      ),
+      p(
+        'Ini `AbortController` yang sama persis dengan yang membatalkan `fetch` di Bab 3 — dan pemakaian ulangnya di sini disengaja oleh perancang bahasa. Satu `signal` dibagikan ke tiga listener yang berbeda, terpasang pada tiga elemen yang berbeda; `controller.abort()` melepas ketiganya sekaligus. Keuntungannya bukan sekadar hemat baris: kamu **tidak perlu lagi menyimpan referensi tiap fungsi** hanya supaya bisa melepasnya nanti, sehingga fungsi anonim yang tadi mustahil dilepas kini boleh dipakai dengan aman. Pola ini menyelesaikan masalah pembersihan yang berantakan pada aplikasi satu halaman: kumpulkan semua listener sebuah tampilan di bawah satu controller, lalu batalkan sekali saat tampilan itu ditinggalkan.',
       ),
 
       h2('Objek Event'),
@@ -1234,6 +1325,9 @@ export const lessons: LessonDraft[] = [
           e.ctrlKey; e.metaKey; e.shiftKey;
         });
         `,
+      ),
+      p(
+        "Objek `event` adalah satu-satunya sumber keterangan tentang apa yang barusan terjadi, dan isinya **berbeda-beda menurut jenis peristiwanya** — itulah kenapa contoh di atas dikelompokkan. Peristiwa mouse membawa koordinat dan tombol mana yang ditekan; peristiwa keyboard membawa `e.key` berisi nama tombolnya sebagai teks (`'Enter'`, `'Escape'`) beserta status tombol pengubah. Dua property teratas berlaku untuk semua jenis dan paling sering tertukar: `e.currentTarget` **selalu** elemen tempat listener dipasang — di sini `wadah` — sedangkan `e.target` adalah elemen terdalam yang benar-benar disentuh pengguna, yang bisa jadi cucu atau cicit dari wadah itu. Perbedaan itu bukan kerumitan yang mengganggu; justru dari situlah teknik event delegation di sub-bab berikutnya mendapat kekuatannya.",
       ),
       callout(
         'danger',
@@ -1260,6 +1354,9 @@ export const lessons: LessonDraft[] = [
         e.stopPropagation();
         `,
       ),
+      p(
+        'Keduanya sering dikira sepasang, padahal mengatur dua hal yang sama sekali berbeda. `preventDefault` membatalkan **perilaku bawaan browser** — pada `submit` itu berarti memuat ulang halaman, pada klik tautan berarti berpindah alamat. Ia tidak menghentikan perjalanan event ke mana pun; listener lain tetap menerimanya. `stopPropagation` sebaliknya tidak menyentuh perilaku bawaan sama sekali; ia menghentikan **perjalanan event naik ke elemen induk**. Peringatan di komentar layak dianggap serius: banyak fungsi bekerja dengan mendengarkan klik di `document` — menutup dropdown saat klik di luar, menutup modal, mencatat analitik — dan satu `stopPropagation` di elemen dalam membuat semuanya diam tanpa pesan error apa pun. Ketika dropdown "tidak mau menutup" tanpa sebab yang jelas, `stopPropagation` di suatu tempat adalah tersangka pertama.',
+      ),
 
       h2('Opsi listener'),
       table(
@@ -1283,6 +1380,9 @@ export const lessons: LessonDraft[] = [
         dialog.addEventListener('close', bersihkan, { once: true });
         `,
       ),
+      p(
+        '`{ passive: true }` layak dipahami sebagai **janji**, bukan pengaturan performa yang samar. Tanpa janji itu, setiap kali pengguna menggulir, browser harus menjalankan kodemu lebih dulu dan menunggu sampai selesai — sebab kamu mungkin memanggil `preventDefault` untuk membatalkan gulirannya. Menunggu itulah yang membuat scroll terasa tersendat pada halaman berat. Dengan `passive: true`, kamu berjanji tidak akan membatalkannya, sehingga browser boleh langsung menggulir tanpa menunggu. Konsekuensinya harus dipatuhi: memanggil `preventDefault` di dalam listener passive akan diabaikan dan menghasilkan peringatan di console. `{ once: true }` menyelesaikan hal yang berbeda — listener melepas dirinya sendiri setelah berjalan sekali, sehingga tidak ada yang perlu dibersihkan belakangan.',
+      ),
 
       h2('Membersihkan listener'),
       code(
@@ -1292,6 +1392,9 @@ export const lessons: LessonDraft[] = [
         // Kalau tidak dilepas, ia terus berjalan dan menahan objek di memori —
         // ini kebocoran memori yang paling umum di aplikasi satu halaman.
         `,
+      ),
+      p(
+        'Ini beda mendasar dari listener yang dipasang di sebuah elemen: elemen yang dihapus dari DOM otomatis melepas listener yang menempel padanya, tapi `window` dan `document` tidak pernah "dihapus" — keduanya selalu ada selama halaman terbuka. Di aplikasi satu halaman yang berganti "tampilan" tanpa memuat ulang browser, listener yang dipasang di `window` saat menampilkan satu tampilan akan terus menumpuk setiap kali tampilan itu muncul lagi, kalau tidak pernah dilepas — dan React menyelesaikan ini lewat fungsi pembersihan `useEffect` yang sudah disinggung di sub-bab `AbortController` pada Bab 3.',
       ),
 
       divider,
@@ -1418,6 +1521,9 @@ export const lessons: LessonDraft[] = [
         // ul (bubbling)
         `,
       ),
+      p(
+        'Tiga baris keluaran itu membuktikan diagram di atas. Dua listener pertama terpasang pada elemen **yang sama** (`ul`) untuk peristiwa **yang sama** (`click`), tapi berjalan pada waktu yang berbeda — dan yang membedakannya hanya opsi `{ capture: true }`. Yang capturing berjalan lebih dulu karena event **turun** dari `document` ke sasaran sebelum naik kembali; yang bubbling berjalan terakhir karena ia menunggu event naik. Listener pada tombolnya sendiri berjalan di tengah, saat event tepat berada di sasaran. Untuk kode sehari-hari kamu hampir selalu memakai fase bubbling — itu bawaannya, dan itulah yang membuat event delegation di bawah mungkin. Fase capturing berguna justru untuk kasus khusus: menangkap peristiwa **sebelum** listener lain sempat menghentikannya, atau menangani peristiwa yang tidak menggelembung sama sekali seperti `scroll` pada elemen.',
+      ),
 
       h2('Event delegation'),
       code(
@@ -1429,6 +1535,9 @@ export const lessons: LessonDraft[] = [
           btn.addEventListener('click', hapusBaris);
         });
         `,
+      ),
+      p(
+        'Kode ini **bekerja** — dan itulah yang membuat masalahnya sulit terlihat. Dua kelemahannya baru muncul belakangan. Pertama, `querySelectorAll` menghasilkan potret pada saat dipanggil, sehingga baris yang ditambahkan setelah baris ini dijalankan tidak pernah ikut dipasangi listener; tombol hapusnya terlihat sama persis tapi diam saat diklik, dan penyebabnya tidak akan terlihat di kode tombol itu. Kedua, jumlah listenernya tumbuh sebanding jumlah baris, dan tiap kali daftar dirender ulang kamu harus ingat melepas listener lama — kalau tidak, mereka menumpuk bersama elemen yang sudah tidak tampil.',
       ),
       code(
         'js',
@@ -1447,6 +1556,9 @@ export const lessons: LessonDraft[] = [
           }
         });
         `,
+      ),
+      p(
+        "Satu listener di wadah menggantikan seratus listener di baris, dan ia bekerja justru karena bubbling: klik pada tombol mana pun **naik** sampai ke `daftar`, jadi wadahnya cukup menunggu di satu tempat. Telusuri isinya. `e.target.closest('[data-aksi]')` naik dari titik yang benar-benar diklik sampai menemukan elemen yang menyandang atribut aksi — perlu, karena yang tersentuh bisa saja `<span>` atau ikon di dalam tombol. Baris penjaga berikutnya menangani dua kemungkinan sekaligus: `!tombol` berarti klik mengenai area kosong, dan `!daftar.contains(tombol)` menutup kasus langka ketika `closest` menemukan sesuatu di luar wadah ini. Lalu `closest('[data-id]')` naik sekali lagi untuk mencari **baris** pemilik tombol itu, dan `?.` melindunginya bila baris tanpa id. Terakhir `switch` memetakan nilai atribut ke fungsinya, sehingga menambahkan aksi baru cukup dengan menambah satu `case` dan satu atribut di HTML.",
       ),
       p(
         'Baris yang ditambahkan lima menit kemudian otomatis ikut tertangani. Tidak ada listener yang perlu dipasang atau dilepas.',
@@ -1483,6 +1595,9 @@ export const lessons: LessonDraft[] = [
         // Sekarang dropdown TIDAK PERNAH tertutup kalau kliknya di dalam kartu.
         // Bugnya muncul di tempat yang sama sekali berbeda dari penyebabnya.
         `,
+      ),
+      p(
+        'Perhatikan bahwa kedua baris itu **masing-masing masuk akal** kalau dibaca sendiri-sendiri. Listener di `document` adalah cara baku menutup dropdown saat pengguna mengeklik di luarnya. `stopPropagation` di kartu mungkin ditambahkan seseorang untuk alasan yang sah — misalnya supaya klik di dalam kartu tidak memicu listener lain. Bencananya lahir dari **kombinasinya**, dan justru itu yang membuat bug ini mahal: gejalanya muncul pada dropdown, sedangkan penyebabnya ada di berkas kartu yang mungkin ditulis orang lain berbulan-bulan sebelumnya. Tidak ada error, tidak ada peringatan, dan pencarian kata "dropdown" tidak akan pernah sampai ke baris penyebabnya. Itulah sebabnya `stopPropagation` layak diperlakukan sebagai keputusan yang perlu alasan tertulis, bukan sebagai perbaikan cepat.',
       ),
       callout(
         'warning',
@@ -1698,6 +1813,9 @@ daftar.addEventListener('click', (e) => {
         });
         `,
       ),
+      p(
+        "Perhatikan `new FormData(form)` membaca **seluruh** isi form dalam satu baris — kamu tidak perlu menyeleksi tiap input satu per satu, dan menambah field baru di HTML otomatis ikut terbaca tanpa menyentuh JavaScript. Kuncinya ada pada atribut `name`, bukan `id`: perhatikan di HTML di atas, `id` dipakai untuk menghubungkan `<label for=...>` sedangkan `name` yang menentukan kunci datanya. Tiga baris pembacaan punya sifat berbeda. `fd.get('setuju')` menghasilkan `'on'` atau `null` — checkbox yang tidak dicentang **tidak dikirim sama sekali**, jadi jangan harap menerima `false`. `Object.fromEntries(fd)` mengubahnya jadi object biasa yang enak dikirim sebagai JSON, tapi ia hanya menyimpan **nilai terakhir** untuk nama yang berulang; untuk itulah `getAll` ada.",
+      ),
       callout(
         'warning',
         '`FormData` hanya membaca input yang punya atribut `name`',
@@ -1732,6 +1850,9 @@ daftar.addEventListener('click', (e) => {
         input.setCustomValidity(sudahDipakai ? 'Email ini sudah terdaftar' : '');
         `,
       ),
+      p(
+        'Blok HTML di atas melakukan validasi **tanpa satu baris JavaScript pun** — browser sendiri yang menolak pengiriman dan menampilkan pesannya, dalam bahasa perangkat pengguna. Itu keunggulan yang sering diabaikan orang yang langsung menulis validasi sendiri. Perhatikan juga `autocomplete="email"`: ia bukan validasi, tapi ia yang membuat pengelola kata sandi dan isian otomatis bekerja benar. Blok JavaScript di bawahnya untuk kasus yang tidak bisa dijawab HTML. `checkValidity()` menjawab lulus atau tidak, sedangkan objek `validity` menjelaskan **kenapa** — `tooShort` berbeda dari `typeMismatch`, dan membedakannya memungkinkan pesan yang tepat sasaran. Baris terakhir menangani aturan yang hanya diketahui server: `setCustomValidity` dengan teks membuat field dianggap tidak valid, dan mengosongkannya kembali dengan `\'\'` **wajib** dilakukan saat masalahnya sudah teratasi — kalau lupa, fieldnya akan dianggap salah selamanya.',
+      ),
 
       h2('Menampilkan error dengan benar'),
       code(
@@ -1758,6 +1879,9 @@ daftar.addEventListener('click', (e) => {
         });
         `,
       ),
+      p(
+        "Fungsi `tampilkanError` mengerjakan tiga hal yang harus berjalan bersamaan. `kotak.textContent` menampilkan pesannya sebagai teks — pesan error sering memuat kembali apa yang diketik pengguna, jadi jalur `innerHTML` di sini akan menjadi celah XSS. `aria-invalid` memberi tahu pembaca layar bahwa field ini bermasalah, dan `aria-describedby` **menghubungkan** field dengan kotak pesannya, sehingga pembaca layar membacakan errornya saat fokus masuk ke field itu — tanpa penghubung ini, pesan yang tampil di layar tidak pernah sampai ke pengguna yang tidak melihatnya. Bagian `submit` menambahkan hal yang sama pentingnya: `form.querySelector(':invalid')` mencari field pertama yang gagal — `:invalid` adalah pseudo-class CSS yang bisa dipakai sebagai selector biasa — lalu `focus()` memindahkan kursor ke sana. Tanpa langkah itu, pengguna pada form panjang hanya melihat pengiriman gagal tanpa tahu bagian mana yang harus diperbaiki.",
+      ),
       callout(
         'tip',
         'Tiga hal yang sering terlewat pada form',
@@ -1776,6 +1900,9 @@ daftar.addEventListener('click', (e) => {
         // Validasi di klien adalah soal PENGALAMAN: umpan balik cepat, tanpa
         // menunggu jaringan. Kontrol keamanannya SELALU di server.
         `,
+      ),
+      p(
+        'Blok ini sengaja tidak berisi kode yang bisa dijalankan, karena intinya justru **apa yang bisa dilakukan orang lain terhadap kodemu**. Seluruh validasi yang baru saja kamu pasang — `required`, `maxlength`, `pattern`, `checkValidity` — hidup di halaman yang sepenuhnya berada di komputer pengguna, dan karena itu bisa diubah siapa pun lewat DevTools dalam hitungan detik. Poin terakhir yang paling menentukan: penyerang tidak perlu repot mengakali halamanmu sama sekali, ia cukup memanggil endpoint-nya langsung dengan `curl` dan halamanmu tidak pernah terlibat. Kesimpulannya bukan "validasi klien tidak berguna" — ia sangat berguna, karena memberi umpan balik seketika tanpa menunggu jaringan. Yang benar adalah menempatkannya dengan jujur: validasi klien untuk **pengalaman**, validasi server untuk **keamanan**, dan keduanya memang harus ditulis dua kali.',
       ),
 
       divider,
@@ -1888,6 +2015,9 @@ daftar.addEventListener('click', (e) => {
         el.previousElementSibling;     vs   el.previousSibling;
         `,
       ),
+      p(
+        'Kelima pasangan itu mengikuti **satu pola penamaan yang sama**, jadi tidak perlu dihafal satu per satu: yang memuat kata `Element` hanya melihat elemen, sisanya melihat semua jenis node termasuk teks dan komentar. Karena teks pun sebuah node — kenyataan dari sub-bab pertama bab ini — versi tanpa `Element` hampir selalu memberi hasil yang mengejutkan pada HTML yang diindentasi rapi. `nextSibling` dari sebuah `<li>` biasanya berupa potongan spasi dan baris baru, bukan `<li>` berikutnya; `parentNode` adalah satu-satunya pasangan yang jarang berbeda hasilnya, karena induk sebuah elemen memang hampir selalu elemen juga. Aturan praktisnya cukup satu: **pilih versi `Element`** kecuali kamu memang sedang bekerja dengan teks.',
+      ),
       callout(
         'warning',
         '`firstChild` sering bukan yang kamu kira',
@@ -1923,6 +2053,9 @@ daftar.addEventListener('click', (e) => {
         });
         `,
       ),
+      p(
+        'Perbedaan keduanya terletak pada arah pertanyaannya. `contains` menanyakan **hubungan antara dua elemen** — apakah yang satu berada di dalam yang lain; perhatikan ia juga menjawab `true` ketika keduanya elemen yang sama. `matches` tidak menelusuri ke mana pun; ia hanya menanyakan apakah satu elemen cocok dengan sebuah selector, dan itu membuatnya berguna sebagai penyaring cepat di awal listener delegation. Contoh di bawahnya adalah pola "klik di luar" yang benar, dan layak dibandingkan dengan jebakan `stopPropagation` di sub-bab bubbling: alih-alih menghentikan perjalanan event supaya listener global tidak terpicu, di sini listener globalnya sendiri yang **memeriksa** apakah klik jatuh di dalam dropdown. Efeknya lokal, tidak memutus perilaku komponen lain, dan tidak menimbulkan bug jarak jauh.',
+      ),
 
       h2('Mencari ke bawah'),
       code(
@@ -1933,6 +2066,9 @@ daftar.addEventListener('click', (e) => {
 
         [...daftar.children];                // anak langsung saja
         `,
+      ),
+      p(
+        "Dua baris pertama adalah `querySelector` yang sudah kamu kenal, hanya dipanggil pada sebuah elemen alih-alih pada `document` — dan seperti dibahas di sub-bab seleksi, pembatasan itulah yang mencegah kode mengambil elemen milik kartu lain. Perlu diingat keduanya mencari **sampai ke kedalaman berapa pun** di dalam wadahnya, jadi `kartu.querySelectorAll('button')` juga menemukan tombol yang bersarang di dalam tombol lain. Baris terakhir sengaja berbeda: `daftar.children` hanya berisi **anak langsung**, satu tingkat saja, dan itu yang kamu inginkan ketika sedang menelusuri baris-baris sebuah daftar tanpa ikut terseret ke isi tiap barisnya. Spread `[...]` di depannya dipakai karena `children` juga bukan array — persis alasan yang sama seperti pada `NodeList`.",
       ),
 
       divider,
@@ -2055,6 +2191,9 @@ daftar.addEventListener('click', (e) => {
         el.style.opacity = '0.5';                  // composite saja
         `,
       ),
+      p(
+        'Empat baris ini terlihat setara — semuanya sekadar menugaskan satu nilai — tapi biayanya berbeda berlipat-lipat, dan komentarnya menyebut kenapa. Mengubah `width` mengubah **ukuran** elemen, sehingga browser harus menghitung ulang posisi elemen lain di sekitarnya (*reflow*), menggambar ulang piksel (*paint*), lalu menyusun lapisannya (*composite*) — tiga tahap penuh. Mengubah `color` tidak menggeser apa pun, jadi tahap reflow dilewati. Sedangkan `transform` dan `opacity` **tidak mengubah apa pun tentang tata letak maupun piksel elemen itu sendiri**; keduanya hanya mengubah cara lapisan yang sudah jadi ditempatkan dan dicampur di layar, dan pekerjaan itu bisa diserahkan ke GPU. Urutan biayanya inilah yang menjelaskan seluruh anjuran performa animasi di web.',
+      ),
       callout(
         'tip',
         'Kenapa animasi selalu memakai `transform` dan `opacity`',
@@ -2072,6 +2211,9 @@ daftar.addEventListener('click', (e) => {
         // offsetHeight memaksa browser MENYELESAIKAN layout yang tertunda.
         // Karena ada penulisan sebelumnya, layout dihitung ulang tiap iterasi.
         `,
+      ),
+      p(
+        'Satu baris di dalam loop itu sebenarnya melakukan **dua** hal yang saling merusak. `el.offsetHeight` adalah pembacaan, dan menugaskan `el.style.height` adalah penulisan. Normalnya browser menunda perhitungan layout sampai benar-benar dibutuhkan, supaya banyak penulisan bisa digabung jadi satu perhitungan. Tapi pembacaan seperti `offsetHeight` **menuntut jawaban yang akurat saat itu juga**, sehingga browser terpaksa menyelesaikan semua penulisan yang tertunda lebih dulu. Karena keduanya bergantian di dalam loop, siklus itu terulang setiap iterasi: tulis, paksa hitung, tulis, paksa hitung. Untuk seratus elemen berarti seratus perhitungan layout penuh, padahal satu saja sebenarnya cukup — dan pola inilah yang disebut *layout thrashing*.',
       ),
       code(
         'js',
@@ -2109,6 +2251,9 @@ daftar.addEventListener('click', (e) => {
           });
         }, { passive: true });
         `,
+      ),
+      p(
+        'Pola `terjadwal` di atas membatasi pekerjaan ke maksimal satu kali per frame: begitu event `scroll` pertama terjadi, `terjadwal` diset `true` dan sebuah `requestAnimationFrame` dijadwalkan — event `scroll` berikutnya yang datang sebelum frame itu digambar hanya akan `return` lebih awal karena `terjadwal` masih `true`, tidak menjadwalkan panggilan baru. Begitu `requestAnimationFrame` akhirnya berjalan, `terjadwal` dikembalikan ke `false`, siap menerima jadwal berikutnya. Efeknya: ratusan event scroll per detik hanya menghasilkan sebanyak-banyaknya satu pembaruan DOM per frame, bukan ratusan.',
       ),
 
       h2('Ukur, jangan menebak'),
@@ -2254,6 +2399,9 @@ daftar.addEventListener('click', (e) => {
         document.querySelectorAll('img[data-src]').forEach((img) => pengamat.observe(img));
         `,
       ),
+      p(
+        'Pola pemakaiannya selalu tiga langkah, dan contoh ini memakai ketiganya. Pertama, **buat pengamat** dengan fungsi yang akan dipanggil browser; kedua, **daftarkan** elemen yang mau diamati lewat `observe` — baris terakhir mendaftarkan semua gambar sekaligus; ketiga, **hentikan** pengamatan saat tidak dibutuhkan lagi. Perhatikan gambarnya disimpan di `data-src`, bukan `src`, sehingga browser tidak mengunduhnya sampai baris `img.src = img.dataset.src` dijalankan — di situlah penghematannya. Pemanggilan `unobserve` tepat sesudahnya penting: tanpa itu, pengamat terus melapor tiap kali gambar keluar-masuk layar padahal pekerjaannya sudah selesai. Dua opsi di bawah mengatur kapan "terlihat" dihitung: `rootMargin: \'200px\'` memperluas area pemicu 200 piksel ke luar layar, sehingga gambar mulai dimuat **sebelum** pengguna melihatnya dan terasa sudah siap saat tiba; `threshold: 0` berarti cukup satu piksel bersinggungan.',
+      ),
       callout(
         'tip',
         'Pemakaian lain yang sering',
@@ -2296,6 +2444,9 @@ daftar.addEventListener('click', (e) => {
         });
         `,
       ),
+      p(
+        'Objek opsi di baris terakhir adalah bagian yang menentukan, karena `MutationObserver` **tidak mengamati apa pun sampai kamu menyebutkan jenisnya**. `childList: true` melaporkan penambahan dan penghapusan anak, `attributes: true` melaporkan perubahan atribut, dan `subtree: true` memperluas keduanya ke seluruh keturunan, bukan hanya anak langsung. Menghilangkan `subtree` adalah penyebab paling umum "observernya tidak jalan" — perubahannya terjadi dua tingkat di dalam dan tidak pernah dilaporkan. Fungsi callback-nya menerima **array** mutasi, bukan satu, karena beberapa perubahan yang terjadi berdekatan dikumpulkan lalu dilaporkan sekaligus; itu sebabnya isinya diproses dengan loop dan tiap entri perlu diperiksa `m.type`-nya lebih dulu. Peringatan di bawah tetap berlaku: alat ini untuk mengamati DOM yang diubah kode di luar kendalimu.',
+      ),
       callout(
         'warning',
         '`MutationObserver` adalah pilihan terakhir',
@@ -2316,6 +2467,9 @@ daftar.addEventListener('click', (e) => {
           return () => o.disconnect();     // WAJIB
         }, []);
         `,
+      ),
+      p(
+        'Ketiga jenis pengamat di sub-bab ini punya kewajiban yang sama, dan alasannya sama dengan listener pada `window` di sub-bab event: **pengamat menahan elemen yang diamatinya tetap hidup di memori**, bahkan setelah elemen itu dihapus dari halaman. Pilih `unobserve` bila hanya satu elemen yang selesai diamati — seperti gambar yang sudah terlanjur dimuat — dan `disconnect` bila seluruh pengamatan memang berakhir. Bagian React di bawah menunjukkan tempat yang benar untuk melakukannya: fungsi yang dikembalikan `useEffect` dijalankan saat komponen dilepas, dan itulah satu-satunya kesempatan membersihkan. Tanpa baris itu, berpindah halaman sepuluh kali di aplikasi satu halaman meninggalkan sepuluh pengamat yang masih berjalan — masing-masing masih memanggil callback-nya, masih menahan elemen lama, dan tidak ada satu pun error yang memberitahumu.',
       ),
 
       h2('Kenapa ini mengalahkan listener `scroll`'),
@@ -2458,6 +2612,9 @@ daftar.addEventListener('click', (e) => {
         </main>
         `,
       ),
+      p(
+        'Kerangka ini sengaja ditulis lebih dulu, sebelum satu baris JavaScript pun, dan hampir seluruh keputusan aksesibilitasnya sudah selesai di sini. `<form>` dipakai sungguhan — bukan `<div>` berisi tombol — sehingga menekan Enter di dalam input ikut mengirim, seperti dibahas di sub-bab form. `<label for="judul">` menghubungkan teks dengan inputnya, dan kelas `sr-only` menyembunyikannya secara visual tanpa menghilangkannya dari pembaca layar. `role="alert"` pada kotak error membuat pesannya **diumumkan begitu muncul**, tanpa pengguna perlu mencarinya. Tombol filter dibungkus `role="group"` dengan `aria-label`, sehingga terbaca sebagai satu kesatuan bernama. Dan `aria-live="polite"` pada ringkasan membuat perubahan jumlah tugas diumumkan pada saat yang tidak mengganggu. Perhatikan `<ul id="daftar">` dibiarkan **kosong** — seluruh isinya akan dibangun dari data di langkah berikutnya.',
+      ),
 
       h2('2. Render dari data, bukan menulis HTML manual'),
       code(
@@ -2501,6 +2658,9 @@ daftar.addEventListener('click', (e) => {
         }
         `,
       ),
+      p(
+        'Inti arsitekturnya ada pada satu kalimat: **`daftar` adalah sumber kebenaran, dan layar hanya cerminannya.** Tidak ada satu pun tempat di berkas ini yang mengubah DOM secara langsung untuk mencerminkan perubahan; semuanya mengubah data lalu memanggil `render()`, dan `render()` membangun ulang tampilannya dari nol. Itulah cara paling sederhana menjamin layar tidak pernah berbeda dari data. Perhatikan objek `el` di atas: semua `querySelector` terjadi **sekali** di awal, bukan berulang di dalam tiap fungsi. Di dalam `render`, `replaceChildren()` mengosongkan daftar lebih dulu, lalu isinya dirakit di `DocumentFragment` dan disisipkan sekali — pola batching dari sub-bab performa. Ringkasannya dihitung ulang dari `daftar` setiap kali, bukan disimpan sebagai angka tersendiri yang bisa basi. Dan `simpanKePenyimpanan` dipanggil di ujung `render`, sehingga tidak ada satu pun jalur perubahan yang bisa lupa menyimpan.',
+      ),
       callout(
         'info',
         'Dua keadaan kosong yang berbeda',
@@ -2537,6 +2697,9 @@ daftar.addEventListener('click', (e) => {
         }
         `,
       ),
+      p(
+        'Fungsi ini menyusun tiga elemen memakai **property**, bukan merangkai string HTML — dan judulnya menegaskan alasannya: `label.textContent = tugas.judul` aman untuk teks apa pun yang diketik pengguna, sementara jalur `innerHTML` akan membuka celah XSS di aplikasi yang isinya justru datang dari ketikan. Perhatikan beberapa detail yang mudah terlewat. `li.dataset.id` menanamkan identitas tugas ke DOM, dan itulah yang nanti dibaca listener di langkah 4 untuk tahu baris mana yang disentuh. `centang.dataset.aksi = \'toggle\'` menandai perannya, sehingga satu listener bisa membedakan kontrol tanpa perlu tahu bentuknya. Pasangan `centang.id` dan `label.htmlFor` menghubungkan keduanya, sehingga mengeklik teks ikut mencentang kotaknya — kemudahan yang hilang kalau penghubungnya lupa. Terakhir, `aria-label` pada tombol hapus menyebutkan **judul tugasnya**, karena pembaca layar yang menelusuri sepuluh tombol bernama "Hapus" tidak punya cara membedakan satu sama lain.',
+      ),
 
       h2('4. Satu listener untuk seluruh daftar'),
       code(
@@ -2554,6 +2717,9 @@ daftar.addEventListener('click', (e) => {
           render();
         });
         `,
+      ),
+      p(
+        'Satu listener ini menangani **seluruh baris, termasuk yang belum dibuat** — penerapan langsung event delegation dari sub-bab bubbling. Alurnya sama seperti pola yang sudah dibahas: `closest(\'[data-aksi]\')` naik dari titik klik untuk menemukan kontrolnya, `closest(\'[data-id]\')` naik sekali lagi untuk menemukan baris pemiliknya. Yang layak diperhatikan adalah dua baris di tengah: keduanya menugaskan **ulang** `daftar` dengan hasil dari `toggleSelesai` dan `hapus`. Itu karena fungsi-fungsi di modul `todo.js` semuanya murni dan mengembalikan array baru, tidak pernah mengubah yang lama — jadi lupa menugaskan ulang berarti perubahannya benar-benar hilang. Dan `render()` di baris terakhir dipanggil **sekali** untuk kedua aksi, karena tugas render bukan "mengubah satu baris" melainkan "menyamakan layar dengan data".',
       ),
 
       h2('5. Form dengan penanganan error'),
@@ -2577,6 +2743,9 @@ daftar.addEventListener('click', (e) => {
         });
         `,
       ),
+      p(
+        "Perhatikan komentar di dalam `catch`, karena ia menjelaskan pembagian tugas yang menjadi inti seluruh praktik ini: **aturan validasi tinggal di `todo.js`, bukan di sini.** `buatTugas` yang menolak judul kosong dengan `throw`, dan berkas antarmuka ini hanya menangkap lalu menampilkannya. Keuntungannya, aturan yang sama tetap berlaku dari mana pun tugas dibuat — termasuk dari console — dan menambah aturan baru cukup di satu tempat. Beberapa detail kecil ikut menentukan rasanya: `el.error.textContent = ''` di baris kedua **membersihkan error lama** sebelum mencoba lagi, karena pesan yang tertinggal dari percobaan sebelumnya lebih membingungkan daripada tidak ada pesan sama sekali. Lalu `el.input.value = ''` dan `el.input.focus()` hanya dijalankan **setelah** penambahan berhasil — perhatikan keduanya ada di dalam `try`, sehingga pada kasus gagal apa yang diketik pengguna tidak ikut terhapus.",
+      ),
 
       h2('6. Filter dengan status yang terbaca teknologi bantu'),
       code(
@@ -2596,6 +2765,9 @@ daftar.addEventListener('click', (e) => {
             render();
           });
         `,
+      ),
+      p(
+        'Baris `b.setAttribute(\'aria-pressed\', String(b === tombol))` adalah bagian yang paling padat di sini, dan ia mengerjakan penyetelan **semua** tombol sekaligus dalam satu putaran: perbandingan `b === tombol` bernilai `true` hanya untuk tombol yang barusan diklik dan `false` untuk sisanya, sehingga tidak mungkin ada dua tombol yang sama-sama tampak aktif. `String(...)` diperlukan karena nilai atribut selalu berupa teks — menugaskan boolean akan menghasilkan `"true"`/`"false"` juga di sebagian kasus, tapi menuliskannya eksplisit membuat maksudnya jelas. Perhatikan pemakaian `e.currentTarget` untuk mencari tombol-tombol lain, bukan `document`: pencariannya dibatasi ke dalam grup filter ini saja, seperti aturan seleksi di dalam elemen. Bagi pengguna awas, tombol aktif terlihat dari warnanya; `aria-pressed` adalah cara menyampaikan informasi yang sama kepada pembaca layar.',
       ),
 
       h2('7. Menyimpan ke `localStorage`'),
@@ -2630,6 +2802,9 @@ daftar.addEventListener('click', (e) => {
           }
         }
         `,
+      ),
+      p(
+        'Kedua fungsi ini penuh penjagaan yang terlihat berlebihan sampai kamu tahu apa yang dijaganya. Pada `muatDariPenyimpanan`, ada **tiga lapis**: `if (!mentah) return []` menangani pemakaian pertama ketika belum ada apa-apa; `if (!Array.isArray(data))` menolak data yang bentuknya sudah bukan array — mungkin sisa dari versi aplikasi lama; dan `filter` di bawahnya memeriksa tiap item satu per satu, membuang yang tidak punya `id` dan `judul` bertipe string. `try`/`catch` yang membungkusnya menangkap kemungkinan keempat: `JSON.parse` yang gagal karena teksnya rusak, atau `localStorage` yang diblokir sepenuhnya di mode privat. Semua jalur gagal berujung `return []`, sehingga aplikasi tetap bisa dibuka meski datanya hilang. `simpanKePenyimpanan` menangani sisi lain: kuota penuh. Perhatikan ia **tidak menelan** kegagalannya — pengguna diberi tahu bahwa perubahannya tidak tersimpan, karena diam di sini berarti membiarkan orang mengira pekerjaannya aman padahal tidak.',
       ),
       callout(
         'warning',

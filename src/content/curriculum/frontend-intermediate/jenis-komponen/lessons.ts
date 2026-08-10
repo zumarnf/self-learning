@@ -7,7 +7,9 @@ import {
   h2,
   ol,
   p,
+  references,
   table,
+  terms,
   ul,
 } from '@/lib/content/builders';
 import { type LessonDraft, written } from '@/lib/curriculum/authoring';
@@ -28,6 +30,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Pola ini muncul sekitar 2015 dan mendominasi kode React selama bertahun-tahun. Idenya memisahkan komponen menjadi dua peran: **container** yang tahu dari mana data datang, dan **presentational** yang hanya tahu cara menampilkannya.',
+      ),
+
+      terms(
+        {
+          term: 'presentational',
+          meaning:
+            'Dibaca "prezenteisyenel", artinya **komponen penampil**. Ia tidak tahu apa pun tentang API, store, atau routing — hanya menerima props dan menghasilkan tampilan. Ciri yang bisa diuji: berikan props yang sama, ia selalu menghasilkan hasil yang sama.',
+        },
+        {
+          term: 'container',
+          meaning:
+            'Artinya **wadah**. Kebalikan dari presentational: ia tahu dari mana data datang (query, store, router) tapi tidak tahu bentuk tampilannya. Ia mengambil data, lalu menyerahkannya sebagai props ke komponen penampil.',
+        },
+        {
+          term: 'pola (pattern)',
+          meaning:
+            'Bentuk penyelesaian yang berulang dan sudah punya nama. Nilai sebuah nama bukan soal kerapian: **pola yang tidak bisa kamu sebut namanya adalah pola yang tidak bisa kamu ganti**. Itu alasan bab ini menaruh pola-pola lama di depan, bukan karena menganjurkannya.',
+        },
+        {
+          term: 'Dan Abramov',
+          meaning:
+            'Salah satu tokoh yang mempopulerkan pola ini pada 2015, dan yang kemudian **menarik anjurannya sendiri** setelah hooks hadir. Ini konteks penting: kalau kamu menemukan artikel lama yang menganjurkannya sebagai aturan, penulisnya sendiri sudah tidak lagi.',
+        },
+        {
+          term: 'hooks',
+          meaning:
+            'Alasan pola ini kehilangan tempatnya sebagai anjuran umum. Hooks sudah memisahkan **logika** dari **tampilan** tanpa memaksa membuat komponen kedua — jadi manfaat utama pemisahannya bisa didapat tanpa membayar lapisan prop tambahan.',
+        },
+        {
+          term: 'Storybook',
+          meaning:
+            'Alat untuk menampilkan komponen satu per satu di luar aplikasi, supaya bisa dilihat dan diuji tanpa menjalankan seluruh sistem. Ini salah satu dari tiga situasi di mana pemisahan presentational/container masih benar-benar berbayar.',
+        },
+        {
+          term: 'abstraksi prematur',
+          meaning:
+            'Membangun lapisan untuk pemanggil yang **belum ada**. Biayanya dibayar hari ini — satu file lagi untuk dibuka, satu lapisan lagi untuk ditelusuri — demi manfaat yang mungkin tidak pernah datang. Aturan praktisnya: pisahkan saat pemakai kedua benar-benar muncul, bukan sebelumnya.',
+        },
+        {
+          term: 'custom hook',
+          meaning:
+            'Fungsi berawalan `use` yang membungkus logika supaya bisa dipakai ulang. Ia adalah pengganti langsung pola ini di React modern: logikanya tetap bisa dibagikan lewat `useProfil()`, tanpa komponen perantara.',
+        },
       ),
 
       h2('Bentuknya'),
@@ -56,6 +101,9 @@ export const lessons: LessonDraft[] = [
           return <DaftarProdukView produk={data ?? []} onPilih={(id) => router.push(\`/produk/\${id}\`)} />;
         }
         `,
+      ),
+      p(
+        'Perhatikan apa yang **tidak ada** di masing-masing. `DaftarProdukView` tidak memuat `useQuery`, `useRouter`, atau alamat API mana pun — ia hanya menerima `produk` dan `onPilih`, dan itu membuatnya bisa diuji dengan mengoper array biasa tanpa memalsukan jaringan. Sebaliknya `DaftarProdukContainer` tidak memuat satu pun tag HTML; ia hanya mengurus dari mana data datang dan apa yang terjadi saat sesuatu dipilih. Baris `data ?? []` menandai satu tanggung jawab container yang mudah terlewat: **menormalkan bentuk data** sebelum menyerahkannya, sehingga komponen tampilan tidak perlu menangani kemungkinan `undefined`. Perlu dicatat, contoh ini menunjukkan polanya bekerja — bagian berikutnya menjelaskan kenapa ia tidak lagi dianjurkan sebagai kebiasaan.',
       ),
 
       h2('Apa yang sebenarnya ia beli'),
@@ -100,6 +148,9 @@ export const lessons: LessonDraft[] = [
           notes: ['Logikanya tetap bisa dipakai ulang lewat useProfil', 'Tanpa komponen perantara'],
         },
       ),
+      p(
+        'Bandingkan dengan contoh `DaftarProduk` di atas: di sana pemisahan membeli sesuatu, di sini tidak. `ProfilView` hanya merender satu `<h1>` dan **tidak punya pemakai kedua** — jadi yang dihasilkan pemisahan itu cuma satu file tambahan dan satu lapisan prop yang harus ditelusuri pembaca. Kolom kanan menunjukkan bahwa tujuan aslinya tetap tercapai tanpa komponen perantara: logika pengambilan data dipindah ke `useProfil`, sehingga ia tetap bisa dipakai ulang di komponen mana pun, sementara tampilannya tinggal satu fungsi. Inilah yang dimaksud "hooks sudah memisahkan logika dari tampilan tanpa memaksa membuat komponen kedua" — dan kenapa penulis polanya sendiri menarik anjurannya.',
+      ),
 
       h2('Kapan ia masih relevan'),
       p(
@@ -109,6 +160,32 @@ export const lessons: LessonDraft[] = [
         'tip',
         'Aturan praktisnya',
         'Jangan memisahkan lebih dulu lalu mencari alasannya. Pisahkan saat pemakai kedua benar-benar muncul. Ini penerapan langsung dari prinsip "jangan membangun abstraksi untuk pemanggil yang belum ada".',
+      ),
+      references(
+        {
+          label: 'Reusing Logic with Custom Hooks',
+          href: 'https://react.dev/learn/reusing-logic-with-custom-hooks',
+          source: 'React',
+          note: 'Pengganti pola ini di React modern — berbagi logika tanpa komponen perantara.',
+        },
+        {
+          label: 'Keeping Components Pure',
+          href: 'https://react.dev/learn/keeping-components-pure',
+          source: 'React',
+          note: 'Sifat "props sama → tampilan sama" yang membuat komponen penampil mudah diuji.',
+        },
+        {
+          label: 'Extracting Components',
+          href: 'https://react.dev/learn/your-first-component#nesting-and-organizing-components',
+          source: 'React',
+          note: 'Panduan resmi kapan sebuah komponen layak dipecah — dan kapan tidak.',
+        },
+        {
+          label: 'Thinking in React',
+          href: 'https://react.dev/learn/thinking-in-react',
+          source: 'React',
+          note: 'Cara memutuskan batas komponen dari bentuk datanya, bukan dari pola yang sedang populer.',
+        },
       ),
     ],
   ),
@@ -121,6 +198,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'React Server Component (RSC) adalah perubahan terbesar di React sejak hooks. Sebelumnya semua komponen berjalan di browser; sekarang sebagian bisa berjalan **hanya di server** dan tidak pernah mengirim satu byte JavaScript pun ke pengguna.',
+      ),
+
+      terms(
+        {
+          term: 'RSC',
+          meaning:
+            'Singkatan **React Server Component**. Perubahan terbesar di React sejak hooks. Sebelumnya semua komponen berjalan di browser; sekarang sebagian bisa berjalan **hanya di server** dan tidak pernah mengirim satu byte JavaScript pun ke pengguna.',
+        },
+        {
+          term: 'Server Component',
+          meaning:
+            'Komponen yang dijalankan **hanya di server**. Ia boleh `async`/`await`, boleh menyentuh database dan rahasia, tapi tidak punya `useState`, `useEffect`, maupun event handler. Di App Router, ini adalah **default** — kamu tidak perlu menandainya.',
+        },
+        {
+          term: 'Client Component',
+          meaning:
+            'Komponen yang filenya diawali `"use client"` dan kodenya ikut dikirim ke browser. Ia bisa memakai state, event handler, dan API browser — tapi tidak boleh menyentuh database atau rahasia, karena semua isinya bisa dibaca siapa pun.',
+        },
+        {
+          term: '"use client"',
+          meaning:
+            'Direktif berupa string di baris paling atas sebuah file. Ia **bukan** penanda "komponen ini berjalan di browser" — ia penanda **batas**: mulai dari file ini ke bawah, semuanya masuk bundle klien. Dibahas tuntas di sub-bab berikutnya.',
+        },
+        {
+          term: 'bundle',
+          meaning:
+            'Berkas JavaScript yang harus diunduh dan dijalankan browser. Angka "nol JavaScript" pada Server Component itu harfiah: kodenya tidak pernah ikut, jadi ia tidak menambah waktu unduh, waktu parse, maupun waktu eksekusi di perangkat pengguna.',
+        },
+        {
+          term: 'notFound()',
+          meaning:
+            'Fungsi Next.js yang menghentikan render dan menampilkan halaman 404. Dipanggil langsung di badan Server Component — tidak perlu state error, tidak perlu `if` bercabang yang mengembalikan JSX berbeda.',
+        },
+        {
+          term: 'children sebagai jalan keluar',
+          meaning:
+            'Client Component **tidak bisa mengimpor** Server Component. Tapi ia bisa **menerimanya sebagai `children`** — karena `children` sudah berupa hasil render, bukan referensi ke komponennya. Server yang mengerjakannya, klien hanya menempatkannya.',
+        },
+        {
+          term: 'serialisasi',
+          meaning:
+            'Mengubah nilai menjadi format yang bisa dikirim lewat jaringan. Props dari server ke klien melewati batas itu, jadi isinya terbatas: string, angka, boolean, array, objek biasa, `Date`, `Map`, `Set` bisa. **Fungsi, class instance, dan `Symbol` tidak bisa.**',
+        },
+        {
+          term: 'payload RSC',
+          meaning:
+            'Data yang dikirim server ke browser berisi hasil render Server Component beserta props untuk Client Component. Ini yang membuat peringatan keamanan di bawah nyata: satu `<Profil user={user} />` yang membawa `passwordHash` akan **mengirimkannya ke browser** meski tidak pernah tampil di layar.',
+        },
       ),
 
       h2('Perbedaannya'),
@@ -196,6 +321,9 @@ export const lessons: LessonDraft[] = [
         import KomponenServer from './komponen-server';   // gagal
         `,
       ),
+      p(
+        'Arah yang boleh dan tidak boleh ini bukan aturan sewenang-wenang — ia mengikuti **di mana kode itu benar-benar berjalan**. Blok pertama sah karena `Halaman` berjalan di server, menyelesaikan `await ambilData()` di sana, lalu mengirim hasilnya ke browser bersama instruksi untuk merender `TombolInteraktif`. Blok kedua gagal karena kebalikannya mustahil: begitu kode berada di browser, tidak ada server untuk menjalankan komponen server itu — dan mengimpornya akan menyeret seluruh isinya, termasuk kredensial database dan kode yang tidak pernah boleh sampai ke klien. Perhatikan bahwa yang dilarang adalah **mengimpor**, bukan merender; perbedaan halus itulah yang membuka jalan keluar di bagian berikutnya.',
+      ),
       p('Tapi ada jalan keluar yang sering dilupakan: **oper sebagai `children`**.'),
       code(
         'tsx',
@@ -218,6 +346,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Kuncinya ada pada komentar di dalam `Halaman`: `<KontenServer />` **dirender di server**, dan yang dioper ke `PembungkusKlien` bukan komponennya melainkan **hasilnya yang sudah jadi**. Karena itu larangan tadi tidak dilanggar — `PembungkusKlien` tidak pernah mengimpor apa pun dari sisi server; ia hanya menerima `children` seperti prop biasa. Ini persis pola komposisi dari Bab 2, dipakai untuk menyelesaikan batas yang sama sekali berbeda. Perhatikan `PembungkusKlien` bebas melakukan apa saja terhadap `children` — menyembunyikannya lewat `buka &&`, membungkusnya, atau menganimasikannya — tanpa perlu tahu isinya apa. Inilah cara membuat konten yang dirender server tetap bisa berada di dalam tab, modal, atau accordion yang interaktif.',
+      ),
       callout(
         'info',
         'Kenapa itu bekerja',
@@ -238,10 +369,39 @@ export const lessons: LessonDraft[] = [
         <TombolKlien id={produk.id} />
         `,
       ),
+      p(
+        'Batasan ini masuk akal begitu kamu ingat bahwa props dari Server ke Client Component harus **melewati jaringan**. Apa pun yang dioper diubah menjadi teks, dikirim ke browser, lalu disusun kembali — dan fungsi tidak bisa diubah menjadi teks tanpa kehilangan seluruh isinya. Karena itu baris pertama gagal, dan pesannya menyebut kata "serializable" yang mudah membingungkan kalau kamu tidak tahu ada perjalanan jaringan di antaranya. Koreksinya membalik tanggung jawab: server mengirim **data** (`id`), dan komponen klien yang membuat handler-nya sendiri — sah karena kode itu memang berjalan di browser. Kotak berikut menyebut sisi lain dari kenyataan yang sama: karena props benar-benar dikirim, apa pun yang kamu oper bisa dibaca siapa saja yang membuka payload halaman.',
+      ),
       callout(
         'warning',
         'Bahaya keamanan yang nyata',
         'Karena props dikirim ke browser, jangan pernah mengoper objek utuh dari database ke Client Component. Satu `<Profil user={user} />` yang membawa `passwordHash` atau `email` internal akan mengirimkannya ke browser — terlihat di payload RSC meski tidak pernah dirender di layar. Pilih field yang benar-benar perlu.',
+      ),
+      references(
+        {
+          label: 'Server Components',
+          href: 'https://react.dev/reference/rsc/server-components',
+          source: 'React',
+          note: 'Rujukan resmi React untuk komponen yang berjalan hanya di server.',
+        },
+        {
+          label: 'Server and Client Components',
+          href: 'https://nextjs.org/docs/app/getting-started/server-and-client-components',
+          source: 'Next.js',
+          note: 'Aturan arah impor dan pola `children` yang membuat konten server bisa dibungkus komponen klien.',
+        },
+        {
+          label: '"use client"',
+          href: 'https://react.dev/reference/rsc/use-client',
+          source: 'React',
+          note: 'Termasuk daftar tipe nilai yang boleh dan tidak boleh dioper melewati batas server–klien.',
+        },
+        {
+          label: 'notFound()',
+          href: 'https://nextjs.org/docs/app/api-reference/functions/not-found',
+          source: 'Next.js',
+          note: 'Menghentikan render dan menampilkan 404 langsung dari badan Server Component.',
+        },
       ),
     ],
   ),
@@ -254,6 +414,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         '`"use client"` bukan penanda "komponen ini berjalan di browser". Ia adalah **penanda batas**: begitu satu modul menyatakannya, seluruh modul yang ia impor ikut masuk ke bundle klien. Salah menaruhnya di satu tempat bisa menyeret setengah aplikasi ke browser.',
+      ),
+
+      terms(
+        {
+          term: 'batas (boundary)',
+          meaning:
+            'Garis pemisah antara bagian yang dikerjakan server dan bagian yang dikirim ke browser. `"use client"` menggambar garis itu. Yang sering disalahpahami: garisnya **menurun** — semua yang diimpor dari file bertanda itu ikut ke sisi klien, sedalam apa pun rantainya.',
+        },
+        {
+          term: 'merambat',
+          meaning:
+            'Sifat batas ini yang membuatnya berbahaya. Satu `"use client"` di `layout.tsx` menyeret sidebar, lalu navigasi, lalu apa pun yang navigasi itu impor. Kamu tidak menandai satu komponen — kamu menandai satu **cabang pohon impor**.',
+        },
+        {
+          term: 'daun (leaf)',
+          meaning:
+            'Komponen paling ujung yang tidak merender komponen lain — sebuah tombol, sebuah input. Aturan bab ini: **turunkan `"use client"` sedekat mungkin ke daun**, supaya yang ikut ke browser hanya bagian yang memang butuh browser.',
+        },
+        {
+          term: 'tree-shaking',
+          meaning:
+            'Kemampuan bundler membuang kode yang tidak dipakai. Batasnya yang sering tidak disadari: ia bekerja pada **modul dan ekspor**, bukan pada **properti objek**. Mengimpor satu objek besar berarti seluruh isinya ikut, meski kamu cuma memakai satu field.',
+        },
+        {
+          term: 'proyeksi ramping',
+          meaning:
+            'Versi ringkas sebuah data yang dibangun di Server Component lalu dioper sebagai prop. Sidebar tidak butuh isi pelajaran — ia hanya butuh slug, judul, dan nomor. Karena bundler tidak bisa membuang properti objek, **kamu** yang harus memilihnya lebih dulu.',
+        },
+        {
+          term: 'import type',
+          meaning:
+            'Bentuk impor TypeScript yang hanya membawa **tipe**, bukan nilai. Ia dihapus saat kompilasi dan tidak punya biaya runtime sama sekali — jadi Client Component boleh menulis `import type { Lesson } from ...` tanpa menyeret apa pun ke bundle.',
+        },
+        {
+          term: 'kebocoran bundle',
+          meaning:
+            'Kode yang ikut ke browser padahal tidak pernah dibutuhkan di sana. Yang membuatnya sulit ditangkap: **tampilannya tetap normal**. Tidak ada error, tidak ada peringatan, halaman tetap berfungsi — ia hanya jadi makin mahal untuk pembaca.',
+        },
+        {
+          term: 'ditegakkan tes',
+          meaning:
+            'Karena kebocoran tidak menimbulkan gejala, aturannya tidak bisa dititipkan pada kedisiplinan. Website ini menegakkannya lewat `client-bundle-boundary.test.ts`: satu impor terlarang dari Client Component membuat suite merah.',
+        },
       ),
 
       h2('Efek yang merambat'),
@@ -320,6 +523,9 @@ export const lessons: LessonDraft[] = [
           notes: ['Hanya tombolnya yang jadi JavaScript di browser'],
         },
       ),
+      p(
+        'Kedua versi menampilkan artikel yang sama dengan tombol suka yang sama, tapi **jumlah JavaScript yang diunduh pembaca berbeda jauh**. Kuncinya ada pada kalimat di rujukan: `"use client"` menandai **batas modul**, bukan satu komponen. Menaruhnya di atas `Artikel` berarti seluruh berkas itu beserta semua yang ia impor ikut dikirim ke browser — termasuk isi artikel yang tidak pernah interaktif. Versi kanan memindahkan direktifnya ke berkas terpisah yang hanya berisi tombolnya, sehingga `Artikel` tetap dirender di server dan yang menyeberang ke browser hanya beberapa baris. Perhatikan `Artikel` tetap **merender** `<TombolSuka />` — sesuai aturan arah tadi, server boleh merender klien. Aturan praktisnya: turunkan `"use client"` sedekat mungkin ke daun, dan letakkan pada berkas terkecil yang benar-benar membutuhkannya.',
+      ),
 
       h2('Daftar pemicu yang benar-benar butuh `"use client"`'),
       ul(
@@ -354,6 +560,9 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        'Tes ini tidak menguji perilaku aplikasi sama sekali — ia menguji **struktur impor**, dan itu justru yang membuatnya tepat di sini. Kebocoran bundle tidak punya gejala yang bisa diamati dari luar: halaman tetap benar, tidak ada error, hanya berkas yang diunduh membengkak. Yang bisa dideteksi hanyalah polanya di kode sumber, jadi tesnya membaca daftar berkas berdirektif `"use client"` lalu memeriksa apakah ada yang mengimpor modul terlarang. `expect(pelanggar).toEqual([])` sengaja membandingkan dengan array kosong, bukan memeriksa panjangnya — dengan begitu pesan gagalnya langsung **menyebutkan berkas mana** yang melanggar, bukan sekadar "diharapkan 0 dapat 3". Ini contoh kecil dari prinsip yang berlaku umum: aturan yang hanya dijaga kedisiplinan akan dilanggar suatu hari.',
+      ),
       callout(
         'tip',
         'Solusinya: proyeksi ramping',
@@ -363,6 +572,32 @@ export const lessons: LessonDraft[] = [
         'info',
         '`import type` tetap aman',
         "Impor tipe dihapus saat kompilasi dan tidak punya biaya runtime sama sekali. Client Component boleh menulis `import type { Lesson } from '@/lib/content/types'` tanpa menyeret apa pun ke bundle.",
+      ),
+      references(
+        {
+          label: '"use client"',
+          href: 'https://react.dev/reference/rsc/use-client',
+          source: 'React',
+          note: 'Penjelasan resmi bahwa direktif ini menandai batas modul, bukan satu komponen.',
+        },
+        {
+          label: 'Server and Client Components — moving the boundary down',
+          href: 'https://nextjs.org/docs/app/getting-started/server-and-client-components',
+          source: 'Next.js',
+          note: 'Anjuran resmi menurunkan `"use client"` sedekat mungkin ke daun.',
+        },
+        {
+          label: 'Analyzing bundles',
+          href: 'https://nextjs.org/docs/app/guides/package-bundling',
+          source: 'Next.js',
+          note: 'Cara mengukur apa yang benar-benar ikut ke bundle, bukan menebaknya.',
+        },
+        {
+          label: 'Type-Only Imports and Export',
+          href: 'https://www.typescriptlang.org/docs/handbook/modules/reference.html#type-only-imports-and-exports',
+          source: 'TypeScript',
+          note: 'Kenapa `import type` dihapus saat kompilasi dan tidak berbiaya runtime.',
+        },
       ),
     ],
   ),
@@ -375,6 +610,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Compound component adalah sekumpulan komponen yang dirancang untuk dipakai bersama dan berbagi state secara diam-diam. Kamu sudah memakainya di HTML biasa: `<select>` dan `<option>` tidak berguna sendiri-sendiri, tapi bersama mereka membentuk satu kontrol.',
+      ),
+
+      terms(
+        {
+          term: 'compound component',
+          meaning:
+            'Dibaca "kompaund", artinya **komponen majemuk**. Sekumpulan komponen yang dirancang untuk dipakai bersama dan berbagi state secara diam-diam. Kamu sudah memakainya di HTML biasa: `<select>` dan `<option>` tidak berguna sendiri-sendiri, tapi bersama membentuk satu kontrol.',
+        },
+        {
+          term: 'API komponen',
+          meaning:
+            'Bentuk props dan susunan yang harus ditulis pemanggil untuk memakai sebuah komponen. Ia dinilai seperti API lain: apakah maksudnya terbaca, apakah kesalahan pemakaian bisa terjadi diam-diam, dan berapa banyak yang harus diingat.',
+        },
+        {
+          term: 'prop proliferation',
+          meaning:
+            'Dibaca "prop proliferesyen", artinya **props yang beranak-pinak**. Gejala API berprop banyak: setiap permintaan tampilan baru menambah satu prop baru — `ikonTerbuka`, `gayaJudul`, `bolehBanyakTerbuka` — sampai daftarnya lebih panjang daripada komponennya sendiri.',
+        },
+        {
+          term: 'static property',
+          meaning:
+            'Menempelkan komponen anak ke komponen induknya sebagai properti: `Accordion.Item = ...`. Efeknya bukan teknis melainkan komunikatif — `<Accordion.Trigger>` langsung memberi tahu pembaca bahwa ia hanya bermakna di dalam `<Accordion>`.',
+        },
+        {
+          term: 'aria-expanded',
+          meaning:
+            'Atribut ARIA yang memberitahu screen reader apakah bagian yang dikendalikan tombol ini sedang terbuka atau tertutup. Tanpa ini, pengguna screen reader menekan tombol tanpa tahu apa yang terjadi.',
+        },
+        {
+          term: 'aria-controls',
+          meaning:
+            'Atribut yang menghubungkan tombol dengan `id` panel yang ia buka-tutup. Bersama `aria-expanded`, keduanya bukan tanggung jawab pemanggil — kalau diserahkan ke pemanggil, ia akan lupa. Komponen yang mengelolanya sendiri membuat kesalahan itu mustahil.',
+        },
+        {
+          term: 'React.Children.map',
+          meaning:
+            'API lama untuk menelusuri `children` dan menyuntikkan props ke dalamnya. **Jangan dipakai untuk pola ini**: ia rusak begitu ada elemen pembungkus di antaranya, misalnya sebuah `<div>` atau `<hr />`. Context bekerja sedalam apa pun pohonnya.',
+        },
+        {
+          term: 'role="region"',
+          meaning:
+            'Menandai sebuah area sebagai bagian penting yang bisa dituju langsung oleh pengguna screen reader. Dipasang di panel isi accordion supaya isinya bisa ditemukan, bukan sekadar muncul di bawah tombolnya.',
+        },
       ),
 
       h2('Masalah yang ia selesaikan'),
@@ -419,6 +697,9 @@ export const lessons: LessonDraft[] = [
           `,
           notes: ['Susunannya milik pemanggil', 'Tidak perlu prop baru untuk tata letak baru'],
         },
+      ),
+      p(
+        'Perhatikan `<hr />` di tengah kolom kanan — elemen sederhana itu adalah bukti perbedaannya. Pada versi berprop, satu-satunya cara menyisipkan pemisah antar-item adalah menambah prop baru ke `Accordion` dan mengubah implementasinya; pada versi compound, pemanggil cukup menuliskannya karena **susunan isinya memang miliknya**. Pola yang sama berlaku untuk `ikonTerbuka` dan `gayaJudul`: keduanya lahir karena pemanggil tidak punya kendali atas apa yang dirender, sehingga tiap kebutuhan tampilan baru harus dititipkan lewat prop. Yang tetap tinggal sebagai prop di kolom kanan hanyalah `bolehBanyakTerbuka` — dan itu tepat, karena ia mengatur **perilaku**, bukan tampilan. Aturan pembedanya: perilaku jadi prop, susunan jadi `children`.',
       ),
 
       h2('Implementasinya'),
@@ -465,6 +746,9 @@ export const lessons: LessonDraft[] = [
         `,
         { filename: 'src/components/ui/accordion.tsx' },
       ),
+      p(
+        'Inilah yang membuat compound component bekerja: **Context dipakai secara lokal**, bukan sebagai state global. `Accordion` menyimpan daftar panel yang terbuka lalu membagikannya ke seluruh keturunannya, sehingga `Accordion.Trigger` bisa mengetahui statusnya tanpa satu pun prop dioper — dan pemanggil bebas menyusun apa pun di antaranya. Perhatikan `bolehBanyakTerbuka` tidak disimpan di context melainkan **dibaca di dalam `alihkan`**: baris `return bolehBanyakTerbuka ? [...lama, nilai] : [nilai]` adalah seluruh perbedaan antara accordion yang membuka banyak panel dan yang hanya satu. Fungsi `pakaiAccordion(komponen)` di atasnya menerapkan pola hook pembungkus dari Bab 5, dengan satu tambahan yang cerdas: ia menerima nama komponen sehingga pesan errornya menyebut persis bagian mana yang salah tempat.',
+      ),
       code(
         'tsx',
         `
@@ -504,6 +788,9 @@ export const lessons: LessonDraft[] = [
         };
         `,
       ),
+      p(
+        'Perhatikan bahwa ada **dua** context di sini, bukan satu, dan keduanya menjawab pertanyaan berbeda. `Konteks` (dari blok kode sebelumnya) menjawab "daftar id mana saja yang sedang terbuka, dan bagaimana mengubahnya" — dibaca oleh `Accordion.Trigger` dan `Accordion.Content`. `KonteksItem` menjawab pertanyaan yang lebih sempit: "item **mana** yang sedang dibicarakan di titik pohon ini" — nilainya cuma satu string, di-set oleh `Accordion.Item`, lalu dibaca `useContext(KonteksItem)!` oleh `Trigger` dan `Content` yang ada di dalamnya. Tanda seru setelah `useContext(KonteksItem)` adalah **non-null assertion** TypeScript — penulisnya menjamin nilainya tidak akan pernah `null` di sini, karena `Trigger` dan `Content` menurut definisi API selalu dipasang di dalam `Accordion.Item`. Fungsi `pakaiAccordion(\'Trigger\')` yang muncul di awal `Trigger` dan `Content` adalah pembungkus `useContext(Konteks)` yang sama seperti `useTabs()` di sub-bab compound component sebelumnya — parameter string di dalamnya dipakai untuk menyebut nama komponen yang benar dalam pesan error kalau Provider-nya lupa dipasang.',
+      ),
 
       h2('Detail yang membedakan implementasi bagus dan asal jadi'),
       ol(
@@ -516,6 +803,32 @@ export const lessons: LessonDraft[] = [
       p(
         'Compound component menukar kesederhanaan dengan keluwesan. Untuk komponen yang dipakai di tiga tempat dengan bentuk yang sama, API berprop sederhana lebih baik. Pola ini berbayar saat komponennya benar-benar dipakai dalam banyak susunan berbeda — komponen overlay, menu, tab, dan tabel adalah kandidat klasiknya.',
       ),
+      references(
+        {
+          label: 'Passing Data Deeply with Context',
+          href: 'https://react.dev/learn/passing-data-deeply-with-context',
+          source: 'React',
+          note: 'Mekanisme yang membuat komponen anak menemukan induknya sedalam apa pun pohonnya.',
+        },
+        {
+          label: 'Children.map — dan kenapa dianjurkan menghindarinya',
+          href: 'https://react.dev/reference/react/Children',
+          source: 'React',
+          note: 'Peringatan resmi bahwa menelusuri `children` rapuh, beserta alternatif yang dianjurkan.',
+        },
+        {
+          label: 'ARIA: aria-expanded',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-expanded',
+          source: 'MDN Web Docs',
+          note: 'Atribut yang wajib dikelola komponen, bukan diserahkan ke pemanggil.',
+        },
+        {
+          label: 'ARIA: disclosure pattern',
+          href: 'https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/',
+          source: 'W3C WAI-ARIA APG',
+          note: 'Pola resmi buka-tutup konten — dasar perilaku accordion yang benar.',
+        },
+      ),
     ],
   ),
 
@@ -527,6 +840,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Render props adalah pola di mana sebuah komponen tidak menentukan tampilannya sendiri, melainkan menerima **fungsi** yang mengembalikan JSX. Komponen menyediakan datanya; pemanggil memutuskan bentuknya.',
+      ),
+
+      terms(
+        {
+          term: 'render props',
+          meaning:
+            'Pola di mana sebuah komponen tidak menentukan tampilannya sendiri, melainkan menerima **fungsi** yang mengembalikan JSX. Pembagian tugasnya jelas: komponen menyediakan datanya, pemanggil memutuskan bentuknya.',
+        },
+        {
+          term: 'children sebagai fungsi',
+          meaning:
+            'Varian render props yang menaruh fungsinya di antara tag pembuka dan penutup, bukan sebagai prop bernama. Keduanya setara. Pakai `children` kalau hanya ada satu fungsi; pakai prop bernama kalau ada beberapa slot berbeda — nama membuat pemakaiannya terbaca.',
+        },
+        {
+          term: 'generic `<T>`',
+          meaning:
+            'Notasi TypeScript untuk "tipe yang ditentukan saat dipakai". Pada `Daftar<T>`, ia berarti komponen ini bekerja untuk array apa pun — dan fungsi `render` yang kamu oper otomatis tahu tipe itemnya, tanpa kamu menuliskannya lagi.',
+        },
+        {
+          term: 'slot',
+          meaning:
+            'Lubang di dalam sebuah komponen tempat pemanggil menyisipkan isinya sendiri. `renderHeader`, `renderRow`, `renderFooter` adalah tiga slot berbeda pada satu komponen tabel — dan itulah kasus di mana prop bernama mengalahkan `children`.',
+        },
+        {
+          term: 'call site',
+          meaning:
+            'Baris tempat sebuah komponen atau fungsi **dipanggil**, bukan tempat ia didefinisikan. Ukuran keberhasilan sebuah API komponen ada di sini: apakah orang yang membaca `<Daftar ... />` bisa langsung paham tanpa membuka definisinya.',
+        },
+        {
+          term: 'keadaan kosong (empty state)',
+          meaning:
+            'Tampilan saat datanya nol. Prop `kosong` ada supaya keadaan ini punya jawaban yang jelas, bukan area kosong tanpa keterangan. Ini salah satu dari empat keadaan UI yang wajib ditangani setiap tampilan berdata.',
+        },
+        {
+          term: 'HOC',
+          meaning:
+            'Singkatan *Higher-Order Component*. Pola lama untuk membungkus komponen secara massal, dibahas di sub-bab berikutnya. Disebut di tabel perbandingan supaya kamu bisa membedakannya dari render props — keduanya sering tertukar.',
+        },
+        {
+          term: 'callback hell versi JSX',
+          meaning:
+            'Bentuk kode yang muncul saat tiga render props bersarang: indentasi terus menjorok dan alurnya sulit diikuti. Namanya meminjam dari masalah lama pada callback asinkron. Kalau sudah dua tingkat, pertimbangkan mengganti sebagiannya dengan custom hook.',
+        },
       ),
 
       h2('Bentuknya'),
@@ -560,6 +916,9 @@ export const lessons: LessonDraft[] = [
           )}
         />
         `,
+      ),
+      p(
+        'Perhatikan bahwa `Daftar` sendiri **tidak tahu** bagaimana bentuk satu baris harus terlihat — ia hanya tahu bagaimana menangani daftar kosong dan bagaimana melakukan perulangan. Bentuk visual tiap baris sepenuhnya ditentukan oleh fungsi `render` yang dioper pemanggil, yang dipanggil sekali untuk tiap `item` beserta `indeks`-nya. Generic `<T>` pada `Props<T>` dan `Daftar<T>` berarti tipe `item` di dalam `render` otomatis mengikuti tipe array yang dioper lewat `items` — mengoper `produk: Produk[]` membuat parameter `p` di `render={(p) => ...}` otomatis bertipe `Produk`, tanpa kamu menuliskan tipenya secara manual.',
       ),
 
       h2('Varian `children` sebagai fungsi'),
@@ -595,6 +954,9 @@ export const lessons: LessonDraft[] = [
         </SaatTerlihat>
         `,
       ),
+      p(
+        'Contoh ini tepat sasaran karena `SaatTerlihat` melakukan **dua** hal yang tidak bisa dipisahkan: ia memasang `IntersectionObserver` — logika — sekaligus merender elemen yang diamati observer itu. Custom hook bisa mengerjakan bagian pertama, tapi tidak bisa merender elemen apa pun, sehingga pemakainya tetap harus menyiapkan ref dan elemennya sendiri. Dengan render props, keduanya datang sepaket: komponen menyediakan elemen dan pengamatnya, lalu **menyerahkan hasilnya** ke fungsi yang kamu tulis. Perhatikan fungsi itu menerima `terlihat` sebagai argumen dan bebas memakainya untuk apa saja — di sini memilih antara gambar asli dan placeholder, tapi bisa juga menjalankan animasi atau memuat data. Komponen tidak pernah menentukan tampilannya; ia hanya menyediakan informasi.',
+      ),
       table(
         ['Kebutuhan', 'Pilihan'],
         [
@@ -614,6 +976,32 @@ export const lessons: LessonDraft[] = [
         'Jangan bersarang terlalu dalam',
         'Tiga render props bersarang menghasilkan bentuk kode yang dulu disebut "callback hell" versi JSX — indentasi terus menjorok dan alurnya sulit diikuti. Kalau sudah sampai dua tingkat, pertimbangkan mengganti sebagiannya dengan custom hook.',
       ),
+      references(
+        {
+          label: 'Passing Props to a Component',
+          href: 'https://react.dev/learn/passing-props-to-a-component',
+          source: 'React',
+          note: 'Termasuk mengoper JSX dan fungsi sebagai prop — dasar teknis pola ini.',
+        },
+        {
+          label: 'Reusing Logic with Custom Hooks',
+          href: 'https://react.dev/learn/reusing-logic-with-custom-hooks',
+          source: 'React',
+          note: 'Pengganti render props untuk kasus berbagi logika murni tanpa merender apa pun.',
+        },
+        {
+          label: 'Generics',
+          href: 'https://www.typescriptlang.org/docs/handbook/2/generics.html',
+          source: 'TypeScript',
+          note: 'Mekanisme di balik `Daftar<T>` yang membuat tipe item mengalir ke fungsi render.',
+        },
+        {
+          label: 'memo',
+          href: 'https://react.dev/reference/react/memo',
+          source: 'React',
+          note: 'Kenapa memo tidak menolong ketika prop-nya adalah fungsi yang dibuat ulang tiap render.',
+        },
+      ),
     ],
   ),
 
@@ -625,6 +1013,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Higher-Order Component (HOC) adalah fungsi yang menerima komponen dan mengembalikan komponen baru yang sudah dibungkus. Namanya meminjam dari higher-order function di JavaScript. Sebelum hooks ada, ini adalah cara utama berbagi logika antar komponen.',
+      ),
+
+      terms(
+        {
+          term: 'Higher-Order Component (HOC)',
+          meaning:
+            'Fungsi yang **menerima komponen** dan **mengembalikan komponen baru** yang sudah dibungkus kemampuan tambahan. Namanya meminjam dari *higher-order function* di JavaScript — fungsi yang bekerja atas fungsi lain.',
+        },
+        {
+          term: 'awalan `with`',
+          meaning:
+            'Konvensi penamaan HOC: `withAuth`, `withTheme`, `withRouter`. Ini tanda pengenal paling cepat saat membaca kode lama. Tanda kedua: **komponen yang diekspor bukan komponen yang didefinisikan** — yang diekspor adalah hasil pembungkusan.',
+        },
+        {
+          term: 'kode warisan (legacy)',
+          meaning:
+            'Kode yang sudah ada dan masih berjalan, ditulis dengan cara yang tidak lagi dianjurkan. Kamu tidak akan sering **menulis** HOC baru, tapi kamu akan **membacanya** — kode React sebelum 2019 penuh pola ini, dan banyak library masih memakainya.',
+        },
+        {
+          term: 'displayName',
+          meaning:
+            'Properti yang menentukan nama sebuah komponen di React DevTools. HOC yang tidak mengaturnya membuat pohon komponen berisi `Unknown` atau `Anonymous` — dan menelusuri masalah di pohon tanpa nama jauh lebih lambat.',
+        },
+        {
+          term: 'tabrakan nama prop',
+          meaning:
+            'Dua HOC yang sama-sama menyuntikkan prop bernama `data` akan saling menimpa **tanpa peringatan apa pun**. Ini kelas bug yang tidak mungkin terjadi pada custom hook, karena di sana kamu sendiri yang menamai hasilnya.',
+        },
+        {
+          term: 'wrapper hell',
+          meaning:
+            'Bentuk `withAuth(withTheme(withRouter(withData(Komponen))))`. Empat lapisan tambahan di pohon komponen dan di DevTools, dan urutannya diam-diam bermakna. Ini analog dari "callback hell" pada pola sebelumnya.',
+        },
+        {
+          term: 'React.ComponentType<P>',
+          meaning:
+            'Tipe TypeScript untuk "apa pun yang bisa dipakai sebagai komponen React yang menerima props bertipe `P`". Dipakai HOC karena ia harus menerima komponen apa pun — dan justru keumuman inilah yang membuat tipenya sering berakhir sebagai `any`.',
+        },
+        {
+          term: 'spread props (`{...props}`)',
+          meaning:
+            'Meneruskan seluruh props yang diterima pembungkus ke komponen di dalamnya. Praktis, tapi ia juga penyebab masalah "sumber prop tidak terlihat": membaca komponen anak, kamu tidak tahu sebuah prop datang dari mana tanpa menelusuri rantai pembungkusnya.',
+        },
       ),
 
       h2('Bentuknya'),
@@ -644,6 +1075,9 @@ export const lessons: LessonDraft[] = [
 
         const DasborTerlindungi = withAuth(Dasbor);
         `,
+      ),
+      p(
+        'Baca `withAuth` sebagai fungsi biasa yang menerima satu komponen dan mengembalikan komponen baru — bukan sihir apa pun. `<P extends object>` adalah generic yang berarti "apa pun bentuk props komponen aslinya, pertahankan bentuk itu"; `React.ComponentType<P>` adalah tipe untuk "komponen React yang menerima props bertipe `P`". Fungsi `KomponenTerlindungi` yang dikembalikan **membungkus** `Komponen` asli: ia memeriksa sesi lebih dulu, dan hanya merender `<Komponen {...props} />` — meneruskan seluruh props yang diterimanya apa adanya — kalau pemeriksaan itu lolos. `DasborTerlindungi` yang dihasilkan `withAuth(Dasbor)` bukan `Dasbor` itu sendiri; ia komponen baru yang **merender** `Dasbor` di dalamnya setelah pemeriksaan sesi selesai. Kalau kamu merender `<DasborTerlindungi />`, yang sebenarnya terjadi adalah `KomponenTerlindungi` dirender, dan ia baru merender `Dasbor` kalau `user` ada.',
       ),
 
       h2('Kenapa kamu tetap perlu mengenalinya'),
@@ -691,6 +1125,9 @@ export const lessons: LessonDraft[] = [
           notes: ['Tidak ada lapisan tambahan', 'Sumber setiap nilai terbaca di tempat'],
         },
       ),
+      p(
+        'Komentar di kolom kiri menyebut keluhan yang paling nyata: `user` muncul sebagai prop **tanpa ada yang mengopernya di call site**. Untuk tahu dari mana ia datang, pembaca harus membuka `withAuth` — dan kalau ada dua HOC bertumpuk, ia harus membuka keduanya sambil menebak mana yang menyuntikkan prop yang mana. Masalahnya bertambah saat dua HOC kebetulan menyuntikkan prop bernama sama; yang terluar menang, diam-diam. Kolom kanan menghapus seluruh kelas masalah itu karena `useSesi()` **terlihat di dalam komponen**, tepat di baris yang memakainya. Perhatikan keuntungan kedua yang mudah terlewat: penanganan `memuat` dan `!user` kini berada di komponen itu sendiri sebagai early return biasa, alih-alih tersembunyi di dalam pembungkus yang perilakunya sama untuk semua komponen yang ia bungkus.',
+      ),
 
       h2('Yang masih pantas jadi HOC'),
       p(
@@ -700,6 +1137,32 @@ export const lessons: LessonDraft[] = [
         'tip',
         'Kalau harus menulis HOC',
         'Selalu set `displayName` (`KomponenTerlindungi.displayName = \\`withAuth(${Komponen.displayName ?? Komponen.name})\\`;`) dan teruskan `ref` dengan benar. Dua hal ini yang paling sering dilupakan, dan keduanya baru terasa saat kamu sedang men-debug sesuatu yang lain.',
+      ),
+      references(
+        {
+          label: 'memo — sebuah HOC bawaan React',
+          href: 'https://react.dev/reference/react/memo',
+          source: 'React',
+          note: 'Contoh HOC yang masih relevan karena ia benar-benar membungkus, bukan sekadar berbagi logika.',
+        },
+        {
+          label: 'Reusing Logic with Custom Hooks',
+          href: 'https://react.dev/learn/reusing-logic-with-custom-hooks',
+          source: 'React',
+          note: 'Pengganti resmi HOC untuk berbagi logika, tanpa lapisan tambahan di pohon komponen.',
+        },
+        {
+          label: 'Manipulating the DOM with Refs',
+          href: 'https://react.dev/learn/manipulating-the-dom-with-refs',
+          source: 'React',
+          note: 'Meneruskan `ref` melewati pembungkus — hal kedua yang paling sering dilupakan penulis HOC.',
+        },
+        {
+          label: 'React Developer Tools',
+          href: 'https://react.dev/learn/react-developer-tools',
+          source: 'React',
+          note: 'Alat tempat hilangnya nama komponen akibat `displayName` yang tidak diatur benar-benar terasa.',
+        },
       ),
     ],
   ),
@@ -712,6 +1175,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Custom hook adalah fungsi biasa yang namanya diawali `use` dan boleh memanggil hook lain. Itu seluruh definisinya — tidak ada API khusus, tidak ada pendaftaran. Kesederhanaan itulah yang membuatnya menggantikan dua pola sebelumnya.',
+      ),
+
+      terms(
+        {
+          term: 'custom hook',
+          meaning:
+            'Fungsi biasa yang namanya diawali `use` dan boleh memanggil hook lain. Itu **seluruh** definisinya — tidak ada API khusus, tidak ada pendaftaran, tidak ada pembungkus. Kesederhanaan itulah yang membuatnya menggantikan HOC dan render props.',
+        },
+        {
+          term: 'berbagi logika, bukan state',
+          meaning:
+            'Salah paham paling sering tentang custom hook. Dua komponen yang memanggil `useUkuranJendela()` **tidak** berbagi satu state — masing-masing punya salinannya sendiri. Custom hook membagikan **resep**, bukan **nilainya**.',
+        },
+        {
+          term: 'nilai bersama',
+          meaning:
+            'Kalau kamu benar-benar butuh satu nilai yang sama dibaca banyak komponen, itu **bukan** tugas custom hook. Itu tugas Context (untuk yang jarang berubah) atau store global dengan selector (untuk yang sering) — dibahas di Bab 5.',
+        },
+        {
+          term: 'debounce',
+          meaning:
+            'Menunggu jeda setelah masukan terakhir sebelum bertindak. Bagian yang membuatnya benar-benar bekerja ada di cleanup: `clearTimeout` membatalkan timer lama **setiap kali** nilainya berubah. Tanpa itu, ia cuma menunda semua ketikan, bukan menggabungkannya.',
+        },
+        {
+          term: 'cleanup',
+          meaning:
+            'Fungsi yang di-`return` dari dalam Effect untuk membatalkan sinkronisasi sebelumnya — melepas listener, membatalkan timer, menutup koneksi. Setiap custom hook yang memasang sesuatu ke dunia luar wajib punya pasangannya.',
+        },
+        {
+          term: 'resize listener',
+          meaning:
+            'Langganan ke event `resize` pada `window`, yang menyala tiap kali ukuran jendela berubah. Contoh klasik pekerjaan custom hook: satu langganan, satu pembatalan, dan komponen pemakainya tidak perlu tahu detail apa pun.',
+        },
+        {
+          term: 'awalan `use`',
+          meaning:
+            'Bukan sekadar konvensi penamaan. Awalan inilah yang membuat `eslint-plugin-react-hooks` tahu bahwa aturan hooks berlaku di dalam fungsi itu. Fungsi yang memanggil hook tanpa awalan `use` tidak akan diperiksa — pelanggarannya lolos diam-diam.',
+        },
+        {
+          term: 'generic `<T>`',
+          meaning:
+            'Pada `useDebounce<T>(nilai: T): T`, ia berarti "apa pun tipe yang kamu masukkan, itu juga yang keluar". String masuk, string keluar — tanpa perlu menulis satu versi hook per tipe, dan tanpa kehilangan tipe di sisi pemanggil.',
+        },
       ),
 
       h2('Dari HOC ke hook'),
@@ -735,6 +1241,9 @@ export const lessons: LessonDraft[] = [
           return ukuran;
         }
         `,
+      ),
+      p(
+        'Bandingkan dengan `withAuth` di sub-bab sebelumnya: HOC menghasilkan **komponen baru** yang membungkus komponen lain, sementara `useUkuranJendela` hanyalah fungsi yang mengembalikan **nilai**. Tidak ada lapisan tambahan di pohon komponen, tidak ada `props` yang perlu diteruskan lewat `{...props}` — komponen yang memakainya cukup memanggil `const { lebar } = useUkuranJendela()` seperti memanggil `useState`. Effect di dalamnya mengukur ulang setiap kali jendela berubah ukuran, dan fungsi yang dikembalikan (`() => window.removeEventListener(...)`) memastikan pendengar `resize` itu dilepas saat komponen yang memakai hook ini dilepas — pola cleanup yang sama dengan Bab 7. Karena logikanya berdiri sendiri di luar komponen mana pun, hook yang sama bisa dipanggil dari sepuluh komponen berbeda tanpa satu pun perlu tahu bagaimana ia bekerja di dalamnya.',
       ),
 
       h2('Yang dibagi adalah logika, bukan state'),
@@ -808,6 +1317,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Hook ini mengembalikan **objek tiga field**, sesuai aturan "tiga atau lebih pakai objek" dari Bab 5 — dan ketiganya menjawab kebutuhan berbeda: `nilai` untuk ditampilkan, `simpan` untuk mengubah, `terhidrasi` untuk mengetahui apakah nilainya sudah bisa dipercaya. Perhatikan pembacaan dari `localStorage` sengaja ditaruh di dalam `useEffect`, bukan sebagai nilai awal `useState`: di server tidak ada `localStorage` sama sekali, jadi membacanya saat render akan langsung melempar error. Kedua blok `catch` yang isinya hanya komentar juga disengaja — kegagalan penyimpanan **tidak boleh menggagalkan render**, dan nilai di memori tetap benar meski tidak tersimpan. Yang tersisa adalah masalah waktu, dan itulah tugas `terhidrasi` yang dijelaskan di kotak berikut.',
+      ),
       callout(
         'info',
         'Kenapa ada `terhidrasi`',
@@ -821,6 +1333,32 @@ export const lessons: LessonDraft[] = [
         '**Kembalikan objek kalau lebih dari dua nilai**, array kalau pemanggil perlu menamai ulang (seperti `useState`).',
         '**Jangan mengekstrak sesuatu yang hanya dipakai sekali.** Hook dengan satu pemanggil biasanya cuma memindahkan kode, bukan menyederhanakannya.',
       ),
+      references(
+        {
+          label: 'Reusing Logic with Custom Hooks',
+          href: 'https://react.dev/learn/reusing-logic-with-custom-hooks',
+          source: 'React',
+          note: 'Termasuk penegasan bahwa custom hook berbagi logika, bukan state.',
+        },
+        {
+          label: 'Rules of Hooks',
+          href: 'https://react.dev/reference/rules/rules-of-hooks',
+          source: 'React',
+          note: 'Alasan awalan `use` bukan sekadar gaya penulisan.',
+        },
+        {
+          label: 'Window: resize event',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Window/resize_event',
+          source: 'MDN Web Docs',
+          note: 'Sumber data untuk contoh `useUkuranJendela`, beserta kewajiban melepas listener-nya.',
+        },
+        {
+          label: 'Window.localStorage',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage',
+          source: 'MDN Web Docs',
+          note: 'Termasuk kondisi yang membuatnya melempar error — kuota penuh dan mode privat.',
+        },
+      ),
     ],
   ),
 
@@ -832,6 +1370,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Kamu sudah mengenal controlled dan uncontrolled pada input form. Pola yang sama berlaku saat kamu **merancang komponen sendiri**: siapa yang memegang state — komponennya, atau yang memakainya?',
+      ),
+
+      terms(
+        {
+          term: 'controlled',
+          meaning:
+            'Artinya **terkendali**. Nilainya dipegang oleh **pemanggil**, dan komponen hanya menampilkan apa yang diberikan sambil melaporkan perubahan lewat callback. Konsekuensinya: pemanggil bisa mengubahnya dari mana saja, menyinkronkannya ke URL, atau menyimpannya.',
+        },
+        {
+          term: 'uncontrolled',
+          meaning:
+            'Artinya **tak terkendali** — istilah teknis, bukan penilaian buruk. Nilainya dipegang **komponen itu sendiri**. Pemanggil cukup menyebut nilai awalnya lalu melepasnya. Paling ringkas untuk kasus biasa, tapi tidak bisa diubah dari luar.',
+        },
+        {
+          term: 'defaultAktif / nilaiAwal',
+          meaning:
+            'Konvensi penamaan untuk prop yang hanya dibaca **sekali** saat komponen dipasang. Awalan `default` adalah sinyal ke pembaca: mengubahnya nanti tidak akan berpengaruh. React sendiri memakai konvensi ini pada `defaultValue` dan `defaultChecked`.',
+        },
+        {
+          term: 'callback perubahan',
+          meaning:
+            'Prop bertipe fungsi seperti `onAktifChange` yang dipanggil komponen setiap kali nilainya seharusnya berubah. Dalam mode terkendali, ini **satu-satunya** cara komponen memengaruhi nilainya — ia melapor, pemanggil yang memutuskan.',
+        },
+        {
+          term: 'mode ditentukan keberadaan prop',
+          meaning:
+            'Inti implementasinya: `const terkendali = nilai !== undefined`. Bukan sebuah prop `mode` terpisah, melainkan **ada-tidaknya** prop nilainya. Ini konvensi yang sama dengan `<input value>` vs `<input defaultValue>` di React.',
+        },
+        {
+          term: 'as const',
+          meaning:
+            'Penanda TypeScript yang mengubah `[sekarang, ubah]` dari "array berisi dua hal" menjadi **tuple** dengan posisi bermakna. Tanpa ini, `const [nilai, ubah] = ...` akan kehilangan tipe masing-masing elemen.',
+        },
+        {
+          term: 'optional call (`?.()`)',
+          meaning:
+            'Bentuk `onChange?.(baru)` berarti "panggil kalau ada, diam kalau tidak". Karena callback-nya opsional, ini yang mencegah error saat pemanggil memakai mode tak terkendali dan tidak mengoper apa pun.',
+        },
+        {
+          term: 'komponen library',
+          meaning:
+            'Komponen yang dipakai banyak tempat dengan kebutuhan berbeda-beda — tab, dialog, select, date picker. Justru untuk kategori inilah mendukung **kedua mode** berbayar; untuk komponen sekali pakai, memilih satu mode sudah cukup.',
+        },
       ),
 
       h2('Dua bentuknya'),
@@ -897,6 +1478,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Baris `const terkendali = nilai !== undefined` adalah seluruh mekanismenya: **keberadaan prop yang menentukan mode**, bukan sebuah flag terpisah. Itu penting karena pemanggil tidak perlu mengumumkan niatnya — ia cukup mengoper `nilai` atau tidak. Dari situ `sekarang` memilih sumbernya, dan `ubah` berperilaku berbeda di tiap mode: dalam mode tak terkendali ia memperbarui state internal **dan** melapor; dalam mode terkendali ia **hanya melapor**, karena kalau ia ikut menyimpan sendiri akan ada dua sumber kebenaran yang bisa berbeda. `onChange?.()` dengan tanda tanya diperlukan karena prop itu opsional di kedua mode. Dan `as const` di akhir membuat TypeScript menyimpulkan tuple `[T, (baru: T) => void]` alih-alih array biasa, sehingga destructuring di pemanggil mendapat tipe yang tepat per posisi.',
+      ),
       code(
         'tsx',
         `
@@ -934,6 +1518,32 @@ export const lessons: LessonDraft[] = [
         'Mode terkendali tanpa handler = input yang beku',
         'Kalau pemanggil memberi `nilai` tapi lupa `onChange`, komponennya tidak akan pernah berubah — dan tidak ada error apa pun. Ini bug yang tampak seperti "komponennya rusak". Di mode pengembangan, pertimbangkan menuliskan peringatan eksplisit untuk kombinasi itu.',
       ),
+      references(
+        {
+          label: 'Controlled and uncontrolled components',
+          href: 'https://react.dev/learn/sharing-state-between-components#controlled-and-uncontrolled-components',
+          source: 'React',
+          note: 'Definisi resmi dua mode ini, dan kenapa keduanya sah untuk komponen buatan sendiri.',
+        },
+        {
+          label: '<input> — value vs defaultValue',
+          href: 'https://react.dev/reference/react-dom/components/input',
+          source: 'React',
+          note: 'Konvensi penamaan yang wajib diikuti komponenmu, termasuk peringatan saat mode berpindah.',
+        },
+        {
+          label: 'You Might Not Need an Effect — controlling a component',
+          href: 'https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes',
+          source: 'React',
+          note: 'Kenapa menyalin prop terkendali ke state internal lewat Effect adalah jalan yang salah.',
+        },
+        {
+          label: 'const assertions (as const)',
+          href: 'https://www.typescriptlang.org/docs/handbook/release-notes/typescript-3-4.html#const-assertions',
+          source: 'TypeScript',
+          note: 'Penanda yang membuat nilai kembalian terbaca sebagai tuple, bukan array biasa.',
+        },
+      ),
     ],
   ),
 
@@ -945,6 +1555,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Polymorphic component adalah komponen yang membiarkan pemanggil menentukan **elemen HTML apa** yang akhirnya dirender, lewat prop `as`. Satu `<Teks>` bisa keluar sebagai `<p>`, `<span>`, `<h1>`, atau bahkan komponen lain.',
+      ),
+
+      terms(
+        {
+          term: 'polymorphic',
+          meaning:
+            'Dibaca "polimorfik", artinya **berbentuk banyak**. Komponen yang membiarkan pemanggil menentukan elemen HTML apa yang akhirnya dirender. Satu `<Teks>` bisa keluar sebagai `<p>`, `<span>`, `<h1>`, atau bahkan komponen lain.',
+        },
+        {
+          term: 'prop `as`',
+          meaning:
+            'Prop yang membawa **elemen tujuan**: `as="a"`, `as="h1"`, atau `as={Link}`. Konvensi ini dipakai hampir semua design system modern, jadi pemakai komponenmu kemungkinan besar sudah mengenalnya.',
+        },
+        {
+          term: 'ElementType',
+          meaning:
+            'Tipe React untuk "apa pun yang sah dirender sebagai elemen" — nama tag HTML seperti `\'a\'`, atau sebuah komponen. Generic `T extends ElementType` inilah yang membuat TypeScript tahu prop apa yang sah untuk elemen tujuannya.',
+        },
+        {
+          term: 'ComponentPropsWithoutRef<T>',
+          meaning:
+            'Tipe React yang mengambil **seluruh props sah** milik elemen `T` — `href` untuk `<a>`, `type` dan `disabled` untuk `<button>`. Ini yang membuat `as="a" href="/x"` lolos type-check sementara `href` pada `<button>` ditolak.',
+        },
+        {
+          term: 'Omit untuk mencegah tabrakan',
+          meaning:
+            "Bagian `Omit<ComponentPropsWithoutRef<T>, keyof PropsSendiri | 'as'>` menyingkirkan props bawaan elemen yang namanya bentrok dengan props milik komponenmu. Aturannya jelas: kalau namanya sama, **milik komponenmu yang menang**.",
+        },
+        {
+          term: 'semantik',
+          meaning:
+            'Makna sebuah elemen bagi browser dan teknologi bantu, terlepas dari tampilannya. Inilah yang membuat `as` berbahaya kalau dipakai sembarangan: **ia mengubah semantik, bukan cuma tampilan**.',
+        },
+        {
+          term: 'div yang bisa diklik',
+          meaning:
+            'Anti-pola yang dimungkinkan prop `as`. `<Tombol as="div" onClick={...}>` terlihat seperti tombol tapi bukan tombol: tidak bisa difokus dengan Tab, tidak merespons Enter atau Spasi, dan dibaca screen reader sebagai teks biasa. Kalau bisa diklik, ia harus `<button>` atau `<a>`. Selalu.',
+        },
+        {
+          term: 'button vs a',
+          meaning:
+            'Garis pemisahnya soal **perilaku**, bukan tampilan. Menjalankan aksi di halaman ini → `<button>`. Pindah ke alamat lain → `<a href>`, karena hanya `<a>` yang bisa dibuka di tab baru, disalin alamatnya, dan dibaca sebagai tautan.',
+        },
       ),
 
       h2('Masalah yang ia selesaikan'),
@@ -1025,6 +1678,32 @@ export const lessons: LessonDraft[] = [
       p(
         'Karena itu batasi pemakaiannya. Untuk kebanyakan project, dua atau tiga komponen dasar (`Tombol`, `Teks`, `Kotak`) sudah cukup — sisanya lebih baik jadi komponen terpisah yang jelas maksudnya.',
       ),
+      references(
+        {
+          label: '<button>',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/button',
+          source: 'MDN Web Docs',
+          note: 'Perilaku bawaan yang hilang saat kamu menggantinya dengan `<div>`: fokus, Enter, Spasi.',
+        },
+        {
+          label: '<a>: The Anchor element',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/a',
+          source: 'MDN Web Docs',
+          note: 'Kenapa perpindahan alamat harus memakai tautan, bukan tombol yang memanggil router.',
+        },
+        {
+          label: 'Common components — props bawaan tiap elemen',
+          href: 'https://react.dev/reference/react-dom/components/common',
+          source: 'React',
+          note: 'Sumber tipe yang dibaca `ComponentPropsWithoutRef<T>` saat menentukan prop mana yang sah.',
+        },
+        {
+          label: 'Omit<Type, Keys>',
+          href: 'https://www.typescriptlang.org/docs/handbook/utility-types.html#omittype-keys',
+          source: 'TypeScript',
+          note: 'Cara menyingkirkan props elemen yang namanya bentrok dengan props milik komponenmu.',
+        },
+      ),
     ],
   ),
 
@@ -1036,6 +1715,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Keduanya adalah **boundary**: komponen yang menangkap sesuatu dari pohon di bawahnya. Error Boundary menangkap error saat render; Suspense Boundary menangkap penantian. Tanpa keduanya, satu komponen yang gagal atau lambat menjatuhkan seluruh halaman.',
+      ),
+
+      terms(
+        {
+          term: 'boundary',
+          meaning:
+            'Artinya **batas**. Komponen yang menangkap sesuatu dari pohon di bawahnya sehingga tidak merambat ke atas. Error Boundary menangkap **error saat render**; Suspense Boundary menangkap **penantian**. Tanpa keduanya, satu komponen yang gagal atau lambat menjatuhkan seluruh halaman.',
+        },
+        {
+          term: 'class component',
+          meaning:
+            'Cara lama menulis komponen React, memakai `class ... extends Component`. Sampai hari ini Error Boundary **hanya** bisa ditulis begini — belum ada padanan hook-nya. Ini satu-satunya alasan tersisa untuk menulis class di React modern.',
+        },
+        {
+          term: 'getDerivedStateFromError',
+          meaning:
+            'Metode statis yang React panggil saat render anak melempar error. Tugasnya satu: mengembalikan state baru sehingga komponen berpindah menampilkan fallback. Ia tidak boleh punya efek samping — pelaporan dikerjakan metode berikutnya.',
+        },
+        {
+          term: 'componentDidCatch',
+          meaning:
+            'Metode tempat error **dilaporkan** ke layanan pemantauan. Ia menerima error beserta `componentStack` — jejak komponen yang menunjukkan di bagian pohon mana error itu terjadi, informasi yang tidak ada di stack trace biasa.',
+        },
+        {
+          term: 'fallback',
+          meaning:
+            'Tampilan pengganti saat isi sebenarnya belum bisa ditampilkan — karena gagal (Error Boundary) atau karena masih ditunggu (Suspense). Ia bukan tempelan: fallback yang buruk merusak tata letak, dan itu dibahas tepat di bawah.',
+        },
+        {
+          term: 'Suspense',
+          meaning:
+            'Komponen bawaan React yang menampilkan `fallback` selama anak-anaknya belum siap. Di Next.js App Router ia sekaligus mekanisme **streaming**: server mengirim HTML yang sudah siap lebih dulu, lalu menambal bagian yang lambat.',
+        },
+        {
+          term: 'streaming',
+          meaning:
+            'Mengirim HTML secara bertahap, bukan menunggu semuanya selesai. Efeknya nyata bagi pengguna: header dan kerangka halaman muncul seketika, bukan layar kosong sampai query paling lambat selesai.',
+        },
+        {
+          term: 'layout shift',
+          meaning:
+            'Konten yang melompat karena sesuatu muncul dan mendorongnya. Penyebab paling umum: fallback yang jauh lebih kecil daripada isi aslinya. Ini bukan urusan estetika — ia diukur sebagai **CLS**, metrik yang dinilai mesin pencari.',
+        },
+        {
+          term: 'CLS',
+          meaning:
+            'Singkatan *Cumulative Layout Shift*, salah satu Core Web Vitals. Ia menjumlahkan seberapa banyak konten bergeser tanpa diminta pengguna. Ambang baiknya **< 0,1**. Skeleton yang kira-kira setinggi isi aslinya adalah cara paling murah menjaganya.',
+        },
       ),
 
       h2('Error Boundary'),
@@ -1074,6 +1801,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Dua method bernama panjang itu punya pembagian tugas yang jelas, dan komentarnya sudah menandainya. `getDerivedStateFromError` bersifat **murni** — ia hanya mengubah error menjadi state, tidak boleh melakukan apa pun selain itu — dan hasilnya membuat `render()` berpindah ke cabang fallback. `componentDidCatch` adalah tempat efek samping: melaporkan ke layanan pemantauan, dan hanya di sinilah `componentStack` tersedia, yaitu jejak komponen mana yang bersarang di mana saat error terjadi. Perhatikan `static` pada method pertama: ia dipanggil pada kelasnya, bukan pada instance, justru karena React memanggilnya sebelum komponen dianggap dalam keadaan sehat. Dan `render()` di bawah hanya punya dua cabang — ada error tampilkan fallback, tidak ada tampilkan anaknya — yang membuat seluruh mekanismenya lebih sederhana daripada nama-nama methodnya.',
+      ),
       code(
         'tsx',
         `
@@ -1088,6 +1818,9 @@ export const lessons: LessonDraft[] = [
           <GrafikPenjualan />
         </BatasError>
         `,
+      ),
+      p(
+        'Prop `fallback` di sini adalah **render prop** — pola yang dibahas lebih dalam beberapa sub-bab lalu — berupa fungsi yang dipanggil `BatasError` sendiri, bukan JSX statis. Fungsi itu menerima satu argumen, `coba`, yang saat dipanggil menjalankan `this.setState({ error: null })`: mengosongkan kembali state error, sehingga `render()` kembali ke cabang `this.props.children` dan React **mencoba merender ulang** `GrafikPenjualan` dari awal. Itulah mekanisme di balik tombol "Coba lagi" — ia tidak memuat ulang halaman atau memanggil API apa pun, ia sekadar meminta `BatasError` melupakan error yang tersimpan dan memberi komponen anaknya kesempatan kedua.',
       ),
       callout(
         'warning',
@@ -1137,6 +1870,9 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
+        'Perhatikan ada **dua** `Suspense` yang terpisah, bukan satu yang membungkus keduanya — dan itu keputusan yang menentukan. Dengan boundary terpisah, `DaftarProduk` bisa muncul begitu datanya siap tanpa menunggu `Ulasan` yang mungkin jauh lebih lambat; satu boundary bersama akan membuat keduanya menunggu yang paling lambat. `<Header />` sengaja diletakkan di luar keduanya karena ia tidak mengambil data apa pun, sehingga bisa dikirim seketika. Aturan yang bisa dibawa: letakkan boundary di sekitar bagian yang **bisa selesai secara independen**, dan biarkan yang tidak butuh data berada di luar semuanya.',
+      ),
+      p(
         'Di Next.js App Router, `Suspense` adalah mekanisme **streaming**: server mengirim HTML yang sudah siap lebih dulu, lalu menambal bagian yang lambat begitu datanya selesai. Pengguna melihat header dan kerangka halaman seketika, bukan layar kosong sampai query paling lambat selesai.',
       ),
 
@@ -1166,12 +1902,86 @@ export const lessons: LessonDraft[] = [
         'Di Next.js, keduanya punya bentuk berbasis file',
         '`loading.tsx` otomatis menjadi Suspense boundary untuk segmen rute itu, dan `error.tsx` otomatis menjadi Error Boundary-nya. Keduanya dibahas di Bab 8.',
       ),
+      references(
+        {
+          label: 'Component — static getDerivedStateFromError',
+          href: 'https://react.dev/reference/react/Component#static-getderivedstatefromerror',
+          source: 'React',
+          note: 'API resmi Error Boundary, termasuk daftar error yang justru TIDAK ia tangkap.',
+        },
+        {
+          label: '<Suspense>',
+          href: 'https://react.dev/reference/react/Suspense',
+          source: 'React',
+          note: 'Perilaku fallback dan aturan penempatan boundary.',
+        },
+        {
+          label: 'Loading UI and Streaming',
+          href: 'https://nextjs.org/docs/app/api-reference/file-conventions/loading',
+          source: 'Next.js',
+          note: 'Bentuk berbasis file dari Suspense boundary di App Router.',
+        },
+        {
+          label: 'Cumulative Layout Shift (CLS)',
+          href: 'https://web.dev/articles/cls',
+          source: 'web.dev',
+          note: 'Metrik yang langsung memburuk ketika fallback tidak memesan ruang yang cukup.',
+        },
+      ),
     ],
   ),
 
   written('portal-layering', 'Portal & Layering', 10, 'Merender di luar pohon DOM induknya.', [
     p(
       'Portal merender anak ke node DOM **di luar** hierarki induknya, sambil tetap mempertahankan posisinya di pohon React. Ini terdengar aneh sampai kamu menemui masalah yang ia selesaikan.',
+    ),
+
+    terms(
+      {
+        term: 'portal',
+        meaning:
+          'Mekanisme React untuk merender anak ke node DOM **di luar** hierarki induknya, sambil tetap mempertahankan posisinya di pohon React. Terdengar aneh sampai kamu menemui masalah yang ia selesaikan — dan masalah itu selalu berupa CSS yang memenjarakan.',
+      },
+      {
+        term: 'containing block',
+        meaning:
+          'Kotak acuan yang dipakai browser untuk menghitung posisi sebuah elemen. Inti masalahnya ada di sini: `position: fixed` biasanya relatif terhadap viewport, **kecuali** ada induk ber-`transform` atau `filter` — yang membuat containing block baru dan menariknya ke situ.',
+      },
+      {
+        term: 'overflow: hidden',
+        meaning:
+          'Properti CSS yang memotong apa pun yang keluar dari batas sebuah elemen. Salah satu dari tiga properti yang "memenjarakan" anak-anaknya — modal yang lahir di dalamnya akan terpotong tanpa ada yang salah di kode React-mu.',
+      },
+      {
+        term: 'z-index',
+        meaning:
+          'Angka yang menentukan elemen mana tampil di atas mana. Ia adalah sumber frustrasi klasik karena bekerja **di dalam konteks penumpukan**, bukan secara global — `z-index: 9999` bisa kalah oleh elemen ber-`z-index: 1` di konteks yang berbeda.',
+      },
+      {
+        term: 'createPortal',
+        meaning:
+          'Fungsi dari `react-dom` bertanda tangan `createPortal(anak, wadahDOM)`. Argumen keduanya adalah node DOM sungguhan — biasanya `document.body` — dan itulah sebabnya ia tidak bisa berjalan di server, di mana `document` tidak ada.',
+      },
+      {
+        term: 'event bubbling lewat pohon React',
+        meaning:
+          'Bagian yang paling sering mengejutkan: meski elemennya ada di `<body>`, secara React ia tetap anak dari komponen yang membuatnya. **Event tetap menggelembung ke induk React**, bukan ke induk DOM. Context juga tetap mengalir, dan Error Boundary di atasnya tetap menangkap.',
+      },
+      {
+        term: 'focus trap',
+        meaning:
+          'Mengunci fokus keyboard di dalam dialog selama ia terbuka, sehingga Tab tidak menyasar ke halaman di belakangnya. Portal **tidak** memberimu ini — ia hanya memindahkan elemen. Kunci fokus, tutup dengan `Esc`, dan pengembalian fokus tetap tanggung jawabmu.',
+      },
+      {
+        term: 'top layer',
+        meaning:
+          'Lapisan khusus browser di atas seluruh isi halaman, tempat `<dialog>` yang dibuka dengan `showModal()` dirender. Karena ia berada di luar aliran penumpukan biasa, ia **bebas dari seluruh masalah `z-index` dan `overflow`** yang jadi alasan portal dibuat.',
+      },
+      {
+        term: 'aria-modal="true"',
+        meaning:
+          'Atribut yang memberitahu teknologi bantu bahwa isi di luar dialog ini sedang tidak relevan. Ia bekerja bersama `role="dialog"` — dan keduanya wajib ada, karena portal tidak menambahkannya untukmu.',
+      },
     ),
 
     h2('Masalahnya: CSS yang memenjarakan'),
@@ -1210,6 +2020,9 @@ export const lessons: LessonDraft[] = [
           );
         }
         `,
+    ),
+    p(
+      '`createPortal(anak, wadahDOM)` menerima dua argumen: apa yang mau dirender, dan **ke mana** ia sungguhan diletakkan di DOM. Dipanggil di dalam `return` sebuah komponen — bukan sebagai efek samping — sehingga React tetap menganggapnya sebagai hasil render biasa, hanya saja lokasinya di HTML akhir bukan di dalam `<div>` induk `Modal` melainkan langsung anak dari `document.body`. Komentar di kode di atas menegaskan inti seluruh sub-bab ini: elemen `lapisan-modal` lolos dari `overflow: hidden` atau `transform` induknya secara **DOM**, tapi secara **pohon React** — tempat `props`, `context`, dan `key` berlaku — ia tidak pernah pindah dari tempatnya semula.',
     ),
 
     h2('Yang tetap mengikuti pohon React'),
@@ -1251,6 +2064,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
     ),
+    p(
+      'Render pertama di server selalu menghasilkan `terpasang === false`, sehingga komponen mengembalikan `null` dan tidak pernah memanggil `createPortal` di server — mencegah crash karena `document` memang tidak ada di sana. Effect dengan dependency array kosong `[]` baru berjalan **setelah** React selesai memasang komponennya di browser, mengubah `terpasang` menjadi `true` dan memicu satu render tambahan yang akhirnya benar-benar merender portalnya. Konsekuensinya: modal ini muncul sepersekian detik **setelah** halaman selesai dimuat, bukan bersamaan dengan HTML awal — cukup singkat untuk tidak terasa mengganggu, tapi berarti komponen ini tidak boleh dipakai untuk sesuatu yang harus terlihat sejak render pertama.',
+    ),
 
     h2('Portal tidak menyelesaikan aksesibilitas'),
     callout(
@@ -1277,6 +2093,32 @@ export const lessons: LessonDraft[] = [
     p(
       'Untuk dialog sederhana, `<dialog>` sering lebih baik daripada portal buatan sendiri — ia dirender di *top layer* browser sehingga bebas dari seluruh masalah `z-index` dan `overflow` di atas. Portal tetap diperlukan untuk hal yang bukan dialog: tooltip, dropdown, dan toast yang perlu keluar dari pembungkusnya.',
     ),
+    references(
+      {
+        label: 'createPortal',
+        href: 'https://react.dev/reference/react-dom/createPortal',
+        source: 'React',
+        note: 'Termasuk penegasan bahwa event tetap menggelembung lewat pohon React, bukan pohon DOM.',
+      },
+      {
+        label: 'Containing block',
+        href: 'https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_display/Containing_block',
+        source: 'MDN Web Docs',
+        note: 'Kenapa `transform` dan `filter` membuat `position: fixed` berhenti mengacu ke viewport.',
+      },
+      {
+        label: '<dialog>',
+        href: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/dialog',
+        source: 'MDN Web Docs',
+        note: 'Elemen bawaan yang sudah menangani focus trap, Esc, dan top layer tanpa `z-index`.',
+      },
+      {
+        label: 'ARIA: dialog (modal) pattern',
+        href: 'https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/',
+        source: 'W3C WAI-ARIA APG',
+        note: 'Daftar kewajiban aksesibilitas yang tetap jadi tanggung jawabmu setelah portal dipasang.',
+      },
+    ),
   ]),
 
   written(
@@ -1287,6 +2129,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Latihan ini memakai bentuk yang muncul di hampir semua codebase yang berumur: komponen yang tumbuh satu prop pada satu waktu, masing-masing masuk akal saat ditambahkan, sampai keseluruhannya tidak bisa lagi dipahami.',
+      ),
+
+      terms(
+        {
+          term: 'boolean-heavy',
+          meaning:
+            'Komponen yang API-nya didominasi prop bernilai benar/salah. Bentuk ini muncul di hampir semua codebase yang berumur, dan cara munculnya selalu sama: satu prop pada satu waktu, masing-masing masuk akal saat ditambahkan, sampai keseluruhannya tidak bisa lagi dipahami.',
+        },
+        {
+          term: 'prop berpasangan',
+          meaning:
+            'Dua prop yang selalu muncul bersama, seperti `adaGambar` + `gambar`. Salah satunya **selalu bisa disimpulkan** dari yang lain — jadi keduanya adalah dua sumber kebenaran untuk satu fakta. Obatnya: hapus yang boolean, biarkan keberadaan nilainya yang menjawab.',
+        },
+        {
+          term: 'kombinasi mustahil',
+          meaning:
+            'Gabungan prop yang sah menurut tipe tapi tidak berarti apa-apa — `adaGambar={false} gambarDiAtas`. Delapan boolean berarti **256 kombinasi**, dan sebagian besarnya tidak valid. Tipe yang mengizinkan keadaan mustahil adalah tipe yang belum selesai.',
+        },
+        {
+          term: 'varian (variant)',
+          meaning:
+            "Satu prop bernilai terbatas yang menggantikan beberapa boolean: `variant?: 'datar' | 'terangkat' | 'interaktif'`. Ia mengubah 8 kombinasi menjadi 3 keadaan yang memang ada, dan sekaligus memberi nama pada masing-masing.",
+        },
+        {
+          term: 'discriminated union',
+          meaning:
+            "Gabungan beberapa bentuk tipe yang dibedakan satu properti penanda — di sini `variant`. Inilah yang membuat `'interaktif'` **wajib** punya `onClick` sementara varian lain **tidak boleh** punya, diperiksa saat type-check.",
+        },
+        {
+          term: 'never',
+          meaning:
+            'Tipe TypeScript untuk "nilai yang tidak mungkin ada". `onClick?: never` berarti "prop ini tidak boleh diisi pada varian ini" — cara menyatakan larangan lewat tipe, bukan lewat komentar yang bisa diabaikan.',
+        },
+        {
+          term: 'make illegal states unrepresentable',
+          meaning:
+            'Prinsip yang menutup latihan ini: kalau sebuah keadaan tidak valid, buat ia **tidak bisa dinyatakan** — bukan divalidasi saat runtime. Error saat type-check lebih murah daripada bug di produksi, dan tidak butuh siapa pun mengingat aturannya.',
+        },
+        {
+          term: 'kapan berhenti',
+          meaning:
+            'Bagian yang sering dilewatkan dari sebuah refactor. Compound component lebih panjang ditulis dan menambah satu konsep untuk dipahami. Kalau komponennya dipakai di tiga tempat dengan bentuk sama persis, berhenti di Langkah 2 — melanjutkan berarti membayar tanpa membeli apa pun.',
+        },
       ),
 
       h2('Titik awal'),
@@ -1315,6 +2200,9 @@ export const lessons: LessonDraft[] = [
           // ...sekitar 80 baris kondisional
         }
         `,
+      ),
+      p(
+        'Tipe ini adalah gejala yang paling mudah dikenali, dan ia tumbuh perlahan — tidak ada satu commit pun yang salah, hanya deretan permintaan wajar yang masing-masing menambah satu prop. Perhatikan polanya: **delapan boolean** (`adaGambar`, `gambarDiAtas`, `adaTombol`, `adaBadge`, `kompak`, `berbayang`, `bisaDiklik`, dan pasangannya) yang secara matematis menghasilkan 256 kombinasi, sementara mungkin hanya selusin yang masuk akal. Perhatikan juga hampir semuanya opsional dengan tanda `?`, sehingga TypeScript tidak bisa membantu — tipe ini menerima `<Kartu judul="a" isi="b" />` maupun kombinasi yang tidak berarti apa-apa dengan sama sahnya. Komentar "sekitar 80 baris kondisional" adalah akibat langsungnya: setiap boolean menambah percabangan di dalam.',
       ),
 
       h2('Diagnosisnya'),
@@ -1354,6 +2242,9 @@ export const lessons: LessonDraft[] = [
           `,
           notes: ['Keberadaan nilainya sudah menjadi jawabannya'],
         },
+      ),
+      p(
+        'Langkah pertama ini menghapus **empat prop menjadi dua** tanpa kehilangan satu pun kemampuan, dan prinsipnya bisa dipakai di mana saja: kalau sebuah boolean selalu bisa disimpulkan dari keberadaan nilai lain, ia tidak perlu ada. Catatan di kolom kiri menunjukkan kenapa: `adaGambar={false}` bersama `gambar="/foto.jpg"` adalah kombinasi yang sah menurut tipenya tapi tidak punya arti — dan setiap kombinasi tanpa arti adalah pertanyaan yang harus dijawab pembaca kode. Baris terakhir kolom kanan menunjukkan penerapannya di dalam komponen: `gambar !== undefined` menggantikan pemeriksaan `adaGambar`, sehingga tidak ada lagi dua nilai yang bisa saling bertentangan. Perhatikan pemeriksaannya memakai `!== undefined`, bukan `&&` polos — string kosong adalah nilai yang sah dan tidak boleh diperlakukan sebagai "tidak ada".',
       ),
 
       h2('Langkah 2 — gabungkan boolean tampilan menjadi varian'),
@@ -1402,6 +2293,9 @@ export const lessons: LessonDraft[] = [
           | { variant: 'interaktif'; onClick: () => void; children: ReactNode };
         `,
       ),
+      p(
+        'Kuncinya ada pada `onClick?: never` di cabang pertama — bentuk yang mungkin terlihat aneh tapi sangat berguna. `never` berarti "tidak ada nilai yang sah untuk ini", sehingga `<Kartu variant="datar" onClick={...} />` ditolak type-check: kartu yang tidak interaktif **tidak bisa** diberi handler klik. Cabang kedua melakukan kebalikannya — `onClick` di sana wajib, tanpa tanda tanya — sehingga `<Kartu variant="interaktif">` tanpa handler juga ditolak. Perhatikan `variant` di cabang pertama opsional sedangkan di cabang kedua wajib; itu yang memungkinkan TypeScript memilih cabang yang tepat berdasarkan nilainya, persis mekanisme diskriminan dari Bab 6. Hasilnya, dua kesalahan yang sebelumnya hanya bisa ditemukan dengan mencoba kini **tidak bisa dituliskan sama sekali**.',
+      ),
       callout(
         'tip',
         'Prinsip yang berlaku umum',
@@ -1426,6 +2320,33 @@ export const lessons: LessonDraft[] = [
         'Periksa ulang setiap `"use client"`: bisakah batasnya diturunkan lebih dekat ke daun?',
         'Pastikan setiap elemen yang bisa diklik benar-benar `<button>` atau `<a>`',
         'Bungkus minimal satu widget berdata dengan Error Boundary dan Suspense',
+      ),
+
+      references(
+        {
+          label: 'Passing Props to a Component',
+          href: 'https://react.dev/learn/passing-props-to-a-component',
+          source: 'React',
+          note: 'Dasar merancang bentuk props — termasuk mengoper JSX alih-alih menambah prop baru.',
+        },
+        {
+          label: 'Discriminated unions',
+          href: 'https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions',
+          source: 'TypeScript',
+          note: 'Mekanisme Langkah 4 yang membuat kombinasi mustahil ditolak saat type-check.',
+        },
+        {
+          label: 'The never type',
+          href: 'https://www.typescriptlang.org/docs/handbook/2/functions.html#never',
+          source: 'TypeScript',
+          note: 'Cara menyatakan "prop ini tidak boleh ada di varian ini" lewat tipe.',
+        },
+        {
+          label: 'Choosing the State Structure',
+          href: 'https://react.dev/learn/choosing-the-state-structure',
+          source: 'React',
+          note: 'Prinsip yang sama diterapkan ke state: hindari nilai yang bisa disimpulkan dari nilai lain.',
+        },
       ),
     ],
   ),

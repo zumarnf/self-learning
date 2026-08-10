@@ -19,7 +19,8 @@ const fondasi = defineChapter({
   ],
   prerequisites: [],
   stackVersions: ['HTTP/1.1 & HTTP/2', 'REST'],
-  reviewedAt: '2026-08-02',
+  // Bumped by the ADR-0006 pass: every lesson now carries `terms` + `references`.
+  reviewedAt: '2026-08-05',
   lessons: lessonsFondasi,
   quiz: [
     q(
@@ -65,7 +66,8 @@ const sql = defineChapter({
   ],
   prerequisites: [{ category: 'backend-basic', chapter: 'fondasi-backend' }],
   stackVersions: ['PostgreSQL 17', 'SQL:2023'],
-  reviewedAt: '2026-08-02',
+  // Bumped by the ADR-0006 pass: every lesson now carries `terms` + `references`.
+  reviewedAt: '2026-08-05',
   lessons: lessonsDatabaseSql,
   quiz: [
     q(
@@ -132,7 +134,8 @@ const express = defineChapter({
     { category: 'frontend-basic', chapter: 'asynchronous-javascript' },
   ],
   stackVersions: ['Node.js 22 LTS', 'Express 5', 'Zod 4'],
-  reviewedAt: '2026-08-02',
+  // Bumped by the ADR-0006 pass: every lesson now carries `terms` + `references`.
+  reviewedAt: '2026-08-05',
   lessons: lessonsExpress,
   quiz: [
     q(
@@ -192,7 +195,8 @@ const laravel = defineChapter({
   ],
   prerequisites: [{ category: 'backend-basic', chapter: 'database-sql-dasar' }],
   stackVersions: ['PHP 8.3+', 'Laravel 12'],
-  reviewedAt: '2026-08-02',
+  // Bumped by the ADR-0006 pass: every lesson now carries `terms` + `references`.
+  reviewedAt: '2026-08-05',
   lessons: lessonsLaravel,
   quiz: [
     q(
@@ -248,7 +252,8 @@ const auth = defineChapter({
     { category: 'backend-basic', chapter: 'php-laravel-basic' },
   ],
   stackVersions: ['OWASP ASVS 5', 'OAuth 2.1'],
-  reviewedAt: '2026-08-02',
+  // Bumped by the ADR-0006 pass: every lesson now carries `terms` + `references`.
+  reviewedAt: '2026-08-05',
   lessons: lessonsAuth,
   quiz: [
     q(

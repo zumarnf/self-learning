@@ -7,8 +7,10 @@ import {
   h2,
   ol,
   p,
+  references,
   steps,
   table,
+  terms,
   ul,
 } from '@/lib/content/builders';
 import { type LessonDraft, written } from '@/lib/curriculum/authoring';
@@ -33,6 +35,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Dua istilah ini sering disingkat sama-sama "auth", dan penggabungan itu sendiri yang melahirkan celah. Keduanya menjawab pertanyaan yang berbeda, di tempat yang berbeda.',
+      ),
+
+      terms(
+        {
+          term: 'autentikasi',
+          meaning:
+            'Menjawab **"siapa kamu"**. Terjadi **sekali**, saat masuk. Gagal berarti `401 Unauthorized`. Contohnya email + password, atau token yang tanda tangannya diperiksa.',
+        },
+        {
+          term: 'otorisasi',
+          meaning:
+            'Menjawab **"kamu boleh apa"**. Terjadi di **setiap** permintaan, untuk **setiap** sumber daya. Gagal berarti `403 Forbidden` — atau `404`, kalau keberadaan datanya sendiri tidak boleh diketahui.',
+        },
+        {
+          term: '"auth"',
+          meaning:
+            'Singkatan yang dipakai untuk **keduanya** — dan penggabungan itu sendiri yang melahirkan celah. Dua hal yang berbeda pertanyaan, berbeda waktu, dan berbeda tempat pemeriksaannya jadi terasa seperti satu urusan yang sudah selesai.',
+        },
+        {
+          term: 'otorisasi tingkat rute',
+          meaning:
+            'Apakah peran ini boleh menyentuh endpoint ini **sama sekali** — misalnya hanya admin yang boleh `/api/admin/*`. Ini lapisan yang biasanya diingat orang.',
+        },
+        {
+          term: 'otorisasi tingkat objek',
+          meaning:
+            'Apakah pengguna ini boleh menyentuh **baris ini**. Inilah lapisan yang **paling sering hilang**: endpoint terlindungi dari orang asing, tapi tidak dari sesama pengguna yang mengganti angka di URL.',
+        },
+        {
+          term: 'IDOR',
+          meaning:
+            'Singkatan *Insecure Direct Object Reference* — akibat langsung dari hilangnya otorisasi tingkat objek. Setiap pengguna yang sudah masuk bisa membaca data siapa pun hanya dengan mengubah id di URL. Dibahas tuntas di sub-bab 5.7.',
+        },
+        {
+          term: 'default deny',
+          meaning:
+            'Menolak semuanya, lalu **membuka akses secara eksplisit**. Perbedaannya dari "default izinkan" adalah perbedaan antara aman dan bocor: dengan default deny, endpoint baru yang lupa didaftarkan jadi **tidak bisa diakses** — merepotkan, tapi tidak berbahaya.',
+        },
+        {
+          term: 'fail closed',
+          meaning:
+            'Prinsip bahwa **kegagalan harus mengarah ke penolakan**. Error saat memeriksa token, database yang tidak bisa dihubungi, konfigurasi yang hilang — semuanya harus berakhir "ditolak", bukan "dilewatkan".',
+        },
+        {
+          term: 'security by obscurity',
+          meaning:
+            'Mengandalkan sesuatu yang tidak diketahui orang sebagai penjagaan — tombol yang disembunyikan, halaman yang tidak ditautkan, URL yang sulit ditebak. **Tidak menjaga apa pun**: siapa pun bisa memanggil endpoint-nya langsung dengan `curl`.',
+        },
       ),
 
       table(
@@ -120,6 +170,32 @@ export const lessons: LessonDraft[] = [
       p(
         'Tombol yang tidak ditampilkan, menu yang disembunyikan, dan halaman yang tidak ditautkan **tidak menjaga apa pun**. Siapa pun bisa memanggil endpoint-nya langsung dengan `curl`. Antarmuka mengatur kenyamanan; server yang mengatur kewenangan.',
       ),
+      references(
+        {
+          label: 'Authorization Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Prinsip default deny dan pemeriksaan tingkat objek, langsung dari sumbernya.',
+        },
+        {
+          label: 'OWASP Top 10 — Broken Access Control',
+          href: 'https://owasp.org/Top10/A01_2021-Broken_Access_Control/',
+          source: 'OWASP',
+          note: 'Kategori kerentanan nomor satu — dan kenapa ia hampir selalu soal otorisasi, bukan autentikasi.',
+        },
+        {
+          label: '401 Unauthorized',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/401',
+          source: 'MDN Web Docs',
+          note: 'Termasuk catatan bahwa namanya menyesatkan — ia sebenarnya soal autentikasi.',
+        },
+        {
+          label: '403 Forbidden',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/403',
+          source: 'MDN Web Docs',
+          note: 'Kapan `403` tepat, dan kapan `404` justru pilihan yang lebih aman.',
+        },
+      ),
     ],
   ),
 
@@ -131,6 +207,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Password tidak pernah disimpan. Yang disimpan adalah **hash**-nya — hasil fungsi satu arah yang tidak bisa dibalik. Kalau databasemu suatu hari bocor, hash yang benar membuat password penggunanya tetap aman.',
+      ),
+
+      terms(
+        {
+          term: 'hash',
+          meaning:
+            'Hasil fungsi **satu arah** yang tidak bisa dibalik. Password tidak pernah disimpan — yang disimpan hash-nya. Kalau databasemu suatu hari bocor, hash yang benar membuat password penggunanya tetap aman.',
+        },
+        {
+          term: 'algoritma adaptif',
+          meaning:
+            'Algoritma yang **biayanya bisa dinaikkan** seiring perangkat keras makin cepat — argon2id, bcrypt, scrypt. Sifat itu yang membuat algoritma yang sama tetap relevan bertahun-tahun tanpa perlu diganti.',
+        },
+        {
+          term: 'cepat = lemah',
+          meaning:
+            'Pembalikan intuisi yang penting. SHA-256 dirancang **cepat** — itu gunanya untuk memeriksa integritas berkas. Untuk password, kecepatan itu senjata penyerang: dengan GPU biasa, miliaran tebakan per detik. Algoritma password sengaja dibuat **lambat**.',
+        },
+        {
+          term: 'argon2id',
+          meaning:
+            'Pilihan terbaik saat ini. Varian `id` menggabungkan ketahanan terhadap serangan GPU (banyak memori) dan terhadap serangan side-channel. Parameternya — `memoryCost`, `timeCost`, `parallelism` — yang menentukan biayanya.',
+        },
+        {
+          term: 'bcrypt',
+          meaning:
+            'Sangat matang dan tersedia di mana-mana; default Laravel. Satu batasan yang harus diketahui: ia hanya membaca **72 byte pertama** password — jadi passphrase yang sangat panjang tidak menambah keamanan.',
+        },
+        {
+          term: 'salt',
+          meaning:
+            'Nilai acak unik per password yang ikut di-hash. Karena setiap password punya salt berbeda, **dua pengguna dengan password identik menghasilkan hash berbeda** — dan rainbow table jadi tidak berguna. Ia sudah ditangani algoritmanya; jangan pernah membuatnya sendiri.',
+        },
+        {
+          term: 'rainbow table',
+          meaning:
+            'Tabel berisi jutaan pasangan password–hash yang sudah dihitung sebelumnya. Ia mengubah pemecahan hash dari perhitungan jadi pencarian. Salt yang unik per password membuatnya tidak berguna sama sekali.',
+        },
+        {
+          term: 'needsRehash',
+          meaning:
+            'Pemeriksaan apakah sebuah hash memakai biaya yang sudah usang. Polanya: hitung ulang **saat pengguna berhasil masuk** — satu-satunya waktu password aslinya tersedia. Perlahan seluruh basis pengguna terangkat ke biaya baru, tanpa ada yang perlu mengubah passwordnya.',
+        },
+        {
+          term: 'perbandingan waktu-konstan',
+          meaning:
+            'Perbandingan yang waktunya **sama** berapa pun karakter yang cocok. `===` berhenti pada karakter pertama yang berbeda — selisih waktunya sangat kecil, tapi cukup untuk menebak token karakter demi karakter. Pakai `timingSafeEqual` untuk token dan kunci API.',
+        },
       ),
 
       h2('Yang tidak boleh dipakai'),
@@ -274,6 +398,32 @@ export const lessons: LessonDraft[] = [
         'Hash tidak boleh pernah keluar dari server',
         'Jangan pernah menyertakan kolom hash di respons API, di log, atau di pesan error. Ini alasan lain kenapa `SELECT *` yang langsung dikirim ke klien berbahaya — dan kenapa `$hidden` di model Laravel harus memuat `password`.',
       ),
+      references(
+        {
+          label: 'Password Storage Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Parameter argon2id yang dianjurkan, beserta alasan setiap algoritma dipilih atau ditolak.',
+        },
+        {
+          label: 'Authentication Cheat Sheet — Password Policy',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#implement-proper-password-strength-controls',
+          source: 'OWASP',
+          note: 'Kenapa panjang mengalahkan kerumitan, dan kenapa ganti berkala justru melemahkan.',
+        },
+        {
+          label: 'crypto.timingSafeEqual()',
+          href: 'https://nodejs.org/api/crypto.html#cryptotimingsafeequala-b',
+          source: 'Node.js',
+          note: 'Perbandingan waktu-konstan untuk token dan kunci API.',
+        },
+        {
+          label: 'Laravel — Hashing',
+          href: 'https://laravel.com/docs/12.x/hashing',
+          source: 'Laravel',
+          note: '`Hash::make`, `Hash::check`, dan pola `needsRehash` yang menaikkan biaya bertahap.',
+        },
+      ),
     ],
   ),
 
@@ -285,6 +435,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Pada session-based auth, server menyimpan data sesi dan browser hanya membawa **id**-nya di cookie. Ini pendekatan yang lebih tua, dan untuk aplikasi web biasa ia masih pilihan yang paling tepat.',
+      ),
+
+      terms(
+        {
+          term: 'session-based auth',
+          meaning:
+            'Server menyimpan **data sesi**, browser hanya membawa **id**-nya di cookie. Pendekatan yang lebih tua — dan untuk aplikasi web biasa, masih yang paling tepat.',
+        },
+        {
+          term: 'cookie',
+          meaning:
+            'Nilai kecil yang disimpan browser dan **dikirim otomatis** di setiap permintaan ke domain itu. Sifat "otomatis" itu yang membuatnya nyaman, dan sekaligus yang melahirkan kebutuhan perlindungan CSRF.',
+        },
+        {
+          term: 'HttpOnly',
+          meaning:
+            'Atribut yang membuat cookie **tidak bisa dibaca JavaScript sama sekali** — termasuk oleh skrip penyerang. Tanpa itu, satu celah XSS cukup untuk mencuri semua sesi lewat `document.cookie`. Ini alasan utama cookie lebih aman daripada `localStorage` untuk token sesi.',
+        },
+        {
+          term: 'Secure',
+          meaning:
+            'Atribut yang membuat cookie hanya dikirim lewat **HTTPS**. Tanpa itu, cookie bisa terbaca siapa pun yang menyadap jaringan — misalnya di Wi-Fi publik.',
+        },
+        {
+          term: 'SameSite',
+          meaning:
+            'Atribut yang mengatur apakah cookie ikut terkirim ketika permintaan datang **dari situs lain**. Nilai `Lax` memberi pertahanan **CSRF dasar**: situs jahat tidak bisa lagi memicu aksi mengubah data hanya karena cookie-nya otomatis ikut.',
+        },
+        {
+          term: 'session fixation',
+          meaning:
+            'Penyerang memberi korban tautan berisi **id sesi yang ia tentukan sendiri**. Kalau id itu tidak berubah setelah login, penyerang kini memegang id sesi yang **sudah terautentikasi** sebagai korban.',
+        },
+        {
+          term: 'regenerasi sesi',
+          meaning:
+            'Mengganti id sesi setelah login berhasil. Satu baris yang menutup session fixation **sepenuhnya** — dan yang paling sering lupa ditulis di implementasi buatan sendiri.',
+        },
+        {
+          term: 'session store',
+          meaning:
+            'Tempat sesi disimpan — database atau Redis. Penyimpanan di **memori proses** hanya untuk pengembangan: ia hilang saat restart, dan dengan dua proses pengguna akan "logout sendiri" secara acak.',
+        },
+        {
+          term: 'saveUninitialized: false',
+          meaning:
+            'Setelan yang mencegah sesi dibuat untuk pengunjung yang belum melakukan apa pun. Tanpa itu, setiap perayap dan setiap kunjungan sekali lewat meninggalkan baris sesi yang tidak pernah dipakai.',
+        },
       ),
 
       h2('Alurnya'),
@@ -410,6 +608,32 @@ export const lessons: LessonDraft[] = [
         'API murni token tidak butuh mesin CSRF',
         'Kalau autentikasimu memakai header `Authorization` tanpa cookie ambient, tidak ada yang bisa ditumpangi permintaan lintas situs — browser tidak menyertakan header itu secara otomatis. Jangan memasang token CSRF di tempat yang tidak punya cookie; fokuskan usaha pada endpoint yang memang memakai auth berbasis cookie.',
       ),
+      references(
+        {
+          label: 'Session Management Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Atribut cookie, regenerasi id setelah login, dan masa berlaku sesi.',
+        },
+        {
+          label: 'Set-Cookie',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie',
+          source: 'MDN Web Docs',
+          note: 'Arti setiap atribut: `HttpOnly`, `Secure`, `SameSite`, `Max-Age`.',
+        },
+        {
+          label: 'Cross-Site Request Forgery Prevention Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Termasuk penegasan bahwa API murni token tidak butuh mesin CSRF.',
+        },
+        {
+          label: 'Laravel — Authentication',
+          href: 'https://laravel.com/docs/12.x/authentication',
+          source: 'Laravel',
+          note: '`Auth::attempt` dan regenerasi sesi yang sudah ditangani framework.',
+        },
+      ),
     ],
   ),
 
@@ -421,6 +645,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'JWT membungkus identitas dalam token bertanda tangan yang bisa diverifikasi server **tanpa** query ke database. Itu kelebihannya. Harganya: token yang sudah terbit sulit dicabut — dan itu trade-off utamanya, bukan detail kecil.',
+      ),
+
+      terms(
+        {
+          term: 'JWT',
+          meaning:
+            'Singkatan *JSON Web Token*, dibaca "jot". Membungkus identitas dalam token **bertanda tangan** yang bisa diverifikasi server tanpa query ke database. Harganya: token yang sudah terbit **sulit dicabut** — dan itu trade-off utamanya, bukan detail kecil.',
+        },
+        {
+          term: 'tiga bagian',
+          meaning:
+            'JWT terdiri dari **header . payload . tanda tangan**, dipisah titik. Header menyebut algoritmanya, payload memuat datanya, tanda tangan yang membuktikan keduanya tidak diubah.',
+        },
+        {
+          term: 'payload bukan enkripsi',
+          meaning:
+            'Bagian tengah JWT adalah **base64, bukan enkripsi**. Siapa pun yang memegang token bisa membacanya dengan `base64 -d` — tanpa kunci apa pun. Jangan pernah menaruh password, hash, atau data pribadi di sana.',
+        },
+        {
+          term: 'claim',
+          meaning:
+            'Field di dalam payload. Yang baku: `sub` (siapa), `exp` (kapan kedaluwarsa), `iat` (kapan dibuat), `iss` (siapa penerbitnya), `aud` (untuk siapa). Tiga yang terakhir yang membuat token tidak bisa dipakai lintas sistem.',
+        },
+        {
+          term: 'algorithm confusion',
+          meaning:
+            'Serangan yang membatalkan seluruh perlindungan JWT. Tanpa allow-list algoritma, token bisa menyatakan `alg: none` dan diterima **tanpa tanda tangan**. Atau pada sistem RS256, penyerang mengubahnya jadi `HS256` dan menandatangani dengan **kunci publikmu** — yang memang terbuka.',
+        },
+        {
+          term: 'decode vs verify',
+          meaning:
+            'Kesalahan yang namanya mirip dan akibatnya sangat berbeda. `jwt.decode()` hanya **membaca isinya tanpa memeriksa tanda tangan**. Kode yang memakainya lalu mempercayai `payload.peran` menerima siapa pun yang mengarang token sendiri.',
+        },
+        {
+          term: 'masalah pencabutan',
+          meaning:
+            'Konsekuensi paling mahal JWT. Pengguna menekan "keluar" → token dihapus dari browser, tapi **masih sah di server** sampai `exp`. Password diganti karena akun dibajak → token lama penyerang **masih bekerja**. Peran diturunkan → token lama masih membawa peran admin.',
+        },
+        {
+          term: 'deny-list',
+          meaning:
+            'Daftar token yang dicabut, biasanya di Redis. Ia menyelesaikan pencabutan — dengan harga: kamu kembali menyentuh penyimpanan di **setiap** permintaan, yang menghapus keunggulan utama JWT.',
+        },
+        {
+          term: 'token_version',
+          meaning:
+            'Kolom angka di tabel pengguna yang dinaikkan saat logout atau ganti password; token yang versinya lebih rendah ditolak. Tetap butuh query, tapi jauh lebih ringan daripada deny-list — dan ia mencabut **semua** token sekaligus.',
+        },
       ),
 
       h2('Bentuknya'),
@@ -537,6 +809,32 @@ export const lessons: LessonDraft[] = [
         'Pilih karena kebutuhannya',
         'JWT sering dipilih karena terdengar modern, lalu tim menghabiskan waktu membangun ulang pencabutan yang sudah gratis pada sesi. Untuk aplikasi web satu domain, sesi biasanya lebih sederhana **dan** lebih aman.',
       ),
+      references(
+        {
+          label: 'RFC 7519 — JSON Web Token',
+          href: 'https://www.rfc-editor.org/rfc/rfc7519.html',
+          source: 'IETF',
+          note: 'Spesifikasi resmi beserta arti setiap claim baku.',
+        },
+        {
+          label: 'JSON Web Tokens — Introduction',
+          href: 'https://jwt.io/introduction',
+          source: 'jwt.io',
+          note: 'Anatomi tiga bagian token, dan penegasan bahwa payload-nya tidak terenkripsi.',
+        },
+        {
+          label: 'JSON Web Token Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Algorithm confusion, `alg: none`, dan strategi pencabutan.',
+        },
+        {
+          label: 'RFC 8725 — JWT Best Current Practices',
+          href: 'https://www.rfc-editor.org/rfc/rfc8725.html',
+          source: 'IETF',
+          note: 'Anjuran resmi memakai allow-list algoritma dan memverifikasi `iss`/`aud`.',
+        },
+      ),
     ],
   ),
 
@@ -548,6 +846,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Token akses berumur pendek itu aman tapi merepotkan; berumur panjang itu nyaman tapi berbahaya. Refresh token memberi keduanya: akses pendek yang diperbarui diam-diam oleh token panjang yang lebih terjaga.',
+      ),
+
+      terms(
+        {
+          term: 'access token',
+          meaning:
+            'Token berumur **pendek** (5–15 menit) yang dikirim di setiap permintaan API. Umur pendeknya yang membatasi kerusakan: token yang dicuri hanya berguna sebentar.',
+        },
+        {
+          term: 'refresh token',
+          meaning:
+            'Token berumur **panjang** (7–30 hari) yang **hanya** dipakai untuk meminta access token baru. Ia disimpan di server supaya bisa dicabut — sesuatu yang tidak bisa dilakukan pada access token.',
+        },
+        {
+          term: 'rotasi',
+          meaning:
+            'Setiap kali refresh token dipakai, yang lama **dicabut** dan yang baru diterbitkan. Konsekuensinya: sebuah refresh token hanya sah **sekali**. Ini yang membuat deteksi pencurian jadi mungkin.',
+        },
+        {
+          term: 'deteksi pemakaian ulang',
+          meaning:
+            'Inti seluruh pola ini. Kalau refresh token dicuri, **dua pihak** memakainya. Begitu salah satu memakai token yang sudah dirotasi, server tahu ada penyalahgunaan. Tanpa deteksi ini, rotasi hanya menambah langkah tanpa menambah keamanan.',
+        },
+        {
+          term: 'keluarga token (token family)',
+          meaning:
+            'Rantai refresh token yang berasal dari satu login. Saat pemakaian ulang terdeteksi, **seluruh keluarga** dicabut sekaligus — korban terpaksa masuk lagi, penyerang kehilangan akses.',
+        },
+        {
+          term: 'simpan hash-nya',
+          meaning:
+            'Refresh token disimpan sebagai **hash**, bukan apa adanya — sama seperti password. Kalau tabel token bocor, isinya tidak bisa langsung dipakai. Karena token sudah acak panjang, SHA-256 cukup di sini; tidak perlu algoritma adaptif.',
+        },
+        {
+          term: 'randomBytes',
+          meaning:
+            'Pembangkit nilai acak **kriptografis** — bukan `Math.random()`, yang bisa diprediksi. 32 byte dalam bentuk `base64url` menghasilkan token yang tidak mungkin ditebak dan aman dipakai di URL maupun cookie.',
+        },
+        {
+          term: 'path pada cookie',
+          meaning:
+            "Membatasi cookie ke satu endpoint — `path: '/api/refresh'`. Refresh token jadi **tidak ikut terkirim** pada ratusan permintaan API biasa, memperkecil peluangnya bocor lewat log, proxy, atau kesalahan konfigurasi.",
+        },
+        {
+          term: 'SameSite=Strict',
+          meaning:
+            'Setelan paling ketat: cookie **tidak pernah** ikut pada permintaan yang datang dari situs lain. Cocok untuk refresh token, yang memang hanya dipakai aplikasimu sendiri — dan tidak cocok untuk cookie sesi yang perlu bertahan saat pengguna datang dari tautan luar.',
+        },
       ),
 
       h2('Dua token'),
@@ -671,6 +1017,32 @@ export const lessons: LessonDraft[] = [
         'Simpan hash refresh token, bukan tokennya',
         'Alasannya sama persis dengan password: kalau tabel token bocor, penyerang mendapat hash yang tidak bisa dipakai. Karena refresh token adalah nilai acak berentropi tinggi, SHA-256 sudah cukup di sini — tidak perlu algoritma lambat seperti argon2.',
       ),
+      references(
+        {
+          label: 'RFC 6749 §1.5 — Refresh Token',
+          href: 'https://www.rfc-editor.org/rfc/rfc6749.html#section-1.5',
+          source: 'IETF',
+          note: 'Definisi resmi peran refresh token dalam alur OAuth 2.0.',
+        },
+        {
+          label: 'OAuth 2.0 Security Best Current Practice — token rotation',
+          href: 'https://datatracker.ietf.org/doc/html/draft-ietf-oauth-security-topics',
+          source: 'IETF',
+          note: 'Anjuran rotasi beserta deteksi pemakaian ulang, langsung dari sumbernya.',
+        },
+        {
+          label: 'crypto.randomBytes()',
+          href: 'https://nodejs.org/api/crypto.html#cryptorandombytessize-callback',
+          source: 'Node.js',
+          note: 'Pembangkit acak kriptografis — bukan `Math.random()`, yang bisa diprediksi.',
+        },
+        {
+          label: 'Session Management — token storage',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Kenapa `HttpOnly` cookie lebih aman daripada `localStorage` untuk refresh token.',
+        },
+      ),
     ],
   ),
 
@@ -680,6 +1052,54 @@ export const lessons: LessonDraft[] = [
     12,
     'Menyusun aturan "siapa boleh apa" supaya tetap terkelola.',
     [
+      terms(
+        {
+          term: 'peran (role)',
+          meaning:
+            'Label yang menempel pada pengguna — `admin`, `editor`, `pengguna`. Ia jawaban paling sederhana untuk otorisasi, dan cukup sampai aturannya mulai berkembang.',
+        },
+        {
+          term: 'izin (permission)',
+          meaning:
+            'Kata kerja yang menyatakan satu aksi — `catatan.terbitkan`, `pengguna.kelola`. Peran menjadi **kumpulan izin**. Bedanya menentukan: izin tidak berubah saat struktur peran berubah.',
+        },
+        {
+          term: 'periksa izin, bukan peran',
+          meaning:
+            "Aturan praktis yang menyelamatkan banyak waktu. `if (user.peran === 'admin')` yang tersebar di puluhan tempat akan menyakitkan begitu ada peran baru `supervisor` yang butuh sebagian hak admin. Memeriksa izin membuat perubahan cukup di satu tabel.",
+        },
+        {
+          term: 'policy',
+          meaning:
+            'Aturan yang menjawab pertanyaan **per objek**. Peran menjawab "boleh menerbitkan artikel?"; policy menjawab "boleh menerbitkan artikel **ini**?". Sebagian besar aplikasi butuh keduanya sekaligus.',
+        },
+        {
+          term: 'RBAC',
+          meaning:
+            'Singkatan *Role-Based Access Control* — model otorisasi berbasis peran. Ia titik awal yang wajar, dan mulai terasa sempit begitu kewenangan bergantung pada **hubungan** antara pengguna dan objeknya, bukan hanya pada labelnya.',
+        },
+        {
+          term: 'before()',
+          meaning:
+            'Metode Laravel Policy yang dijalankan **sebelum** metode lain. Mengembalikan `true` meloloskan semuanya, `null` melanjutkan ke pemeriksaan biasa. Mengembalikan **`false` menolak setiap pemeriksaan**, termasuk yang seharusnya lolos — kesalahan yang menghasilkan "admin tidak bisa apa-apa".',
+        },
+        {
+          term: 'otorisasi di lapisan query',
+          meaning:
+            'Policy saja **tidak cukup untuk daftar**. `SELECT * FROM catatan LIMIT 20` mengembalikan milik semua orang, dan tidak ada policy yang dipanggil. Scope kepemilikan harus ikut di `WHERE`.',
+        },
+        {
+          term: 'catat penolakan otorisasi',
+          meaning:
+            'Setiap `403` yang terjadi layak dicatat sebagai **peristiwa keamanan**. Lonjakan penolakan dari satu pengguna adalah tanda seseorang sedang memetakan apa yang bisa ia sentuh — sinyal yang hilang kalau tidak dicatat.',
+        },
+        {
+          term: 'jangan taruh peran di JWT tanpa rencana',
+          meaning:
+            'Peran yang ikut di dalam token **tidak berubah** sampai token itu kedaluwarsa. Menurunkan hak seseorang tidak langsung berlaku — dan itu persis masalah pencabutan dari sub-bab 5.4, muncul lagi di bentuk lain.',
+        },
+      ),
+
       h2('Tiga tingkat kerumitan'),
       table(
         ['Model', 'Cocok untuk', 'Contoh'],
@@ -816,6 +1236,32 @@ export const lessons: LessonDraft[] = [
         'Lonjakan penolakan adalah sinyal serangan',
         'Satu penolakan itu wajar — seseorang salah klik. Lima puluh penolakan dari satu akun dalam semenit adalah seseorang yang sedang memetakan apa yang bisa ia sentuh. Log tanpa alert hanyalah arsip; pasang peringatan untuk pola ini.',
       ),
+      references(
+        {
+          label: 'Authorization Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Model RBAC, otorisasi tingkat objek, dan prinsip hak akses minimum.',
+        },
+        {
+          label: 'Laravel — Authorization Policies',
+          href: 'https://laravel.com/docs/12.x/authorization#creating-policies',
+          source: 'Laravel',
+          note: 'Termasuk perilaku `before()` dan beda antara `false` dan `null`.',
+        },
+        {
+          label: 'OWASP Top 10 — Broken Access Control',
+          href: 'https://owasp.org/Top10/A01_2021-Broken_Access_Control/',
+          source: 'OWASP',
+          note: 'Kenapa memeriksa izin di satu lapisan saja hampir selalu tidak cukup.',
+        },
+        {
+          label: 'Logging Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Penolakan otorisasi sebagai peristiwa keamanan yang wajib dicatat dan dipantau.',
+        },
+      ),
     ],
   ),
 
@@ -827,6 +1273,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         '**IDOR** (Insecure Direct Object Reference) terjadi ketika aplikasi memakai id dari klien untuk mengambil data **tanpa** memeriksa apakah klien itu berhak. Ia menempati peringkat teratas OWASP, dan alasannya sederhana: kodenya terlihat benar.',
+      ),
+
+      terms(
+        {
+          term: 'IDOR',
+          meaning:
+            'Singkatan *Insecure Direct Object Reference*. Terjadi ketika aplikasi memakai id dari klien untuk mengambil data **tanpa memeriksa apakah klien itu berhak**. Ia menempati peringkat teratas OWASP, dan alasannya sederhana: **kodenya terlihat benar**.',
+        },
+        {
+          term: 'referensi objek langsung',
+          meaning:
+            'Nilai dari klien yang menunjuk sesuatu di sistemmu — id baris, nama berkas, id job, kunci cache. Aturannya: kalau klien yang **menyebutkan**, kewenangannya harus **diperiksa**.',
+        },
+        {
+          term: 'kenapa sering lolos',
+          meaning:
+            'Tidak ada error. Tidak ada peringatan. Fiturnya berjalan sempurna saat diuji — **karena saat menguji, kamu memakai id milikmu sendiri**. Bug ini hanya terlihat kalau kamu sengaja mencoba mengakses data orang lain.',
+        },
+        {
+          term: 'scope di query',
+          meaning:
+            'Perbaikan yang benar: kepemilikan jadi **bagian dari `WHERE`** — `WHERE id = $1 AND penulis_id = $2`. Milik orang lain otomatis mengembalikan nol baris, dan endpoint-nya menjawab `404` tanpa cabang tambahan.',
+        },
+        {
+          term: '404 bukan 403',
+          meaning:
+            'Untuk data privat, `404` lebih aman. Menjawab `403` sudah **mengungkap bahwa data itu ada** — cukup bagi penyerang untuk memetakan sistemmu dari beda pesan error saja.',
+        },
+        {
+          term: 'enumerasi',
+          meaning:
+            'Menaikkan angka satu per satu untuk memanen data — `for i in $(seq 1 100000)`. Ini bentuk eksploitasi IDOR yang paling sederhana, dan tidak butuh alat apa pun selain `curl` dan satu perulangan.',
+        },
+        {
+          term: 'IDOR di luar database',
+          meaning:
+            'Aturannya berlaku untuk **setiap** referensi objek, bukan hanya baris tabel: berkas unggahan (`faktur-1042.pdf` → coba `1043`), laporan berparameter, id job latar, dan kunci cache yang tidak menyertakan id pengguna.',
+        },
+        {
+          term: 'UUID bukan perbaikan',
+          meaning:
+            'UUID membuat id **sulit ditebak**, bukan **terlarang diakses**. Kalau id-nya bocor lewat tautan yang dibagikan, log, atau header `Referer`, celahnya terbuka lagi. Ia memperlambat penyerang, tidak menutup lubangnya.',
+        },
+        {
+          term: 'menguji IDOR',
+          meaning:
+            'Satu-satunya cara membuktikannya tertutup: buat **dua pengguna**, ambil id milik yang satu, panggil dengan token yang lain, dan pastikan jawabannya `404`. Tes ini yang paling sering tidak ditulis.',
+        },
       ),
 
       h2('Bentuknya'),
@@ -965,6 +1459,32 @@ export const lessons: LessonDraft[] = [
         'Jadikan ini tes wajib untuk setiap sumber daya',
         'Setiap kali kamu menambahkan entitas baru yang punya pemilik, salin tes ini dan sesuaikan. Aturan yang dijaga tes bertahan; aturan yang dijaga ingatan akan terlewat pada endpoint kesepuluh — dan endpoint kesepuluh itulah yang bocor.',
       ),
+      references(
+        {
+          label: 'Insecure Direct Object Reference Prevention Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Insecure_Direct_Object_Reference_Prevention_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Termasuk penegasan bahwa id yang sulit ditebak bukan pengganti pemeriksaan kewenangan.',
+        },
+        {
+          label: 'OWASP Top 10 — Broken Access Control',
+          href: 'https://owasp.org/Top10/A01_2021-Broken_Access_Control/',
+          source: 'OWASP',
+          note: 'IDOR sebagai bentuk paling umum dari kategori kerentanan nomor satu.',
+        },
+        {
+          label: 'Authorization Testing Automation Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Testing_Automation_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Cara menjadikan uji otorisasi negatif bagian tetap dari suite tes.',
+        },
+        {
+          label: '404 Not Found',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404',
+          source: 'MDN Web Docs',
+          note: 'Kenapa `404` sah dipakai untuk data yang keberadaannya tidak boleh diketahui.',
+        },
+      ),
     ],
   ),
 
@@ -976,6 +1496,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Password yang kuat tidak menolong kalau penyerang boleh menebak tanpa batas. Dua kontrol di sub-bab ini murah dipasang dan menutup sebagian besar serangan otomatis.',
+      ),
+
+      terms(
+        {
+          term: 'brute force',
+          meaning:
+            'Menebak password dengan mencoba kemungkinan satu per satu. Password kuat tidak menolong kalau penyerang boleh menebak **tanpa batas** — dan itulah yang ditutup dua kontrol di sub-bab ini.',
+        },
+        {
+          term: 'enumerasi akun',
+          meaning:
+            'Memetakan **email mana yang terdaftar** dari perbedaan jawaban server. Ia langkah **pertama** serangan: setelah tahu daftarnya, penyerang bisa memfokuskan penebakan, menjalankan credential stuffing, atau mengirim phishing yang meyakinkan.',
+        },
+        {
+          term: 'pesan error identik',
+          meaning:
+            'Jawaban yang **sama persis** untuk "email tidak terdaftar" dan "password salah" — keduanya `401` dengan pesan "Email atau kata sandi salah". Perbedaan yang tampak sepele itulah yang menyediakan daftar untuk enumerasi.',
+        },
+        {
+          term: 'timing attack',
+          meaning:
+            'Membaca informasi dari **selisih waktu respons**. Kalau email tidak ada, kode langsung kembali — jauh lebih cepat daripada saat ia harus memverifikasi hash. Selisih itu bisa diukur, dan ia sama saja dengan pesan yang berbeda.',
+        },
+        {
+          term: 'hash palsu',
+          meaning:
+            'Obat untuk timing attack: saat email tidak ditemukan, **tetap jalankan verifikasi** terhadap hash buatan. Waktu responsnya jadi sama untuk email yang ada maupun tidak — dan celah waktunya tertutup.',
+        },
+        {
+          term: 'credential stuffing',
+          meaning:
+            'Mencoba pasangan email–password yang bocor dari situs **lain**. Ia bekerja karena banyak orang memakai password yang sama di beberapa tempat — dan itulah kenapa memeriksa kebocoran (`uncompromised()`) berharga.',
+        },
+        {
+          term: 'rate limit per IP dan per akun',
+          meaning:
+            'Keduanya perlu, dan masing-masing menutup lubang yang lain. **Per IP saja** lolos oleh botnet terdistribusi. **Per akun saja** membuka celah DoS: penyerang sengaja salah password untuk mengunci akun korban.',
+        },
+        {
+          term: 'skipSuccessfulRequests',
+          meaning:
+            'Opsi yang membuat rate limiter **hanya menghitung percobaan yang gagal**. Tanpa itu, pengguna sah yang berkali-kali login dari jaringan kantor bisa ikut terblokir bersama penyerangnya.',
+        },
+        {
+          term: 'exponential backoff',
+          meaning:
+            'Menaikkan jeda tunggu secara berlipat setelah setiap kegagalan — 1 detik, 2, 4, 8. Lebih baik daripada lockout keras: penyerang cepat kehabisan kesabaran, sementara pengguna sah yang salah ketik sekali tidak terkunci.',
+        },
       ),
 
       h2('Pesan error harus identik'),
@@ -1132,6 +1700,32 @@ export const lessons: LessonDraft[] = [
       p(
         'Pasang alert untuk lonjakan kegagalan login, lonjakan penolakan otorisasi, dan permintaan yang cocok dengan pola injeksi. Log yang tidak ada yang membaca bukan deteksi — ia arsip.',
       ),
+      references(
+        {
+          label: 'Authentication Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Pesan error seragam, perlindungan brute force, dan alur reset password yang aman.',
+        },
+        {
+          label: 'Forgot Password Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Token sekali pakai, umur pendek, dan jawaban yang sama untuk email ada maupun tidak.',
+        },
+        {
+          label: 'Multifactor Authentication Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Kenapa rate limit pada verifikasi OTP tidak bisa dilewatkan.',
+        },
+        {
+          label: '429 Too Many Requests',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/429',
+          source: 'MDN Web Docs',
+          note: 'Status yang benar untuk rate limit, beserta header `Retry-After`.',
+        },
+      ),
     ],
   ),
 
@@ -1143,6 +1737,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Latihan penutup Backend Basic: bangun pendaftaran dan login yang memenuhi **setiap** aturan di bab ini, di kedua framework yang sudah kamu pelajari.',
+      ),
+
+      terms(
+        {
+          term: 'alur autentikasi lengkap',
+          meaning:
+            'Bukan hanya "login berhasil". Ia mencakup pendaftaran, login, logout yang **mencabut di server**, ganti password yang mencabut sesi lain, dan setiap penjagaan di antaranya. Latihan ini menuntut seluruhnya.',
+        },
+        {
+          term: 'toLowerCase() pada email',
+          meaning:
+            'Normalisasi sebelum menyimpan dan mencari. Tanpa itu, `Ana@contoh.com` dan `ana@contoh.com` menjadi **dua akun berbeda** — dan constraint `UNIQUE` tidak menahannya, karena keduanya memang berbeda sebagai teks.',
+        },
+        {
+          term: 'unique violation',
+          meaning:
+            'Error database saat email yang sudah ada didaftarkan lagi. Menanganinya penting **dan** halus: jawabannya tidak boleh membocorkan bahwa email itu terdaftar — kalau tidak, endpoint pendaftaran menjadi alat enumerasi.',
+        },
+        {
+          term: 'logout yang sungguhan',
+          meaning:
+            'Mencabut sesi atau token **di server**, bukan hanya menghapusnya di klien. Logout yang cuma menghapus di browser meninggalkan token yang masih sah — dan penyerang yang sudah menyalinnya tidak terpengaruh sama sekali.',
+        },
+        {
+          term: 'ganti password mencabut sesi lain',
+          meaning:
+            'Konsekuensi yang sering dilupakan. Orang mengganti password **justru karena** curiga akunnya dibajak. Kalau sesi lain tidak ikut dicabut, penyerang tetap masuk — dan korban mengira sudah aman.',
+        },
+        {
+          term: 'membangun di dua stack',
+          meaning:
+            'Metode latihan ini. Aturan yang **sama** harus dipenuhi di Express dan Laravel. Yang berbeda hanya cara framework menyediakannya — dan itu memisahkan prinsip keamanan dari kebiasaan alat.',
+        },
+        {
+          term: 'checklist sebagai spesifikasi',
+          meaning:
+            'Delapan butir "yang wajib ada" bukan saran melainkan **kriteria selesai**. Setiap butir bisa dijawab ya atau tidak dengan menjalankan satu perintah `curl` — bukan dengan membaca ulang kode dan merasa yakin.',
+        },
+        {
+          term: 'uji dengan dua akun',
+          meaning:
+            'Pola pengujian yang mengikat seluruh bab ini. Buat dua pengguna, lalu buktikan: yang satu tidak bisa membaca, mengubah, maupun menghapus milik yang lain — dan datanya benar-benar tidak berubah setelah percobaan itu.',
+        },
       ),
 
       h2('Yang wajib ada'),
@@ -1402,6 +2039,33 @@ export const lessons: LessonDraft[] = [
         'Setiap query yang mengambil data pengguna di-scope ke pemiliknya',
         'Ada tes yang membuktikan pengguna lain menerima 404/403 dan datanya tidak berubah',
         'Penolakan otorisasi tercatat di log, dan ada alert untuk lonjakannya',
+      ),
+
+      references(
+        {
+          label: 'Authentication Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Checklist di atas dipetakan langsung dari dokumen ini.',
+        },
+        {
+          label: 'Laravel — Authentication & Sanctum',
+          href: 'https://laravel.com/docs/12.x/authentication',
+          source: 'Laravel',
+          note: 'Sisi Laravel dari latihan ini: `Auth::attempt`, regenerasi sesi, dan pencabutan token.',
+        },
+        {
+          label: 'Express — Production Best Practices: Security',
+          href: 'https://expressjs.com/en/advanced/best-practice-security.html',
+          source: 'Express',
+          note: 'Sisi Express: cookie, rate limiting, dan header keamanan.',
+        },
+        {
+          label: 'Session Management Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Pencabutan saat logout dan saat ganti password — dua butir yang paling sering terlewat.',
+        },
       ),
     ],
   ),

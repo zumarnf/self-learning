@@ -149,6 +149,9 @@ export const lessons: LessonDraft[] = [
           ],
         },
       ),
+      p(
+        'Perbandingan ini menjawab keberatan "sama saja dengan style inline" secara konkret. Perhatikan `13px` dan `#3b82f6` di kolom kiri: keduanya nilai bebas yang tidak berasal dari sistem apa pun, dan tidak ada yang mencegah baris berikutnya memakai `14px`. Kolom kanan memakai `p-3` yang terikat skala spacing, dan `text-primary` yang menunjuk token warna — kalau paletnya berubah, warna ini ikut berubah. Perbedaan yang lebih menentukan ada di dua bagian terakhir: `hover:` dan `md:` **mustahil ditulis sebagai style inline sama sekali**, karena atribut `style` tidak bisa memuat pseudo-class maupun media query. Jadi keduanya bukan dua cara menulis hal yang sama — yang satu bisa melakukan hal yang tidak bisa dilakukan yang lain.',
+      ),
 
       h2('Kapan Tailwind bukan pilihan yang tepat'),
       ul(
@@ -276,6 +279,9 @@ export const lessons: LessonDraft[] = [
         `,
         { filename: 'src/app/globals.css', caption: 'Satu baris. Itu saja.' },
       ),
+      p(
+        'Tiga berkas, dan hanya itu yang dibutuhkan Tailwind v4. Perintah pertama memasang **dua** paket: `tailwindcss` sendiri, dan `@tailwindcss/postcss` yang menghubungkannya ke pipeline build — di v3 keduanya satu paket, dan pemisahan ini yang sering membuat orang mengikuti tutorial lama lalu bingung kenapa tidak jalan. `postcss.config.mjs` mendaftarkan plugin itu; perhatikan tidak ada `autoprefixer` di sana, karena v4 sudah menyertakannya. Berkas ketiga adalah yang paling mengejutkan: **satu baris `@import`** menggantikan tiga direktif `@tailwind` di v3. Dan yang tidak ada di mana pun juga penting — tidak ada `tailwind.config.js`, karena v4 mendeteksi berkas sumbermu otomatis dan memindahkan konfigurasi ke blok `@theme` di CSS.',
+      ),
 
       h2('Yang berubah dari v3'),
       table(
@@ -304,6 +310,9 @@ export const lessons: LessonDraft[] = [
         `,
         { caption: 'Untuk migrasi bertahap dari project v3.' },
       ),
+      p(
+        'Direktif `@config` adalah jembatan migrasi: ia menyuruh v4 membaca berkas konfigurasi gaya v3 yang sudah kamu punya, sehingga seluruh token dan plugin di sana tetap berlaku. Perhatikan urutannya — `@import` lebih dulu, `@config` sesudahnya. Gunanya bukan supaya kamu tetap memakai v3 selamanya, melainkan supaya **upgrade tidak harus dilakukan sekaligus**: kamu bisa naik ke v4 hari ini, menikmati build yang lebih cepat, lalu memindahkan token ke blok `@theme` sedikit demi sedikit. Untuk project baru, baris ini tidak diperlukan sama sekali.',
+      ),
 
       h2('Memeriksa pemasangan'),
       code('html', `<div class="bg-red-500 p-4 text-white">Kalau ini merah, Tailwind aktif</div>`),
@@ -325,6 +334,9 @@ export const lessons: LessonDraft[] = [
         };
         <div className={KELAS[warna]} />
         `,
+      ),
+      p(
+        'Penyebabnya disebut di kotak peringatan dan layak diulang karena tidak terduga: **Tailwind memindai teks berkas sumbermu, ia tidak menjalankan kodemu.** Jadi ia mencari kemunculan `bg-red-500` sebagai rangkaian karakter utuh. Pada versi SALAH, yang ada di berkas hanyalah `bg-` dan `-500` yang dipisah interpolasi — string `bg-red-500` tidak pernah muncul, sehingga class itu tidak pernah dihasilkan dan elemennya tampil tanpa warna sama sekali. Versi BENAR membalik arahnya: **seluruh nama class ditulis lengkap** di objek `KELAS`, sehingga pemindai menemukannya, dan yang dinamis tinggal pemilihan kuncinya saat program berjalan. Pola yang sama berlaku untuk semua utility, bukan hanya warna — `text-${ukuran}` dan `grid-cols-${n}` gagal karena alasan yang persis sama.',
       ),
 
       divider,
@@ -458,6 +470,9 @@ export const lessons: LessonDraft[] = [
         <div class="text-primary">          <!-- token milik project ini -->
         `,
       ),
+      p(
+        'Perhatikan komentar di tiap baris menyebut nilai `rem`-nya, dan angkanya mengikuti satu pola: **satuannya 0,25rem alias 4px.** Jadi `p-4` berarti empat langkah, yaitu 1rem; `gap-2` berarti dua langkah, 0,5rem. Mengetahui rumus itu membuat kamu tidak perlu menghafal tabel — dan sekaligus menjelaskan kenapa `p-3` dan `p-5` ada tapi `p-4.5` tidak: skalanya sengaja dibatasi supaya semua jarak di aplikasi berasal dari kelipatan yang sama. Baris `px-6 py-3` menunjukkan penulisan singkat yang paling sering dipakai — `x` untuk kiri-kanan, `y` untuk atas-bawah — dan `gap-2` sengaja disebut khusus karena ia **hanya bekerja pada flex atau grid**, tidak pada elemen biasa.',
+      ),
       callout(
         'danger',
         'Jangan pakai palet bawaan Tailwind di project sungguhan',
@@ -489,6 +504,9 @@ export const lessons: LessonDraft[] = [
         `
         <div class="top-[117px] w-[calc(100%-2rem)] bg-[#1da1f2]">
         `,
+      ),
+      p(
+        'Kurung siku adalah cara Tailwind menerima nilai yang **tidak ada di skala mana pun** — dan ketiga contoh sengaja dipilih karena masing-masing punya alasan yang sah. `top-[117px]` untuk menyelaraskan dengan tinggi header pihak ketiga yang angkanya memang ganjil; `w-[calc(100%-2rem)]` untuk perhitungan yang tidak bisa dinyatakan skala apa pun; `bg-[#1da1f2]` untuk warna merek eksternal yang memang bukan milik paletmu. Perhatikan sintaksnya tetap mengikuti nama utility biasa, hanya nilainya yang dikurung. Seperti kata kotak berikut, ini **pintu darurat**: kalau kamu menulis nilai sembarang yang sama lebih dari sekali, itu tanda ia sudah menjadi bagian dari sistemmu dan seharusnya diangkat jadi token.',
       ),
       callout(
         'warning',
@@ -638,6 +656,9 @@ export const lessons: LessonDraft[] = [
         </div>
         `,
       ),
+      p(
+        'Tiga pola pertama menutup sebagian besar kebutuhan sehari-hari. `flex items-center justify-between` adalah resep navbar: `items-center` menyejajarkan secara vertikal, `justify-between` mendorong isinya ke dua ujung. `flex-col` memutar arahnya menjadi menumpuk ke bawah — dan perhatikan `gap` tetap bekerja di kedua arah. `flex-wrap` mengizinkan isi turun baris saat ruangnya habis, sesuatu yang **tidak** terjadi secara bawaan. Blok terakhir adalah pola sidebar yang paling sering dipakai, dan tiga class di dalamnya bekerja bersama: `w-64` menetapkan lebar sidebar, `shrink-0` mencegahnya menyusut saat konten mendesak, dan `flex-1` menyuruh konten mengisi sisa ruang. `min-w-0` yang menyertainya dijelaskan di kotak berikut — ia perbaikan yang paling sering dibutuhkan dan paling jarang diketahui.',
+      ),
       callout(
         'danger',
         '`min-w-0` adalah perbaikan yang paling sering dibutuhkan',
@@ -652,6 +673,9 @@ export const lessons: LessonDraft[] = [
         <!-- Bekerja -->
         <div class="flex"><span class="min-w-0 truncate">teks sangat panjang…</span></div>
         `,
+      ),
+      p(
+        'Kedua baris ini memakai `truncate` yang sama, tapi hanya yang kedua benar-benar memotong teksnya. Sebabnya persis seperti dijelaskan kotak di atas: `truncate` bekerja dengan menyembunyikan luapan teks, dan itu hanya mungkin kalau elemennya **boleh lebih sempit dari isinya**. Pada baris pertama, `min-width: auto` bawaan membuat span menolak menyusut, jadi ia justru melebar sampai seluruh teks muat — dan layout ikut melebar bersamanya. Gejalanya khas dan mudah dikenali: halaman tiba-tiba bisa di-scroll ke samping padahal tidak ada elemen yang jelas-jelas kelebaran. Kalau kamu menemuinya, `min-w-0` pada anak flex adalah tersangka pertama.',
       ),
 
       h2('Grid'),
@@ -677,13 +701,19 @@ export const lessons: LessonDraft[] = [
         </div>
         `,
       ),
+      p(
+        'Perbedaan mendasar dari flex terlihat di sini: pada grid, **jumlah dan lebar kolom ditentukan induknya**, bukan disepakati anak-anaknya. `grid-cols-3` membagi ruang jadi tiga bagian sama besar. Pola kedua menerapkan *mobile-first* dari sub-bab responsif — satu kolom sebagai dasar, lalu `md:` dan `lg:` menambah kolom saat layarnya melebar. `grid-cols-[280px_1fr]` menunjukkan nilai sembarang untuk grid, dan tanda **garis bawah** di sana penting: ia menggantikan spasi, karena nama class tidak boleh mengandung spasi. Artinya kolom pertama tepat 280px dan kolom kedua mengambil sisanya. Pola terakhir memakai `col-span-2` pada anaknya — satu-satunya tempat anak grid ikut menentukan, yaitu **berapa kolom yang ia tempati**.',
+      ),
 
       h2('Grid responsif tanpa breakpoint'),
       code(
         'html',
         `
-        <div class="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]">
+        <div class="grid gap-4 grid-cols-[repeat(auto-fill,minmax(240px,1fr))]">
         `,
+      ),
+      p(
+        'Bagian dalam kurung siku itu adalah CSS grid biasa, dan dua fungsinya bekerja berpasangan. `minmax(240px, 1fr)` berkata "tiap kolom minimal 240px, tapi boleh melar mengisi ruang". `auto-fill` berkata "buat sebanyak mungkin kolom yang muat". Gabungannya membuat browser sendiri yang menghitung: di layar 800px muat tiga kolom, di layar 500px hanya dua, dan di ponsel satu — **tanpa satu pun breakpoint yang kamu tulis**. Perhatikan bentuk yang dipakai adalah `grid-cols-[…]`, bukan `[grid-template-columns:…]`; keduanya menghasilkan CSS yang sama, tapi yang pertama lebih pendek dan mengikuti penamaan utility lain. Kelemahannya perlu disadari: karena breakpoint-nya ditentukan lebar wadah, kamu kehilangan kendali atas jumlah kolom di ukuran tertentu — untuk itu `md:grid-cols-2` yang eksplisit tetap lebih tepat.',
       ),
       p(
         'Kolom menyesuaikan sendiri berdasarkan ruang yang tersedia — tanpa satu pun `md:` atau `lg:`. Berguna untuk galeri kartu yang jumlahnya berubah-ubah.',
@@ -824,6 +854,9 @@ export const lessons: LessonDraft[] = [
         <!--        ^default   ^≥768px    ^≥1024px -->
         `,
       ),
+      p(
+        'Baris komentar di bawahnya menunjukkan hal yang paling sering disalahpahami pemula: `text-sm` **tanpa prefix bukan berarti "khusus mobile"** — ia berlaku di semua ukuran layar, termasuk desktop. Prefix `md:` dan `lg:` hanya **menimpanya** mulai lebar tertentu ke atas. Jadi urutan bacanya seperti lapisan: mulai dari yang paling dasar, lalu tiap prefix menambahkan pengecualian untuk layar yang lebih lebar. Itulah arti *mobile-first*, dan ia bukan sekadar gaya penulisan — karena class tanpa prefix selalu jadi dasarnya, tampilan di ponsel adalah yang **pasti bekerja**, sementara tampilan desktop adalah penyempurnaan di atasnya.',
+      ),
       callout(
         'info',
         'Prefix berarti "dan ke atas"',
@@ -864,6 +897,9 @@ export const lessons: LessonDraft[] = [
         <div class="md:hidden">Hanya layar kecil</div>
         `,
       ),
+      p(
+        'Kedua baris ini bekerja berpasangan dan sering dipakai bersama — misalnya navigasi penuh di desktop dan tombol hamburger di ponsel. Baris pertama dibaca "sembunyikan sebagai dasar, tampilkan mulai `md`"; baris kedua kebalikannya, "tampil sebagai dasar, sembunyikan mulai `md`". Perhatikan yang pertama butuh **dua** class sedangkan yang kedua cukup satu, karena elemen memang tampil secara bawaan. Peringatan di kotak berikut layak diperhatikan sebelum memakainya untuk konten besar: `hidden` hanya `display: none`, jadi elemennya tetap ada di DOM dan gambarnya tetap diunduh — menyembunyikan galeri gambar dengan cara ini tidak menghemat apa pun bagi pengguna ponsel.',
+      ),
       callout(
         'warning',
         '`hidden` tetap merender elemennya',
@@ -880,6 +916,9 @@ export const lessons: LessonDraft[] = [
         <!-- BENAR: ubah saat layoutnya mulai terlihat buruk -->
         <!-- Kecilkan jendela perlahan. Di titik mana ia mulai jelek? Di situ breakpoint-nya. -->
         `,
+      ),
+      p(
+        'Blok ini sengaja hanya berisi komentar, karena yang diajarkan bukan sintaks melainkan **cara memutuskan**. Memilih breakpoint berdasarkan nama perangkat sudah tidak masuk akal sejak lama: ukuran layar ponsel dan tablet saling tumpang tindih, jendela browser di desktop bisa dilebarkan sesuka hati, dan daftar perangkat berubah tiap tahun. Cara yang bertahan adalah yang disebut di baris terakhir — kecilkan jendela perlahan sambil melihat, dan pasang breakpoint **tepat di titik desainnya mulai terlihat buruk**. Hasilnya sering tidak jatuh persis di `md` atau `lg`, dan itu tidak apa-apa; nilai sembarang seperti `min-[840px]:` sah dipakai justru untuk kasus ini.',
       ),
 
       h2('Container query — responsif terhadap wadah'),
@@ -1007,6 +1046,9 @@ export const lessons: LessonDraft[] = [
         <a class="text-muted visited:text-faint">
         `,
       ),
+      p(
+        'Bacalah tiap baris sebagai "tambahkan style ini **hanya** saat keadaan ini terjadi". `hover:bg-raised` berarti "ganti warna latar jadi `raised` hanya ketika kursor berada di atas tombol"; begitu kursornya pindah, style-nya lepas otomatis — kamu tidak perlu menulis kode JavaScript apa pun untuk memasang dan melepasnya. `active:scale-98` berlaku hanya **selama** tombol sedang ditekan (antara mouse-down dan mouse-up), memberi efek "mengecil sedikit" yang terasa responsif. `disabled:opacity-50` otomatis aktif kalau elemennya punya atribut HTML `disabled` — bukan class yang kamu tambahkan manual, tapi keadaan sungguhan dari elemennya. Prinsip yang sama berlaku untuk semua variant di sub-bab ini: nama sebelum titik dua adalah **syaratnya**, dan utility sesudahnya hanya berlaku kalau syarat itu terpenuhi.',
+      ),
 
       h2('`focus-visible`, bukan `focus`'),
       code(
@@ -1018,6 +1060,9 @@ export const lessons: LessonDraft[] = [
         <!-- Ring hanya muncul untuk navigasi keyboard — benar -->
         <button class="focus-visible:ring-2 focus-visible:ring-primary">
         `,
+      ),
+      p(
+        'Perbedaan `focus` dan `focus-visible` adalah **siapa yang memicunya**. `focus` aktif setiap kali elemen mendapat fokus, termasuk saat diklik mouse — dan cincin yang muncul setelah klik terasa mengganggu, yang membuat banyak orang lalu menghapusnya sama sekali. `focus-visible` menyerahkan keputusan itu ke browser: ia hanya aktif kalau browser menyimpulkan pengguna sedang **bernavigasi dengan keyboard**. Jadi pengguna mouse tidak melihat cincinnya, pengguna keyboard tetap tahu posisinya, dan tidak ada alasan tersisa untuk menghapus penanda fokus — persis kesalahan yang diperingatkan kotak berikut.',
       ),
       callout(
         'danger',
@@ -1038,6 +1083,9 @@ export const lessons: LessonDraft[] = [
         </a>
         `,
       ),
+      p(
+        'Class `group` pada elemen induk adalah **penanda**, bukan gaya — ia tidak mengubah tampilan apa pun. Gunanya memberi anak-anaknya sesuatu untuk dirujuk lewat `group-hover:`. Itu menyelesaikan hal yang mustahil dengan `hover:` biasa: `hover:` hanya bereaksi saat elemen **itu sendiri** yang di-hover, sedangkan di sini panah dan label "Baru" harus berubah saat **seluruh tautannya** disentuh, bukan hanya bagian kecil itu. Perhatikan `opacity-0` yang berpasangan dengan `group-hover:opacity-100` — pola menyembunyikan lalu memunculkan, dan penting memakai opacity alih-alih `hidden` supaya elemennya sudah menempati ruang sejak awal dan tata letak tidak melompat saat muncul.',
+      ),
       callout(
         'tip',
         'Selalu pasangkan `group-hover` dengan `group-focus-visible`',
@@ -1053,6 +1101,9 @@ export const lessons: LessonDraft[] = [
           </div>
         </div>
         `,
+      ),
+      p(
+        'Nama setelah garis miring (`group/kartu`, `group/baris`) memberi **nama** pada penanda `group`-nya, karena begitu ada dua `group` bersarang, `group-hover:` polos akan membingungkan — ia bereaksi ke `group` terdekat mana? Dengan nama, `group-hover/kartu:text-primary` secara eksplisit berarti "bereaksi saat `group/kartu` di-hover", terlepas dari `group/baris` yang ada di antaranya. Tanpa penamaan ini, memberi efek berbeda untuk hover kartu versus hover baris di dalamnya menjadi tidak mungkin dengan satu elemen `span` yang sama.',
       ),
 
       h2('`peer` — bereaksi pada elemen sebelumnya'),
@@ -1089,6 +1140,9 @@ export const lessons: LessonDraft[] = [
         <div class="motion-reduce:transition-none">
         <div class="print:hidden">
         `,
+      ),
+      p(
+        'Beberapa dari varian ini menjawab kebutuhan yang sangat spesifik. `first:`/`last:`/`odd:` mengikuti **posisi** elemen di antara saudara-saudaranya — berguna untuk daftar yang butuh garis-warna selang-seling atau menghapus border pada baris terakhir, tanpa perlu menandai baris mana yang "terakhir" lewat JavaScript. `empty:hidden` memeriksa apakah elemen **tidak punya konten sama sekali** — cocok untuk kotak komentar atau catatan opsional yang seharusnya tidak menampilkan kotak kosong kalau isinya belum diisi. `motion-reduce:transition-none` menghormati preferensi sistem operasi "kurangi gerak" (`prefers-reduced-motion`) yang dibahas di Bab 4 Frontend Basic — dan `print:hidden` menyembunyikan elemen (seperti tombol atau navigasi) hanya saat halaman dicetak, karena elemen interaktif itu tidak berguna di atas kertas.',
       ),
 
       h2('Menyusun beberapa variant'),
@@ -1194,6 +1248,10 @@ export const lessons: LessonDraft[] = [
         /* Bawaan: mengikuti pengaturan sistem, pengguna tidak bisa memilih */
         @import 'tailwindcss';
         `,
+        { caption: 'Tanpa konfigurasi apa pun, `dark:` sudah bekerja — mengikuti setelan OS.' },
+      ),
+      p(
+        'Perbedaan kedua strategi ini bukan soal tampilan melainkan **siapa yang memutuskan**. Bawaan Tailwind mengikat `dark:` ke media query `prefers-color-scheme`, sehingga temanya sepenuhnya ditentukan setelan sistem operasi — cukup untuk banyak situs, dan tidak butuh satu baris konfigurasi pun. Strategi kedua memindahkan keputusan itu ke penggunamu, dan harganya disebut di kotak istilah: kamu jadi bertanggung jawab menyimpan pilihannya dan menerapkannya kembali setiap halaman dimuat. Sub-bab ini memakai strategi kedua karena itulah yang dipakai website ini, tapi pilihlah yang pertama kalau aplikasimu tidak benar-benar butuh tombol ganti tema — ia lebih sedikit yang bisa rusak.',
       ),
       code(
         'css',
@@ -1211,6 +1269,9 @@ export const lessons: LessonDraft[] = [
         `
         <div class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">
         `,
+      ),
+      p(
+        'Baris `@custom-variant dark (&:where(.dark, .dark *))` mendefinisikan ulang **kapan** varian `dark:` berlaku: alih-alih mengikuti media query `prefers-color-scheme` bawaan, ia mengaktifkan `dark:` setiap kali elemennya sendiri atau salah satu leluhurnya (`.dark *`) punya class `.dark`. Ini yang memungkinkan pengaturan tema di halaman ini — tombol yang menambah/menghapus class `.dark` di `<html>` — untuk **mengalahkan** apa pun yang di-set sistem operasi pengguna. Class `dark:bg-slate-900` pada contoh HTML hanya aktif saat class `.dark` itu ada di salah satu leluhurnya; tanpa `@custom-variant`, ia akan selalu mengikuti pengaturan OS dan tidak bisa ditimpa manual.',
       ),
 
       h2('Cara yang lebih baik: token semantik'),
@@ -1259,6 +1320,9 @@ export const lessons: LessonDraft[] = [
         </script>
         `,
         { filename: 'Di dalam <head>, sebelum CSS' },
+      ),
+      p(
+        "Baca variabel `gelap` sebagai satu keputusan dengan tiga tingkat prioritas. Kalau pengguna **pernah memilih** tema secara eksplisit — tersimpan sebagai `'dark'` di `localStorage` — pilihan itu yang menang, apa pun pengaturan sistemnya. Kalau belum pernah memilih (`pilihan` bukan `'dark'` dan bukan `'light'`, biasanya `null` di kunjungan pertama), baris kedua kondisi (`pilihan !== 'light' && window.matchMedia(...)`) baru dicek: ikuti pengaturan sistem operasi lewat `prefers-color-scheme`. `document.documentElement.classList.toggle('dark', gelap)` lalu menambah atau menghapus class `dark` pada `<html>` sesuai hasil boolean `gelap` — argumen kedua pada `toggle` inilah yang membuatnya bisa dipakai untuk memaksa keadaan tertentu, bukan sekadar membalik keadaan sebelumnya. Blok `try/catch` kosong menjaga skrip tidak crash kalau `localStorage` diblokir (mode privat ketat pada beberapa browser) — kalau itu terjadi, halaman diam-diam jatuh kembali ke pengaturan sistem.",
       ),
       callout(
         'danger',
@@ -1438,6 +1502,9 @@ export const lessons: LessonDraft[] = [
         `,
         { filename: 'globals.css', caption: 'Pola yang dipakai website ini.' },
       ),
+      p(
+        'Perhatikan susunannya **dua lapis**, dan itu yang membuat pergantian tema bekerja tanpa satu pun class berubah. Lapis pertama adalah CSS custom property biasa: `:root` memegang nilai tema terang, `.dark` menimpanya dengan nilai tema gelap. Lapis kedua, blok `@theme inline`, **memetakan** variabel itu menjadi utility Tailwind — dari `--color-bg` lahir `bg-bg`, dari `--color-text` lahir `text-text`. Karena pemetaannya menunjuk `var(--bg)` alih-alih menyalin nilainya, mengganti class `.dark` di `<html>` seketika mengubah seluruh tampilan. Kata `inline` itulah kuncinya, dan kotak berikut menjelaskan apa yang terjadi tanpanya.',
+      ),
       callout(
         'info',
         'Kenapa `inline` yang dipakai',
@@ -1472,6 +1539,9 @@ export const lessons: LessonDraft[] = [
           --color-text: #191713;
         }
         `,
+      ),
+      p(
+        'Kedua blok memakai `@theme` yang sama tapi berperilaku berlawanan. Blok pertama **menambah**: `--color-merek` menghasilkan utility `bg-merek`, `text-merek`, dan seterusnya, sementara seluruh palet bawaan Tailwind tetap tersedia. Blok kedua memakai `--color-*: initial` yang **menghapus seluruh namespace warna** lebih dulu, sehingga hanya warna yang kamu definisikan setelahnya yang ada. Perhatikan tanda bintang di sana adalah wildcard untuk namespace, dan pola yang sama berlaku untuk `--spacing-*` maupun `--font-*`. Efeknya disebut di kotak berikut dan layak dipertimbangkan serius: setelah palet bawaan dibuang, `bg-indigo-500` menjadi **error saat build**, bukan sekadar sesuatu yang harus ditangkap reviewer.',
       ),
       callout(
         'tip',
@@ -1612,6 +1682,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        '`@apply` menyalin utility ke dalam class CSS bernama — dan sekilas itu terasa seperti jalan tengah yang ideal: menulis utility, memakainya sebagai class biasa. Masalahnya, yang kamu hasilkan **adalah class CSS bernama**, lengkap dengan seluruh kerugiannya dari awal bab ini: `.tombol` tidak bisa dihapus dengan yakin karena kamu tidak tahu di mana saja ia dipakai, dan mengubahnya bisa merusak halaman yang tidak kamu buka sejak lama. Jadi kamu menukar satu kerugian dengan kerugian yang sama, plus satu lapisan tambahan. `@layer components` di sana menempatkannya pada lapisan yang benar sehingga utility tetap bisa menimpanya — tapi itu memperbaiki urutan, bukan masalah pokoknya.',
+      ),
       callout(
         'warning',
         'Kalau kamu membangun `.btn`, `.card`, `.badge` — kamu kembali ke titik awal',
@@ -1625,6 +1698,9 @@ export const lessons: LessonDraft[] = [
         .prose-lesson code { @apply rounded-sm border border-code-border px-1; }
         `,
         { caption: 'Persis alasan website ini memakainya untuk kelas `prose-lesson`.' },
+      ),
+      p(
+        'Inilah kasus di mana `@apply` memang jawabannya, dan komentarnya menyebut syaratnya: **HTML yang bukan milikmu.** Materi di halaman ini dirender dari data menjadi `<h2>` dan `<code>` biasa — tidak ada tempat untuk menempelkan `className`, karena kamu tidak menulis tag-nya satu per satu. Selektor turunan seperti `.prose-lesson h2` menyelesaikan itu: satu class di pembungkus, lalu seluruh elemen di dalamnya ikut tergaya. Pola yang sama berlaku untuk keluaran Markdown, konten dari CMS, dan HTML dari editor teks kaya. Perhatikan pembedanya bukan "apakah stylenya berulang", melainkan **apakah kamu punya akses ke elemennya** — kalau punya, komponen selalu lebih tepat.',
       ),
 
       h2('`cva` untuk varian'),
@@ -1659,6 +1735,12 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        '`cva` menerima dua bagian, dan pembagiannya jelas. Argumen pertama adalah class **dasar** yang berlaku untuk semua varian — bentuk, tipografi, transisi, dan cincin fokus. Argumen kedua berisi `variants`, tempat tiap dimensi punya daftar pilihannya sendiri: `varian` mengatur warna, `ukuran` mengatur tinggi dan padding. Karena keduanya dimensi terpisah, mereka bisa dikombinasikan bebas tanpa kamu menulis satu pun kombinasinya. `defaultVariants` menutup celah terakhir: `<Tombol>` tanpa prop apa pun tetap menghasilkan tombol yang benar.',
+      ),
+      p(
+        "Dua baris terakhir menghubungkannya ke React. `VariantProps<typeof tombol>` **menurunkan tipe** dari konfigurasi di atasnya — jadi `varian` otomatis bertipe `'utama' | 'sekunder' | 'hantu'` tanpa kamu menuliskannya lagi, dan menambah varian baru di `cva` langsung memperbarui tipenya. Perhatikan juga `className` ikut dioper ke dalam `tombol({ ... })`, bukan digabung terpisah: `cva` sudah menempatkannya di urutan paling akhir supaya pemanggil bisa menimpa gaya bawaan. Ini penerapan pola \"warisi, keluarkan yang perlu digabung, teruskan sisanya\" dari Bab 3, dengan `cva` mengambil alih bagian tengahnya.",
+      ),
       callout(
         'tip',
         'Keuntungan yang tidak terlihat dari `cva`',
@@ -1679,6 +1761,9 @@ export const lessons: LessonDraft[] = [
         twMerge('text-red-500', undefined); // 'text-red-500'
         `,
       ),
+      p(
+        'Komentar pertama menyebut sesuatu yang mengejutkan: pada `className="p-4 p-8"`, yang menang **bukan** yang ditulis belakangan. CSS tidak melihat urutan di atribut `class`; ia melihat urutan aturan di berkas CSS-nya, dan urutan itu ditentukan Tailwind saat build. Jadi hasilnya bisa `p-4` maupun `p-8` tergantung bagaimana keduanya kebetulan tersusun — dan itulah arti "tidak bisa diprediksi". `twMerge` menyelesaikannya dengan **memahami arti tiap utility**: ia tahu `p-4` dan `p-8` mengatur properti yang sama lalu membuang yang lebih awal. Baris ketiga menunjukkan ia juga mengenali hubungan yang lebih halus — `p-4` mencakup `px-2`, jadi yang lama dibuang meski namanya berbeda. Baris terakhir menandai ia aman menerima `undefined`.',
+      ),
       code(
         'tsx',
         `
@@ -1692,6 +1777,9 @@ export const lessons: LessonDraft[] = [
         // Sekarang pemanggil bisa menimpa dengan hasil yang bisa diprediksi
         <Kartu className="p-8" />
         `,
+      ),
+      p(
+        'Fungsi `cn` menggabungkan dua alat yang menyelesaikan masalah berbeda, dan **urutannya penting**: `clsx` dijalankan lebih dulu di dalam, `twMerge` di luar. `clsx` mengurus penggabungan kondisional — membuang `false`, `null`, dan `undefined`, lalu menyatukan sisanya jadi satu string. `twMerge` baru menerima string itu dan menyelesaikan konflik di dalamnya. Membaliknya tidak akan bekerja, karena `twMerge` mengharapkan string, bukan objek atau boolean. Tipe `ClassValue` dari `clsx` yang dipakai di parameter membuat `cn` menerima semua bentuk masukan yang didukungnya. Setelah ini, `<Kartu className="p-8" />` berperilaku persis seperti dugaan pemanggil — dan seperti kata kotak berikut, project ini sendiri tidak membutuhkannya.',
       ),
       callout(
         'info',
@@ -1855,6 +1943,9 @@ export const lessons: LessonDraft[] = [
         `,
         { caption: 'Token motion project ini.' },
       ),
+      p(
+        'Motion ikut ditokenkan seperti warna dan spacing, dan alasannya sama: animasi yang terasa berbeda-beda antar komponen hampir selalu berasal dari nilai yang ditulis ad-hoc di tiap tempat. Komentarnya menyebut kenapa easing bawaan tidak dipakai — `ease-out` standar CSS terlalu lembut untuk terbaca sebagai keputusan desain. Kurva `cubic-bezier(0.23, 1, 0.32, 1)` melesat cepat di awal lalu melambat panjang di akhir, dan itu yang membuat sebuah elemen terasa "tiba" alih-alih sekadar bergeser. Perhatikan ada easing terpisah untuk drawer: elemen besar yang menempuh jarak jauh butuh kurva yang berbeda dari tooltip kecil. Setelah didefinisikan di `@theme`, keduanya langsung tersedia sebagai `ease-out-ui` dan `duration-fast` di utility.',
+      ),
 
       h2('Animasi bawaan dan kustom'),
       code(
@@ -1877,6 +1968,9 @@ export const lessons: LessonDraft[] = [
           to   { opacity: 1; transform: translateY(0); }
         }
         `,
+      ),
+      p(
+        'Pola ini butuh **dua bagian yang saling melengkapi**. `@keyframes masuk` mendefinisikan gerakannya dalam CSS biasa, dan `--animate-masuk` di `@theme` mendaftarkannya ke Tailwind sehingga lahir utility `animate-masuk`. Perhatikan nilai token itu memuat tiga hal sekaligus — nama keyframe, durasi, dan easing — jadi seluruh keputusan motion tetap terkumpul di satu tempat, dan easing-nya memakai token dari bagian sebelumnya alih-alih nilai baru. Isi keyframenya sendiri menerapkan aturan di awal sub-bab: hanya `opacity` dan `transform` yang dianimasikan, tidak ada `height` maupun `margin`. Peringatan di kotak berikut menentukan kapan pola ini tepat: keyframe cocok untuk sesuatu yang muncul sekali, bukan untuk elemen yang bisa dipicu berulang cepat.',
       ),
       callout(
         'warning',
@@ -1904,6 +1998,9 @@ export const lessons: LessonDraft[] = [
           }
         }
         `,
+      ),
+      p(
+        'Blok CSS ini lebih tepat daripada varian `motion-reduce:` di atasnya untuk satu alasan praktis: ia berlaku **untuk seluruh halaman sekaligus**, sedangkan varian per-elemen menuntut kamu mengingatnya di setiap tempat — dan yang terlewat tidak akan ketahuan. Bagian yang paling layak diperhatikan adalah baris `transition-property`: ia **tidak mematikan semua transisi**, melainkan mempersempitnya menjadi warna dan opacity saja. Itu sesuai maksud spesifikasinya — yang menyebabkan ketidaknyamanan adalah perpindahan posisi, bukan perubahan warna, dan mematikan seluruh umpan balik justru membuat antarmuka terasa rusak. `animation-duration: 0.01ms` dipakai alih-alih `0` karena nilai nol pada sebagian browser membuat event `animationend` tidak pernah terpicu, sehingga kode yang menunggu animasi selesai akan menggantung.',
       ),
       callout(
         'info',
@@ -2045,6 +2142,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Kedua blok menyelesaikan hal yang sama dari dua arah, dan sebaiknya kamu pilih salah satu. Blok pertama memakai utility per-elemen: `ring-2` menggambar cincin, `ring-primary` mewarnainya dengan token, dan `ring-offset-2` memberi jarak dari tepinya supaya cincin tetap terbaca di atas latar apa pun. Blok kedua memasang aturan `:focus-visible` **sekali di `globals.css`** sehingga berlaku untuk seluruh elemen yang bisa difokus — termasuk yang lupa kamu beri class. Untuk aplikasi sungguhan, pendekatan global hampir selalu lebih aman: cacat aksesibilitas yang paling umum bukan cincin yang salah warna, melainkan **cincin yang lupa dipasang** di satu tombol yang jarang disentuh.',
+      ),
       callout(
         'danger',
         'Uji ini sekarang di project apa pun yang sedang kamu buat',
@@ -2075,6 +2175,9 @@ export const lessons: LessonDraft[] = [
         'warning',
         '`sr-only` bukan `hidden`',
         '`hidden` menghapus elemen dari **semua** pengguna, termasuk screen reader. `sr-only` menyembunyikannya secara visual tapi tetap membacakannya. Memakai `hidden` untuk label adalah menghapus labelnya.',
+      ),
+      p(
+        'Perhatikan rangkaian empat class pada tautan "Lompat ke konten": `sr-only` menyembunyikannya secara visual di keadaan normal, lalu `focus:not-sr-only` **membatalkan** penyembunyian itu tepat saat elemennya difokuskan (biasanya dengan menekan Tab pertama kali di halaman), dan `focus:absolute focus:top-4 focus:left-4` memposisikannya di pojok kiri atas layar begitu ia muncul — supaya tidak mendorong tata letak lain saat tiba-tiba terlihat. Hasilnya: pengguna mouse tidak pernah melihat tautan ini sama sekali, tapi pengguna keyboard yang menekan Tab pertama kali langsung melihatnya muncul, dan bisa menekan Enter untuk melompati seluruh menu navigasi.',
       ),
 
       h2('Kontras'),
@@ -2118,6 +2221,9 @@ export const lessons: LessonDraft[] = [
         <button class="h-11 w-11">          <!-- 44×44px -->
         <a class="-m-2 p-2">                <!-- perbesar area tanpa mengubah tampilan -->
         `,
+      ),
+      p(
+        'Trik `-m-2 p-2` berguna untuk ikon kecil yang **tampilan visualnya** harus tetap mungil tapi **area yang bisa disentuh** perlu diperbesar ke ukuran minimum 44×44px. `p-2` menambah padding di sekeliling ikon, memperluas area klik/sentuhnya; `-m-2` (margin negatif dengan besaran yang sama) menarik elemennya kembali ke posisi visual semula, sehingga padding tambahan tadi tidak mendorong elemen lain di sekitarnya menjauh. Hasil akhirnya: ikon terlihat sama persis seperti sebelumnya, tapi area yang bisa ditekan jari di layar sentuh jauh lebih besar dari sekadar ukuran ikonnya.',
       ),
 
       h2('Checklist sepuluh menit'),
@@ -2273,6 +2379,9 @@ export const lessons: LessonDraft[] = [
         `,
         { filename: 'globals.css' },
       ),
+      p(
+        'Perhatikan **tidak satu pun token dinamai menurut warnanya** — tidak ada `--krem` atau `--coklat`. Semuanya dinamai menurut peran: `bg` untuk latar halaman, `surface` untuk permukaan kartu, `raised` untuk permukaan yang lebih tinggi. Itulah yang membuat blok `.dark` di bawahnya bisa membalik seluruh nilainya tanpa satu nama pun jadi berbohong. Perhatikan juga urutan kecerahannya **terbalik** di tema gelap: di terang, `surface` lebih terang dari `bg`; di gelap, ia justru lebih terang dari latar yang hampir hitam. Itu penerapan konsep *elevation* dari kotak istilah — karena bayangan hampir tidak terlihat di tema gelap, kedalaman ditunjukkan lewat latar yang lebih terang. Dan komentar angka kontras di `--primary` adalah kebiasaan yang layak ditiru: mencatat hasil pengukuran di sebelah nilainya, supaya tidak ada yang mengubahnya tanpa mengukur ulang.',
+      ),
       callout(
         'warning',
         'Hitung kontras SEBELUM melanjutkan',
@@ -2362,6 +2471,9 @@ export const lessons: LessonDraft[] = [
         }, [terbuka]);
         `,
       ),
+      p(
+        "Effect ini menangani **tiga kewajiban overlay sekaligus**, dan tiap bagiannya punya pasangan pembersihnya. Baris `if (!terbuka) return` di awal membuat seluruh isinya hanya berjalan saat drawer terbuka — sekaligus alasan `terbuka` masuk ke array dependensi. Listener `keydown` menangkap `Escape` di tingkat `document`, bukan pada drawernya, supaya ia bekerja di mana pun fokus berada. `document.body.style.overflow = 'hidden'` mengunci gulir halaman di belakangnya, dan blok `return` mengembalikan keduanya — melepas listener dan memulihkan gulir. Yang paling mudah terlupa adalah `pemicuRef.current?.focus()`: tanpa itu, menutup drawer membuat fokus terlempar ke awal dokumen, dan pengguna keyboard harus menekan Tab dari nol untuk kembali ke tempatnya.",
+      ),
       callout(
         'danger',
         'Tanpa pengembalian fokus, pengguna keyboard tersesat',
@@ -2415,6 +2527,9 @@ export const lessons: LessonDraft[] = [
           ))}
         </div>
         `,
+      ),
+      p(
+        'Baris ini menutup praktik dengan menerapkan mobile-first dari sub-bab responsif: **satu kolom sebagai dasar** — tidak ada `grid-cols-1` yang ditulis, karena grid memang satu kolom kalau tidak disebut — lalu `sm:grid-cols-2` dan `lg:grid-cols-3` menambah kolom saat ruangnya tersedia. `mx-auto max-w-6xl` menjaga isinya tetap terbaca di layar lebar dengan membatasi lebar lalu memusatkannya, dan `px-4` memberi napas di tepi layar sempit. Perhatikan `gap-4` mengurus jarak antar-kartu sepenuhnya — tidak ada `margin` di komponen `Kartu` itu sendiri, sehingga kartunya bisa dipakai di tata letak lain tanpa membawa jarak yang tidak diminta. Dan `key={i.id}` memakai identitas dari data, bukan indeks, sesuai aturan yang sudah dibahas di Bab 2.',
       ),
 
       checklist(

@@ -7,8 +7,10 @@ import {
   h2,
   ol,
   p,
+  references,
   steps,
   table,
+  terms,
   ul,
 } from '@/lib/content/builders';
 import { type LessonDraft, written } from '@/lib/curriculum/authoring';
@@ -32,6 +34,69 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Broken access control adalah kerentanan paling umum di aplikasi web. Ia menempati peringkat satu bukan karena sulit dicegah, melainkan karena **tidak menimbulkan gejala apa pun** — aplikasi yang bocor berperilaku persis seperti yang aman.',
+      ),
+
+      terms(
+        {
+          term: 'access control (kontrol akses)',
+          meaning:
+            'Aturan tentang **siapa boleh melakukan apa terhadap objek mana**. Berbeda dari autentikasi, yang hanya menjawab "siapa kamu". Membuktikan identitas tidak berarti berhak.',
+        },
+        {
+          term: 'broken access control',
+          meaning:
+            'Aturan itu ada di kepala pengembang tapi **tidak ditegakkan di kode**, atau ditegakkan hanya di sebagian jalur. Berbahaya karena tidak menimbulkan error — aplikasi terlihat berjalan normal sambil membocorkan data.',
+        },
+        {
+          term: 'OWASP',
+          meaning:
+            'Singkatan dari **Open Worldwide Application Security Project** — organisasi nirlaba yang menerbitkan daftar risiko keamanan aplikasi web berdasarkan data insiden nyata. Daftar "Top 10"-nya adalah rujukan industri.',
+        },
+        {
+          term: 'IDOR',
+          meaning:
+            '**Insecure Direct Object Reference** — id sumber daya dipakai langsung dari input pengguna tanpa memeriksa kepemilikan. Menaikkan `/faktur/1042` menjadi `/faktur/1043` adalah serangan lengkapnya; tidak butuh perkakas apa pun.',
+        },
+        {
+          term: 'escalation vertikal',
+          meaning:
+            'Pengguna biasa berhasil menjalankan aksi yang seharusnya khusus peran lebih tinggi — memanggil endpoint admin, misalnya.',
+        },
+        {
+          term: 'escalation horizontal',
+          meaning:
+            'Pengguna berhasil menyentuh data pengguna **lain di tingkat yang sama**. Peranmu tidak naik, tapi jangkauan datamu melebar.',
+        },
+        {
+          term: 'mass assignment',
+          meaning:
+            'Menyalin seluruh isi body permintaan ke objek yang disimpan. Penyerang cukup menambahkan `"peran": "admin"` ke body pembaruan profil, dan kolom itu ikut tersimpan.',
+        },
+        {
+          term: 'default deny',
+          meaning:
+            'Menyusun penjagaan sebagai daftar **yang boleh terbuka**, bukan daftar yang harus dijaga. Bedanya menentukan apakah rute baru yang lupa dijaga menjadi merepotkan atau membocorkan data.',
+        },
+        {
+          term: 'penjagaan di query',
+          meaning:
+            'Menempelkan syarat kepemilikan pada query itu sendiri (`WHERE ... AND penulis_id = $2`). Lapisan ini tidak bisa dilupakan pada endpoint kesepuluh, karena ia bagian dari cara datanya diambil.',
+        },
+        {
+          term: 'endpoint daftar (list) sebagai titik buta',
+          meaning:
+            'Pemeriksaan izin biasanya dipasang per objek — dan endpoint daftar tidak memanggilnya per baris. Policy yang lengkap tetap membocorkan seluruh tabel bila query-nya tidak disaring.',
+        },
+        {
+          term: '`404` alih-alih `403`',
+          meaning:
+            'Menjawab "tidak ditemukan" untuk sumber daya milik orang lain. `403` mengonfirmasi bahwa id itu **ada** — informasi yang bisa dipakai penyerang untuk memetakan data.',
+        },
+        {
+          term: 'tes parametrik',
+          meaning:
+            'Satu tes yang dijalankan berulang untuk banyak sumber daya sekaligus (`describe.each`). Ia membuat penjagaan otorisasi mustahil terlewat pada sumber daya yang ditambahkan belakangan.',
+        },
       ),
 
       h2('Bentuk-bentuknya'),
@@ -169,6 +234,33 @@ export const lessons: LessonDraft[] = [
         'Aturan yang dijaga tes bertahan; yang dijaga ingatan akan terlewat',
         'Kamu akan ingat memeriksa otorisasi pada endpoint pertama, kedua, dan kelima. Endpoint kesepuluh — yang ditambahkan buru-buru enam bulan kemudian — adalah yang bocor. Tes parametrik seperti di atas membuatnya mustahil terlewat.',
       ),
+
+      references(
+        {
+          label: 'A01:2021 — Broken Access Control',
+          href: 'https://owasp.org/Top10/A01_2021-Broken_Access_Control/',
+          source: 'OWASP',
+          note: 'Kategori peringkat satu beserta contoh skenario serangan dan pencegahannya.',
+        },
+        {
+          label: 'Authorization Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Praktik menegakkan otorisasi berlapis, termasuk prinsip default-deny.',
+        },
+        {
+          label: 'Insecure Direct Object Reference Prevention Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Insecure_Direct_Object_Reference_Prevention_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Pencegahan IDOR — kerentanan yang paling murah dieksploitasi dan paling sering ada.',
+        },
+        {
+          label: 'Authorization',
+          href: 'https://laravel.com/docs/12.x/authorization',
+          source: 'Laravel',
+          note: 'Gate dan Policy, termasuk peringatan bahwa endpoint daftar harus disaring di query.',
+        },
+      ),
     ],
   ),
 
@@ -180,6 +272,69 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Peringkat dua OWASP. Namanya menyesatkan: sebagian besar kasusnya bukan kriptografi yang dipecahkan, melainkan **kriptografi yang tidak dipakai** — data sensitif yang dikirim atau disimpan tanpa perlindungan sama sekali.',
+      ),
+
+      terms(
+        {
+          term: 'hash',
+          meaning:
+            'Perubahan **satu arah**: dari data menjadi sidik jari yang tidak bisa dikembalikan. Dipakai untuk password, karena sistem tidak pernah perlu membaca password aslinya — cukup membandingkan.',
+        },
+        {
+          term: 'enkripsi',
+          meaning:
+            'Perubahan **dua arah** dengan kunci: bisa dibuka kembali. Dipakai untuk data yang memang harus dibaca lagi, seperti NIK atau catatan medis. Kehilangan kuncinya berarti kehilangan datanya.',
+        },
+        {
+          term: 'at rest / in transit',
+          meaning:
+            'Dua keadaan data. **In transit** = sedang melintasi jaringan (dilindungi TLS); **at rest** = sedang tersimpan di disk atau backup (dilindungi enkripsi penyimpanan).',
+        },
+        {
+          term: 'TLS',
+          meaning:
+            '**Transport Layer Security** — protokol yang mengenkripsi koneksi jaringan. Penerus SSL; nama lamanya masih sering dipakai sehari-hari meski protokolnya sudah tidak ada.',
+        },
+        {
+          term: '`sslmode=verify-full`',
+          meaning:
+            'Mode koneksi PostgreSQL yang mengenkripsi **dan** memverifikasi bahwa sertifikat servernya benar. `require` hanya mengenkripsi — ia tidak membuktikan lawan bicaranya siapa.',
+        },
+        {
+          term: 'AES-256-GCM',
+          meaning:
+            'Algoritma enkripsi simetris mode **GCM**, yang selain menyembunyikan isi juga **mendeteksi perubahan**. Mode tanpa autentikasi seperti CBC membiarkan ciphertext diubah tanpa ketahuan.',
+        },
+        {
+          term: 'IV (initialization vector)',
+          meaning:
+            'Nilai acak yang membuat dua pesan identik menghasilkan ciphertext berbeda. Ia **bukan rahasia** dan disimpan bersama ciphertext — tapi tidak boleh dipakai ulang dengan kunci yang sama.',
+        },
+        {
+          term: 'auth tag',
+          meaning:
+            'Potongan data yang dihasilkan mode GCM untuk membuktikan ciphertext tidak diubah. Dekripsi akan **gagal** bila tag-nya tidak cocok — itulah gunanya.',
+        },
+        {
+          term: '`APP_KEY`',
+          meaning:
+            'Kunci enkripsi aplikasi Laravel. Cast `encrypted` bergantung penuh padanya: kehilangan `APP_KEY` berarti seluruh kolom terenkripsi tidak bisa dibaca lagi.',
+        },
+        {
+          term: 'redaction (penyensoran log)',
+          meaning:
+            'Menghapus nilai sensitif dari log berdasarkan jalur field-nya sebelum ditulis. Diperlukan karena log dibaca lebih banyak orang, disimpan lebih lama, dan sering dikirim ke pihak ketiga.',
+        },
+        {
+          term: 'CSPRNG',
+          meaning:
+            '**Cryptographically Secure Pseudo-Random Number Generator** — pembangkit acak yang keluarannya tidak bisa diprediksi. `crypto.randomBytes()` termasuk; `Math.random()` **tidak**.',
+        },
+        {
+          term: 'minimalisasi data',
+          meaning:
+            'Sengaja tidak mengumpulkan data yang tidak dibutuhkan. Kontrol paling efektif dalam bab ini, karena data yang tidak pernah disimpan tidak bisa bocor, tidak perlu dienkripsi, dan tidak menimbulkan kewajiban hukum.',
+        },
       ),
 
       h2('Klasifikasikan datamu dulu'),
@@ -325,6 +480,39 @@ export const lessons: LessonDraft[] = [
         '`Math.random()` tidak boleh untuk apa pun yang bersifat keamanan',
         'Ia tidak dirancang kriptografis — keluarannya bisa diprediksi dari beberapa nilai sebelumnya. Token reset password, id sesi, dan kunci idempotensi yang dibuat dengannya bisa ditebak. Selalu `crypto.randomBytes()` atau `crypto.randomUUID()`.',
       ),
+
+      references(
+        {
+          label: 'A02:2021 — Cryptographic Failures',
+          href: 'https://owasp.org/Top10/A02_2021-Cryptographic_Failures/',
+          source: 'OWASP',
+          note: 'Termasuk daftar algoritma yang sudah tidak layak pakai dan kesalahan penerapannya.',
+        },
+        {
+          label: 'Cryptographic Storage Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Pilihan algoritma, pengelolaan kunci, dan rotasinya untuk data at rest.',
+        },
+        {
+          label: 'Crypto — createCipheriv',
+          href: 'https://nodejs.org/api/crypto.html#cryptocreatecipherivalgorithm-key-iv-options',
+          source: 'Node.js',
+          note: 'API resmi enkripsi simetris di Node, termasuk penanganan IV dan auth tag GCM.',
+        },
+        {
+          label: 'Encryption',
+          href: 'https://laravel.com/docs/12.x/encryption',
+          source: 'Laravel',
+          note: 'Cara Laravel mengenkripsi kolom dan peran `APP_KEY` di dalamnya.',
+        },
+        {
+          label: 'SSL Support — libpq sslmode',
+          href: 'https://www.postgresql.org/docs/current/libpq-ssl.html',
+          source: 'PostgreSQL',
+          note: 'Perbedaan tegas antara `require`, `verify-ca`, dan `verify-full`.',
+        },
+      ),
     ],
   ),
 
@@ -336,6 +524,74 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Semua injeksi punya bentuk yang sama: masukan yang seharusnya menjadi **nilai** malah dibaca sebagai **perintah**. Perbaikannya juga sama bentuknya — pisahkan perintah dari datanya, jangan berusaha menyaring karakter.',
+      ),
+
+      terms(
+        {
+          term: 'injection (injeksi)',
+          meaning:
+            'Masukan yang seharusnya menjadi **nilai** ikut dibaca sebagai **perintah**. Bentuknya sama di SQL, NoSQL, shell, LDAP, dan template — hanya bahasanya yang berganti.',
+        },
+        {
+          term: 'parameterized query / prepared statement',
+          meaning:
+            'Query yang mengirim perintah dan nilainya lewat jalur **terpisah**, sehingga isi nilai tidak pernah bisa berubah menjadi sintaks SQL. Ini pertahanan intinya — bukan penyaringan karakter.',
+        },
+        {
+          term: '`$1`, `?`, placeholder',
+          meaning:
+            'Penanda posisi nilai di dalam query. `$1`/`$2` gaya PostgreSQL, `?` gaya MySQL dan Laravel. Nilainya menyusul sebagai array terpisah.',
+        },
+        {
+          term: 'identifier',
+          meaning:
+            'Nama tabel, nama kolom, atau arah pengurutan. Ia **tidak bisa diparameterkan** — karena itu harus dipetakan lewat allow-list milikmu sendiri, bukan diambil langsung dari input.',
+        },
+        {
+          term: 'allow-list',
+          meaning:
+            'Daftar nilai yang **boleh**, kebalikan dari blocklist. Selalu lebih aman, karena daftar hal buruk selalu tertinggal dari kreativitas penyerang.',
+        },
+        {
+          term: '`$queryRawUnsafe`',
+          meaning:
+            'Fungsi Prisma yang menjalankan SQL mentah **tanpa** parameterisasi. Namanya sengaja memuat "unsafe" — kemunculannya di kode adalah tanda yang harus diperiksa.',
+        },
+        {
+          term: 'NoSQL injection',
+          meaning:
+            'Body JSON menyelipkan **operator** query (`{"$ne": null}`) di tempat yang seharusnya berisi string. Query-nya berubah arti sepenuhnya, dan tidak ada karakter berbahaya yang bisa disaring.',
+        },
+        {
+          term: '`.strict()`',
+          meaning:
+            'Opsi skema Zod yang **menolak field tak dikenal**, bukan sekadar mengabaikannya. Ia menutup varian serangan yang menyelipkan properti tambahan ke dalam objek.',
+        },
+        {
+          term: 'command injection',
+          meaning:
+            'Input pengguna masuk ke perintah shell dan diurai sebagai sintaks shell. `; rm -rf /` yang tersisip di nama berkas menjadi perintah kedua yang sungguh dijalankan.',
+        },
+        {
+          term: '`execFile` vs `exec`',
+          meaning:
+            '`exec` menjalankan **satu string lewat shell** (rentan). `execFile` menerima **array argumen tanpa shell** — sehingga isi argumen tidak pernah bisa menjadi perintah baru.',
+        },
+        {
+          term: 'path traversal',
+          meaning:
+            'Menaiki direktori dengan `../` untuk menyentuh berkas di luar folder yang dimaksud. Punya banyak penyandian (`..%2f`, `....//`), jadi pertahanannya adalah **resolve lalu bandingkan**, bukan menyaring.',
+        },
+        {
+          term: 'XXE',
+          meaning:
+            '**XML External Entity** — parser XML disuruh memuat entitas dari luar, sehingga bisa membaca berkas server atau memicu permintaan jaringan. Cegah dengan mematikan entitas eksternal di parser.',
+        },
+        {
+          term: 'deserialisasi tidak aman',
+          meaning:
+            'Membangun kembali objek dari data tak tepercaya memakai format asli bahasa (`pickle`, `unserialize`, serialisasi Java, YAML full-load). Format-format itu bisa membangun objek sembarang — jalannya menuju eksekusi kode.',
+        },
       ),
 
       h2('SQL injection'),
@@ -500,6 +756,39 @@ export const lessons: LessonDraft[] = [
         '**Batas ukuran** — muatan injeksi sering panjang.',
         '**Pemantauan** — permintaan yang cocok dengan pola injeksi layak dicatat dan diberi alert.',
       ),
+
+      references(
+        {
+          label: 'A03:2021 — Injection',
+          href: 'https://owasp.org/Top10/A03_2021-Injection/',
+          source: 'OWASP',
+          note: 'Satu kategori yang mencakup SQL, NoSQL, perintah shell, LDAP, dan template.',
+        },
+        {
+          label: 'SQL Injection Prevention Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Termasuk cara menangani identifier yang tidak bisa diparameterkan.',
+        },
+        {
+          label: 'Injection Prevention Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Injection_Prevention_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Prinsip umum memisahkan perintah dari data di berbagai jenis interpreter.',
+        },
+        {
+          label: 'child_process.execFile()',
+          href: 'https://nodejs.org/api/child_process.html#child_processexecfilefile-args-options-callback',
+          source: 'Node.js',
+          note: 'API yang menerima array argumen tanpa shell — dasar pencegahan command injection.',
+        },
+        {
+          label: 'Raw Database Queries',
+          href: 'https://www.prisma.io/docs/orm/prisma-client/using-raw-sql/raw-queries',
+          source: 'Prisma',
+          note: 'Perbedaan `$queryRaw` yang diparameterkan dan `$queryRawUnsafe` yang tidak.',
+        },
+      ),
     ],
   ),
 
@@ -511,6 +800,59 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Sebagian besar kategori OWASP adalah kesalahan **implementasi** — kodenya salah, perbaiki kodenya. *Insecure design* berbeda: fiturnya berjalan persis seperti yang dirancang, dan rancangan itulah yang bermasalah.',
+      ),
+
+      terms(
+        {
+          term: 'insecure design',
+          meaning:
+            'Kerentanan yang berada di **rancangan**, bukan di kode. Ia tidak bisa ditambal dengan memperbaiki satu fungsi, karena fungsinya berjalan persis seperti yang dimaksudkan.',
+        },
+        {
+          term: 'threat modeling',
+          meaning:
+            'Menelaah sebuah fitur untuk menemukan apa yang bisa disalahgunakan **sebelum** ia dibangun. Bentuk praktisnya cuma empat pertanyaan, dan biasanya cukup tiga puluh menit.',
+        },
+        {
+          term: 'batas kepercayaan (trust boundary)',
+          meaning:
+            'Titik di mana data berpindah dari pihak yang tidak dikendalikan ke pihak yang dikendalikan. Setiap panah yang menyeberangi batas ini adalah tempat validasi dan otorisasi harus ada.',
+        },
+        {
+          term: 'STRIDE',
+          meaning:
+            'Enam jenis ancaman sebagai daftar periksa: **S**poofing (pemalsuan identitas), **T**ampering (pengubahan), **R**epudiation (penyangkalan), **I**nformation disclosure (kebocoran), **D**enial of service (pembanjiran), **E**levation of privilege (naik hak).',
+        },
+        {
+          term: 'menerima risiko',
+          meaning:
+            'Memutuskan secara **sadar dan tertulis** untuk tidak memitigasi sesuatu. Ini keputusan yang sah — yang berbahaya adalah risiko yang tidak pernah disebut, karena tidak ada yang bisa meninjaunya ulang.',
+        },
+        {
+          term: 'server yang menentukan',
+          meaning:
+            'Nilai yang menyangkut uang, izin, dan kepemilikan diambil server dari sumbernya sendiri. Klien hanya mengirim **id dan jumlah**, tidak pernah harga atau peran.',
+        },
+        {
+          term: 'fail closed (gagal ke keadaan tertutup)',
+          meaning:
+            'Bila pemeriksaan izin melempar error, hasilnya **tolak**, bukan izinkan. Kesalahan tak terduga tidak boleh berubah menjadi pintu terbuka.',
+        },
+        {
+          term: 'rate limit',
+          meaning:
+            'Batas jumlah permintaan per satuan waktu. Di konteks rancangan, ia yang membedakan OTP 4 digit yang aman dari yang bisa dihabiskan seluruh kemungkinannya dalam hitungan menit.',
+        },
+        {
+          term: '`Referrer-Policy: no-referrer`',
+          meaning:
+            'Instruksi agar browser **tidak mengirim URL halaman asal** saat pengguna mengeklik tautan keluar. Penting untuk halaman yang URL-nya sendiri adalah rahasia, seperti tautan berbagi bertoken.',
+        },
+        {
+          term: 'token acak vs id berurutan',
+          meaning:
+            'Tautan berbagi yang memakai id artikel bisa ditebak dengan menaikkan angkanya. Token acak 32 byte tidak — dan itu perbedaan antara fitur berbagi dan kebocoran massal.',
+        },
       ),
 
       h2('Contoh'),
@@ -602,6 +944,33 @@ export const lessons: LessonDraft[] = [
           ['Bisa diaudit', 'Aksi penting meninggalkan jejak yang tidak bisa dihapus pelakunya'],
         ],
       ),
+
+      references(
+        {
+          label: 'A04:2021 — Insecure Design',
+          href: 'https://owasp.org/Top10/A04_2021-Insecure_Design/',
+          source: 'OWASP',
+          note: 'Membedakan cacat rancangan dari cacat implementasi, beserta contoh skenarionya.',
+        },
+        {
+          label: 'Threat Modeling Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Threat_Modeling_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Empat pertanyaan pemodelan ancaman dan cara menjalankannya tanpa proses berat.',
+        },
+        {
+          label: 'Abuse Case Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Abuse_Case_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Menuliskan "apa yang bisa disalahgunakan" berdampingan dengan user story biasa.',
+        },
+        {
+          label: 'Referrer-Policy',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Referrer-Policy',
+          source: 'MDN Web Docs',
+          note: 'Mencegah URL rahasia — seperti tautan berbagi bertoken — bocor lewat header `Referer`.',
+        },
+      ),
     ],
   ),
 
@@ -611,6 +980,69 @@ export const lessons: LessonDraft[] = [
     12,
     'Kodenya benar, pengaturannya yang membuka pintu.',
     [
+      terms(
+        {
+          term: 'security misconfiguration',
+          meaning:
+            'Kerentanan yang lahir dari **pengaturan**, bukan dari kode: mode debug menyala, kredensial default dibiarkan, endpoint internal terbuka. Kodenya bisa sempurna dan aplikasinya tetap bocor.',
+        },
+        {
+          term: 'header keamanan',
+          meaning:
+            'Header respons HTTP yang memberi tahu browser cara memperlakukan halamanmu dengan lebih ketat. Ia lapisan pertahanan **kedua** — membatasi kerusakan saat pertahanan pertama terlewat.',
+        },
+        {
+          term: 'CSP (Content-Security-Policy)',
+          meaning:
+            'Daftar sumber yang boleh dimuat dan dijalankan halaman. Ia tidak menggantikan escaping keluaran, tapi membuat XSS yang lolos jauh lebih sulit dieksploitasi.',
+        },
+        {
+          term: '`unsafe-inline`',
+          meaning:
+            'Nilai CSP yang mengizinkan skrip/gaya tertulis langsung di HTML. Pada `script-src` ia hampir meniadakan manfaat CSP — justru skrip inline yang paling sering menjadi vektor XSS.',
+        },
+        {
+          term: 'nonce',
+          meaning:
+            'Nilai acak sekali pakai yang dihasilkan **per permintaan** dan ditempelkan pada tag skrip yang sah. Cara benar mengizinkan skrip inline tertentu tanpa membuka semuanya.',
+        },
+        {
+          term: 'HSTS',
+          meaning:
+            '**HTTP Strict Transport Security** — memerintahkan browser mengakses domainmu hanya lewat HTTPS selama `max-age` detik, bahkan sebelum permintaan pertama dikirim.',
+        },
+        {
+          term: 'clickjacking',
+          meaning:
+            'Menyematkan situsmu di dalam `<iframe>` transparan sehingga pengguna mengeklik sesuatu yang tidak ia lihat. Dicegah dengan `frame-ancestors` atau `X-Frame-Options`.',
+        },
+        {
+          term: '`nosniff`',
+          meaning:
+            'Nilai `X-Content-Type-Options` yang melarang browser **menebak** tipe berkas dari isinya. Tanpa itu, berkas yang dikirim sebagai teks bisa ditebak sebagai skrip lalu dijalankan.',
+        },
+        {
+          term: 'document root',
+          meaning:
+            'Direktori yang benar-benar dilayani web server. Menyetelnya ke akar project — bukan ke `public/` — membuat `.env`, `vendor/`, dan `.git/` bisa diunduh siapa saja.',
+        },
+        {
+          term: 'introspection GraphQL',
+          meaning:
+            'Kemampuan klien menanyakan **seluruh skema** API GraphQL. Berguna saat pengembangan, tapi di produksi ia memberi penyerang peta lengkap tanpa usaha.',
+        },
+        {
+          term: 'Horizon / Telescope / Pulse',
+          meaning:
+            'Dashboard pemantauan Laravel. Ketiganya memperlihatkan payload job dan isi permintaan lengkap — dibiarkan terbuka, mereka membocorkan lebih banyak daripada endpoint API mana pun.',
+        },
+        {
+          term: '`x-powered-by`',
+          meaning:
+            'Header yang mengumumkan teknologi servermu. Mematikannya bukan keamanan sejati, tapi ia menghilangkan petunjuk gratis tentang kerentanan versi mana yang layak dicoba.',
+        },
+      ),
+
       h2('Kesalahan konfigurasi yang paling sering'),
       table(
         ['Kesalahan', 'Akibat'],
@@ -755,6 +1187,39 @@ export const lessons: LessonDraft[] = [
         'Jadikan ini bagian dari checklist rilis',
         'Konfigurasi yang benar di berkas tapi tidak diterapkan di server adalah kegagalan yang paling mudah terlewat — dan paling mudah dideteksi. Sepuluh baris `curl` di atas menangkap sebagian besar kesalahan konfigurasi yang pernah menyebabkan kebocoran.',
       ),
+
+      references(
+        {
+          label: 'A05:2021 — Security Misconfiguration',
+          href: 'https://owasp.org/Top10/A05_2021-Security_Misconfiguration/',
+          source: 'OWASP',
+          note: 'Daftar kesalahan konfigurasi yang paling sering menyebabkan insiden nyata.',
+        },
+        {
+          label: 'Content-Security-Policy',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy',
+          source: 'MDN Web Docs',
+          note: 'Setiap direktif beserta artinya, termasuk cara memakai nonce alih-alih `unsafe-inline`.',
+        },
+        {
+          label: 'Strict-Transport-Security',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Strict-Transport-Security',
+          source: 'MDN Web Docs',
+          note: 'Termasuk konsekuensi `preload` yang sulit ditarik kembali.',
+        },
+        {
+          label: 'HTTP Security Response Headers Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Kumpulan header yang layak dipasang beserta nilai yang disarankan.',
+        },
+        {
+          label: 'Configuration — Debug Mode',
+          href: 'https://laravel.com/docs/12.x/configuration#debug-mode',
+          source: 'Laravel',
+          note: 'Peringatan resmi mengapa `APP_DEBUG` wajib `false` di produksi.',
+        },
+      ),
     ],
   ),
 
@@ -766,6 +1231,69 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Aplikasi modern menjalankan lebih banyak kode orang lain daripada kode sendiri. Satu paket dengan kerentanan berjalan dengan **hak penuh aplikasimu** — akses database, rahasia, dan jaringan internal.',
+      ),
+
+      terms(
+        {
+          term: 'dependency',
+          meaning:
+            'Paket pihak ketiga yang dipasang dan dijalankan aplikasimu. Ia berjalan dengan **hak yang sama** dengan kodemu sendiri — tidak ada kotak pasir yang memisahkannya.',
+        },
+        {
+          term: 'dependency langsung vs transitif',
+          meaning:
+            '**Langsung** = yang kamu tulis sendiri di `package.json`. **Transitif** = yang ikut terbawa oleh dependency lain. Sebagian besar pohonmu transitif, dan ia yang paling jarang ditinjau.',
+        },
+        {
+          term: 'lockfile',
+          meaning:
+            'Berkas yang mengunci versi persis setiap paket (`package-lock.json`, `composer.lock`). Ia yang membuat pemasangan hari ini menghasilkan pohon yang sama dengan pemasangan bulan lalu.',
+        },
+        {
+          term: '`npm ci` vs `npm install`',
+          meaning:
+            '`npm ci` **patuh pada lockfile** dan gagal bila tidak cocok; `npm install` boleh menyelesaikan versi lain dan menulis ulang lockfile. CI harus memakai yang pertama.',
+        },
+        {
+          term: '`overrides`',
+          meaning:
+            'Bagian `package.json` yang memaksa versi tertentu untuk paket **transitif**. Cara menambal kerentanan yang berada di dalam dependency-nya dependency, tanpa menunggu pemeliharanya merilis.',
+        },
+        {
+          term: '`npm audit fix --force`',
+          meaning:
+            'Perintah yang boleh **menurunkan versi mayor** untuk menutup kerentanan. Di project ini ia akan menurunkan Next.js 16 ke 9.3.3 — karena itu jangan pernah dijalankan tanpa membaca akibatnya.',
+        },
+        {
+          term: 'supply chain attack',
+          meaning:
+            'Serangan yang menyusup lewat **paket yang kamu pasang**, bukan lewat aplikasimu. Ia bekerja karena satu paket berbahaya bisa menjangkau ribuan project sekaligus.',
+        },
+        {
+          term: '`postinstall`',
+          meaning:
+            'Skrip yang otomatis berjalan setelah paket dipasang, dengan hak penggunamu — di laptopmu maupun di CI. Ini pintu masuk favorit serangan rantai pasok.',
+        },
+        {
+          term: 'typosquatting',
+          meaning:
+            'Menerbitkan paket berbahaya dengan nama yang mirip paket populer (`expres`, `lodahs`, `crossenv`), menunggu seseorang salah ketik. Nyata, dan berulang kali berhasil.',
+        },
+        {
+          term: 'CVE',
+          meaning:
+            '**Common Vulnerabilities and Exposures** — nomor identitas publik untuk satu kerentanan tertentu, sehingga semua orang membicarakan hal yang sama persis.',
+        },
+        {
+          term: 'pin ke SHA',
+          meaning:
+            'Merujuk GitHub Action ke **hash commit**, bukan ke tag. Tag bisa dipindahkan pemiliknya ke commit lain; hash tidak bisa.',
+        },
+        {
+          term: 'Dependabot',
+          meaning:
+            'Layanan GitHub yang membuka pull request otomatis untuk pembaruan dependency. Nilainya bukan otomatisasinya, melainkan membuat pembaruan menjadi **rutin dan kecil** alih-alih darurat dan besar.',
+        },
       ),
 
       h2('Memeriksa'),
@@ -890,6 +1418,39 @@ export const lessons: LessonDraft[] = [
         'Pembaruan rutin lebih murah daripada pembaruan darurat',
         'Project yang diperbarui mingguan hampir tidak pernah menghadapi lompatan besar. Project yang dibiarkan setahun akan menemukan bahwa menutup satu kerentanan membutuhkan upgrade mayor tiga paket sekaligus — biasanya pada hari kerentanannya diumumkan publik.',
       ),
+
+      references(
+        {
+          label: 'A06:2021 — Vulnerable and Outdated Components',
+          href: 'https://owasp.org/Top10/A06_2021-Vulnerable_and_Outdated_Components/',
+          source: 'OWASP',
+          note: 'Kategori kerentanan yang diwarisi lewat dependency, beserta cara mengelolanya.',
+        },
+        {
+          label: 'npm audit',
+          href: 'https://docs.npmjs.com/cli/v11/commands/npm-audit',
+          source: 'npm Docs',
+          note: 'Termasuk peringatan resmi tentang perilaku `--force` yang boleh menurunkan versi mayor.',
+        },
+        {
+          label: 'npm ci',
+          href: 'https://docs.npmjs.com/cli/v11/commands/npm-ci',
+          source: 'npm Docs',
+          note: 'Kenapa CI harus memakainya alih-alih `npm install`.',
+        },
+        {
+          label: 'overrides',
+          href: 'https://docs.npmjs.com/cli/v11/configuring-npm/package-json#overrides',
+          source: 'npm Docs',
+          note: 'Menambal versi paket transitif tanpa menunggu pemeliharanya merilis.',
+        },
+        {
+          label: 'Configuring Dependabot version updates',
+          href: 'https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuring-dependabot-version-updates',
+          source: 'GitHub Docs',
+          note: 'Opsi `groups`, jadwal, dan batas PR yang dipakai contoh di sub-bab ini.',
+        },
+      ),
     ],
   ),
 
@@ -899,6 +1460,74 @@ export const lessons: LessonDraft[] = [
     12,
     'Cara masuk yang bisa ditembus tanpa mengetahui password.',
     [
+      terms(
+        {
+          term: 'autentikasi vs otorisasi',
+          meaning:
+            '**Autentikasi** menjawab "siapa kamu"; **otorisasi** menjawab "kamu boleh apa". Sub-bab ini soal yang pertama; yang kedua ada di sub-bab 5.1.',
+        },
+        {
+          term: 'credential stuffing',
+          meaning:
+            'Mencoba pasangan email–password yang bocor dari situs **lain** ke situsmu. Berhasil karena banyak orang memakai password yang sama di banyak tempat — bukan karena sistemmu ditembus.',
+        },
+        {
+          term: 'enumerasi akun',
+          meaning:
+            'Menyimpulkan email mana yang terdaftar dari perbedaan jawaban sistem. Karena itu "password salah" dan "akun tidak ada" **wajib** menghasilkan pesan, status, dan waktu respons yang sama.',
+        },
+        {
+          term: 'timing attack',
+          meaning:
+            'Menyimpulkan rahasia dari **selisih waktu** respons. Jika akun tak ada langsung ditolak sementara akun ada harus melewati verifikasi hash, selisihnya bisa diukur — itu kebocoran juga.',
+        },
+        {
+          term: 'hash palsu (dummy hash)',
+          meaning:
+            'Hash yang tetap diverifikasi ketika pengguna tidak ditemukan, semata agar waktu prosesnya sama. Cara paling sederhana menutup timing attack pada endpoint login.',
+        },
+        {
+          term: 'argon2 / bcrypt',
+          meaning:
+            'Algoritma hash password **adaptif**: biayanya bisa dinaikkan seiring perangkat keras makin cepat. Jangan pernah memakai MD5, SHA-1, atau SHA biasa untuk password.',
+        },
+        {
+          term: '`needsRehash`',
+          meaning:
+            'Pemeriksaan apakah hash tersimpan masih memakai parameter biaya lama. Bila ya, hash diperbarui saat pengguna berhasil login — satu-satunya momen password aslinya tersedia.',
+        },
+        {
+          term: 'session fixation',
+          meaning:
+            'Penyerang menanamkan ID sesi lebih dulu, lalu menunggu korban login memakai sesi itu. Dicegah dengan **meregenerasi ID sesi** tepat setelah login berhasil.',
+        },
+        {
+          term: 'MFA / OTP',
+          meaning:
+            '**Multi-Factor Authentication**: faktor kedua di luar password. **OTP** adalah kode sekali pakai — enam digit berarti sejuta kemungkinan, yang habis dalam menit tanpa rate limit.',
+        },
+        {
+          term: '`timingSafeEqual`',
+          meaning:
+            'Perbandingan yang selalu memakan waktu sama, berapa pun karakter yang cocok. Perbandingan `===` biasa berhenti di ketidakcocokan pertama, dan itu bisa diukur.',
+        },
+        {
+          term: 'k-anonymity (Have I Been Pwned)',
+          meaning:
+            'Cara memeriksa apakah password pernah bocor **tanpa mengirimnya**: hanya lima karakter pertama hash SHA-1 yang dikirim, dan pencocokan akhirnya dilakukan di sisimu.',
+        },
+        {
+          term: 'entropi',
+          meaning:
+            'Ukuran seberapa sulit sebuah rahasia ditebak. Untuk password, **panjang** menyumbang lebih banyak entropi daripada aturan kerumitan karakter.',
+        },
+        {
+          term: 'token reset disimpan sebagai hash',
+          meaning:
+            'Yang disimpan database adalah sidik jari tokennya, bukan tokennya. Database yang bocor jadi tidak cukup untuk mengambil alih akun mana pun.',
+        },
+      ),
+
       h2('Bentuk kegagalannya'),
       table(
         ['Kegagalan', 'Akibat'],
@@ -1071,6 +1700,39 @@ export const lessons: LessonDraft[] = [
       p(
         'Pasang alert untuk lonjakan kegagalan login, login dari lokasi yang tidak biasa, dan banyak akun berbeda yang dicoba dari satu IP — pola credential stuffing.',
       ),
+
+      references(
+        {
+          label: 'A07:2021 — Identification and Authentication Failures',
+          href: 'https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/',
+          source: 'OWASP',
+          note: 'Daftar kegagalan autentikasi yang paling sering ditemukan di lapangan.',
+        },
+        {
+          label: 'Password Storage Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Parameter argon2id/bcrypt yang disarankan, beserta alasan tidak memakai SHA biasa.',
+        },
+        {
+          label: 'Authentication Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Aturan panjang password, pesan error seragam, dan pencegahan enumerasi akun.',
+        },
+        {
+          label: 'Forgot Password Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Alur reset password yang tidak berubah menjadi jalur pengambilalihan akun.',
+        },
+        {
+          label: 'crypto.timingSafeEqual()',
+          href: 'https://nodejs.org/api/crypto.html#cryptotimingsafeequala-b',
+          source: 'Node.js',
+          note: 'Perbandingan waktu-konstan untuk token, kode OTP, dan tanda tangan.',
+        },
+      ),
     ],
   ),
 
@@ -1082,6 +1744,64 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Kategori ini tentang **kepercayaan pada asal**: apakah kode yang berjalan benar-benar yang kamu tulis, dan apakah data yang kamu terima benar-benar dari pihak yang mengaku mengirimnya.',
+      ),
+
+      terms(
+        {
+          term: 'integritas',
+          meaning:
+            'Jaminan bahwa sesuatu **tidak berubah** sejak dibuat pihak yang sah. Berbeda dari kerahasiaan: data bisa terbuka untuk umum dan tetap butuh jaminan bahwa isinya tidak dipalsukan.',
+        },
+        {
+          term: 'webhook',
+          meaning:
+            'Permintaan HTTP yang **dikirim layanan lain ke servermu** saat suatu peristiwa terjadi — misalnya "pembayaran berhasil". Ia endpoint publik, jadi asalnya harus dibuktikan, bukan dipercaya.',
+        },
+        {
+          term: 'HMAC',
+          meaning:
+            '**Hash-based Message Authentication Code** — sidik jari pesan yang hanya bisa dibuat pihak yang memegang secret bersama. Ia yang membuktikan pengirim webhook memang siapa yang ia klaim.',
+        },
+        {
+          term: 'raw body',
+          meaning:
+            'Body permintaan **sebelum** diurai menjadi objek. Verifikasi tanda tangan wajib memakainya, karena mengurai lalu menyusun ulang JSON bisa mengubah urutan kunci dan spasi — tanda tangannya jadi tidak cocok.',
+        },
+        {
+          term: 'replay attack',
+          meaning:
+            'Mengirim ulang permintaan sah yang direkam sebelumnya. Tanda tangannya tetap valid, jadi pertahanannya bukan tanda tangan melainkan **timestamp** yang ditolak setelah beberapa menit.',
+        },
+        {
+          term: 'at-least-once',
+          meaning:
+            'Jaminan pengiriman yang berarti sebuah peristiwa bisa tiba **lebih dari sekali**. Semua pengirim webhook besar memakainya — jadi penangannya wajib idempoten.',
+        },
+        {
+          term: 'idempoten',
+          meaning:
+            'Menjalankan operasi yang sama dua kali menghasilkan keadaan akhir yang sama dengan sekali. Untuk webhook, wujudnya adalah mengklaim id peristiwa sebelum memprosesnya.',
+        },
+        {
+          term: 'digest (image digest)',
+          meaning:
+            'Hash isi image container (`sha256:…`). Menyematkan digest membuat deployment mengambil **byte yang sama persis**; tag seperti `latest` bisa menunjuk isi berbeda besok.',
+        },
+        {
+          term: 'append-only',
+          meaning:
+            'Penyimpanan yang hanya menerima penambahan — tidak bisa diubah atau dihapus. Sifat inilah yang membuat audit log tetap berguna setelah akun aplikasi dikuasai penyerang.',
+        },
+        {
+          term: '`REVOKE`',
+          meaning:
+            'Perintah SQL untuk mencabut izin. `REVOKE UPDATE, DELETE ON audit_log` menegakkan sifat append-only di **lapisan database**, bukan sekadar di kesepakatan tim.',
+        },
+        {
+          term: 'jejak audit (audit trail)',
+          meaning:
+            'Catatan **siapa melakukan apa, terhadap objek mana, kapan**. Ia yang membedakan insiden yang bisa dijawab dari insiden yang hanya bisa ditebak luasnya.',
+        },
       ),
 
       h2('Integritas rantai pasok'),
@@ -1234,6 +1954,39 @@ export const lessons: LessonDraft[] = [
         'Image container di-pin ke digest, bukan ke tag `latest`.',
         'Tidak ada yang bisa menyunting kode langsung di server produksi.',
       ),
+
+      references(
+        {
+          label: 'A08:2021 — Software and Data Integrity Failures',
+          href: 'https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures/',
+          source: 'OWASP',
+          note: 'Kategori yang menyatukan integritas rantai pasok, pembaruan otomatis, dan deserialisasi.',
+        },
+        {
+          label: 'crypto.createHmac()',
+          href: 'https://nodejs.org/api/crypto.html#cryptocreatehmacalgorithm-key-options',
+          source: 'Node.js',
+          note: 'API yang dipakai contoh verifikasi tanda tangan webhook di sub-bab ini.',
+        },
+        {
+          label: 'Deserialization Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Format serialisasi yang berbahaya per bahasa, dan penggantinya yang aman.',
+        },
+        {
+          label: 'Security hardening for GitHub Actions',
+          href: 'https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions',
+          source: 'GitHub Docs',
+          note: 'Termasuk anjuran resmi menyematkan action ke SHA commit, bukan ke tag.',
+        },
+        {
+          label: 'REVOKE',
+          href: 'https://www.postgresql.org/docs/current/sql-revoke.html',
+          source: 'PostgreSQL',
+          note: 'Mencabut hak `UPDATE`/`DELETE` agar tabel audit benar-benar append-only.',
+        },
+      ),
     ],
   ),
 
@@ -1245,6 +1998,69 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Peringkat sembilan OWASP, dan yang paling sering dianggap sudah beres. Ia tidak memungkinkan serangan — tapi ia menentukan berapa lama serangan berlangsung sebelum ada yang menyadarinya, dan apakah kamu bisa menjawab "apa saja yang diambil".',
+      ),
+
+      terms(
+        {
+          term: 'log vs audit log',
+          meaning:
+            '**Log** mencatat apa yang terjadi di sistem untuk keperluan diagnosis. **Audit log** khusus mencatat siapa melakukan apa terhadap objek mana — ia bukti, bukan alat debug.',
+        },
+        {
+          term: 'peristiwa keamanan',
+          meaning:
+            'Kejadian yang bernilai untuk investigasi: login berhasil/gagal, penolakan otorisasi, perubahan izin, aksi admin, ekspor data. Daftarnya ditentukan **sebelum** insiden, bukan sesudah.',
+        },
+        {
+          term: 'id korelasi (`reqId`)',
+          meaning:
+            'Satu id yang menempel pada semua catatan dari satu permintaan. Tanpa itu, log adalah ribuan baris terpisah yang tidak bisa dirangkai menjadi satu cerita.',
+        },
+        {
+          term: 'log terstruktur',
+          meaning:
+            'Log berbentuk objek berfield, bukan kalimat bebas. Ia yang membuat pencarian "semua penolakan otorisasi untuk pengguna 42" mungkin dilakukan tanpa menebak-nebak pola teks.',
+        },
+        {
+          term: 'sentralisasi log',
+          meaning:
+            'Mengirim log keluar dari instance yang menghasilkannya. Penyerang yang menguasai satu server bisa menghapus berkas log lokal — tapi tidak bisa menarik kembali yang sudah terkirim.',
+        },
+        {
+          term: 'stdout sebagai keluaran log',
+          meaning:
+            'Aplikasi menulis ke keluaran standar dan **lingkungan** yang mengumpulkannya. Ini praktik Twelve-Factor: aplikasi tidak mengurus rotasi berkas dan tujuan penyimpanan.',
+        },
+        {
+          term: 'alert',
+          meaning:
+            'Pemberitahuan aktif saat pola tertentu muncul. Log tanpa alert hanyalah arsip — ia menjelaskan setelah kejadian, tapi tidak memberi tahu saat kejadian.',
+        },
+        {
+          term: 'alert fatigue',
+          meaning:
+            'Kelelahan akibat terlalu banyak alert palsu, sampai yang sungguhan ikut diabaikan. Ini cara paling umum sistem pemantauan mahal menjadi tidak berguna.',
+        },
+        {
+          term: 'retensi',
+          meaning:
+            'Berapa lama log disimpan. Karena pembobolan rata-rata baru ditemukan setelah **berbulan-bulan**, retensi tujuh hari berarti jejaknya sudah lama hilang saat dibutuhkan.',
+        },
+        {
+          term: 'eksfiltrasi',
+          meaning:
+            'Pemindahan data keluar dari sistem oleh penyerang. Tandanya sering halus: ekspor besar di luar jam biasa, atau akun yang tiba-tiba membaca jauh lebih banyak daripada biasanya.',
+        },
+        {
+          term: 'PII',
+          meaning:
+            '**Personally Identifiable Information** — data yang bisa mengidentifikasi orang tertentu. Ia punya kewajiban hukum sendiri, jadi umur simpannya justru harus **sependek mungkin**.',
+        },
+        {
+          term: 'menyamarkan (masking)',
+          meaning:
+            'Menulis `a***@contoh.com` alih-alih email lengkap di log. Cukup untuk menelusuri pola, tanpa menjadikan log itu sendiri kumpulan data pribadi.',
+        },
       ),
 
       h2('Bentuk kegagalannya'),
@@ -1371,12 +2187,97 @@ export const lessons: LessonDraft[] = [
         'Pemantauan yang tidak pernah diuji biasanya tidak bekerja',
         'Aturan alert bisa salah tulis, saluran notifikasi bisa berubah, dan kunci integrasi bisa kedaluwarsa — semuanya tanpa gejala apa pun sampai kamu benar-benar membutuhkannya. Uji jalurnya secara berkala, seperti menguji cadangan.',
       ),
+
+      references(
+        {
+          label: 'A09:2021 — Security Logging and Monitoring Failures',
+          href: 'https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/',
+          source: 'OWASP',
+          note: 'Peristiwa yang wajib dicatat dan pola yang layak diberi alert.',
+        },
+        {
+          label: 'Logging Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Isi minimum satu catatan log, dan daftar yang tidak boleh masuk ke dalamnya.',
+        },
+        {
+          label: 'Logging Vocabulary Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Logging_Vocabulary_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Penamaan peristiwa keamanan yang konsisten sehingga bisa dicari lintas layanan.',
+        },
+        {
+          label: 'XI. Logs — Treat logs as event streams',
+          href: 'https://12factor.net/logs',
+          source: 'The Twelve-Factor App',
+          note: 'Alasan aplikasi menulis ke stdout dan lingkungan yang mengumpulkan.',
+        },
+      ),
     ],
   ),
 
   written('ssrf', 'SSRF', 12, 'Membuat servermu mengirim permintaan atas nama penyerang.', [
     p(
       'Server-Side Request Forgery terjadi ketika penyerang mengendalikan URL yang **diambil servermu**. Karena permintaan itu berasal dari dalam jaringanmu, ia bisa menjangkau hal yang tidak bisa dijangkau penyerang dari luar.',
+    ),
+
+    terms(
+      {
+        term: 'SSRF',
+        meaning:
+          '**Server-Side Request Forgery** — penyerang mengendalikan URL yang **diambil servermu**. Permintaannya berasal dari dalam jaringanmu, jadi ia menjangkau hal yang tidak bisa dijangkau penyerang dari luar.',
+      },
+      {
+        term: 'endpoint metadata cloud',
+        meaning:
+          'Alamat khusus `169.254.169.254` yang hanya bisa dihubungi dari dalam instance cloud, dan mengembalikan **kredensial IAM**. Target nomor satu setiap serangan SSRF.',
+      },
+      {
+        term: 'IMDSv2',
+        meaning:
+          'Versi kedua layanan metadata AWS yang **mewajibkan token** lewat permintaan `PUT` lebih dulu. Ia membuat SSRF sederhana — yang hanya bisa melakukan `GET` — tidak lagi cukup.',
+      },
+      {
+        term: 'rentang IP privat',
+        meaning:
+          'Alamat yang hanya berlaku di jaringan internal: `10.x`, `172.16–31.x`, `192.168.x`, `127.x`, dan `169.254.x`. Semuanya harus ditolak sebagai tujuan pengambilan URL.',
+      },
+      {
+        term: 'skema URL',
+        meaning:
+          'Bagian sebelum `://`. Selain `http:` dan `https:`, ada `file:`, `gopher:`, dan `ftp:` yang bisa dipakai membaca berkas lokal — karena itu skema wajib di-allow-list.',
+      },
+      {
+        term: 'redirect',
+        meaning:
+          'Jawaban `3xx` yang menyuruh klien pindah ke URL lain. Ini jalur pintas favorit untuk melewati validasi: URL awalnya publik dan lolos, lalu diarahkan ke alamat internal.',
+      },
+      {
+        term: "`redirect: 'manual'`",
+        meaning:
+          'Opsi `fetch` yang **tidak mengikuti** redirect otomatis, sehingga setiap tujuan baru bisa divalidasi ulang sebelum diikuti.',
+      },
+      {
+        term: 'DNS rebinding',
+        meaning:
+          'Nama domain yang saat diperiksa menunjuk IP publik, lalu berubah menunjuk `127.0.0.1` tepat sebelum permintaan dikirim. Celah waktu antara pemeriksaan dan pengambilan inilah yang dieksploitasi.',
+      },
+      {
+        term: 'egress firewall',
+        meaning:
+          'Pembatasan lalu lintas **keluar** dari server. Hampir semua orang membatasi yang masuk; membatasi yang keluar membuat SSRF yang lolos tetap tidak menjangkau apa pun.',
+      },
+      {
+        term: 'zero trust',
+        meaning:
+          'Prinsip bahwa **posisi jaringan bukan otorisasi** — layanan internal tetap wajib berautentikasi. SSRF adalah bukti paling jelas kenapa prinsip ini diperlukan.',
+      },
+      {
+        term: 'layanan pengambil terisolasi',
+        meaning:
+          'Menjalankan pengambilan URL di proses/jaringan terpisah yang tidak punya akses ke database, rahasia, maupun layanan internal. Satu-satunya cara aman melayani URL yang benar-benar bebas.',
+      },
     ),
 
     h2('Di mana ia muncul'),
@@ -1492,6 +2393,33 @@ export const lessons: LessonDraft[] = [
     p(
       'Untuk fitur yang memang harus mengambil URL apa pun (pratinjau tautan, perayap), jalankan pengambilannya di **layanan terpisah** yang berada di jaringan terisolasi tanpa akses ke database, rahasia, maupun layanan internal. Dengan begitu, SSRF di sana tidak mendapat apa-apa.',
     ),
+
+    references(
+      {
+        label: 'A10:2021 — Server-Side Request Forgery (SSRF)',
+        href: 'https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/',
+        source: 'OWASP',
+        note: 'Kategori SSRF beserta skenario serangan dan lapis pertahanannya.',
+      },
+      {
+        label: 'Server Side Request Forgery Prevention Cheat Sheet',
+        href: 'https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html',
+        source: 'OWASP',
+        note: 'Termasuk penanganan redirect, DNS rebinding, dan daftar rentang IP yang harus ditolak.',
+      },
+      {
+        label: 'dns.lookup()',
+        href: 'https://nodejs.org/api/dns.html#dnslookuphostname-options-callback',
+        source: 'Node.js',
+        note: 'Meresolusi hostname menjadi alamat sebelum memutuskan boleh dihubungi atau tidak.',
+      },
+      {
+        label: 'RFC 1918 — Address Allocation for Private Internets',
+        href: 'https://www.rfc-editor.org/rfc/rfc1918.html',
+        source: 'RFC Editor',
+        note: 'Sumber resmi rentang `10/8`, `172.16/12`, dan `192.168/16` yang dipakai contoh di sini.',
+      },
+    ),
   ]),
 
   written(
@@ -1500,6 +2428,69 @@ export const lessons: LessonDraft[] = [
     12,
     'Tempat kebocoran paling umum, dan paling mudah dihindari.',
     [
+      terms(
+        {
+          term: 'rahasia (secret)',
+          meaning:
+            'Nilai yang memberi **kewenangan** kepada pemegangnya: password database, kunci API, secret penandatangan token. Berbeda dari konfigurasi biasa, yang hanya menentukan perilaku.',
+        },
+        {
+          term: '`.env`',
+          meaning:
+            'Berkas berisi variabel environment untuk pengembangan lokal. Ia **wajib** di-gitignore; yang boleh masuk repo hanya `.env.example` dengan nilai kosong.',
+        },
+        {
+          term: '`.env.example`',
+          meaning:
+            'Cetakan berisi **nama** variabel yang dibutuhkan, dengan nilai kosong. Fungsinya memberi tahu orang berikutnya apa yang harus diisi — bukan memberi contoh nilai asli.',
+        },
+        {
+          term: 'rotasi',
+          meaning:
+            'Mengganti rahasia dengan yang baru dan menonaktifkan yang lama. Wajib dilakukan terjadwal, dan **segera** setelah dicurigai bocor — menghapus commit tidak menggantikannya.',
+        },
+        {
+          term: 'prefiks publik',
+          meaning:
+            'Awalan seperti `NEXT_PUBLIC_` atau `VITE_` yang menandai variabel **ikut ke bundle browser**. Apa pun di belakangnya terbaca siapa saja yang membuka DevTools.',
+        },
+        {
+          term: 'validasi konfigurasi saat boot',
+          meaning:
+            'Memeriksa seluruh variabel sekali di awal, lalu **berhenti dengan pesan jelas** bila ada yang kurang. Jauh lebih murah daripada aplikasi yang menyala lalu menandatangani token dengan `undefined`.',
+        },
+        {
+          term: 'fail fast',
+          meaning:
+            'Gagal keras dan segera, bukan diam-diam dan belakangan. Untuk konfigurasi, artinya menolak menyala — bukan melempar error pada permintaan pertama pengguna.',
+        },
+        {
+          term: 'default aman',
+          meaning:
+            'Ketiadaan nilai jatuh ke pilihan **paling ketat**, bukan paling permisif. `CORS_ORIGINS` yang kosong berarti tidak ada origin yang diizinkan, bukan semuanya.',
+        },
+        {
+          term: '`Object.freeze`',
+          meaning:
+            'Membekukan objek konfigurasi supaya tidak bisa diubah saat aplikasi berjalan. Konfigurasi yang bisa berubah di tengah jalan sulit dipertanggungjawabkan.',
+        },
+        {
+          term: 'secrets manager / vault',
+          meaning:
+            'Layanan penyimpan rahasia dengan kontrol akses, jejak audit, dan rotasi terkelola. Aplikasi mengambil nilainya **saat runtime**, sehingga rahasia tidak pernah tersimpan di artefak build.',
+        },
+        {
+          term: 'pemindai rahasia (secret scanner)',
+          meaning:
+            'Perkakas seperti gitleaks atau secretlint yang mencari pola rahasia di kode. Dipasang sebagai pre-commit hook dan gerbang CI, ia menangkap kebocoran **sebelum** ter-push.',
+        },
+        {
+          term: '`server-only`',
+          meaning:
+            'Paket penanda yang membuat build **gagal** bila modul berisi rahasia sampai terimpor Client Component. Pertahanan waktu-kompilasi, bukan sekadar kesepakatan tim.',
+        },
+      ),
+
       h2('Aturan dasar'),
       ol(
         'Rahasia **tidak pernah** ditulis di source code.',
@@ -1645,6 +2636,39 @@ export const lessons: LessonDraft[] = [
         'Pemindai rahasia berjalan di pre-commit dan di CI.',
         'Aplikasi gagal boot kalau ada rahasia yang hilang atau terlalu lemah.',
       ),
+
+      references(
+        {
+          label: 'Secrets Management Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Penyimpanan, distribusi, dan rotasi rahasia beserta kesalahan yang paling sering terjadi.',
+        },
+        {
+          label: 'III. Config — Store config in the environment',
+          href: 'https://12factor.net/config',
+          source: 'The Twelve-Factor App',
+          note: 'Alasan konfigurasi dipisahkan dari kode, dan batas antara config dan rahasia.',
+        },
+        {
+          label: 'Environment Variables',
+          href: 'https://nextjs.org/docs/app/guides/environment-variables',
+          source: 'Next.js',
+          note: 'Aturan `NEXT_PUBLIC_` — apa yang ikut ke bundle browser dan apa yang tidak.',
+        },
+        {
+          label: 'Build secrets',
+          href: 'https://docs.docker.com/build/building/secrets/',
+          source: 'Docker Docs',
+          note: 'Cara memakai rahasia saat build tanpa menanamnya permanen ke layer image.',
+        },
+        {
+          label: 'Basic usage — Zod',
+          href: 'https://zod.dev/basics',
+          source: 'Zod',
+          note: 'Menyusun skema untuk memvalidasi `process.env` sekali saat boot.',
+        },
+      ),
     ],
   ),
 
@@ -1656,6 +2680,59 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Latihan penutup Backend Intermediate: jalankan audit keamanan lengkap pada API yang sudah kamu bangun. Ini bukan daftar untuk dibaca — setiap baris punya perintah yang menghasilkan bukti.',
+      ),
+
+      terms(
+        {
+          term: 'audit keamanan',
+          meaning:
+            'Pemeriksaan terencana terhadap sistem yang **sedang berjalan**, bukan terhadap ingatan tentang kodenya. Setiap temuan harus punya keluaran perintah yang membuktikannya.',
+        },
+        {
+          term: 'bukti (evidence)',
+          meaning:
+            'Keluaran perintah yang menunjukkan perilaku sebenarnya. Tanpa itu, sebuah temuan hanya dugaan — dan dugaan tidak bisa diperiksa ulang orang lain.',
+        },
+        {
+          term: 'peringkat dampak',
+          meaning:
+            'Mengurutkan temuan menjadi **berat / sedang / ringan** berdasarkan akibatnya, bukan berdasarkan seberapa mudah diperbaiki. Ini yang menentukan mana yang menunda rilis.',
+        },
+        {
+          term: '`curl -w "%{http_code}"`',
+          meaning:
+            'Opsi `curl` yang mencetak kode status saja. Cara paling ringkas menguji puluhan endpoint sekaligus tanpa membaca body-nya satu per satu.',
+        },
+        {
+          term: '`jq`',
+          meaning:
+            "Perkakas baris perintah untuk menyaring JSON. `jq '[.data[].penulisId] | unique'` langsung membuktikan apakah endpoint daftar membocorkan data pengguna lain.",
+        },
+        {
+          term: '`%{time_total}`',
+          meaning:
+            'Variabel `curl` yang mencetak durasi permintaan. Dipakai untuk membuktikan bahwa waktu respons login **seragam** antara akun yang ada dan tidak ada.',
+        },
+        {
+          term: '`413 Payload Too Large`',
+          meaning:
+            'Jawaban yang seharusnya muncul saat body melampaui batas. Yang tidak boleh muncul adalah server yang justru **mati** — itu berarti batasnya tidak pernah ada.',
+        },
+        {
+          term: '`500` sebagai sinyal injeksi',
+          meaning:
+            'Muatan injeksi yang menghasilkan `500` berarti ia **sampai ke database**. Jawaban yang benar adalah `200` dengan hasil kosong atau `422` — bukan error internal.',
+        },
+        {
+          term: 'temuan yang diterima sadar',
+          meaning:
+            'Risiko yang sengaja tidak dimitigasi, ditulis lengkap dengan alasannya. Menuliskannya membuat keputusan itu bisa ditinjau ulang saat keadaan berubah.',
+        },
+        {
+          term: 'gerbang rilis',
+          meaning:
+            'Aturan bahwa temuan kategori berat **menunda rilis**. Tanpa gerbang, audit berubah menjadi dokumen yang dibaca lalu dilewati.',
+        },
       ),
 
       h2('Cara mengauditnya'),
@@ -1872,6 +2949,33 @@ export const lessons: LessonDraft[] = [
         'Pemindai rahasia berjalan dan tidak menemukan apa pun',
         'Peristiwa keamanan tercatat, terpusat, dan punya alert yang sudah diuji',
         'Temuan ditulis dan diurutkan berdasarkan dampak, termasuk yang diterima sadar',
+      ),
+
+      references(
+        {
+          label: 'OWASP Top 10:2021',
+          href: 'https://owasp.org/Top10/',
+          source: 'OWASP',
+          note: 'Sepuluh kategori yang menjadi kerangka seluruh bab ini, lengkap dengan datanya.',
+        },
+        {
+          label: 'Web Security Testing Guide',
+          href: 'https://owasp.org/www-project-web-security-testing-guide/',
+          source: 'OWASP',
+          note: 'Metodologi pengujian keamanan aplikasi web — versi lengkap dari audit di sub-bab ini.',
+        },
+        {
+          label: 'Application Security Verification Standard (ASVS)',
+          href: 'https://owasp.org/www-project-application-security-verification-standard/',
+          source: 'OWASP',
+          note: 'Daftar syarat keamanan bertingkat yang bisa dipakai sebagai gerbang rilis formal.',
+        },
+        {
+          label: 'REST Security Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Ringkasan kontrol khusus API yang diuji satu per satu oleh skrip audit di sini.',
+        },
       ),
     ],
   ),

@@ -7,8 +7,10 @@ import {
   h2,
   ol,
   p,
+  references,
   steps,
   table,
+  terms,
   ul,
 } from '@/lib/content/builders';
 import { type LessonDraft, written } from '@/lib/curriculum/authoring';
@@ -32,6 +34,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Bab 3.8 di Backend Basic menyusun folder. Sub-bab ini menyelesaikan bagian yang tertinggal: **bagaimana lapisan itu saling mendapatkan ketergantungannya** — dan kenapa itu menentukan apakah kodemu bisa diuji.',
+      ),
+
+      terms(
+        {
+          term: 'dependency injection',
+          meaning:
+            'Menerima ketergantungan **dari luar** alih-alih mengimpornya sendiri. Bab 3.8 menyusun folder; sub-bab ini menyelesaikan bagian yang tertinggal: bagaimana lapisan itu saling mendapatkan ketergantungannya — dan kenapa itu menentukan apakah kodemu bisa diuji.',
+        },
+        {
+          term: 'impor langsung mengikat mati',
+          meaning:
+            'Service yang menulis `import { pool }` **wajib** punya database berjalan untuk bisa diuji. Tesnya jadi lambat, dan jalur gagal database — timeout, koneksi putus — tidak bisa disimulasikan sama sekali.',
+        },
+        {
+          term: 'factory function',
+          meaning:
+            'Fungsi yang menerima ketergantungan lalu mengembalikan objek berisi metodenya — `buatLayananCatatan({ repo, log })`. Ia bentuk DI paling sederhana di JavaScript: tidak butuh library, tidak butuh dekorator.',
+        },
+        {
+          term: 'composition root',
+          meaning:
+            '**Satu tempat** yang merakit seluruh objek dan menyambungkan ketergantungannya. Semua `new` dan semua pemanggilan factory hidup di sini; sisa kode hanya menerima apa yang ia butuhkan.',
+        },
+        {
+          term: 'connection pool',
+          meaning:
+            'Kumpulan koneksi database yang dipakai bergantian, bukan dibuat baru tiap query. Membuka koneksi mahal — pool yang menyimpannya menghemat waktu itu di setiap permintaan.',
+        },
+        {
+          term: 'connectionTimeoutMillis',
+          meaning:
+            'Batas waktu menunggu koneksi dari pool. **Tanpa timeout, koneksi yang menggantung menghabiskan pool** — dan begitu pool habis, seluruh permintaan tersendat, termasuk yang tidak ada hubungannya.',
+        },
+        {
+          term: 'test double',
+          meaning:
+            'Pengganti sebuah ketergantungan saat pengujian — objek sederhana yang mengembalikan nilai yang kamu tentukan. Ia yang membuat "apa yang terjadi kalau database gagal?" bisa diuji tanpa mematikan database sungguhan.',
+        },
+        {
+          term: 'deterministik',
+          meaning:
+            'Tes yang hasilnya **sama setiap kali dijalankan**. Tes yang bergantung pada database sungguhan kehilangan sifat ini: data sisa dari tes lain, waktu, dan urutan eksekusi semuanya bisa mengubah hasilnya.',
+        },
+        {
+          term: 'DI tanpa framework',
+          meaning:
+            'Di JavaScript, DI tidak butuh container seperti di Laravel — cukup fungsi yang menerima objek. Framework DI baru berbayar saat grafik ketergantungannya besar; untuk kebanyakan API, composition root manual lebih mudah dibaca.',
+        },
       ),
 
       h2('Masalah impor langsung'),
@@ -171,12 +221,86 @@ export const lessons: LessonDraft[] = [
         'Jangan berlebihan',
         'Setiap lapisan yang tidak menyerap kerumitan hanya meneruskannya. Kalau sebuah service hanya memanggil satu method repository tanpa menambah aturan apa pun, ia belum layak ada — panggil repository-nya langsung dari controller sampai ada aturan bisnis yang benar-benar muncul.',
       ),
+      references(
+        {
+          label: 'node-postgres — Pooling',
+          href: 'https://www.postgresql.org/docs/17/runtime-config-connection.html',
+          source: 'PostgreSQL',
+          note: 'Batas koneksi di sisi server yang menentukan berapa besar pool aplikasi boleh dibuat.',
+        },
+        {
+          label: 'Vitest — Mocking',
+          href: 'https://vitest.dev/guide/mocking',
+          source: 'Vitest',
+          note: '`vi.fn()` dan `mockResolvedValue` yang dipakai membuat test double di atas.',
+        },
+        {
+          label: 'Modules: ECMAScript modules',
+          href: 'https://nodejs.org/api/esm.html',
+          source: 'Node.js',
+          note: 'Sistem impor yang menjadi batas fisik antar lapisan — dan yang membuat impor langsung mengikat.',
+        },
+        {
+          label: 'Express — Writing middleware',
+          href: 'https://expressjs.com/en/guide/writing-middleware.html',
+          source: 'Express',
+          note: 'Titik tempat container disuntikkan ke jalur permintaan.',
+        },
+      ),
     ],
   ),
 
   written('prisma', 'ORM: Prisma', 13, 'Query bertipe dari skema, dan biaya yang menyertainya.', [
     p(
       'Prisma menghasilkan klien bertipe dari satu berkas skema. Keunggulannya nyata: salah ketik nama kolom menjadi error type-check, bukan error runtime. Tapi ia tetap ORM — dan aturan dari Backend Basic tentang N+1 dan biaya query tetap berlaku.',
+    ),
+
+    terms(
+      {
+        term: 'Prisma',
+        meaning:
+          'ORM yang **menghasilkan klien bertipe** dari satu berkas skema. Keunggulannya nyata: salah ketik nama kolom menjadi error type-check, bukan error runtime. Tapi ia tetap ORM — aturan tentang N+1 dan biaya query dari Backend Basic tetap berlaku.',
+      },
+      {
+        term: 'schema.prisma',
+        meaning:
+          'Satu berkas yang mendefinisikan model, relasi, dan koneksi database. Ia menjadi **sumber tunggal**: dari sini dihasilkan klien TypeScript, migration SQL, dan tipe yang dipakai seluruh aplikasi.',
+      },
+      {
+        term: 'prisma generate',
+        meaning:
+          'Perintah yang membaca skema lalu menghasilkan klien bertipe. Harus dijalankan **setiap kali skema berubah** — dan itulah kenapa ia biasanya dipasang sebagai `postinstall`, supaya tidak pernah lupa.',
+      },
+      {
+        term: 'prisma migrate',
+        meaning:
+          'Menghasilkan berkas SQL migration dari perubahan skema, lalu menjalankannya. Berbeda dari `db push` yang mengubah database langsung tanpa jejak — yang terakhir hanya untuk prototipe, bukan untuk apa pun yang punya riwayat.',
+      },
+      {
+        term: 'include vs select',
+        meaning:
+          '`include` menambahkan relasi ke hasil default; `select` menentukan **persis** field mana yang diambil. Untuk API, `select` hampir selalu lebih tepat — ia mencegah kolom baru ikut terkirim tanpa keputusan sadar.',
+      },
+      {
+        term: 'N+1 di Prisma',
+        meaning:
+          'Sama nyatanya seperti di ORM lain. Memanggil relasi di dalam perulangan menghasilkan satu query per item. Obatnya sama: ambil relasinya **di depan** lewat `include`/`select`, bukan satu per satu.',
+      },
+      {
+        term: 'tipe yang diturunkan',
+        meaning:
+          'Prisma menghasilkan tipe dari **bentuk query-mu**, bukan dari seluruh model. `select: { id: true }` menghasilkan tipe yang **hanya** punya `id` — jadi mengakses field yang tidak diambil jadi error compile, bukan `undefined` saat runtime.',
+      },
+      {
+        term: 'raw query di Prisma',
+        meaning:
+          'Jalan keluar untuk query yang tidak bisa dinyatakan lewat API-nya. Bentuk `$queryRaw` dengan **tagged template** memparameterkan otomatis; `$queryRawUnsafe` dengan string biasa **tidak** — namanya sudah memberi peringatan.',
+      },
+      {
+        term: 'ORM menyembunyikan query, bukan biayanya',
+        meaning:
+          'Kalimat yang berlaku untuk setiap ORM. Satu baris Prisma yang terlihat sederhana bisa menghasilkan join berlapis. Biasakan memeriksa SQL yang dihasilkan — Prisma bisa mencetaknya lewat opsi `log`.',
+      },
     ),
 
     h2('Skema'),
@@ -345,6 +469,32 @@ export const lessons: LessonDraft[] = [
     p(
       'Agregasi rumit, CTE, dan window function sering lebih jelas ditulis sebagai SQL. Yang penting: pakai bentuk tagged template, jangan `$queryRawUnsafe`.',
     ),
+    references(
+      {
+        label: 'Prisma — Schema reference',
+        href: 'https://www.prisma.io/docs/orm/prisma-schema/overview',
+        source: 'Prisma',
+        note: 'Bentuk `schema.prisma` yang menjadi sumber tunggal model, migration, dan tipe.',
+      },
+      {
+        label: 'Select fields — select vs include',
+        href: 'https://www.prisma.io/docs/orm/prisma-client/queries/select-fields',
+        source: 'Prisma',
+        note: 'Kenapa `include` membawa seluruh kolom relasi, dan `select` yang tepat untuk API.',
+      },
+      {
+        label: 'Raw queries — $queryRaw',
+        href: 'https://www.prisma.io/docs/orm/prisma-client/using-raw-sql/raw-queries',
+        source: 'Prisma',
+        note: 'Bentuk tagged template yang memparameterkan otomatis, versus `$queryRawUnsafe`.',
+      },
+      {
+        label: 'SQL Injection Prevention Cheat Sheet',
+        href: 'https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html',
+        source: 'OWASP',
+        note: 'Alasan ORM bukan jaminan otomatis saat kamu turun ke SQL mentah.',
+      },
+    ),
   ]),
 
   written(
@@ -353,6 +503,54 @@ export const lessons: LessonDraft[] = [
     12,
     'Mengambil data bercabang tanpa membuat ratusan query.',
     [
+      terms(
+        {
+          term: 'query bercabang',
+          meaning:
+            'Pengambilan data yang menyentuh beberapa tabel sekaligus — artikel beserta penulis, komentar, dan tagnya. Di sinilah ORM paling mudah menghasilkan ratusan query tanpa satu pun tanda di kode.',
+        },
+        {
+          term: '_count',
+          meaning:
+            'Bentuk Prisma untuk mengambil **jumlah** relasi tanpa memuat isinya. `_count: { select: { komentar: true } }` menghasilkan satu angka — jauh lebih murah daripada memuat seluruh komentar hanya untuk menghitungnya.',
+        },
+        {
+          term: 'some',
+          meaning:
+            'Filter relasi yang berarti "punya **minimal satu** yang cocok". `komentar: { some: { penulisId: 42 } }` mencari catatan yang punya minimal satu komentar dari pengguna itu.',
+        },
+        {
+          term: 'every',
+          meaning:
+            'Filter relasi yang berarti "**semua** yang cocok". Jebakannya besar: catatan **tanpa komentar sama sekali** ikut lolos, karena "semua dari nol elemen" bernilai benar secara logika. Gabungkan dengan `some: {}` kalau itu bukan yang kamu mau.',
+        },
+        {
+          term: 'none',
+          meaning:
+            'Filter relasi yang berarti "**tidak punya** yang cocok". `komentar: { none: {} }` mencari catatan tanpa komentar sama sekali — bentuk yang jauh lebih jelas daripada `NOT EXISTS` yang ditulis tangan.',
+        },
+        {
+          term: 'nested write',
+          meaning:
+            'Membuat atau mengubah beberapa tabel dalam **satu pemanggilan**. Prisma membungkusnya dalam **satu transaksi otomatis** — jadi kalau salah satu bagian gagal, tidak ada yang setengah tersimpan.',
+        },
+        {
+          term: 'connectOrCreate',
+          meaning:
+            'Pola nested write yang berarti "pakai baris yang sudah ada, buat kalau belum". Ia menggantikan urutan "cari dulu, lalu putuskan" yang punya celah balapan di antaranya.',
+        },
+        {
+          term: 'query yang terlalu pintar',
+          meaning:
+            'Batas kapan berhenti memakai API ORM. Agregasi berlapis, CTE, dan window function sering **lebih jelas** ditulis sebagai SQL. Memaksakannya lewat ORM menghasilkan kode yang benar tapi tidak bisa dibaca siapa pun.',
+        },
+        {
+          term: 'ukur, jangan tebak',
+          meaning:
+            'Nyalakan log query saat pengembangan dan **hitung berapa query** yang benar-benar dijalankan satu halaman. Angka itu yang menemukan N+1 — bukan membaca kode dan merasa yakin tidak ada perulangan.',
+        },
+      ),
+
       h2('N+1 di Prisma'),
       compare(
         {
@@ -514,6 +712,32 @@ export const lessons: LessonDraft[] = [
         'Ini satu-satunya cara N+1 tidak kembali',
         'N+1 tidak menimbulkan error dan tidak terlihat saat membaca kode. Ia muncul berbulan-bulan kemudian sebagai "aplikasinya makin lambat". Tes yang menghitung query membuatnya gagal **saat ditambahkan**, bukan saat sudah mahal.',
       ),
+      references(
+        {
+          label: 'Prisma — Relation queries',
+          href: 'https://www.prisma.io/docs/orm/prisma-client/queries/relation-queries',
+          source: 'Prisma',
+          note: 'Filter relasi `some`, `every`, `none`, beserta nested write dan transaksinya.',
+        },
+        {
+          label: 'Prisma — Aggregation, grouping & summarizing',
+          href: 'https://www.prisma.io/docs/orm/prisma-client/queries/aggregation-grouping-summarizing',
+          source: 'Prisma',
+          note: '`aggregate`, `groupBy`, dan `_count` yang dipakai contoh di atas.',
+        },
+        {
+          label: 'Prisma — Pagination',
+          href: 'https://www.prisma.io/docs/orm/prisma-client/queries/pagination',
+          source: 'Prisma',
+          note: 'Bentuk cursor beserta `skip: 1` yang melewati item cursor-nya sendiri.',
+        },
+        {
+          label: 'Using EXPLAIN',
+          href: 'https://www.postgresql.org/docs/17/using-explain.html',
+          source: 'PostgreSQL',
+          note: 'Memeriksa rencana eksekusi SQL yang benar-benar dihasilkan ORM.',
+        },
+      ),
     ],
   ),
 
@@ -523,6 +747,54 @@ export const lessons: LessonDraft[] = [
     11,
     'Beberapa perubahan yang berhasil bersama atau tidak sama sekali.',
     [
+      terms(
+        {
+          term: 'transaksi berurutan (array)',
+          meaning:
+            'Bentuk `$transaction([...])` — beberapa operasi yang dijalankan **berurutan dalam satu transaksi**. Cocok saat operasinya tidak saling bergantung dan tidak butuh nilai dari operasi sebelumnya.',
+        },
+        {
+          term: 'transaksi interaktif',
+          meaning:
+            'Bentuk `$transaction(async (tx) => {...})` — kamu bisa **membaca hasil** satu operasi lalu memutuskan operasi berikutnya. Diperlukan saat ada percabangan, tapi ia menahan koneksi lebih lama.',
+        },
+        {
+          term: 'tx',
+          meaning:
+            'Klien khusus di dalam transaksi interaktif. **Harus dipakai** untuk seluruh query di dalamnya — memanggil `prisma.` yang biasa akan berjalan **di luar** transaksi, dan tidak ikut dibatalkan saat gagal.',
+        },
+        {
+          term: 'rollback lewat throw',
+          meaning:
+            'Cara membatalkan transaksi di Prisma: **melempar error**. Tidak ada `rollback()` eksplisit — begitu fungsi callback melempar, seluruh transaksi dibatalkan otomatis.',
+        },
+        {
+          term: 'maxWait',
+          meaning:
+            'Berapa lama transaksi boleh **menunggu koneksi** dari pool sebelum menyerah. Tanpa batas ini, lonjakan trafik membuat permintaan menumpuk menunggu koneksi yang tidak kunjung tersedia.',
+        },
+        {
+          term: 'timeout transaksi',
+          meaning:
+            'Berapa lama transaksi boleh **berjalan** sebelum dibatalkan paksa. Ia jaring pengaman terhadap transaksi yang macet — yang menahan kunci dan menghambat semua penulis lain ke baris yang sama.',
+        },
+        {
+          term: 'decrement dengan syarat',
+          meaning:
+            'Pola `updateMany({ where: { stok: { gte: jumlah } }, data: { stok: { decrement: jumlah } } })`. Pengurangan dan pemeriksaan terjadi **dalam satu operasi atomik** — tidak ada celah untuk diselipi permintaan lain di antaranya.',
+        },
+        {
+          term: 'count === 0 sebagai sinyal',
+          meaning:
+            'Karena `updateMany` mengembalikan jumlah baris terpengaruh, nilai **nol** berarti syaratnya tidak terpenuhi — stok habis, atau barisnya bukan milik pengguna itu. Memeriksanya adalah bagian dari logika, bukan kehati-hatian tambahan.',
+        },
+        {
+          term: 'jangan panggil jaringan di dalam transaksi',
+          meaning:
+            'Aturan yang sama seperti di Backend Basic. Panggilan ke layanan luar **tidak boleh** berada di dalam transaksi: kamu tidak mengendalikan berapa lama jawabannya datang, dan selama itu kunci database tertahan.',
+        },
+      ),
+
       h2('Transaksi berurutan'),
       code(
         'ts',
@@ -664,6 +936,32 @@ export const lessons: LessonDraft[] = [
         'Pesan error ORM membocorkan struktur database',
         '`Unique constraint failed on the fields: (email)` menyebutkan nama kolom; error Postgres mentah menyebutkan nama constraint. Keduanya memberi peta kepada penyerang. Terjemahkan menjadi kode error milikmu sendiri sebelum dikirim ke klien.',
       ),
+      references(
+        {
+          label: 'Prisma — Transactions and batch queries',
+          href: 'https://www.prisma.io/docs/orm/prisma-client/queries/transactions',
+          source: 'Prisma',
+          note: 'Bentuk array dan interaktif, beserta opsi `maxWait` dan `timeout`.',
+        },
+        {
+          label: 'Prisma — Error reference',
+          href: 'https://www.prisma.io/docs/orm/reference/error-reference',
+          source: 'Prisma',
+          note: 'Arti kode `P2002`, `P2025`, dan kode lain yang perlu ditangani khusus.',
+        },
+        {
+          label: 'Transaction Isolation',
+          href: 'https://www.postgresql.org/docs/17/transaction-iso.html',
+          source: 'PostgreSQL',
+          note: 'Tingkat isolasi yang menentukan anomali mana yang masih mungkin terjadi.',
+        },
+        {
+          label: 'Explicit Locking',
+          href: 'https://www.postgresql.org/docs/17/explicit-locking.html',
+          source: 'PostgreSQL',
+          note: 'Alternatif optimistic locking saat bentroknya sering, bukan sesekali.',
+        },
+      ),
     ],
   ),
 
@@ -675,6 +973,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Bab 5 Backend Basic menjelaskan tiap potongan. Sub-bab ini merangkainya menjadi sistem utuh — termasuk bagian yang paling sering ditinggalkan: **pencabutan yang benar-benar bekerja**.',
+      ),
+
+      terms(
+        {
+          term: 'pencabutan yang bekerja',
+          meaning:
+            'Bagian auth yang **paling sering ditinggalkan**. Bab 5 Backend Basic menjelaskan tiap potongan; yang ini merangkainya — dan pencabutan adalah tempat rangkaian itu biasanya putus.',
+        },
+        {
+          term: 'keluarga token',
+          meaning:
+            'Satu rantai refresh token yang berasal dari **satu login**. Semua rotasi berikutnya mewarisi `keluargaId` yang sama — sehingga saat pencurian terdeteksi, seluruh rantai bisa dicabut sekaligus.',
+        },
+        {
+          term: 'simpan hash token',
+          meaning:
+            'Refresh token disimpan sebagai **hash**, bukan apa adanya — alasan yang sama persis dengan password. Kalau tabel sesi bocor, isinya tidak bisa langsung dipakai. SHA-256 cukup di sini karena tokennya sudah acak panjang.',
+        },
+        {
+          term: 'access token pendek',
+          meaning:
+            'Umur 5–15 menit. Ia yang membatasi kerusakan: token yang dicuri hanya berguna sebentar, dan tidak perlu mekanisme pencabutan sendiri karena ia kedaluwarsa lebih cepat daripada kamu sempat bereaksi.',
+        },
+        {
+          term: 'rotasi + deteksi pemakaian ulang',
+          meaning:
+            'Inti keamanan alur ini. Refresh token hanya sah **sekali**; kalau yang sudah dicabut muncul lagi, itu berarti **dicuri dan diputar ulang** — dan seluruh keluarganya dicabut.',
+        },
+        {
+          term: 'token_version',
+          meaning:
+            'Kolom angka di tabel pengguna yang dinaikkan saat logout global, ganti password, atau perubahan izin. Access token yang membawa versi lebih rendah ditolak — pencabutan **massal** tanpa deny-list per token.',
+        },
+        {
+          term: 'onDelete: Cascade pada sesi',
+          meaning:
+            'Menghapus pengguna otomatis menghapus seluruh sesinya. Di sini `CASCADE` justru **tepat** — berbeda dari artikel atau pesanan, sesi memang tidak punya arti tanpa pemiliknya.',
+        },
+        {
+          term: 'cookie untuk refresh, header untuk access',
+          meaning:
+            'Pembagian yang disengaja. Refresh token di cookie `HttpOnly` ber-`path` sempit — tidak bisa dibaca JavaScript dan tidak ikut di setiap permintaan. Access token di header `Authorization` — tidak ikut otomatis, jadi tidak rawan CSRF.',
+        },
+        {
+          term: 'logout global',
+          meaning:
+            'Mencabut **seluruh** sesi seorang pengguna sekaligus, bukan hanya yang di perangkat itu. Diperlukan saat akun dicurigai dibajak — dan itulah situasi ketika pengguna paling membutuhkannya bekerja.',
+        },
       ),
 
       h2('Skema penyimpanan'),
@@ -871,6 +1217,32 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      references(
+        {
+          label: 'RFC 8725 — JWT Best Current Practices',
+          href: 'https://www.rfc-editor.org/rfc/rfc8725.html',
+          source: 'IETF',
+          note: 'Allow-list algoritma, verifikasi `iss`/`aud`, dan umur token yang dianjurkan.',
+        },
+        {
+          label: 'OAuth 2.0 Security BCP — refresh token rotation',
+          href: 'https://datatracker.ietf.org/doc/html/draft-ietf-oauth-security-topics',
+          source: 'IETF',
+          note: 'Rotasi beserta deteksi pemakaian ulang, langsung dari sumbernya.',
+        },
+        {
+          label: 'Session Management Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Daftar peristiwa yang wajib mencabut sesi — termasuk ganti password.',
+        },
+        {
+          label: 'Set-Cookie — path & SameSite',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie',
+          source: 'MDN Web Docs',
+          note: 'Atribut yang membuat cookie refresh hanya terkirim ke endpoint refresh.',
+        },
+      ),
     ],
   ),
 
@@ -880,6 +1252,54 @@ export const lessons: LessonDraft[] = [
     12,
     'Lapisan yang dipasang sekali dan melindungi setiap rute.',
     [
+      terms(
+        {
+          term: 'urutan middleware keamanan',
+          meaning:
+            'Bukan selera — **ia menentukan apa yang terlindungi**. Header keamanan yang dipasang setelah rute tidak berlaku untuk rute itu; rate limit setelah handler tidak menahan apa pun. Urutan adalah bagian dari konfigurasinya.',
+        },
+        {
+          term: 'trust proxy angka',
+          meaning:
+            'Rate limiter memakai IP klien yang dibaca dari `X-Forwarded-For`. Dengan **`true`**, Express mempercayai **seluruh rantai** — dan header itu bisa dipalsukan siapa pun. Penyerang cukup mengirim IP acak tiap permintaan untuk melewati rate limit sepenuhnya.',
+        },
+        {
+          term: 'helmet',
+          meaning:
+            'Middleware yang memasang sekumpulan header keamanan sekaligus. Ia tidak menutup celah apa pun sendirian — yang ia lakukan adalah **memperkecil ledakan** ketika celah lain lolos.',
+        },
+        {
+          term: 'Content-Security-Policy',
+          meaning:
+            'Header yang membatasi **dari mana** skrip, gaya, dan gambar boleh dimuat. Ia lapisan kedua terhadap XSS: bukan pengganti escaping, melainkan penahan kalau escaping terlewat di suatu tempat.',
+        },
+        {
+          term: 'HSTS',
+          meaning:
+            'Singkatan *HTTP Strict Transport Security*. Ia memberitahu browser "situs ini **selalu** HTTPS, jangan pernah coba HTTP lagi" — menutup celah sesaat pada kunjungan pertama sebelum pengalihan terjadi.',
+        },
+        {
+          term: 'CORS bukan kontrol akses',
+          meaning:
+            'Penegasan yang harus dipegang. CORS adalah **kontrol browser** — ia tidak menghalangi `curl`, skrip, maupun aplikasi mobile. Otorisasi tetap sepenuhnya di server; CORS hanya mengatur origin mana yang boleh membaca hasilnya dari halaman lain.',
+        },
+        {
+          term: 'origin: true',
+          meaning:
+            'Kesalahan CORS yang paling berbahaya: ia **memantulkan origin apa pun** kembali — sama saja dengan tidak punya kebijakan. Ia sering muncul sebagai "perbaikan" setelah `origin: \'*\'` bersama `credentials: true` ditolak browser.',
+        },
+        {
+          term: 'rate limit berjenjang',
+          meaning:
+            'Batas yang berbeda per kelompok endpoint: umum longgar, auth ketat, endpoint mahal paling ketat. Satu batas untuk semuanya selalu salah di salah satu ujung — terlalu longgar untuk login, atau terlalu ketat untuk pembacaan biasa.',
+        },
+        {
+          term: 'store rate limit di Redis',
+          meaning:
+            'Penyimpanan hitungan di **memori proses tidak bekerja** dengan banyak proses — masing-masing punya hitungannya sendiri, jadi batas efektifnya berlipat sebanyak jumlah prosesnya. Redis membuat hitungannya bersama.',
+        },
+      ),
+
       h2('Urutan pemasangan'),
       code(
         'js',
@@ -1026,6 +1446,32 @@ export const lessons: LessonDraft[] = [
       p(
         'Konfigurasi yang benar tapi tidak diterapkan adalah kegagalan yang paling mudah terlewat. Periksa header pada server yang **benar-benar berjalan**, bukan dengan membaca berkas konfigurasi.',
       ),
+      references(
+        {
+          label: 'Express — Production Best Practices: Security',
+          href: 'https://expressjs.com/en/advanced/best-practice-security.html',
+          source: 'Express',
+          note: 'Anjuran resmi termasuk `trust proxy`, helmet, dan mematikan `x-powered-by`.',
+        },
+        {
+          label: 'Content-Security-Policy',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy',
+          source: 'MDN Web Docs',
+          note: 'Setiap direktif beserta apa yang ia batasi.',
+        },
+        {
+          label: 'Cross-Origin Resource Sharing (CORS)',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS',
+          source: 'MDN Web Docs',
+          note: 'Aturan preflight dan larangan memadukan `*` dengan kredensial.',
+        },
+        {
+          label: 'Denial of Service Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Denial_of_Service_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Rate limiting dan batas ukuran sebagai kontrol anti-penyalahgunaan sumber daya.',
+        },
+      ),
     ],
   ),
 
@@ -1037,6 +1483,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Unggah berkas menggabungkan beberapa risiko sekaligus: input tidak tepercaya, penulisan ke disk, dan penyajian kembali ke browser. Setiap langkah punya cara gagalnya sendiri.',
+      ),
+
+      terms(
+        {
+          term: 'unggah berkas',
+          meaning:
+            'Fitur yang **menggabungkan beberapa risiko sekaligus**: input tidak tepercaya, penulisan ke disk, dan penyajian kembali ke browser. Setiap langkah punya cara gagalnya sendiri — dan itulah kenapa ia sering jadi jalan masuk eksekusi kode.',
+        },
+        {
+          term: 'multipart/form-data',
+          meaning:
+            'Format body untuk mengirim berkas beserta field biasa dalam satu permintaan. Ia diurai library terpisah (`multer`), bukan oleh `express.json()` — jadi batas ukurannya juga diatur terpisah.',
+        },
+        {
+          term: 'memoryStorage',
+          meaning:
+            'Menyimpan berkas di **memori** dulu supaya bisa diperiksa **sebelum menyentuh disk**. Berbahaya untuk berkas besar, jadi ia selalu dipasangkan dengan `limits.fileSize` yang ketat.',
+        },
+        {
+          term: 'mimetype bisa dipalsukan',
+          meaning:
+            'Peringatan terpenting sub-bab ini. `file.mimetype` dan nama berkas **keduanya dikirim klien**. Penyerang cukup mengganti header `Content-Type` menjadi `image/png` dan menamai berkasnya `foto.png` — isinya tetap boleh apa saja.',
+        },
+        {
+          term: 'magic bytes',
+          meaning:
+            'Beberapa byte pertama sebuah berkas yang menandai formatnya sungguhan — PNG selalu diawali `89 50 4E 47`. Memeriksanya adalah **satu-satunya** cara mengetahui isi berkas, karena nama dan mimetype tidak bisa dipercaya.',
+        },
+        {
+          term: 'nama berkas dari server',
+          meaning:
+            'Nama simpan **dihasilkan server** (UUID), bukan memakai nama dari klien. Ini menutup dua hal sekaligus: path traversal lewat `../../etc/passwd`, dan penimpaan berkas orang lain lewat nama yang sama.',
+        },
+        {
+          term: 'path traversal',
+          meaning:
+            'Serangan yang memakai `../` di nama berkas untuk menulis ke luar folder yang dimaksud. Ia mustahil kalau nama simpannya dihasilkan server — dan sulit ditutup rapat kalau nama klien dipakai apa adanya.',
+        },
+        {
+          term: 'jangan simpan di webroot',
+          meaning:
+            'Berkas unggahan **tidak boleh** berada di folder yang bisa dieksekusi server web. Berkas `.php` yang tersimpan di sana lalu diminta lewat browser akan **dijalankan** — dan itu eksekusi kode jarak jauh dengan pintu depan terbuka.',
+        },
+        {
+          term: 'Content-Disposition saat menyajikan',
+          meaning:
+            'Header yang memaksa browser **mengunduh** berkas, bukan merendernya. Dipasangkan dengan `Content-Type` yang dikunci — supaya HTML atau SVG yang lolos tidak dieksekusi di origin situsmu.',
+        },
       ),
 
       h2('Menerima berkas'),
@@ -1212,6 +1706,32 @@ export const lessons: LessonDraft[] = [
         'Akses berkas di-scope ke pemiliknya — id berkas bukan bukti kewenangan.',
         'Kuota per pengguna, supaya satu akun tidak menghabiskan penyimpanan.',
       ),
+      references(
+        {
+          label: 'File Upload Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Daftar periksa lengkap — verifikasi isi, nama dari server, dan penyimpanan di luar webroot.',
+        },
+        {
+          label: 'Content-Disposition',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Disposition',
+          source: 'MDN Web Docs',
+          note: 'Membuat browser mengunduh berkas alih-alih merender dan mungkin mengeksekusinya.',
+        },
+        {
+          label: 'X-Content-Type-Options',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Content-Type-Options',
+          source: 'MDN Web Docs',
+          note: 'Melarang browser menebak tipe berkas dari isinya — penting untuk unggahan.',
+        },
+        {
+          label: 'Unrestricted File Upload',
+          href: 'https://owasp.org/www-community/vulnerabilities/Unrestricted_File_Upload',
+          source: 'OWASP',
+          note: 'Bagaimana unggahan tanpa penjagaan berubah menjadi eksekusi kode jarak jauh.',
+        },
+      ),
     ],
   ),
 
@@ -1223,6 +1743,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Pekerjaan yang lambat, bisa gagal, atau bergantung pada pihak ketiga tidak boleh berada di dalam permintaan HTTP. Antrean memindahkannya — dengan konsekuensi yang harus kamu tangani sendiri: eksekusi ganda, kegagalan, dan urutan.',
+      ),
+
+      terms(
+        {
+          term: 'antrean (queue)',
+          meaning:
+            'Daftar pekerjaan yang menunggu dikerjakan proses lain. Ia memindahkan pekerjaan lambat keluar dari jalur permintaan — **dengan konsekuensi** yang harus kamu tangani sendiri: eksekusi ganda, kegagalan, dan urutan.',
+        },
+        {
+          term: 'BullMQ',
+          meaning:
+            'Library antrean untuk Node yang memakai **Redis** sebagai penyimpanan. Ia menyediakan retry, backoff, penjadwalan, dan dead-letter — hal yang kalau ditulis sendiri akan menghabiskan waktu berminggu-minggu.',
+        },
+        {
+          term: 'Queue vs Worker',
+          meaning:
+            '**Queue** adalah sisi yang menambahkan pekerjaan; **Worker** adalah sisi yang mengerjakannya. Keduanya bisa berada di proses berbeda — dan biasanya memang begitu, supaya beban worker tidak mengganggu API.',
+        },
+        {
+          term: 'at-least-once',
+          meaning:
+            'Jaminan pengiriman yang dipakai hampir semua sistem antrean: sebuah job **bisa dijalankan lebih dari sekali**. Kalau worker mati setelah bekerja tapi sebelum menandai selesai, job itu akan diambil lagi.',
+        },
+        {
+          term: 'handler idempoten',
+          meaning:
+            'Konsekuensi langsung dari at-least-once. Handler job **wajib** aman dijalankan berulang — kirim email yang sama dua kali menyebalkan; menagih kartu dua kali jauh lebih buruk.',
+        },
+        {
+          term: 'exponential backoff',
+          meaning:
+            'Jeda antar percobaan yang naik berlipat — 1 detik, 2, 4, 8. Ia mencegah worker membanjiri layanan yang sedang bermasalah, dan memberi layanan itu waktu pulih sebelum dicoba lagi.',
+        },
+        {
+          term: 'dead-letter',
+          meaning:
+            'Tujuan job yang **habis percobaannya**. Tanpa itu, kegagalan hilang diam-diam atau job berputar selamanya — dan keduanya berarti pekerjaan yang seharusnya terjadi tidak pernah terjadi tanpa ada yang tahu.',
+        },
+        {
+          term: 'payload job harus kecil',
+          meaning:
+            'Simpan **id**, bukan seluruh objek. Payload besar membebani Redis, dan lebih buruk: data di dalamnya sudah **basi** saat job akhirnya berjalan. Ambil datanya segar dari database di dalam handler.',
+        },
+        {
+          term: 'otorisasi di dalam job',
+          meaning:
+            'Job **tidak otomatis tepercaya** hanya karena datang dari antreanmu sendiri. Ia tetap harus memverifikasi kewenangan — payload bisa salah, dan keadaan bisa berubah antara saat job dibuat dan saat ia dijalankan.',
+        },
       ),
 
       h2('Menyiapkan'),
@@ -1390,6 +1958,32 @@ export const lessons: LessonDraft[] = [
         'Antrean menambah Redis, proses pekerja, dan satu sistem lagi untuk dipantau',
         'Untuk aplikasi kecil, `setImmediate` atau sekadar menerima bahwa permintaannya butuh dua detik sering lebih baik. Tambahkan antrean saat ada masalah nyata: permintaan yang timeout, pekerjaan yang harus bertahan melewati restart, atau batas rate pihak ketiga yang harus dihormati.',
       ),
+      references(
+        {
+          label: 'BullMQ — Guide',
+          href: 'https://docs.bullmq.io/guide/introduction',
+          source: 'BullMQ',
+          note: 'Queue, Worker, dan alur job dari penambahan sampai penyelesaian.',
+        },
+        {
+          label: 'BullMQ — Retrying failing jobs',
+          href: 'https://docs.bullmq.io/guide/retrying-failing-jobs',
+          source: 'BullMQ',
+          note: '`attempts`, backoff eksponensial, dan `UnrecoverableError` untuk kegagalan permanen.',
+        },
+        {
+          label: 'BullMQ — Repeatable jobs',
+          href: 'https://docs.bullmq.io/guide/jobs/repeatable',
+          source: 'BullMQ',
+          note: 'Job berjadwal beserta `jobId` yang mencegah pendaftaran ganda.',
+        },
+        {
+          label: 'Redis — Keyspace & expiration',
+          href: 'https://redis.io/docs/latest/develop/use/keyspace/',
+          source: 'Redis',
+          note: 'Penyimpanan yang menopang antrean, beserta perilaku kedaluwarsanya.',
+        },
+      ),
     ],
   ),
 
@@ -1401,6 +1995,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Cache mempercepat dengan menyimpan jawaban lama. Konsekuensinya melekat: **data yang kamu sajikan bisa basi**. Seluruh kesulitan caching ada di sana, bukan di cara menyimpannya.',
+      ),
+
+      terms(
+        {
+          term: 'cache',
+          meaning:
+            'Penyimpanan jawaban lama untuk mempercepat pembacaan berikutnya. Konsekuensinya melekat: **data yang kamu sajikan bisa basi**. Seluruh kesulitan caching ada di sana — bukan di cara menyimpannya.',
+        },
+        {
+          term: 'cache-aside',
+          meaning:
+            'Pola paling umum: cek cache dulu, kalau kosong ambil dari database lalu **simpan hasilnya**. Aplikasi yang mengelola cache-nya sendiri — berbeda dari pola di mana cache yang mengambil data untukmu.',
+        },
+        {
+          term: 'TTL',
+          meaning:
+            'Singkatan *Time To Live* — berapa lama entri cache berlaku. **Wajib ada**: tanpa TTL, entri menumpuk sampai memori Redis habis, dan data basi bertahan selamanya.',
+        },
+        {
+          term: 'versi di kunci cache',
+          meaning:
+            'Awalan seperti `artikel:v1:` pada kunci. Saat bentuk data berubah, naikkan versinya — seluruh entri lama otomatis tidak terpakai. **Jauh lebih andal** daripada berusaha menghapusnya satu per satu.',
+        },
+        {
+          term: 'invalidasi',
+          meaning:
+            'Membuang entri cache setelah datanya berubah. Ini bagian tersulit caching: melewatkan satu jalur penulisan berarti pengguna melihat data lama, dan gejalanya muncul jauh dari penyebabnya.',
+        },
+        {
+          term: 'cache stampede',
+          meaning:
+            'Saat satu entri populer kedaluwarsa, **semua** permintaan bersamaan gagal cache dan menghantam database sekaligus. Obatnya: kunci pengambilan ulang, atau TTL yang diberi variasi acak supaya tidak kedaluwarsa serentak.',
+        },
+        {
+          term: 'jangan cache data privat bersama',
+          meaning:
+            'Kunci cache **wajib** memuat id pengguna kalau isinya berbeda per pengguna. Kunci `dasbor` tanpa id akan menyajikan dasbor Ana kepada Budi — dan tidak ada error apa pun yang memberitahumu.',
+        },
+        {
+          term: 'cache sebagai optimasi, bukan kebenaran',
+          meaning:
+            'Aplikasi harus **tetap benar** kalau cache-nya kosong atau mati. Redis yang tidak bisa dihubungi seharusnya membuat aplikasi lebih lambat, bukan gagal — jadi bungkus pembacaan cache dengan penanganan kegagalan.',
+        },
+        {
+          term: 'apa yang layak di-cache',
+          meaning:
+            'Yang **mahal dihitung** dan **sering dibaca** — hasil agregasi, daftar yang jarang berubah, respons pihak ketiga. Meng-cache query yang sudah cepat menambah kerumitan tanpa manfaat yang bisa diukur.',
+        },
       ),
 
       h2('Pola cache-aside'),
@@ -1556,6 +2198,32 @@ export const lessons: LessonDraft[] = [
       p(
         'Ini pembeda antara cache dan penyimpanan utama: kegagalan cache harus menurunkan performa, bukan menghentikan layanan.',
       ),
+      references(
+        {
+          label: 'Redis — Keyspace',
+          href: 'https://redis.io/docs/latest/develop/use/keyspace/',
+          source: 'Redis',
+          note: 'Perancangan kunci, TTL, dan perilaku kedaluwarsanya.',
+        },
+        {
+          label: 'Redis — SCAN',
+          href: 'https://redis.io/docs/latest/commands/scan/',
+          source: 'Redis',
+          note: 'Pengganti `KEYS` yang berjalan bertahap dan tidak memblokir seluruh server.',
+        },
+        {
+          label: 'Redis — SET with NX and EX',
+          href: 'https://redis.io/docs/latest/commands/set/',
+          source: 'Redis',
+          note: 'Opsi yang membuat kunci gembok anti-stampede bisa diklaim secara atomik.',
+        },
+        {
+          label: 'Caching best practices',
+          href: 'https://web.dev/articles/http-cache',
+          source: 'web.dev',
+          note: 'Prinsip caching yang berlaku sama di lapisan HTTP maupun aplikasi.',
+        },
+      ),
     ],
   ),
 
@@ -1565,6 +2233,54 @@ export const lessons: LessonDraft[] = [
     13,
     'Tes yang benar-benar menangkap bug, bukan yang sekadar hijau.',
     [
+      terms(
+        {
+          term: 'piramida tes',
+          meaning:
+            'Gambaran proporsi jenis tes: banyak unit yang cepat, cukup integrasi, sedikit end-to-end. Bentuknya piramida karena makin ke atas makin lambat dan makin rapuh — bukan karena makin tidak berguna.',
+        },
+        {
+          term: 'Supertest',
+          meaning:
+            'Library yang menjalankan permintaan HTTP terhadap aplikasi Express **tanpa membuka port**. Ia yang membuat tes integrasi bisa memanggil endpoint sungguhan sambil tetap cepat dan bisa berjalan paralel.',
+        },
+        {
+          term: 'tes integrasi',
+          meaning:
+            'Menguji **jalur nyata** dari HTTP sampai database. Ia yang menangkap bug yang lolos unit test: middleware yang urutannya salah, otorisasi yang lupa dipasang, dan bentuk respons yang tidak sesuai kontrak.',
+        },
+        {
+          term: 'database uji',
+          meaning:
+            'Database terpisah yang dipakai tes — bukan database pengembangan. Ia boleh dihapus dan dibangun ulang kapan saja, dan itulah yang membuat tes bisa dimulai dari keadaan yang **diketahui**.',
+        },
+        {
+          term: 'isolasi antar tes',
+          meaning:
+            'Setiap tes mulai dari keadaan bersih. Tanpa itu, tes menjadi **bergantung urutan**: lulus saat dijalankan sendiri, gagal saat dijalankan bersama — dan menemukan penyebabnya jauh lebih mahal daripada mencegahnya.',
+        },
+        {
+          term: 'tes otorisasi negatif',
+          meaning:
+            'Membuktikan bahwa yang **seharusnya ditolak** memang ditolak. Ini tes yang paling sering tidak ditulis, dan justru yang paling berharga — karena IDOR tidak menimbulkan gejala apa pun sampai ada yang mencarinya.',
+        },
+        {
+          term: 'jangan uji implementasi',
+          meaning:
+            'Tes yang memeriksa **bagaimana** sesuatu dikerjakan akan gagal setiap kali kamu merapikan kode, meski perilakunya tidak berubah. Uji lewat antarmuka publik — status code, bentuk respons, dan keadaan database sesudahnya.',
+        },
+        {
+          term: 'flaky test',
+          meaning:
+            'Tes yang kadang lulus kadang gagal tanpa kodenya berubah. Ia lebih berbahaya daripada tidak punya tes: orang belajar **mengabaikan** kegagalan, dan kegagalan yang sungguhan ikut terabaikan.',
+        },
+        {
+          term: 'coverage bukan tujuan',
+          meaning:
+            'Angka cakupan mengukur baris yang **dijalankan**, bukan perilaku yang **diperiksa**. Tes yang memanggil semua fungsi tanpa satu pun assertion menghasilkan 100% — dan tidak menangkap apa pun.',
+        },
+      ),
+
       h2('Piramida yang realistis'),
       table(
         ['Jenis', 'Menguji', 'Porsi'],
@@ -1733,6 +2449,32 @@ export const lessons: LessonDraft[] = [
         'Cakupan 100% tidak berarti apa-apa kalau semua tes menguji jalur sukses',
         'Cakupan mengukur baris yang **dijalankan**, bukan perilaku yang **diperiksa**. Tes yang memanggil endpoint dan hanya memastikan statusnya `200` menaikkan angka tanpa menangkap satu bug pun. Yang berharga adalah tes untuk input kosong, tidak valid, tidak berizin, dan dependensi yang gagal.',
       ),
+      references(
+        {
+          label: 'Vitest — Getting Started',
+          href: 'https://vitest.dev/guide/',
+          source: 'Vitest',
+          note: 'Test runner yang dipakai project ini, beserta konfigurasi dasarnya.',
+        },
+        {
+          label: 'Vitest — Mocking & fake timers',
+          href: 'https://vitest.dev/guide/mocking',
+          source: 'Vitest',
+          note: '`vi.mock` dan `vi.setSystemTime` untuk hal yang benar-benar di luar kendalimu.',
+        },
+        {
+          label: 'Vitest — Test Coverage',
+          href: 'https://vitest.dev/guide/coverage',
+          source: 'Vitest',
+          note: 'Cara mengukurnya — beserta alasan angkanya bukan tujuan.',
+        },
+        {
+          label: 'Authorization Testing Automation Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Testing_Automation_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Menjadikan uji otorisasi negatif bagian tetap dari suite tes.',
+        },
+      ),
     ],
   ),
 
@@ -1744,6 +2486,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'WebSocket memberi koneksi dua arah yang tetap terbuka. Ia menyelesaikan masalah yang tidak bisa diselesaikan polling — tapi ia juga memperkenalkan state per koneksi, yang bertentangan dengan sifat stateless yang membuat backend mudah diskalakan.',
+      ),
+
+      terms(
+        {
+          term: 'WebSocket',
+          meaning:
+            'Koneksi **dua arah yang tetap terbuka** antara browser dan server. Ia menyelesaikan masalah yang tidak bisa diselesaikan polling — tapi memperkenalkan **state per koneksi**, yang bertentangan dengan sifat stateless yang membuat backend mudah diskalakan.',
+        },
+        {
+          term: 'Socket.IO',
+          meaning:
+            'Library di atas WebSocket yang menambahkan pemulihan koneksi, room, dan fallback ke polling. Ia bukan WebSocket murni — klien dan server harus **sama-sama** memakai Socket.IO.',
+        },
+        {
+          term: 'handshake',
+          meaning:
+            'Fase awal koneksi tempat klien mengirim data autentikasi. Di sinilah token diperiksa — **sekali di awal**, bukan di setiap pesan, dan itu punya konsekuensi yang dibahas di bawah.',
+        },
+        {
+          term: 'auth sekali di awal',
+          meaning:
+            'Konsekuensi yang harus disadari: koneksi yang sudah terbuka **tetap sah** meski token-nya kedaluwarsa atau dicabut. Untuk itu perlu pemeriksaan berkala, atau penutupan paksa saat pencabutan terjadi.',
+        },
+        {
+          term: 'room',
+          meaning:
+            'Pengelompokan koneksi yang bisa dikirimi pesan sekaligus. Ia yang membuat "kirim ke semua anggota proyek 42" jadi satu pemanggilan — tapi **keanggotaannya wajib diotorisasi** saat bergabung.',
+        },
+        {
+          term: 'otorisasi per event',
+          meaning:
+            'Setiap pesan masuk **tetap masukan tidak tepercaya**, sama seperti body HTTP. Koneksi yang terautentikasi bukan izin untuk melakukan apa pun — kewenangan tetap diperiksa per aksi.',
+        },
+        {
+          term: 'maxHttpBufferSize',
+          meaning:
+            'Batas ukuran pesan. Koneksi terbuka **juga jalur masuk data** — tanpa batas, satu klien bisa mengirim pesan raksasa yang menghabiskan memori server.',
+        },
+        {
+          term: 'state per koneksi',
+          meaning:
+            'Beban utama realtime. Server harus mengingat siapa terhubung di mana — dan itu membuat penambahan proses tidak lagi gratis: dua proses tidak otomatis saling tahu koneksi masing-masing.',
+        },
+        {
+          term: 'adapter Redis',
+          meaning:
+            'Jembatan yang membuat beberapa proses Socket.IO saling meneruskan pesan. **Wajib** begitu kamu menjalankan lebih dari satu proses — tanpa itu, pesan hanya sampai ke klien yang kebetulan terhubung ke proses yang sama.',
+        },
       ),
 
       h2('Menyiapkan'),
@@ -1878,6 +2668,32 @@ export const lessons: LessonDraft[] = [
         'SSE sering cukup, dan jauh lebih murah',
         'Server-Sent Events berjalan di atas HTTP biasa: ia melewati proxy tanpa konfigurasi khusus, memakai autentikasi yang sama dengan endpoint lain, dan menyambung ulang sendiri. Kalau kamu hanya perlu mengirim dari server ke klien, WebSocket adalah beban yang tidak kamu butuhkan.',
       ),
+      references(
+        {
+          label: 'Socket.IO — Server API',
+          href: 'https://socket.io/docs/v4/server-api/',
+          source: 'Socket.IO',
+          note: 'Opsi server termasuk `maxHttpBufferSize` dan `pingTimeout`.',
+        },
+        {
+          label: 'Socket.IO — Middlewares & authentication',
+          href: 'https://socket.io/docs/v4/middlewares/',
+          source: 'Socket.IO',
+          note: 'Pemeriksaan token saat handshake, dan middleware per event.',
+        },
+        {
+          label: 'Socket.IO — Redis adapter',
+          href: 'https://socket.io/docs/v4/redis-adapter/',
+          source: 'Socket.IO',
+          note: 'Wajib begitu ada lebih dari satu proses yang melayani koneksi.',
+        },
+        {
+          label: 'Server-Sent Events',
+          href: 'https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events',
+          source: 'MDN Web Docs',
+          note: 'Alternatif satu arah yang jauh lebih sederhana dan sering sudah cukup.',
+        },
+      ),
     ],
   ),
 
@@ -1889,6 +2705,54 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Aplikasi produksi akan gagal dengan cara yang tidak kamu antisipasi. Observability adalah kemampuan **menjelaskannya setelah kejadian** — tanpa itu, setiap laporan pengguna berakhir dengan "tidak bisa direproduksi".',
+      ),
+
+      terms(
+        {
+          term: 'observability',
+          meaning:
+            'Kemampuan **menjelaskan apa yang terjadi setelah kejadiannya lewat**. Aplikasi produksi akan gagal dengan cara yang tidak kamu antisipasi — tanpa observability, setiap laporan pengguna berakhir dengan "tidak bisa direproduksi".',
+        },
+        {
+          term: 'tiga pilar',
+          meaning:
+            '**Log** menjawab apa yang terjadi pada satu permintaan tertentu. **Metrik** menjawab bagaimana kesehatan sistem secara keseluruhan. **Trace** menjawab ke mana saja satu permintaan pergi lintas layanan.',
+        },
+        {
+          term: 'AsyncLocalStorage',
+          meaning:
+            'API Node yang menyimpan nilai **per rantai eksekusi asinkron** — sehingga id permintaan bisa dibaca dari fungsi mana pun tanpa dioper sebagai argumen ke setiap lapisan.',
+        },
+        {
+          term: 'id korelasi dari hulu',
+          meaning:
+            'Memakai ulang `x-request-id` dari header **kalau sudah ada**, bukan selalu membuat baru. Ia yang membuat jejak tersambung lintas layanan — dan tanpa itu, satu perjalanan terpecah jadi beberapa jejak terpisah.',
+        },
+        {
+          term: 'child logger',
+          meaning:
+            'Logger turunan yang membawa field tetap — misalnya `reqId`. Setiap baris darinya otomatis menyertakannya, jadi kamu tidak perlu mengulangnya di setiap pemanggilan dan tidak mungkin lupa.',
+        },
+        {
+          term: 'health check',
+          meaning:
+            'Endpoint yang menjawab "apakah proses ini sehat". Ia dipakai load balancer dan orkestrator untuk memutuskan apakah instance layak menerima trafik — jadi jawabannya harus **cepat** dan **jujur**.',
+        },
+        {
+          term: 'liveness vs readiness',
+          meaning:
+            '**Liveness** menjawab "apakah proses ini masih hidup" — gagal berarti restart. **Readiness** menjawab "apakah ia siap menerima trafik" — gagal berarti dikeluarkan dari rotasi sementara. Menyamakan keduanya menyebabkan restart yang tidak perlu.',
+        },
+        {
+          term: 'health check tidak boleh berat',
+          meaning:
+            'Ia dipanggil **setiap beberapa detik** oleh setiap pemantau. Health check yang menjalankan query berat menambah beban justru saat sistem sedang tertekan — persis saat ia paling tidak boleh menambah beban.',
+        },
+        {
+          term: 'log tanpa alert bukan deteksi',
+          meaning:
+            'Log yang tidak ada yang membaca adalah **arsip**. Yang membuatnya deteksi adalah alert pada pola tertentu: lonjakan `5xx`, lonjakan penolakan otorisasi, dan latensi yang menyimpang dari baseline.',
+        },
       ),
 
       h2('Tiga pilar'),
@@ -2055,6 +2919,32 @@ export const lessons: LessonDraft[] = [
         'Log tanpa alert adalah arsip, bukan deteksi',
         'Ini kegagalan nomor sembilan di OWASP Top 10 dan yang paling sering dianggap sudah beres. Mengumpulkan log itu langkah pertama; yang membuatnya berguna adalah ada yang memberitahumu **saat sedang terjadi**, bukan saat kamu kebetulan membacanya minggu depan.',
       ),
+      references(
+        {
+          label: 'AsyncLocalStorage',
+          href: 'https://nodejs.org/api/async_context.html#class-asynclocalstorage',
+          source: 'Node.js',
+          note: 'Menyimpan konteks per permintaan tanpa mengopernya ke setiap fungsi.',
+        },
+        {
+          label: 'OWASP Top 10 — Security Logging and Monitoring Failures',
+          href: 'https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/',
+          source: 'OWASP',
+          note: 'Kategori yang menjelaskan kenapa log tanpa alert dihitung sebagai kegagalan.',
+        },
+        {
+          label: 'Logging Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Peristiwa yang wajib dicatat, dan daftar tegas yang tidak boleh masuk log.',
+        },
+        {
+          label: 'process.hrtime.bigint()',
+          href: 'https://nodejs.org/api/process.html#processhrtimebigint',
+          source: 'Node.js',
+          note: 'Pengukur durasi beresolusi tinggi yang dipakai mencatat latensi permintaan.',
+        },
+      ),
     ],
   ),
 
@@ -2064,6 +2954,54 @@ export const lessons: LessonDraft[] = [
     11,
     'Menutup celah tipe yang paling sering menjadi bug runtime.',
     [
+      terms(
+        {
+          term: 'strict',
+          meaning:
+            'Sekumpulan opsi TypeScript yang dinyalakan sekaligus — termasuk `strictNullChecks` yang membedakan `T` dari `T | null`. Tanpa `strict`, TypeScript memberi rasa aman tanpa jaminan yang sepadan.',
+        },
+        {
+          term: 'noUncheckedIndexedAccess',
+          meaning:
+            'Membuat `arr[0]` bertipe `T | undefined`, bukan `T` — karena array **bisa kosong**. Ia menutup persis kelas bug yang muncul sebagai `Cannot read property of undefined` di produksi. Project ini memakainya.',
+        },
+        {
+          term: 'verbatimModuleSyntax',
+          meaning:
+            'Memaksa impor tipe ditulis eksplisit dengan `import type`. Ia menghilangkan kebingungan tentang impor mana yang tersisa saat runtime — dan itu penting di Node, yang tidak punya bundler untuk merapikannya.',
+        },
+        {
+          term: 'declaration merging',
+          meaning:
+            'Mekanisme TypeScript untuk **menambahkan properti** ke antarmuka yang sudah ada — dipakai memperluas `Express.Request` dengan `id`, `log`, dan `pengguna`.',
+        },
+        {
+          term: 'pengguna sengaja opsional',
+          meaning:
+            'Keputusan desain yang penting. Menandainya wajib membuat TypeScript **diam** pada rute yang tidak memakai middleware auth — dan di situlah bug keamanan bersembunyi. Dengan opsional, setiap pembacaan memaksamu membuktikan autentikasi memang berjalan.',
+        },
+        {
+          term: 'type narrowing lewat pembungkus',
+          meaning:
+            'Pola `wajibAuth(handler)` yang memeriksa sekali lalu **menyempitkan tipenya**. Di dalam handler, `req.pengguna` dijamin ada — tanpa `!` dan tanpa pengecekan ulang yang bisa terlewat.',
+        },
+        {
+          term: 'z.infer',
+          meaning:
+            'Menurunkan tipe TypeScript **dari skema Zod**. Menulis tipe terpisah berarti keduanya bisa menyimpang tanpa ada yang memberi tahu; `z.infer` membuat itu **tidak mungkin**.',
+        },
+        {
+          term: 'generic pada middleware',
+          meaning:
+            'Bentuk `validasiBody<T extends z.ZodTypeAny>(skema: T)` yang membawa tipe skema sampai ke handler. Tanpa generic, `req.body` setelah validasi tetap `any` — dan seluruh manfaat validasinya hilang di lapisan tipe.',
+        },
+        {
+          term: 'tipe bukan pengganti validasi',
+          meaning:
+            'TypeScript hilang saat runtime. `req.body as BuatCatatanInput` **tidak memeriksa apa pun** — ia hanya membuat compiler diam. Yang memeriksa isinya tetap skema validasi; tipe hanya memastikan kodemu konsisten dengan hasilnya.',
+        },
+      ),
+
       h2('Menyiapkan'),
       code(
         'json',
@@ -2228,6 +3166,32 @@ export const lessons: LessonDraft[] = [
         'Jalankan `type-check` di CI, terpisah dari build',
         'Alat seperti `tsx` dan `esbuild` **menghapus** tipe tanpa memeriksanya — jadi kode yang tidak lolos type-check tetap berjalan di pengembangan. Tanpa langkah pemeriksaan terpisah, error tipe baru ketahuan saat build produksi, atau tidak sama sekali.',
       ),
+      references(
+        {
+          label: 'TypeScript — tsconfig strict options',
+          href: 'https://www.typescriptlang.org/tsconfig/#strict',
+          source: 'TypeScript',
+          note: 'Opsi yang dinyalakan `strict`, termasuk `strictNullChecks`.',
+        },
+        {
+          label: 'noUncheckedIndexedAccess',
+          href: 'https://www.typescriptlang.org/tsconfig/#noUncheckedIndexedAccess',
+          source: 'TypeScript',
+          note: 'Opsi yang membuat akses index bertipe `T | undefined` — dipakai project ini.',
+        },
+        {
+          label: 'Declaration Merging',
+          href: 'https://www.typescriptlang.org/docs/handbook/declaration-merging.html',
+          source: 'TypeScript',
+          note: 'Mekanisme yang dipakai memperluas `Express.Request`.',
+        },
+        {
+          label: 'Zod — Type inference',
+          href: 'https://zod.dev/basics',
+          source: 'Zod',
+          note: '`z.infer` yang menurunkan tipe dari skema, bukan menuliskannya dua kali.',
+        },
+      ),
     ],
   ),
 
@@ -2239,6 +3203,49 @@ export const lessons: LessonDraft[] = [
     [
       p(
         'Bangun API blog yang memakai setiap konsep bab ini: arsitektur berlapis, Prisma, auth dengan pencabutan, antrean, cache, dan tes yang benar-benar menangkap bug.',
+      ),
+
+      terms(
+        {
+          term: 'API produksi',
+          meaning:
+            'Bukan sekadar "berjalan". Ia punya arsitektur berlapis yang bisa diuji, auth yang **bisa dicabut**, batas di setiap jalur masuk, pekerjaan lambat di antrean, dan tes yang menangkap bug — bukan yang sekadar hijau.',
+        },
+        {
+          term: 'endpoint publik vs terautentikasi',
+          meaning:
+            'Pembagian yang harus **eksplisit** di daftar rute. `GET /api/artikel` publik dan boleh di-cache; `POST /api/artikel` butuh identitas. Rute yang tidak jelas masuk kelompok mana adalah rute yang penjagaannya belum diputuskan.',
+        },
+        {
+          term: 'pemilik atau admin',
+          meaning:
+            'Aturan otorisasi yang menggabungkan dua lapisan: **kepemilikan** (baris ini milikmu) dan **peran** (kamu admin). Keduanya diperiksa di service, dan kepemilikannya ikut lagi di query — pertahanan berlapis.',
+        },
+        {
+          term: 'izin per aksi',
+          meaning:
+            'Perhatikan `artikel.terbitkan` pada endpoint terbitkan. Menerbitkan bukan sekadar mengubah — ia aksi tersendiri dengan izin tersendiri, dan itulah kenapa ia jadi sub-resource, bukan field pada `PATCH`.',
+        },
+        {
+          term: 'rate limit berbeda per endpoint',
+          meaning:
+            'Komentar dibatasi lebih ketat daripada pembacaan artikel. Satu batas untuk semuanya selalu salah di salah satu ujung — dan endpoint yang menulis hampir selalu butuh batas yang lebih ketat.',
+        },
+        {
+          term: 'cache pada endpoint publik',
+          meaning:
+            'Hanya endpoint **publik** yang boleh di-cache bersama. `GET /api/artikel` boleh; apa pun di balik autentikasi tidak — kecuali `private` dengan kunci yang memuat id pengguna.',
+        },
+        {
+          term: 'ETag pada detail',
+          meaning:
+            'Dipasang pada `GET /api/artikel/:slug` karena isinya besar dan jarang berubah. Klien yang sudah punya versinya menerima `304` tanpa body — penghematan yang terasa di jaringan lambat.',
+        },
+        {
+          term: 'tes sebagai kriteria selesai',
+          meaning:
+            'Latihan ini tidak selesai saat endpoint-nya berjalan, melainkan saat **tesnya membuktikan** yang seharusnya tidak bisa memang tidak bisa: pengguna lain ditolak, `penulisId` dari klien diabaikan, dan jumlah query tidak tumbuh mengikuti jumlah baris.',
+        },
       ),
 
       h2('Cakupan'),
@@ -2400,6 +3407,33 @@ export const lessons: LessonDraft[] = [
         'Ada tes yang menghitung query untuk mencegah N+1 kembali',
         '`/health/ready` benar-benar memeriksa database dan tidak membocorkan detail internal',
         'Log tidak memuat token, password, atau header `Authorization`',
+      ),
+
+      references(
+        {
+          label: 'Express — Production Best Practices',
+          href: 'https://expressjs.com/en/advanced/best-practice-performance.html',
+          source: 'Express',
+          note: 'Daftar hal yang harus benar sebelum aplikasi Express dijalankan di produksi.',
+        },
+        {
+          label: 'Prisma — Deployment & connection management',
+          href: 'https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections',
+          source: 'Prisma',
+          note: 'Ukuran pool dan perilaku koneksi yang menentukan di lingkungan produksi.',
+        },
+        {
+          label: 'BullMQ — Guide',
+          href: 'https://docs.bullmq.io/guide/introduction',
+          source: 'BullMQ',
+          note: 'Antrean yang dipakai memindahkan pekerjaan lambat pada latihan ini.',
+        },
+        {
+          label: 'REST Security Cheat Sheet',
+          href: 'https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html',
+          source: 'OWASP',
+          note: 'Checklist keamanan yang dipetakan langsung ke daftar periksa di atas.',
+        },
       ),
     ],
   ),

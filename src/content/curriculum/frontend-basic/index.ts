@@ -30,7 +30,9 @@ const chapter2 = defineChapter({
   stackVersions: ['ECMAScript 2024'],
   // 2026-08-03: revisi ADR-0006 — setiap sub-bab kini menjelaskan istilahnya sendiri dan
   // menunjuk halaman dokumentasi resminya.
-  reviewedAt: '2026-08-03',
+  // 2026-08-05: revisi kedalaman narasi (plans/revisi-kedalaman-narasi/) — sub-bab
+  // `polymorphism` mendapat paragraf penghubung di transisi kode yang sebelumnya kosong.
+  reviewedAt: '2026-08-05',
   lessons: lessonsOop,
   quiz: [
     q(
@@ -97,7 +99,9 @@ const chapter3 = defineChapter({
   stackVersions: ['ECMAScript 2024'],
   // 2026-08-03: revisi ADR-0006 — setiap sub-bab kini menjelaskan istilahnya sendiri dan
   // menunjuk halaman dokumentasi resminya.
-  reviewedAt: '2026-08-03',
+  // 2026-08-05: revisi kedalaman narasi (plans/revisi-kedalaman-narasi/) — paragraf penghubung
+  // ditambahkan di titik transisi kode yang sebelumnya kosong.
+  reviewedAt: '2026-08-05',
   lessons: lessonsAsync,
   quiz: [
     q(
@@ -159,7 +163,9 @@ const chapter4 = defineChapter({
   stackVersions: ['DOM Living Standard'],
   // 2026-08-03: revisi ADR-0006 — setiap sub-bab kini menjelaskan istilahnya sendiri dan
   // menunjuk halaman dokumentasi resminya.
-  reviewedAt: '2026-08-03',
+  // 2026-08-05: revisi kedalaman narasi (plans/revisi-kedalaman-narasi/) — paragraf penghubung
+  // ditambahkan di titik transisi kode yang sebelumnya kosong.
+  reviewedAt: '2026-08-05',
   lessons: lessonsDom,
   quiz: [
     q(
@@ -229,7 +235,9 @@ const chapter5 = defineChapter({
   stackVersions: ['Fetch Standard', 'HTTP/1.1 & HTTP/2'],
   // 2026-08-03: revisi ADR-0006 — setiap sub-bab kini menjelaskan istilahnya sendiri dan
   // menunjuk halaman dokumentasi resminya.
-  reviewedAt: '2026-08-03',
+  // 2026-08-05: revisi kedalaman narasi (plans/revisi-kedalaman-narasi/) — paragraf penghubung
+  // ditambahkan di titik transisi kode yang sebelumnya kosong.
+  reviewedAt: '2026-08-05',
   lessons: lessonsAjax,
   quiz: [
     q(
@@ -299,7 +307,10 @@ const chapter6 = defineChapter({
   stackVersions: ['React 19.2', 'TypeScript 5.9'],
   // 2026-08-03: revisi ADR-0006 — setiap sub-bab kini menjelaskan istilahnya sendiri dan
   // menunjuk halaman dokumentasi resminya. Dengan bab ini, seluruh Frontend Basic tuntas.
-  reviewedAt: '2026-08-03',
+  // 2026-08-05: revisi kedalaman narasi (plans/revisi-kedalaman-narasi/) — paragraf penghubung
+  // ditambahkan di titik transisi kode yang sebelumnya kosong. Dengan bab ini, seluruh
+  // Frontend Basic tuntas untuk pass kedalaman narasi juga.
+  reviewedAt: '2026-08-05',
   lessons: lessonsJsxTsx,
   quiz: [
     q(

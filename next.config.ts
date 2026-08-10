@@ -17,7 +17,14 @@ import type { NextConfig } from 'next';
  *
  * `codesandbox.io` is allowed only for `frame-src` and `connect-src` because the playground
  * (Sandpack) executes code inside its sandboxed iframe. Nothing else may reach the network.
+ *
+ * `'unsafe-eval'` is added to `script-src` **only in development** — Turbopack's dev client
+ * uses `eval()` to reconstruct React Server Component stack traces for debugging. Production
+ * never needs it (React's own warning confirms it never calls `eval()` outside dev), so the
+ * production policy stays free of it.
  */
+const isDev = process.env.NODE_ENV === 'development';
+
 const CSP = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -28,7 +35,7 @@ const CSP = [
   "font-src 'self'",
   // Next inlines critical CSS; Tailwind emits no runtime styles beyond that.
   "style-src 'self' 'unsafe-inline'",
-  "script-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
   // Only the playground talks to the network, and only to its own sandbox host.
   "connect-src 'self' https://*.codesandbox.io",
   "frame-src 'self' https://*.codesandbox.io",
