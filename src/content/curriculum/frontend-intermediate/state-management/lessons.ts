@@ -32,14 +32,14 @@ export const lessons: LessonDraft[] = [
     'Lima jenis state yang sering disamakan padahal butuh perlakuan berbeda.',
     [
       p(
-        'Hampir semua kebingungan soal "state management" berasal dari satu kesalahan yang sama: memperlakukan semua data seolah sejenis. Padahal data di sebuah aplikasi punya asal, pemilik, dan mode gagal yang berbeda-beda. Salah kategori berarti salah alat — dan alat yang salah terasa berat bukan karena librarynya buruk, melainkan karena ia sedang dipaksa mengerjakan tugas yang bukan miliknya.',
+        'Hampir semua kebingungan soal "state management" berasal dari satu kesalahan yang sama: memperlakukan semua data seolah sejenis. Padahal data di sebuah aplikasi punya asal, pemilik, dan mode gagal yang berbeda-beda. Salah kategori berarti salah alat — dan alat yang salah terasa berat bukan karena library-nya buruk, melainkan karena ia sedang dipaksa mengerjakan tugas yang bukan miliknya.',
       ),
 
       terms(
         {
           term: 'state',
           meaning:
-            'Data yang bisa berubah dan yang perubahannya harus tercermin di layar. Kata kuncinya "berubah" — nilai yang tidak pernah berubah bukan state, ia konstanta. Dan nilai yang bisa **dihitung** dari state lain juga bukan state; itu nilai turunan, dan menyimpannya adalah awal dari data yang tidak sinkron.',
+            'Data yang bisa berubah dan yang perubahannya harus tercermin di layar. Kata kuncinya "berubah" — nilai yang tidak pernah berubah bukan state, ia konstanta. Dan nilai yang bisa **dihitung** dari state lain juga bukan state; itu derived value, dan menyimpannya adalah awal dari data yang tidak sinkron.',
         },
         {
           term: 'state management',
@@ -67,7 +67,7 @@ export const lessons: LessonDraft[] = [
             'Nilai tiap field, pesan error validasi, dan status pengiriman sebuah formulir. Ia punya siklus hidup sendiri yang pendek dan aturan sendiri (kapan divalidasi, kapan error ditampilkan), jadi memaksanya ke store global hampir selalu memperumit.',
         },
         {
-          term: 'kebasian (staleness)',
+          term: 'staleness',
           meaning:
             'Keadaan ketika salinan data di browser sudah tidak sama dengan yang di server. Konsep ini **hanya ada** pada server state — dan itulah satu perbedaan paling tajam yang membuat menyalin data server ke store global jadi mahal.',
         },
@@ -123,7 +123,7 @@ export const lessons: LessonDraft[] = [
 
       h2('Pertanyaan yang memisahkan kategori'),
       ol(
-        '**Siapa sumber kebenarannya?** Kalau jawabannya "server", ini server state — bukan client state, seberapa pun ia terlihat seperti data biasa.',
+        '**Siapa source of truth-nya?** Kalau jawabannya "server", ini server state — bukan client state, seberapa pun ia terlihat seperti data biasa.',
         '**Apakah harus bisa dibagikan lewat tautan?** Kalau ya, tempatnya di URL. Filter yang hilang saat halaman di-refresh adalah bug, bukan fitur.',
         '**Berapa komponen yang benar-benar membacanya?** Kalau satu, ia lokal. State global dengan satu pembaca adalah biaya tanpa manfaat.',
         '**Apakah ia bisa dihitung dari state lain?** Kalau ya, ia bukan state sama sekali — hitung saat render.',
@@ -155,7 +155,7 @@ export const lessons: LessonDraft[] = [
           `,
           notes: [
             'Dua komponen yang memanggil ini serentak akan menembak API dua kali',
-            'Tidak ada kebasian: data tetap dipakai walau sudah satu jam',
+            'Tidak ada staleness: data tetap dipakai walau sudah satu jam',
             'Setiap entitas baru berarti menyalin seluruh blok ini lagi',
           ],
         },
@@ -170,13 +170,13 @@ export const lessons: LessonDraft[] = [
           `,
           notes: [
             'Dua komponen dengan query key sama berbagi satu permintaan',
-            'Kebasian, refetch, dan pembatalan sudah menjadi bawaan',
+            'Staleness, refetch, dan pembatalan sudah menjadi bawaan',
             'Entitas baru = satu `useQuery` lagi, bukan blok baru',
           ],
         },
       ),
       p(
-        'Perbandingan panjang-pendek di sini menyesatkan kalau dibaca sebagai "yang kanan lebih ringkas". Yang sebenarnya berbeda adalah **apa yang sudah tersedia**. Kolom kiri bukan kode yang buruk — ia benar untuk apa yang ia tulis; masalahnya ada pada tiga catatan di bawahnya, yang semuanya tentang hal yang **tidak ditulis**. Dua komponen yang memanggil `ambilProduk` bersamaan akan menembak API dua kali karena tidak ada deduplikasi. Data yang sudah satu jam tetap dipakai karena tidak ada konsep kebasian. Dan begitu ada entitas kedua — pesanan, pengguna, ulasan — seluruh blok `loading`/`error`/`try-catch` itu disalin lagi, dengan peluang baru untuk berbeda satu sama lain. Kolom kanan tidak menghilangkan pekerjaan itu; ia hanya memindahkannya ke alat yang memang dirancang untuk menanggungnya.',
+        'Perbandingan panjang-pendek di sini menyesatkan kalau dibaca sebagai "yang kanan lebih ringkas". Yang sebenarnya berbeda adalah **apa yang sudah tersedia**. Kolom kiri bukan kode yang buruk, sebab ia benar untuk apa yang ia tulis. Masalahnya ada pada tiga catatan di bawahnya, yang semuanya tentang hal yang **tidak ditulis**. Dua komponen yang memanggil `ambilProduk` bersamaan akan menembak API dua kali karena tidak ada deduplikasi. Data yang sudah satu jam tetap dipakai karena tidak ada konsep staleness. Dan begitu ada entitas kedua seperti pesanan, pengguna, atau ulasan, seluruh blok `loading`/`error`/`try-catch` itu disalin lagi, dengan peluang baru untuk berbeda satu sama lain. Kolom kanan tidak menghilangkan pekerjaan itu, melainkan hanya memindahkannya ke alat yang memang dirancang untuk menanggungnya.',
       ),
 
       h2('Kategori bukan hierarki'),
@@ -231,15 +231,15 @@ export const lessons: LessonDraft[] = [
         {
           term: 'dependency',
           meaning:
-            'Paket pihak ketiga yang project-mu ikut pasang dan andalkan. Setiap dependency adalah **kontrak jangka panjang**: satu lagi API untuk dipelajari, satu lagi cara debug, satu lagi sumber "kenapa komponen ini render ulang", dan satu lagi yang harus ikut di-update.',
+            'Paket pihak ketiga yang project-mu ikut pasang dan andalkan. Setiap dependency adalah **kontrak jangka panjang**: satu lagi API untuk dipelajari, satu lagi cara debug, satu lagi sumber "kenapa komponen ini re-render", dan satu lagi yang harus ikut di-update.',
         },
         {
-          term: 'mengangkat state (lifting state up)',
+          term: 'lifting state up',
           meaning:
             'Memindahkan state ke komponen **induk terdekat** yang memuat semua komponen yang membutuhkannya. Ini bukan solusi kelas dua — ini solusi **default**, dan React memang dirancang untuk ini. Baru setelah induk terdekatnya jadi terlalu tinggi, alat lain layak dipertimbangkan.',
         },
         {
-          term: 'komponen bersaudara (sibling)',
+          term: 'sibling component',
           meaning:
             'Dua komponen yang berada di bawah induk yang sama. Mereka tidak bisa saling bicara langsung — komunikasi harus lewat induknya. Itu bukan keterbatasan React, melainkan konsekuensi aliran data satu arah yang membuat asal-usul sebuah nilai selalu bisa dilacak.',
         },
@@ -266,19 +266,19 @@ export const lessons: LessonDraft[] = [
         {
           term: 'unmount',
           meaning:
-            'Saat React mencabut sebuah komponen dari layar. Seluruh state di dalamnya ikut hilang. Kalau sebuah nilai **harus bertahan** melewati unmount — misalnya isi keranjang saat pengguna berpindah halaman — itu salah satu tanda sah bahwa state-nya perlu tempat di luar komponen.',
+            'Saat React mencabut sebuah komponen dari layar. Seluruh state di dalamnya ikut hilang. Kalau sebuah nilai **harus bertahan** melewati unmount, misalnya isi keranjang saat pengguna berpindah halaman, itu salah satu tanda sah bahwa state-nya perlu tempat di luar komponen.',
         },
       ),
 
       h2('Mengangkat state (lifting state up)'),
       p(
-        'Kalau dua komponen bersaudara butuh data yang sama, pindahkan datanya ke induk terdekat yang memuat keduanya. Itu saja. Ini bukan solusi kelas dua — ini solusi default, dan React memang dirancang untuk ini.',
+        'Kalau dua sibling component butuh data yang sama, pindahkan datanya ke induk terdekat yang memuat keduanya. Itu saja. Ini bukan solusi kelas dua — ini solusi default, dan React memang dirancang untuk ini.',
       ),
       code(
         'tsx',
         `
         function Halaman() {
-          // Satu sumber kebenaran, di induk terdekat yang memuat kedua anak.
+          // Satu source of truth, di induk terdekat yang memuat kedua anak.
           const [terpilih, setTerpilih] = useState<string | null>(null);
 
           return (
@@ -291,7 +291,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perhatikan `terpilih` hidup di `Halaman`, bukan di salah satu anaknya — dan itu **satu-satunya** keputusan yang dibuat di sini. Dari situ arahnya mengikuti pola data-turun-perubahan-naik: `DaftarProduk` menerima nilainya untuk menandai mana yang aktif, dan menerima `onPilih` untuk memberi tahu ketika pengguna memilih yang lain. `DetailProduk` hanya menerima nilainya, karena ia tidak pernah mengubah pilihan. Yang layak digarisbawahi adalah apa yang **tidak** ada: tidak ada context, tidak ada store, tidak ada library. Untuk dua komponen bersaudara, mengangkat state ke induk terdekat memang jawaban yang lengkap — dan menjangkau lebih jauh dari itu sebelum ada masalah nyata hanya menambah lapisan tanpa menambah kemampuan.',
+        'Perhatikan `terpilih` hidup di `Halaman` dan bukan di salah satu anaknya, dan itu **satu-satunya** keputusan yang dibuat di sini. Dari situ arahnya mengikuti pola data-turun-perubahan-naik: `DaftarProduk` menerima nilainya untuk menandai mana yang aktif, dan menerima `onPilih` untuk memberi tahu ketika pengguna memilih yang lain. `DetailProduk` hanya menerima nilainya, karena ia tidak pernah mengubah pilihan. Yang layak digarisbawahi adalah apa yang **tidak** ada, sebab tidak ada context, tidak ada store, dan tidak ada library. Untuk dua sibling component, mengangkat state ke induk terdekat memang jawaban yang lengkap, dan menjangkau lebih jauh dari itu sebelum ada masalah nyata hanya menambah lapisan tanpa menambah kemampuan.',
       ),
 
       h2('Komposisi: obat untuk prop drilling'),
@@ -350,14 +350,14 @@ export const lessons: LessonDraft[] = [
       p('Barulah pertimbangkan alat tambahan ketika muncul salah satu dari ini:'),
       ul(
         'Data yang sama dibutuhkan di **cabang pohon yang berjauhan** — misalnya sidebar dan modal di ujung lain aplikasi.',
-        'Induk yang harus menampung state jadi **terlalu tinggi**, sehingga perubahan kecil me-render ulang setengah halaman.',
+        'Induk yang harus menampung state jadi **terlalu tinggi**, sehingga perubahan kecil melakukan re-render setengah halaman.',
         'Kamu mulai **menyalin state yang sama** ke dua tempat dan menyinkronkannya dengan tangan.',
         'State-nya perlu **bertahan** melewati unmount komponen yang memakainya.',
       ),
       callout(
         'warning',
         'Biaya yang tidak kelihatan di awal',
-        'Setiap library state adalah kontrak jangka panjang: satu lagi API untuk dipelajari, satu lagi cara debug, satu lagi sumber "kenapa komponen ini render ulang". Untuk aplikasi belajar atau proyek kecil, `useState` plus komposisi hampir selalu pilihan yang lebih dewasa — bukan yang lebih malas.',
+        'Setiap library state adalah kontrak jangka panjang: satu lagi API untuk dipelajari, satu lagi cara debug, satu lagi sumber "kenapa komponen ini re-render". Untuk aplikasi belajar atau proyek kecil, `useState` plus komposisi hampir selalu pilihan yang lebih dewasa — bukan yang lebih malas.',
       ),
       references(
         {
@@ -402,7 +402,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'Context',
           meaning:
-            'Mekanisme bawaan React untuk mengirim nilai ke seluruh komponen di bawahnya tanpa mengoper props satu per satu. Kalimat kunci sub-bab ini: **Context bukan store.** Ia alat **distribusi** — soal bagaimana nilai sampai ke bawah — bukan alat penyimpanan dan bukan alat optimasi.',
+            'Mekanisme bawaan React untuk mengirim nilai ke seluruh komponen di bawahnya tanpa mengoper props satu per satu. Kalimat kunci sub-bab ini adalah **Context bukan store.** Ia alat **distribusi** yang mengurus bagaimana nilai sampai ke bawah, bukan alat penyimpanan dan bukan alat optimasi.',
         },
         {
           term: 'store',
@@ -410,17 +410,17 @@ export const lessons: LessonDraft[] = [
             'Tempat penyimpanan state yang hidup di luar pohon komponen, biasanya dengan kemampuan memilih bagian tertentu saja (selector). Bedanya dengan Context tegas: store menyimpan **dan** menyalurkan secara selektif; Context hanya menyalurkan, seluruhnya, ke semua konsumen.',
         },
         {
-          term: 'konsumen (consumer)',
+          term: 'consumer',
           meaning:
-            'Komponen yang memanggil `useContext` untuk membaca sebuah context. Sifat penting yang mengejutkan banyak orang: **setiap** konsumen dirender ulang saat nilai context berubah — tanpa peduli bagian mana dari nilai itu yang sebenarnya ia pakai.',
+            'Komponen yang memanggil `useContext` untuk membaca sebuah context. Sifat penting yang mengejutkan banyak orang: **setiap** konsumen di-render ulang saat nilai context berubah — tanpa peduli bagian mana dari nilai itu yang sebenarnya ia pakai.',
         },
         {
           term: 'selector',
           meaning:
-            'Fungsi yang memilih **sepotong** dari sebuah store, misalnya `(s) => s.keranjang.jumlah`. Komponen hanya dirender ulang kalau potongan itu yang berubah. Context **tidak punya** ini — dan ketiadaannya persis yang membuat orang kecewa pada Context untuk data yang sering berubah.',
+            'Fungsi yang memilih **sepotong** dari sebuah store, misalnya `(s) => s.keranjang.jumlah`. Komponen hanya di-render ulang kalau potongan itu yang berubah. Context **tidak punya** ini — dan ketiadaannya persis yang membuat orang kecewa pada Context untuk data yang sering berubah.',
         },
         {
-          term: 'render ulang (re-render)',
+          term: 're-render',
           meaning:
             'React menjalankan ulang fungsi komponen untuk menghitung tampilan barunya. Ini tidak selalu mahal — yang mahal adalah **jumlahnya** ketika seluruh halaman ikut, padahal yang berubah cuma satu angka di pojok.',
         },
@@ -432,7 +432,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'hook pembungkus',
           meaning:
-            'Fungsi seperti `useTema()` yang membungkus `useContext` beserta pengecekan `null`-nya. Ia memberi tiga hal sekaligus: gagal keras dengan pesan jelas kalau Provider lupa dipasang, tipe yang sudah bukan `null`, dan satu tempat kalau implementasinya berubah nanti.',
+            'Fungsi seperti `useTema()` yang membungkus `useContext` beserta pengecekan `null`-nya. Ia memberi tiga hal sekaligus: fail loudly dengan pesan jelas kalau Provider lupa dipasang, tipe yang sudah bukan `null`, dan satu tempat kalau implementasinya berubah nanti.',
         },
         {
           term: 'useCallback',
@@ -471,7 +471,7 @@ export const lessons: LessonDraft[] = [
         { filename: 'src/context/tema.tsx' },
       ),
       p(
-        'Berkas ini mengekspor **dua** hal dan menyembunyikan satu. Yang diekspor: `PenyediaTema` untuk dipasang di dekat akar aplikasi, dan `useTema()` untuk dipakai komponen mana pun di bawahnya. Yang sengaja **tidak** diekspor adalah `KonteksTema` itu sendiri — dan itu keputusan yang menentukan. Perhatikan `createContext` diberi nilai awal `null`, bukan objek tema bawaan: dengan begitu, komponen yang dipakai tanpa Provider mendapat `null`, dan `useTema` bisa melemparkan error dengan pesan yang menyebutkan persis apa yang kurang. Kalau nilai awalnya diisi objek yang tampak masuk akal, kesalahan lupa memasang Provider akan lolos diam-diam dan muncul sebagai tema yang tidak pernah berubah — jauh lebih sulit dilacak daripada error yang berteriak.',
+        'Berkas ini mengekspor **dua** hal dan menyembunyikan satu. Yang diekspor adalah `PenyediaTema` untuk dipasang di dekat akar aplikasi, dan `useTema()` untuk dipakai komponen mana pun di bawahnya. Yang sengaja **tidak** diekspor adalah `KonteksTema` itu sendiri, dan itu keputusan yang menentukan. Perhatikan `createContext` diberi nilai awal `null` dan bukan objek tema bawaan, sebab dengan begitu komponen yang dipakai tanpa Provider mendapat `null`, dan `useTema` bisa melemparkan error dengan pesan yang menyebutkan persis apa yang kurang. Kalau nilai awalnya diisi objek yang tampak masuk akal, kesalahan lupa memasang Provider akan lolos diam-diam dan muncul sebagai tema yang tidak pernah berubah, dan itu jauh lebih sulit dilacak daripada error yang berteriak.',
       ),
       callout(
         'info',
@@ -481,18 +481,18 @@ export const lessons: LessonDraft[] = [
 
       h2('Kenapa hook pembungkus itu wajib'),
       p(
-        'Mengekspor `KonteksTema` mentah-mentah memaksa setiap pemakai menulis `useContext` **dan** mengecek `null` sendiri. Membungkusnya jadi `useTema()` memberi tiga hal sekaligus: pengecekan Provider yang gagal keras dengan pesan jelas, tipe yang sudah bukan `null`, dan satu tempat kalau implementasinya berubah nanti.',
+        'Mengekspor `KonteksTema` mentah-mentah memaksa setiap pemakai menulis `useContext` **dan** mengecek `null` sendiri. Membungkusnya jadi `useTema()` memberi tiga hal sekaligus: pengecekan Provider yang fail loudly dengan pesan jelas, tipe yang sudah bukan `null`, dan satu tempat kalau implementasinya berubah nanti.',
       ),
 
-      h2('Jebakannya: satu perubahan, semua konsumen render ulang'),
+      h2('Jebakannya: satu perubahan, semua konsumen re-render'),
       p(
-        'Inilah bagian yang membuat orang kecewa pada Context. Setiap konsumen `useContext` akan **selalu** dirender ulang saat nilai context berubah — tanpa peduli bagian mana yang ia pakai. Tidak ada selector, tidak ada perbandingan sebagian.',
+        'Inilah bagian yang membuat orang kecewa pada Context. Setiap konsumen `useContext` akan **selalu** di-render ulang saat nilai context berubah — tanpa peduli bagian mana yang ia pakai. Tidak ada selector, tidak ada perbandingan sebagian.',
       ),
       code(
         'tsx',
         `
         // Context berisi tema DAN pengguna DAN keranjang.
-        // Satu ketikan yang mengubah keranjang akan me-render ulang
+        // Satu ketikan yang mengubah keranjang akan melakukan re-render
         // setiap komponen yang cuma membaca tema.
         <KonteksApp value={{ tema, pengguna, keranjang }}>
         `,
@@ -536,12 +536,12 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Perhatikan susunan bersarangnya: `KonteksAksi` di luar, `KonteksNilai` di dalam. Urutan itu disengaja meski secara fungsional keduanya setara — yang jarang berubah ditaruh di luar, yang sering berubah di dalam, sehingga struktur kodenya sendiri mencerminkan frekuensi perubahannya. Kunci teknisnya ada pada `useCallback` dengan array dependensi **kosong**, dan itu hanya mungkin karena `setTema` dipanggil dengan bentuk fungsi `(t) => ...`. Kalau ditulis `setTema(tema === 'terang' ? 'gelap' : 'terang')`, fungsi `ganti` akan bergantung pada nilai `tema` dan harus dibuat ulang setiap kali temanya berubah — yang membuat seluruh pemisahan ini sia-sia. Hasil akhirnya: komponen yang hanya memanggil `useContext(KonteksAksi)` untuk mendapat tombol pengubah **tidak pernah** ikut dirender saat temanya berganti.",
+        "Perhatikan susunan bersarangnya, dengan `KonteksAksi` di luar dan `KonteksNilai` di dalam. Urutan itu disengaja meski secara fungsional keduanya setara, sebab yang jarang berubah ditaruh di luar, yang sering berubah di dalam, sehingga struktur kodenya sendiri mencerminkan frekuensi perubahannya. Kunci teknisnya ada pada `useCallback` dengan array dependensi **kosong**, dan itu hanya mungkin karena `setTema` dipanggil dengan bentuk fungsi `(t) => ...`. Kalau ditulis `setTema(tema === 'terang' ? 'gelap' : 'terang')`, fungsi `ganti` akan bergantung pada nilai `tema` dan harus dibuat ulang setiap kali temanya berubah, sehingga seluruh pemisahan ini jadi sia-sia. Hasil akhirnya, komponen yang hanya memanggil `useContext(KonteksAksi)` untuk mendapat tombol pengubah **tidak pernah** ikut dirender saat temanya berganti.",
       ),
       callout(
         'tip',
         'React Compiler mengubah nuansanya, bukan aturannya',
-        'Dengan React Compiler aktif, memoisasi nilai context sering ditangani otomatis sehingga `useMemo` manual tidak lagi perlu. Yang **tidak** hilang adalah sifat dasarnya: semua konsumen tetap ikut render saat nilai context benar-benar berubah. Memecah context tetap jadi solusi struktural, bukan solusi memoisasi.',
+        'Dengan React Compiler aktif, memoization nilai context sering ditangani otomatis sehingga `useMemo` manual tidak lagi perlu. Yang **tidak** hilang adalah sifat dasarnya: semua konsumen tetap ikut render saat nilai context benar-benar berubah. Memecah context tetap jadi solusi struktural, bukan solusi memoization.',
       ),
 
       h2('Kapan Context adalah pilihan yang benar'),
@@ -586,7 +586,7 @@ export const lessons: LessonDraft[] = [
 
   written('zustand', 'Zustand', 11, 'Store global yang ringan.', [
     p(
-      'Zustand adalah store global tanpa Provider, tanpa boilerplate, dan dengan satu kemampuan penting yang tidak dimiliki Context: **selector**. Komponen bisa berlangganan hanya pada potongan state yang benar-benar ia baca, sehingga perubahan di bagian lain tidak ikut me-render ulang.',
+      'Zustand adalah store global tanpa Provider, tanpa boilerplate, dan dengan satu kemampuan penting yang tidak dimiliki Context: **selector**. Komponen bisa berlangganan hanya pada potongan state yang benar-benar ia baca, sehingga perubahan di bagian lain tidak ikut melakukan re-render.',
     ),
 
     terms(
@@ -608,7 +608,7 @@ export const lessons: LessonDraft[] = [
       {
         term: 'selector',
         meaning:
-          'Fungsi yang memilih **sepotong** state: `useKeranjang((s) => s.items.length)`. Komponen hanya dirender ulang kalau potongan itu yang berubah. Inilah bagian yang membuat Zustand cepat — dan melewatkannya berarti membuang keunggulan utamanya.',
+          'Fungsi yang memilih **sepotong** state: `useKeranjang((s) => s.items.length)`. Komponen hanya di-render ulang kalau potongan itu yang berubah. Inilah bagian yang membuat Zustand cepat — dan melewatkannya berarti membuang keunggulan utamanya.',
       },
       {
         term: 's',
@@ -623,7 +623,7 @@ export const lessons: LessonDraft[] = [
       {
         term: 'Omit',
         meaning:
-          'Utility type TypeScript. `Omit<Item, \'jumlah\'>` berarti "tipe `Item`, tapi tanpa properti `jumlah`". Dipakai di sini karena `jumlah` diisi oleh store-nya sendiri, jadi pemanggil tidak perlu — dan tidak boleh — menentukannya.',
+          'Utility type TypeScript. `Omit<Item, \'jumlah\'>` berarti "tipe `Item`, tapi tanpa properti `jumlah`". Dipakai di sini karena `jumlah` diisi oleh store-nya sendiri, jadi pemanggil tidak perlu dan tidak boleh menentukannya.',
       },
       {
         term: 'getState',
@@ -676,7 +676,7 @@ export const lessons: LessonDraft[] = [
       { filename: 'src/store/keranjang.ts' },
     ),
     p(
-      '`create<Keranjang>((set) => ({...}))` menerima satu fungsi yang menerima `set` sebagai argumen, dan mengembalikan **objek state awal** beserta seluruh fungsi yang boleh mengubahnya — `items`, `tambah`, `hapus`, `kosongkan` semuanya didefinisikan dalam satu tempat. `set` bekerja mirip `setState` versi `useState`, dengan satu perbedaan penting: hasil yang dikembalikan **digabung (merge)** ke state yang sudah ada, bukan menggantikannya seluruhnya — itulah mengapa `kosongkan: () => set({ items: [] })` cukup menyebut `items` saja tanpa perlu menuliskan ulang `tambah`, `hapus`, dan fungsi lainnya. Di dalam `tambah`, `set` dipanggil dengan bentuk fungsi `(state) => {...}` justru karena hasilnya perlu dihitung dari `state.items` yang sekarang — pola yang sama dengan bentuk updater `setJumlah((n) => n + 1)` yang sudah kamu kenal dari `useState`.',
+      '`create<Keranjang>((set) => ({...}))` menerima satu fungsi yang menerima `set` sebagai argumen, dan mengembalikan **objek state awal** beserta seluruh fungsi yang boleh mengubahnya, sehingga `items`, `tambah`, `hapus`, dan `kosongkan` semuanya didefinisikan dalam satu tempat. `set` bekerja mirip `setState` versi `useState`, dengan satu perbedaan penting, yaitu hasil yang dikembalikan **digabung (merge)** ke state yang sudah ada alih-alih menggantikannya seluruhnya. Itulah mengapa `kosongkan: () => set({ items: [] })` cukup menyebut `items` saja tanpa perlu menuliskan ulang `tambah`, `hapus`, dan fungsi lainnya. Di dalam `tambah`, `set` dipanggil dengan bentuk fungsi `(state) => {...}` justru karena hasilnya perlu dihitung dari `state.items` yang sekarang, dan itu pola yang sama dengan bentuk updater `setJumlah((n) => n + 1)` yang sudah kamu kenal dari `useState`.',
     ),
 
     h2('Selector: bagian yang membuatnya cepat'),
@@ -691,7 +691,7 @@ export const lessons: LessonDraft[] = [
             return <span>{items.length}</span>;
           }
           `,
-        notes: ['Render ulang setiap kali apa pun di store berubah'],
+        notes: ['Re-render setiap kali apa pun di store berubah'],
       },
       {
         title: 'Dengan selector — hemat',
@@ -703,13 +703,13 @@ export const lessons: LessonDraft[] = [
             return <span>{jumlah}</span>;
           }
           `,
-        notes: ['Render ulang hanya kalau angkanya benar-benar berubah'],
+        notes: ['Re-render hanya kalau angkanya benar-benar berubah'],
       },
     ),
 
     h2('Jebakan selector yang mengembalikan objek'),
     p(
-      'Zustand membandingkan hasil selector dengan `Object.is`. Selector yang membuat objek atau array **baru** setiap kali akan selalu dianggap berubah — dan komponennya render ulang terus, bahkan bisa masuk loop tak berujung.',
+      'Zustand membandingkan hasil selector dengan `Object.is`. Selector yang membuat objek atau array **baru** setiap kali akan selalu dianggap berubah — dan komponennya re-render terus, bahkan bisa masuk loop tak berujung.',
     ),
     code(
       'tsx',
@@ -817,12 +817,12 @@ export const lessons: LessonDraft[] = [
       {
         term: 'slice',
         meaning:
-          'Dibaca "slais", artinya **irisan**. Satu potongan state beserta seluruh reducer dan action-nya dalam satu berkas. `createSlice` menghasilkan ketiganya sekaligus — reducer, action creator, dan tipenya — jadi tidak ada yang bisa lupa disinkronkan.',
+          'Dibaca "slais", artinya **irisan**. Satu potongan state beserta seluruh reducer dan action-nya dalam satu berkas. `createSlice` menghasilkan ketiganya sekaligus, yaitu reducer, action creator, dan tipenya, jadi tidak ada yang bisa lupa disinkronkan.',
       },
       {
         term: 'payload',
         meaning:
-          'Data yang dibawa sebuah action. Pada `PayloadAction<string>`, artinya "action ini membawa satu string". Namanya dari istilah pengiriman: muatan yang dibawa, dipisahkan dari label pengirimannya (`type`).',
+          'Data yang dibawa sebuah action. Pada `PayloadAction<string>`, artinya "action ini membawa satu string". Namanya dari istilah pengiriman: payload yang dibawa, dipisahkan dari label pengirimannya (`type`).',
       },
       {
         term: 'Immer',
@@ -1025,12 +1025,12 @@ export const lessons: LessonDraft[] = [
         {
           term: 'useSetAtom',
           meaning:
-            'Hanya **menulis**, tanpa berlangganan. Ini keunggulan yang paling terasa: tombol reset yang tidak pernah menampilkan angkanya jadi **tidak pernah** dirender ulang — sesuatu yang butuh usaha ekstra untuk dicapai dengan Context.',
+            'Hanya **menulis**, tanpa berlangganan. Ini keunggulan yang paling terasa: tombol reset yang tidak pernah menampilkan angkanya jadi **tidak pernah** di-render ulang — sesuatu yang butuh usaha ekstra untuk dicapai dengan Context.',
         },
         {
           term: 'derived atom',
           meaning:
-            'Atom yang nilainya **dihitung** dari atom lain: `atom((get) => get(itemsAtom).length)`. Ia ikut terbarui otomatis, tanpa `useEffect`, dan tanpa risiko dua sumber kebenaran — karena nilainya memang tidak pernah disimpan.',
+            'Atom yang nilainya **dihitung** dari atom lain: `atom((get) => get(itemsAtom).length)`. Ia ikut terbarui otomatis, tanpa `useEffect`, dan tanpa risiko dua source of truth — karena nilainya memang tidak pernah disimpan.',
         },
         {
           term: 'get',
@@ -1068,7 +1068,7 @@ export const lessons: LessonDraft[] = [
           return <p>{hitungan}</p>;
         }
 
-        // Hanya menulis -> TIDAK render ulang saat nilainya berubah
+        // Hanya menulis -> TIDAK re-render saat nilainya berubah
         function TombolReset() {
           const set = useSetAtom(hitunganAtom);
           return <button onClick={() => set(0)}>Reset</button>;
@@ -1076,17 +1076,17 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Ketiga komponen membaca **atom yang sama**, tapi memakai hook yang berbeda — dan pilihan hook itulah yang menentukan siapa ikut dirender. `useAtom` memberi keduanya, nilai dan setter, seperti `useState`. `useAtomValue` hanya berlangganan nilainya. Yang paling menarik `useSetAtom`: ia memberi kemampuan **mengubah tanpa berlangganan**, sehingga `TombolReset` tidak pernah dirender ulang berapa kali pun angkanya berubah. Bandingkan dengan Context, di mana setiap konsumen ikut dirender tanpa peduli bagian mana yang ia pakai — di sana pemisahan seperti ini harus dicapai dengan memecah context menjadi dua, seperti yang dilakukan di sub-bab sebelumnya. Di Jotai pemisahan itu sudah menjadi bagian dari API-nya.',
+        'Ketiga komponen membaca **atom yang sama**, tetapi memakai hook yang berbeda, dan pilihan hook itulah yang menentukan siapa ikut dirender. `useAtom` memberi keduanya, nilai dan setter, seperti `useState`. `useAtomValue` hanya berlangganan nilainya. Yang paling menarik adalah `useSetAtom`, sebab ia memberi kemampuan **mengubah tanpa berlangganan**, sehingga `TombolReset` tidak pernah di-render ulang berapa kali pun angkanya berubah. Bandingkan dengan Context, di mana setiap konsumen ikut dirender tanpa peduli bagian mana yang ia pakai, sebab di sana pemisahan seperti ini harus dicapai dengan memecah context menjadi dua, seperti yang dilakukan di sub-bab sebelumnya. Di Jotai pemisahan itu sudah menjadi bagian dari API-nya.',
       ),
       callout(
         'tip',
         'Keunggulan yang paling terasa',
-        '`useSetAtom` memberi komponen kemampuan mengubah tanpa berlangganan. Tombol reset yang tidak pernah menampilkan angkanya jadi tidak pernah render ulang — sesuatu yang butuh usaha ekstra untuk dicapai dengan Context.',
+        '`useSetAtom` memberi komponen kemampuan mengubah tanpa berlangganan. Tombol reset yang tidak pernah menampilkan angkanya jadi tidak pernah re-render — sesuatu yang butuh usaha ekstra untuk dicapai dengan Context.',
       ),
 
       h2('Derived atom: yang bisa dihitung, jangan disimpan'),
       p(
-        'Ini kekuatan utama Jotai. Nilai turunan didefinisikan sebagai atom yang membaca atom lain, dan ia otomatis ikut terbarui — tanpa `useEffect`, tanpa risiko dua sumber kebenaran.',
+        'Ini kekuatan utama Jotai. Derived value didefinisikan sebagai atom yang membaca atom lain, dan ia otomatis ikut terbarui — tanpa `useEffect`, tanpa risiko dua source of truth.',
       ),
       code(
         'ts',
@@ -1111,13 +1111,13 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perhatikan `totalHargaAtom` dan `jumlahItemAtom` **tidak menyimpan apa pun** — keduanya berupa fungsi yang menghitung dari `itemsAtom` lewat `get`. Itu yang membuatnya mustahil tidak sinkron: tidak ada salinan yang bisa basi, karena tidak ada salinan. Bandingkan dengan menyimpan `totalHarga` sebagai state terpisah lalu menjaganya dengan `useEffect` — persis anti-pola nilai turunan dari sub-bab kesalahan `useEffect`, dan di sini masalahnya hilang di tingkat rancangan. `itemPertamaAtom` menunjukkan bentuk yang lebih jauh: argumen pertama membacanya, argumen kedua **menerjemahkan penulisan kembali ke atom sumber**. Jadi komponen bisa menulis ke `itemPertamaAtom` seolah ia state biasa, sementara yang sebenarnya berubah tetap `itemsAtom` — satu sumber kebenaran tetap terjaga meski cara mengaksesnya beragam.',
+        'Perhatikan `totalHargaAtom` dan `jumlahItemAtom` **tidak menyimpan apa pun**, sebab keduanya berupa fungsi yang menghitung dari `itemsAtom` lewat `get`. Itu yang membuatnya mustahil tidak sinkron, karena tidak ada salinan yang bisa basi, karena tidak ada salinan. Bandingkan dengan menyimpan `totalHarga` sebagai state terpisah lalu menjaganya dengan `useEffect`, yang persis anti-pattern derived value dari sub-bab kesalahan `useEffect`, dan di sini masalahnya hilang di tingkat rancangan. `itemPertamaAtom` menunjukkan bentuk yang lebih jauh, sebab argumen pertama membacanya sedangkan argumen kedua **menerjemahkan penulisan kembali ke atom sumber**. Jadi komponen bisa menulis ke `itemPertamaAtom` seolah ia state biasa, sementara yang sebenarnya berubah tetap `itemsAtom`, sehingga satu source of truth tetap terjaga meski cara mengaksesnya beragam.',
       ),
 
       h2('Kapan Jotai lebih cocok'),
       ul(
         'State-nya banyak dan **saling bergantung** — form kompleks, editor, kanvas, konfigurasi bercabang.',
-        'Kamu ingin nilai turunan yang **tidak mungkin** tidak sinkron, karena ia memang tidak disimpan.',
+        'Kamu ingin derived value yang **tidak mungkin** tidak sinkron, karena ia memang tidak disimpan.',
         'Kamu sudah nyaman dengan `useState` — API Jotai memang sengaja dibuat semirip mungkin.',
       ),
       p(
@@ -1129,11 +1129,11 @@ export const lessons: LessonDraft[] = [
         ['', 'Redux Toolkit', 'Zustand', 'Jotai'],
         [
           ['Model', 'Satu store + aksi', 'Satu store + selector', 'Banyak atom kecil'],
-          ['Nilai turunan', 'Selector (dengan memo)', 'Selector', 'Derived atom (bawaan)'],
+          ['Derived value', 'Selector (dengan memo)', 'Selector', 'Derived atom (bawaan)'],
           ['Provider', 'Wajib', 'Tidak perlu', 'Opsional'],
           [
             'Paling kuat saat',
-            'Jejak aksi & tim besar',
+            'Action trail & tim besar',
             'State global datar',
             'State saling bergantung',
           ],
@@ -1172,7 +1172,7 @@ export const lessons: LessonDraft[] = [
     'tanstack-query',
     'Server State dengan TanStack Query',
     14,
-    'Data server bukan state biasa — ia punya cache, kebasian, dan mode gagal sendiri.',
+    'Data server bukan state biasa — ia punya cache, staleness, dan mode gagal sendiri.',
     [
       p(
         'Ini sub-bab terpenting di bab ini. Data server berbeda secara mendasar dari client state: kamu **bukan pemiliknya**. Server bisa mengubahnya kapan saja tanpa memberitahu, salinan di browsermu bisa basi kapan saja, dan permintaan untuk mengambilnya bisa gagal, lambat, atau datang tidak sesuai urutan.',
@@ -1212,7 +1212,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'staleTime',
           meaning:
-            'Berapa lama data dianggap **masih segar**. Selama itu tidak ada pengambilan ulang otomatis. Defaultnya `0` — langsung basi — dan itu agresif serta sering mengagetkan. Untuk data yang jarang berubah, naikkan ke beberapa menit.',
+            'Berapa lama data dianggap **masih segar**. Selama itu tidak ada pengambilan ulang otomatis. Defaultnya `0` alias langsung basi, dan itu agresif serta sering mengagetkan. Untuk data yang jarang berubah, naikkan ke beberapa menit.',
         },
         {
           term: 'gcTime',
@@ -1225,7 +1225,7 @@ export const lessons: LessonDraft[] = [
             'Mengambil ulang data yang sudah pernah diambil. TanStack Query memicunya sendiri pada beberapa peristiwa: window kembali difokuskan, koneksi pulih, komponen dipasang ulang, atau `queryKey` berubah.',
         },
         {
-          term: 'mutasi (mutation)',
+          term: 'mutation (mutasi)',
           meaning:
             'Operasi yang **mengubah** data di server — tambah, ubah, hapus. Ditangani `useMutation`, bukan `useQuery`. Setelah mutasi berhasil, data terkait harus diinvalidasi supaya daftar yang tampil ikut segar.',
         },
@@ -1238,7 +1238,7 @@ export const lessons: LessonDraft[] = [
       ul(
         'Cache — supaya pindah halaman lalu kembali tidak menembak API lagi',
         'Deduplikasi — dua komponen yang butuh data sama tidak boleh mengirim dua permintaan',
-        'Kebasian — kapan data dianggap perlu diambil ulang',
+        'Staleness — kapan data dianggap perlu diambil ulang',
         'Refetch — saat window kembali fokus, saat koneksi pulih, saat argumennya berubah',
         'Pembatalan — respons lama yang datang terlambat tidak boleh menimpa yang baru (race condition)',
         'Status `loading` / `error` / `success` per permintaan',
@@ -1307,7 +1307,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Ketiga contoh menunjukkan satu pola yang meningkat kerumitannya: key adalah **array**, dan tiap elemen menyempitkan cakupan cache-nya. `['produk']` untuk daftar penuh, `['produk', id]` untuk satu produk, dan bentuk ketiga menaruh seluruh parameter dalam objek. Perhatikan kesesuaian antara `queryKey` dan `queryFn` di tiap contoh — apa yang muncul di key adalah persis apa yang dipakai fungsinya. Melanggar itu menghasilkan bug yang khas: kalau `halaman` dipakai di `queryFn` tapi lupa dimasukkan ke key, semua halaman berbagi satu entri cache, sehingga berpindah ke halaman 2 menampilkan data halaman 1. Sisi baiknya disebut di kotak berikut — karena key yang berubah otomatis memicu pengambilan baru, kamu tidak perlu menulis `useEffect` untuk memuat ulang saat filter berganti.",
+        "Ketiga contoh menunjukkan satu pola yang meningkat kerumitannya, yaitu key berupa **array** dengan tiap elemen menyempitkan cakupan cache-nya. `['produk']` untuk daftar penuh, `['produk', id]` untuk satu produk, dan bentuk ketiga menaruh seluruh parameter dalam objek. Perhatikan kesesuaian antara `queryKey` dan `queryFn` di tiap contoh, sebab apa yang muncul di key adalah persis apa yang dipakai fungsinya. Melanggar itu menghasilkan bug yang khas. Kalau `halaman` dipakai di `queryFn` tetapi lupa dimasukkan ke key, semua halaman berbagi satu entri cache, sehingga berpindah ke halaman 2 menampilkan data halaman 1. Sisi baiknya disebut di kotak berikut, sebab key yang berubah otomatis memicu pengambilan baru, kamu tidak perlu menulis `useEffect` untuk memuat ulang saat filter berganti.",
       ),
       callout(
         'tip',
@@ -1337,7 +1337,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        '`staleTime: 0` yang jadi default itu agresif dan sering mengagetkan. Untuk data yang jarang berubah — kategori, profil, pengaturan — naikkan ke beberapa menit. Untuk data yang harus selalu terbaru seperti stok atau harga, biarkan kecil.',
+        '`staleTime: 0` yang jadi default itu agresif dan sering mengagetkan. Untuk data yang jarang berubah seperti kategori, profil, dan pengaturan, naikkan ke beberapa menit. Untuk data yang harus selalu terbaru seperti stok atau harga, biarkan kecil.',
       ),
 
       h2('Mutasi dan invalidasi'),
@@ -1451,7 +1451,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'setQueryData',
           meaning:
-            'Menulis langsung ke cache tanpa memanggil server. Inilah mekanisme yang membuat perubahan optimistik langsung terlihat. Bentuk fungsinya — `(lama) => baru` — memastikan kamu bekerja dari isi cache terkini.',
+            'Menulis langsung ke cache tanpa memanggil server. Inilah mekanisme yang membuat perubahan optimistik langsung terlihat. Bentuk fungsinya, yaitu `(lama) => baru`, memastikan kamu bekerja dari isi cache terkini.',
         },
         {
           term: 'onSettled',
@@ -1505,7 +1505,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Enam langkah bernomor itu sebenarnya tiga pasang tanggung jawab. Langkah 1–3 di `onMutate` menyiapkan perubahan optimistik: menghentikan refetch yang sedang jalan, **menyimpan salinan keadaan sekarang**, lalu mengubah cache seolah servernya sudah setuju. Langkah 4–5 adalah jalur pembatalannya — nilai yang di-`return` dari `onMutate` diteruskan ke `onError` sebagai `context`, dan di situlah snapshot tadi dipakai untuk memulihkan keadaan persis seperti semula. Langkah 6 di `onSettled` menutupnya untuk kedua hasil. Perhatikan `setQueryData` dipanggil dengan **bentuk fungsi** `(lama) => ...`, bukan nilai langsung: itu memastikan perubahannya dihitung dari isi cache terkini, aturan yang sama dengan `setState` bentuk fungsi. Dan `?.` pada `lama?.map` diperlukan karena cache bisa saja masih kosong saat mutasi dipicu.',
+        'Enam langkah bernomor itu sebenarnya tiga pasang tanggung jawab. Langkah 1–3 di `onMutate` menyiapkan perubahan optimistik dengan menghentikan refetch yang sedang jalan, **menyimpan salinan keadaan sekarang**, lalu mengubah cache seolah servernya sudah setuju. Langkah 4–5 adalah jalur pembatalannya, sebab nilai yang di-`return` dari `onMutate` diteruskan ke `onError` sebagai `context`, dan di situlah snapshot tadi dipakai untuk memulihkan keadaan persis seperti semula. Langkah 6 di `onSettled` menutupnya untuk kedua hasil. Perhatikan `setQueryData` dipanggil dengan **bentuk fungsi** `(lama) => ...` dan bukan nilai langsung, sebab itu memastikan perubahannya dihitung dari isi cache terkini, aturan yang sama dengan `setState` bentuk fungsi. Dan `?.` pada `lama?.map` diperlukan karena cache bisa saja masih kosong saat mutasi dipicu.',
       ),
       callout(
         'warning',
@@ -1532,7 +1532,7 @@ export const lessons: LessonDraft[] = [
         'Aturannya: optimistic update cocok kalau kegagalan itu **jarang, murah, dan bisa dibatalkan tanpa merugikan**. Untuk hal yang menyangkut uang atau sumber daya terbatas, tampilkan status "memproses" yang jujur. Memberi tahu pengguna bahwa pesanannya berhasil lalu menariknya kembali jauh lebih buruk daripada menunggu satu detik.',
       ),
 
-      h2('Alternatif yang lebih murah: umpan balik sedang berjalan'),
+      h2('Alternatif yang lebih murah: feedback sedang berjalan'),
       p(
         'Kadang kamu tidak butuh optimistic update sama sekali — cukup buat penantiannya terbaca. Tombol yang berubah jadi `disabled` dengan teks "Menyimpan…" sudah menghilangkan sebagian besar rasa lambat, dan tidak punya risiko pembatalan sama sekali.',
       ),
@@ -1584,7 +1584,7 @@ export const lessons: LessonDraft[] = [
       {
         term: 'searchParams',
         meaning:
-          'Nama Next.js untuk isi query string yang sudah diurai. Di Client Component ia dibaca dengan hook `useSearchParams`; di Server Component ia datang sebagai prop halaman. Sifat penting: **read-only** — untuk mengubahnya kamu menyalinnya dulu.',
+          'Nama Next.js untuk isi query string yang sudah diurai. Di Client Component ia dibaca dengan hook `useSearchParams`, sedangkan di Server Component ia datang sebagai prop halaman. Sifat pentingnya adalah **read-only**, sehingga untuk mengubahnya kamu menyalinnya dulu.',
       },
       {
         term: 'URLSearchParams',
@@ -1609,7 +1609,7 @@ export const lessons: LessonDraft[] = [
       {
         term: 'riwayat (history)',
         meaning:
-          'Tumpukan alamat yang pernah dikunjungi, yang dijelajahi tombol maju/mundur browser. Menambahkan entri untuk hal yang tidak dilakukan pengguna secara sadar — misalnya penyesuaian URL saat muat awal — membuat tombol kembali terasa rusak.',
+          'Tumpukan alamat yang pernah dikunjungi, yang dijelajahi tombol maju/mundur browser. Menambahkan entri untuk hal yang tidak dilakukan pengguna secara sadar, misalnya penyesuaian URL saat muat awal, membuat tombol kembali terasa rusak.',
       },
       {
         term: 'debounce',
@@ -1669,7 +1669,7 @@ export const lessons: LessonDraft[] = [
         `,
     ),
     p(
-      'Perhatikan: tidak ada `useState` sama sekali. Nilainya dibaca langsung dari URL, jadi tidak mungkin tidak sinkron. Inilah keuntungan terbesarnya — satu sumber kebenaran, bukan dua yang harus disamakan.',
+      'Perhatikan: tidak ada `useState` sama sekali. Nilainya dibaca langsung dari URL, jadi tidak mungkin tidak sinkron. Inilah keuntungan terbesarnya — satu source of truth, bukan dua yang harus disamakan.',
     ),
 
     h2('`push` atau `replace`?'),
@@ -1782,14 +1782,14 @@ export const lessons: LessonDraft[] = [
 
       terms(
         {
-          term: 'anti-pola (anti-pattern)',
+          term: 'anti-pattern (anti-pattern)',
           meaning:
-            'Solusi yang **tampak** masuk akal dan sering dipakai, tapi konsisten menghasilkan masalah. Bedanya dengan sekadar "kode jelek": anti-pola punya daya tarik — ada alasan orang terus memilihnya, dan itulah kenapa ia perlu dinamai.',
+            'Solusi yang **tampak** masuk akal dan sering dipakai, tapi konsisten menghasilkan masalah. Bedanya dengan sekadar "kode jelek": anti-pattern punya daya tarik — ada alasan orang terus memilihnya, dan itulah kenapa ia perlu dinamai.',
         },
         {
           term: 'alur keputusan',
           meaning:
-            'Urutan pertanyaan yang dijawab satu per satu sampai berhenti di satu jawaban. Nilainya: ia menggantikan "library mana yang terbaik" — pertanyaan tanpa jawaban — dengan rangkaian pertanyaan yang masing-masing punya jawaban pasti.',
+            'Urutan pertanyaan yang dijawab satu per satu sampai berhenti di satu jawaban. Nilainya, ia menggantikan "library mana yang terbaik" yang merupakan pertanyaan tanpa jawaban, dengan rangkaian pertanyaan yang masing-masing punya jawaban pasti.',
         },
         {
           term: 'SWR',
@@ -1804,15 +1804,15 @@ export const lessons: LessonDraft[] = [
         {
           term: '`useEffect` penyalin',
           meaning:
-            'Anti-pola paling halus di daftar ini: Effect yang tugasnya cuma menyalin props ke state. Akibatnya dua: **dua sumber kebenaran** untuk satu nilai, dan satu render terbuang dengan nilai lama setiap kali props berubah — yang terlihat sebagai kedipan.',
+            'Anti-pattern paling halus di daftar ini adalah Effect yang tugasnya cuma menyalin props ke state. Akibatnya ada dua, yaitu **dua source of truth** untuk satu nilai, dan satu render terbuang dengan nilai lama setiap kali props berubah, yang terlihat sebagai flicker.',
         },
         {
           term: 'state global',
           meaning:
-            'State yang bisa dibaca komponen mana pun. Godaannya besar ("biar gampang"), biayanya tidak kelihatan di awal: semua render ulang jadi saling terkait, dan menjawab "kenapa komponen ini render" berubah dari mudah jadi penyelidikan.',
+            'State yang bisa dibaca komponen mana pun. Godaannya besar ("biar gampang"), biayanya tidak kelihatan di awal: semua re-render jadi saling terkait, dan menjawab "kenapa komponen ini render" berubah dari mudah jadi penyelidikan.',
         },
         {
-          term: 'jejak aksi (action trail)',
+          term: 'action trail',
           meaning:
             'Catatan berurutan setiap perubahan state beserta pemicunya. Ini keunggulan Redux yang paling nyata dan paling sering diabaikan — ia berharga di aplikasi finansial, dasbor operasional, atau tim besar yang perlu menelusuri "kenapa nilainya jadi begini".',
         },
@@ -1826,7 +1826,7 @@ export const lessons: LessonDraft[] = [
       h2('Alur keputusan'),
       steps(
         {
-          title: 'Apakah sumber kebenarannya server?',
+          title: 'Apakah source of truth-nya server?',
           body: 'Kalau ya, berhenti di sini. Pakai TanStack Query (atau SWR / RTK Query). Jangan lanjut ke pertanyaan berikutnya — data server bukan urusan store global.',
         },
         {
@@ -1847,13 +1847,13 @@ export const lessons: LessonDraft[] = [
         },
         {
           title: 'Tersebar jauh dan sering berubah?',
-          body: 'Baru di sini library global. Zustand untuk kebanyakan kasus, Jotai kalau state-nya saling bergantung, Redux Toolkit kalau tim besar atau jejak aksi penting.',
+          body: 'Baru di sini library global. Zustand untuk kebanyakan kasus, Jotai kalau state-nya saling bergantung, Redux Toolkit kalau tim besar atau action trail penting.',
         },
       ),
 
-      h2('Anti-pola yang paling sering muncul'),
+      h2('Anti-pattern yang paling sering muncul'),
       table(
-        ['Anti-pola', 'Kenapa merugikan', 'Gantinya'],
+        ['Anti-pattern', 'Kenapa merugikan', 'Gantinya'],
         [
           [
             'Data server disalin ke store global',
@@ -1861,8 +1861,8 @@ export const lessons: LessonDraft[] = [
             'TanStack Query / RTK Query',
           ],
           [
-            'Nilai turunan disimpan sebagai state',
-            'Dua sumber kebenaran yang pasti akan tidak sinkron',
+            'Derived value disimpan sebagai state',
+            'Dua source of truth yang pasti akan tidak sinkron',
             'Hitung saat render, atau derived atom',
           ],
           [
@@ -1872,7 +1872,7 @@ export const lessons: LessonDraft[] = [
           ],
           [
             'Semua state ditaruh global "biar gampang"',
-            'Semua render ulang jadi saling terkait, sulit dilacak',
+            'Semua re-render jadi saling terkait, sulit dilacak',
             'Turunkan sedekat mungkin dengan pembacanya',
           ],
           [
@@ -1888,7 +1888,7 @@ export const lessons: LessonDraft[] = [
         ],
       ),
 
-      h2('Anti-pola yang paling halus: `useEffect` penyalin'),
+      h2('Anti-pattern yang paling halus: `useEffect` penyalin'),
       compare(
         {
           title: 'Salah',
@@ -1898,7 +1898,7 @@ export const lessons: LessonDraft[] = [
             const [nama, setNama] = useState(user.nama);
 
             // Render dulu dengan nama lama,
-            // baru diperbaiki -> ada kedipan.
+            // baru diperbaiki -> ada flicker.
             useEffect(() => {
               setNama(user.nama);
             }, [user.nama]);
@@ -1907,7 +1907,7 @@ export const lessons: LessonDraft[] = [
           }
           `,
           notes: [
-            'Dua sumber kebenaran untuk satu nilai',
+            'Dua source of truth untuk satu nilai',
             'Satu render terbuang setiap kali props berubah',
           ],
         },
@@ -1925,23 +1925,23 @@ export const lessons: LessonDraft[] = [
           <FormProfil key={user.id} user={user} />
           `,
           notes: [
-            'Satu sumber kebenaran',
+            'Satu source of truth',
             '`key` yang berubah membuat React memasang ulang komponennya',
           ],
         },
       ),
       p(
-        'Pola ini disebut "paling halus" karena ia **terlihat bertanggung jawab** — ada state, ada Effect yang menjaganya tetap sinkron, semuanya tampak rapi. Yang tersembunyi adalah dua biayanya. Pertama, ada dua sumber kebenaran untuk satu nilai: `user.nama` dari props dan `nama` di state, dan keduanya hanya cocok karena ada Effect yang merawatnya. Kedua, karena Effect berjalan **setelah** render, selalu ada satu render yang menampilkan nama lama bersama `user` yang baru — kedipan yang singkat tapi nyata. Kolom kanan menawarkan dua koreksi bergantung kebutuhan, sama seperti di Bab 3: kalau nilainya cuma ditampilkan, tidak butuh state sama sekali; kalau perlu diedit, `key` yang mereset seluruh komponen jauh lebih aman daripada Effect yang mereset field satu per satu.',
+        'Pola ini disebut "paling halus" karena ia **terlihat bertanggung jawab**, sebab ada state dan ada Effect yang menjaganya tetap sinkron sehingga semuanya tampak rapi. Yang tersembunyi adalah dua biayanya. Pertama, ada dua source of truth untuk satu nilai, yaitu `user.nama` dari props dan `nama` di state, dan keduanya hanya cocok karena ada Effect yang merawatnya. Kedua, karena Effect berjalan **setelah** render, selalu ada satu render yang menampilkan nama lama bersama `user` yang baru, dan itu flicker yang singkat tetapi nyata. Kolom kanan menawarkan dua koreksi bergantung kebutuhan, sama seperti di Bab 3. Kalau nilainya cuma ditampilkan, tidak butuh state sama sekali, sedangkan kalau perlu diedit, `key` yang mereset seluruh komponen jauh lebih aman daripada Effect yang mereset field satu per satu.',
       ),
       callout(
         'danger',
         'React Compiler menolak pola ini',
-        'Di project yang mengaktifkan React Compiler — termasuk website yang sedang kamu baca ini — `setState` di dalam Effect adalah **error lint**, bukan peringatan. Itu disengaja: polanya hampir selalu menandakan state yang seharusnya tidak ada. Perbaiki strukturnya, jangan matikan aturannya.',
+        'Di project yang mengaktifkan React Compiler, termasuk website yang sedang kamu baca ini, `setState` di dalam Effect adalah **error lint** dan bukan peringatan. Itu disengaja, sebab polanya hampir selalu menandakan state yang seharusnya tidak ada. Perbaiki strukturnya, jangan matikan aturannya.',
       ),
 
       h2('Ukuran yang sebenarnya penting'),
       p(
-        'Saat memilih, jangan bandingkan library berdasarkan popularitas atau jumlah bintang. Bandingkan berdasarkan: berapa banyak konsep baru yang harus dipelajari orang lain di timmu, seberapa mudah melacak "kenapa komponen ini render ulang", dan seberapa jelas batas tanggung jawabnya terhadap data server.',
+        'Saat memilih, jangan bandingkan library berdasarkan popularitas atau jumlah bintang. Bandingkan berdasarkan: berapa banyak konsep baru yang harus dipelajari orang lain di timmu, seberapa mudah melacak "kenapa komponen ini re-render", dan seberapa jelas batas tanggung jawabnya terhadap data server.',
       ),
       references(
         {
@@ -1954,7 +1954,7 @@ export const lessons: LessonDraft[] = [
           label: 'You Might Not Need an Effect',
           href: 'https://react.dev/learn/you-might-not-need-an-effect',
           source: 'React',
-          note: 'Sumber untuk dua anti-pola terhalus: nilai turunan disimpan, dan Effect penyalin props.',
+          note: 'Sumber untuk dua anti-pattern terhalus: derived value disimpan, dan Effect penyalin props.',
         },
         {
           label: 'React Compiler',
@@ -1994,9 +1994,9 @@ export const lessons: LessonDraft[] = [
             'Dua permintaan berangkat, dan yang berangkat duluan bisa tiba belakangan lalu menimpa hasil yang lebih baru. Di kode awal, mengganti kategori dua kali dengan cepat cukup untuk memicunya. Ia nyaris tidak pernah muncul di localhost — dan muncul terus di jaringan pengguna sungguhan.',
         },
         {
-          term: 'nilai turunan yang disimpan',
+          term: 'derived value yang disimpan',
           meaning:
-            'Cacat paling halus di kode awal: `totalHarga` disimpan sebagai state kedua padahal bisa dihitung dari `keranjang`. Dua sumber kebenaran seperti ini **pasti** akan tidak sinkron suatu saat — pertanyaannya kapan, bukan apakah.',
+            'Cacat paling halus di kode awal: `totalHarga` disimpan sebagai state kedua padahal bisa dihitung dari `keranjang`. Dua source of truth seperti ini **pasti** akan tidak sinkron suatu saat — pertanyaannya kapan, bukan apakah.',
         },
         {
           term: 'persist',
@@ -2009,7 +2009,7 @@ export const lessons: LessonDraft[] = [
             'Kerangka abu-abu berbentuk konten yang akan muncul, ditampilkan selama data belum siap. Fungsinya bukan hiasan: ia **memesan ruang** sehingga tata letak tidak melompat saat isinya tiba.',
         },
         {
-          term: 'hidrasi (hydration)',
+          term: 'hydration (hidrasi)',
           meaning:
             'Proses React "menghidupkan" HTML yang sudah dikirim server dengan menyambungkannya ke kode di browser. Selama data dari `localStorage` belum ikut terpasang, tampilkan skeleton — kalau langsung menampilkan datanya, server dan browser berbeda dan hidrasinya gagal.',
         },
@@ -2019,7 +2019,7 @@ export const lessons: LessonDraft[] = [
             'Enam puluh ribu milidetik = satu menit. Garis bawah di angka (`60_000`) adalah pemisah ribuan JavaScript — murni untuk keterbacaan, tidak mengubah nilainya sedikit pun.',
         },
         {
-          term: 'pembongkaran (refactor)',
+          term: 'refactor',
           meaning:
             'Mengubah struktur kode tanpa mengubah perilakunya. Ukuran keberhasilan latihan ini bukan jumlah baris yang menyusut, melainkan bahwa **enam cacat hilang** — bukan karena ditambal, melainkan karena setiap data akhirnya berada di tempat yang memang dirancang untuknya.',
         },
@@ -2045,7 +2045,7 @@ export const lessons: LessonDraft[] = [
           // Client global state
           const [keranjang, setKeranjang] = useState<Item[]>([]);
 
-          // Nilai turunan yang malah disimpan
+          // Derived value yang malah disimpan
           const [totalHarga, setTotalHarga] = useState(0);
 
           // Lokal — ini satu-satunya yang sudah benar
@@ -2068,7 +2068,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Komponen ini **berfungsi** — dan itu penting disadari sebelum membongkarnya. Tidak ada error, tidak ada yang jelas-jelas salah tulis; ia jenis kode yang lolos review dan berjalan bertahun-tahun. Yang keliru bukan barisnya melainkan **penempatannya**: tujuh `useState` di sana menampung empat kategori data yang sifatnya sangat berbeda, dan semuanya diperlakukan sama. Komentar yang sudah dituliskan di kode menandai pembagiannya — `produk`/`memuat`/`gagal` adalah data server yang butuh cache dan pembatalan; `kategori`/`urutan`/`halaman` adalah keadaan yang seharusnya bisa dibagikan lewat tautan; `keranjang` perlu bertahan melewati perpindahan halaman; dan `totalHarga` sebenarnya bukan state sama sekali. Hanya `filterTerbuka` yang memang milik komponen ini. Enam cacat di bawah semuanya lahir dari satu kesalahan itu.',
+        'Komponen ini **berfungsi**, dan itu penting disadari sebelum membongkarnya. Tidak ada error dan tidak ada yang jelas-jelas salah tulis, sebab ia jenis kode yang lolos review dan berjalan bertahun-tahun. Yang keliru bukan barisnya melainkan **penempatannya**, sebab tujuh `useState` di sana menampung empat kategori data yang sifatnya sangat berbeda, dan semuanya diperlakukan sama. Komentar yang sudah dituliskan di kode menandai pembagiannya. `produk`/`memuat`/`gagal` adalah data server yang butuh cache dan pembatalan, `kategori`/`urutan`/`halaman` adalah keadaan yang seharusnya bisa dibagikan lewat tautan, `keranjang` perlu bertahan melewati perpindahan halaman, sedangkan `totalHarga` sebenarnya bukan state sama sekali. Hanya `filterTerbuka` yang memang milik komponen ini. Enam cacat di bawah semuanya lahir dari satu kesalahan itu.',
       ),
 
       h2('Cacat yang ada di kode itu'),
@@ -2081,7 +2081,7 @@ export const lessons: LessonDraft[] = [
         '**`setState` di dalam Effect** — ditolak React Compiler.',
       ),
 
-      h2('Langkah pembongkaran'),
+      h2('Langkah refactor'),
       steps(
         {
           title: '1. Pindahkan data server ke TanStack Query',
@@ -2092,7 +2092,7 @@ export const lessons: LessonDraft[] = [
           body: 'Hapus `kategori`, `urutan`, `halaman` dari `useState`. Baca dari `useSearchParams`, tulis dengan `router.push`. Ingat mengembalikan `halaman` ke 1 setiap kali filter berubah.',
         },
         {
-          title: '3. Hapus nilai turunan',
+          title: '3. Hapus derived value',
           body: 'Hapus `totalHarga` beserta Effect-nya. Hitung saat render — atau jadikan bagian dari store keranjang sebagai fungsi, bukan sebagai state tersimpan.',
         },
         {

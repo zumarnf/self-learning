@@ -75,7 +75,7 @@ export const lessons: LessonDraft[] = [
     table(
       ['Durasi', 'Akibatnya'],
       [
-        ['< 5 menit', 'Orang menunggu — umpan balik terasa langsung'],
+        ['< 5 menit', 'Orang menunggu — feedback terasa langsung'],
         ['5–15 menit', 'Orang pindah kerjaan lain, konteksnya hilang'],
         ['> 15 menit', 'Orang berhenti peduli; PR menumpuk'],
       ],
@@ -135,10 +135,22 @@ export const lessons: LessonDraft[] = [
         `,
         { filename: '.github/workflows/ci.yml' },
       ),
+      p(
+        'Blok `on:` menentukan kapan workflow berjalan, dan di sini ada **dua** pemicu dengan tujuan berbeda. `pull_request` menjalankan pemeriksaan sebelum kode masuk — itu gerbangnya. `push: branches: [main]` menjalankannya sekali lagi **setelah** merge, karena hasil merge bisa berbeda dari PR-nya sendiri: dua PR yang masing-masing hijau bisa saling merusak begitu digabung.',
+      ),
+      p(
+        'Struktur `jobs → periksa → steps` adalah tiga lapis yang perlu dibedakan. Satu **job** berjalan di mesin virtual sendiri (`runs-on: ubuntu-latest`) yang bersih setiap kali; **step** di dalamnya berjalan berurutan di mesin yang sama, sehingga hasil `npm ci` bisa dipakai oleh `npm run lint` di bawahnya. Job yang berbeda tidak berbagi apa pun kecuali kamu mengaturnya secara eksplisit.',
+      ),
+      p(
+        "Dua baris di `actions/setup-node` layak diperhatikan. `node-version-file: '.nvmrc'` mengambil versi Node dari berkas yang sama dengan yang dipakai laptopmu — sehingga CI tidak diam-diam menguji di versi lain. `cache: npm` menyimpan direktori cache npm antar-jalan, dan itu biasanya memangkas `npm ci` dari puluhan detik menjadi beberapa detik saja.",
+      ),
+      p(
+        '`timeout-minutes: 15` adalah pengaman terhadap job yang menggantung. Tanpanya, tes yang menunggu koneksi yang tidak pernah datang bisa berjalan sampai batas bawaan GitHub selama enam jam sambil memakan kuota. Urutan lima `run` di bawahnya juga disengaja, sebab yang paling cepat gagal diletakkan paling atas, sehingga feedback-nya datang lebih awal.',
+      ),
       callout(
         'danger',
         'Setel `permissions` secara eksplisit',
-        'Tanpa itu, `GITHUB_TOKEN` bisa punya izin tulis ke repositori. Satu action pihak ketiga yang berbahaya — atau satu dependency yang dibajak — bisa memakainya untuk mendorong commit. Mulai dari `contents: read`, dan tambahkan hanya yang benar-benar dibutuhkan per job.',
+        'Tanpa itu, `GITHUB_TOKEN` bisa punya izin tulis ke repositori. Satu action pihak ketiga yang berbahaya, atau satu dependency yang dibajak, bisa memakainya untuk mendorong commit. Mulai dari `contents: read`, dan tambahkan hanya yang benar-benar dibutuhkan per job.',
       ),
       callout(
         'tip',
@@ -165,6 +177,12 @@ export const lessons: LessonDraft[] = [
             runs-on: ubuntu-latest
             steps: [...]
         `,
+      ),
+      p(
+        'Job tanpa `needs` berjalan **bersamaan**. `lint` dan `test` di atas dimulai pada saat yang sama di dua mesin terpisah, sehingga total waktunya adalah yang terlama di antara keduanya, bukan jumlahnya. Untuk pipeline yang lint-nya 1 menit dan tes-nya 4 menit, ini menghemat satu menit penuh di setiap push.',
+      ),
+      p(
+        '`needs: [lint, test]` pada job `build` membalik aturan itu, sebab ia menunggu **keduanya** selesai dan lulus. Kalau salah satu gagal, `build` tidak dijalankan sama sekali, dan itu memang yang diinginkan karena membangun artefak dari kode yang tesnya merah hanya membuang menit runner. Perhatikan `needs` juga yang membentuk urutan, sebab tanpa itu ketiganya akan berjalan serentak dan `build` bisa selesai lebih dulu daripada tesnya.',
       ),
 
       h2('Layanan untuk tes integrasi'),
@@ -216,6 +234,12 @@ export const lessons: LessonDraft[] = [
         - uses: some-org/some-action@8ade135a41bc03ea155e62e844d188df1ea18608   # v1.2.0
         `,
       ),
+      p(
+        'Perbedaan dua baris itu adalah perbedaan antara **nama** dan **isi**. `@v1` adalah tag Git — sebuah label yang pemiliknya bisa arahkan ulang ke commit mana pun kapan saja, tanpa memberitahu siapa-siapa. `@8ade135…` adalah SHA commit, yaitu hash dari isinya; mengubah satu karakter kode menghasilkan SHA yang berbeda, sehingga kode yang kamu jalankan besok pasti sama dengan yang kamu periksa hari ini.',
+      ),
+      p(
+        'Komentar `# v1.2.0` di ujung baris bukan hiasan — deretan hash itu tidak terbaca manusia, dan tanpa komentar kamu tidak akan tahu versi mana yang sedang dipakai saat hendak memperbaruinya. Praktik ini terutama untuk action **pihak ketiga**; untuk action resmi seperti `actions/checkout@v4` yang dikelola GitHub sendiri, memakai tag umumnya masih diterima, meskipun menyematkan SHA tetap lebih ketat.',
+      ),
       callout(
         'danger',
         'Action berjalan dengan akses ke seluruh rahasia CI-mu',
@@ -231,6 +255,12 @@ export const lessons: LessonDraft[] = [
         # mengeksekusi kode dari PR yang belum ditinjau siapa pun.
         on: pull_request_target
         `,
+      ),
+      p(
+        'Bedanya dengan `pull_request` biasa terletak pada **konteks siapa** workflow itu berjalan. `pull_request` menjalankan workflow dari sudut pandang PR: tanpa akses ke rahasia repositori, dan dengan token yang hanya bisa membaca. `pull_request_target` menjalankannya dari sudut pandang repositori tujuan — **dengan** seluruh rahasia yang kamu simpan di sana.',
+      ),
+      p(
+        'Itu masih aman selama workflow-nya hanya menjalankan kode dari branch utama. Yang membuatnya berbahaya adalah kombinasi dengan langkah checkout yang mengambil kode PR lewat `ref: github.event.pull_request.head.sha`, sebab sejak saat itu skrip yang ditulis orang asing berjalan di lingkungan yang memegang token deploy dan kunci registry-mu. Ia ada karena kadang benar-benar dibutuhkan, misalnya untuk memberi label PR dari fork, tetapi kalau kamu tidak bisa menjelaskan kenapa membutuhkannya, jawabannya `pull_request`.',
       ),
       callout(
         'danger',
@@ -250,6 +280,12 @@ export const lessons: LessonDraft[] = [
             key: \${{ runner.os }}-build-\${{ hashFiles('**/package-lock.json') }}
             restore-keys: \${{ runner.os }}-build-
         `,
+      ),
+      p(
+        "`key` adalah identitas cache, dan bagian `hashFiles('**/package-lock.json')` di dalamnya membuatnya berubah otomatis setiap kali daftar dependency berubah. Itulah mekanisme yang mencegah cache basi, sebab lockfile baru berarti kunci baru, kunci baru berarti cache lama tidak dipakai. Menyusun kunci dari sesuatu yang tidak mencerminkan isinya, misalnya tanggal, adalah cara paling umum membuat cache yang salah dipulihkan.",
+      ),
+      p(
+        '`restore-keys` adalah jalan mundurnya. Saat kunci persisnya belum ada (dependency baru saja berubah), Actions mencari cache terbaru yang **awalannya** cocok dengan `${runner.os}-build-` dan memulihkannya sebagai titik awal. Hasilnya, npm hanya perlu mengunduh paket yang benar-benar baru alih-alih semuanya. Perhatikan dua `path` yang di-cache, yaitu `~/.npm` untuk unduhan paket dan `.next/cache` untuk hasil kompilasi Next.js, dan keduanya artefak yang bisa dibuat ulang, bukan berkas yang bisa memuat kredensial.',
       ),
       callout(
         'warning',
@@ -354,6 +390,18 @@ export const lessons: LessonDraft[] = [
                   fi
         `,
       ),
+      p(
+        'Empat job di sini dibagi menurut **jenis kegagalan**, bukan sekadar dipecah agar rapi. `kualitas`, `test`, dan `keamanan` berjalan bersamaan karena tidak saling bergantung; `build` menunggu ketiganya lewat `needs`. Efek sampingnya berguna: saat pipeline merah, nama job yang gagal sudah memberi tahu kategori masalahnya sebelum kamu membuka log.',
+      ),
+      p(
+        'Job `keamanan` memakai `fetch-depth: 0` pada checkout, dan itu bukan detail sepele. Bawaannya GitHub hanya mengambil satu commit terakhir; `gitleaks` perlu **seluruh riwayat** untuk menemukan rahasia yang pernah ter-commit lalu dihapus — yang justru kasus paling berbahaya, karena rahasianya masih bisa diambil dari commit lama meski tidak terlihat di kode sekarang.',
+      ),
+      p(
+        '`npm audit --production --audit-level=high` sengaja dibatasi dua kali. `--production` mengabaikan devDependency, yang tidak ikut ke server sehingga kerentanannya tidak terjangkau penyerang; `--audit-level=high` membuat hanya kerentanan tinggi dan kritis yang menggagalkan build. Tanpa dua batasan itu, job ini akan merah hampir setiap minggu karena hal yang tidak bisa ditindaklanjuti — dan pipeline yang selalu merah palsu berhenti dibaca orang.',
+      ),
+      p(
+        'Langkah terakhir di job `build` adalah jaring pengaman yang jarang dipasang orang: satu `grep -rqE` mencari pola rahasia (`sk_live` untuk kunci Stripe, `AKIA` untuk kunci AWS, `-----BEGIN` untuk kunci privat, `postgresql://` untuk connection string) di dalam `.next/static/` — direktori yang isinya dikirim ke browser setiap pengunjung. `exit 1` menggagalkan build kalau ada yang cocok.',
+      ),
       callout(
         'tip',
         'Langkah terakhir menutup satu kelas kebocoran secara permanen',
@@ -390,6 +438,12 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        'Tes ini tidak memeriksa apa yang aplikasi **lakukan**, melainkan bagaimana ia **disusun**. `imporRuntime(f)` menelusuri impor tiap berkas Client Component, `terlarang` menandai modul yang tidak boleh sampai ke browser, dan `expect(pelanggar).toEqual([])` menuntut daftarnya kosong. Kalau ada yang melanggar, pesan gagalnya langsung menyebut nama berkasnya.',
+      ),
+      p(
+        'Yang membuat pola ini layak dipakai adalah jenis pelanggaran yang ia tangkap, yaitu pelanggaran yang **tidak terlihat**. Mengimpor data besar ke Client Component tidak merusak apa pun, sebab halaman tetap terbuka dan tes lain tetap hijau, hanya bundle yang dikirim ke pembaca membengkak diam-diam. Tanpa tes seperti ini, tidak ada momen ketika seseorang diberi tahu bahwa batasnya baru saja dilewati.',
+      ),
       callout(
         'tip',
         'Aturan arsitektur yang hanya ditulis di dokumen akan dilanggar',
@@ -407,6 +461,12 @@ export const lessons: LessonDraft[] = [
           [x] Larang force push
           [x] Larang penghapusan
         `,
+      ),
+      p(
+        'Baris kedua adalah yang menghubungkan seluruh sub-bab ini dengan kenyataan. Nama `kualitas`, `test`, `keamanan`, `build` di sana adalah nama **job** dari workflow di atas — GitHub mencocokkannya persis, sehingga job yang kamu ganti namanya di workflow harus ikut diperbarui di sini, atau pemeriksaannya diam-diam berhenti diwajibkan.',
+      ),
+      p(
+        '"Wajib branch up-to-date sebelum merge" menutup celah yang halus: PR-mu bisa hijau terhadap `main` seperti sepuluh hari lalu, sementara `main` sudah berubah sejak itu. Aturan ini memaksa PR diperbarui dan diuji ulang terhadap kondisi terkini — yang menangkap konflik semantik yang tidak muncul sebagai konflik merge.',
       ),
       callout(
         'warning',
@@ -472,6 +532,15 @@ export const lessons: LessonDraft[] = [
                   exit 1
         `,
       ),
+      p(
+        'Blok `environment:` bukan sekadar label. Ia mengaitkan job ini dengan lingkungan `production` yang punya pengaturannya sendiri di repositori — rahasia terpisah dari lingkungan lain, batasan branch mana yang boleh memakainya, dan opsi menuntut persetujuan manusia sebelum job berjalan. Nilai `url:` membuat tautan ke aplikasi muncul langsung di antarmuka GitHub setelah deploy selesai.',
+      ),
+      p(
+        'Langkah "Verifikasi" adalah bagian yang paling sering hilang dari pipeline deploy. Ia mengulang `curl -fsS .../health/ready` sampai sepuluh kali dengan jeda 5 detik — total sekitar 50 detik toleransi untuk aplikasi menyala. Flag `-f` pada curl yang membuat ini bekerja: tanpanya, curl mengembalikan sukses meski server menjawab `503`, sehingga pemeriksaannya selalu lulus dan tidak menjaga apa pun.',
+      ),
+      p(
+        'Perhatikan `exit 0` berada **di dalam** perulangan dan `exit 1` di luarnya. Artinya: satu jawaban sehat langsung menghentikan seluruh langkah dengan status sukses, sedangkan perulangan yang habis tanpa satu pun jawaban sehat jatuh ke `exit 1` dan menggagalkan job. Job yang merah inilah sinyal yang kamu butuhkan untuk memutuskan rollback — pola yang dibahas di sub-bab terakhir bab ini.',
+      ),
       callout(
         'danger',
         'Deploy tanpa langkah verifikasi bukan deploy otomatis — ia peluncuran buta',
@@ -496,6 +565,12 @@ export const lessons: LessonDraft[] = [
         main            -> https://app.contoh.com
         PR #42          -> https://app-git-fitur-ekspor.vercel.app
         `,
+      ),
+      p(
+        'Preview deployment adalah salinan aplikasi yang dibangun otomatis dari **setiap PR**, dengan URL sendiri. Nilainya: reviewer bisa mengklik dan mencoba perubahannya, bukan hanya membaca diff — dan perbedaan antara "kelihatannya benar di kode" dan "ternyata tombolnya tidak muncul di layar sempit" sering baru ketahuan di situ.',
+      ),
+      p(
+        'Perhatikan URL-nya diturunkan dari **nama branch** (`app-git-fitur-ekspor`), bukan dari nomor PR. Konsekuensinya dua: URL-nya bisa ditebak, dan ia berubah kalau branch-nya diganti nama. Keduanya jadi alasan dua peringatan berikut — preview harus diperlakukan sebagai lingkungan yang bisa diakses orang luar, bukan sebagai ruang privat.',
       ),
       callout(
         'danger',
@@ -524,6 +599,12 @@ export const lessons: LessonDraft[] = [
         # Rolling dengan pm2
         pm2 reload ecosystem.config.js --env production
         `,
+      ),
+      p(
+        'Kata kuncinya `reload`, bukan `restart`. `restart` mematikan semua proses lalu menyalakannya kembali — ada jeda beberapa detik ketika tidak ada yang melayani permintaan. `reload` mengganti proses **satu per satu**: satu instance dimatikan dengan `SIGTERM` dan digantikan yang baru, baru berpindah ke instance berikutnya, sehingga selalu ada yang siap menjawab.',
+      ),
+      p(
+        'Itu juga yang membuat penanganan sinyal dari sub-bab Docker menjadi syarat, bukan pelengkap. Instance yang tidak menutup diri dengan rapi saat menerima `SIGTERM` akan memutus permintaan yang sedang diproses — dan pengguna melihatnya sebagai error acak yang muncul persis saat deploy. Peringatan berikut menambahkan syarat kedua: selama peralihan, versi lama dan baru berjalan bersamaan.',
       ),
       callout(
         'warning',
@@ -557,10 +638,16 @@ export const lessons: LessonDraft[] = [
             WEBHOOK_URL: \${{ secrets.WEBHOOK_URL }}
         `,
       ),
+      p(
+        'Baris `if: failure()` adalah inti langkah ini. Bawaannya, sebuah step dilewati begitu ada step sebelumnya yang gagal, sedangkan `failure()` membalik aturan itu sehingga langkah ini justru **hanya** berjalan ketika ada yang gagal. Padanannya yang lain adalah `success()`, `cancelled()`, dan `always()`, dan yang terakhir berjalan apa pun hasilnya, berguna untuk membersihkan sumber daya.',
+      ),
+      p(
+        'URL webhook diambil dari `secrets.WEBHOOK_URL` dan dioper lewat `env`, bukan ditulis langsung di perintah. Alasannya bukan kerapian: URL webhook Slack atau Discord adalah kredensial — siapa pun yang memilikinya bisa mengirim pesan ke saluranmu. Menaruhnya di rahasia juga membuat GitHub menyensornya kalau ia sampai tercetak di log.',
+      ),
       callout(
         'tip',
         'Beri tahu kegagalan, jangan setiap keberhasilan',
-        'Notifikasi sukses yang datang sepuluh kali sehari akan diabaikan — dan yang gagal ikut terlewat bersamanya. Kelelahan notifikasi punya pola yang sama persis dengan kelelahan alert.',
+        'Notifikasi sukses yang datang sepuluh kali sehari akan diabaikan — dan yang gagal ikut terlewat bersamanya. Kelelahan notifikasi punya pola yang sama persis dengan alert fatigue.',
       ),
     ],
   ),
@@ -581,6 +668,12 @@ export const lessons: LessonDraft[] = [
               DEPLOY_TOKEN: \${{ secrets.DEPLOY_TOKEN }}
               DATABASE_URL: \${{ secrets.DATABASE_URL }}
         `,
+      ),
+      p(
+        'Sintaks `${{ secrets.NAMA }}` mengambil nilai yang tersimpan di pengaturan repositori dan menyuntikkannya sebagai variabel lingkungan — hanya untuk step itu, dan hanya selama ia berjalan. Yang tersimpan di berkas workflow (yang ikut ter-commit dan bisa dibaca siapa pun) hanyalah **namanya**; nilainya tidak pernah muncul di repositori.',
+      ),
+      p(
+        'Perhatikan rahasianya dioper lewat blok `env:`, bukan dirangkai ke dalam perintah seperti `./deploy.sh --token=...`. Bedanya nyata: argumen perintah terlihat di daftar proses mesin runner dan lebih mudah tercetak ke log, sementara variabel lingkungan hanya terbaca oleh proses yang menerimanya. Tabel berikut menunjukkan bahwa rahasia yang sama bisa disimpan di tiga tingkat, dengan jangkauan yang berbeda.',
       ),
       table(
         ['Tingkat', 'Untuk'],
@@ -609,6 +702,12 @@ export const lessons: LessonDraft[] = [
         - run: curl -v -H "Authorization: Bearer \${{ secrets.TOKEN }}" ...   # -v mencetak header
         `,
       ),
+      p(
+        'Penyensoran GitHub bekerja dengan cara yang sangat sederhana: ia mencari **teks yang persis sama** dengan nilai rahasiamu di aliran log, lalu menggantinya dengan `***`. Baris pertama tersensor karena nilainya dicetak apa adanya. Baris kedua lolos karena `base64` mengubah bentuknya — yang tercetak bukan lagi nilai yang dicari penyensor, tetapi tetap bisa didekode siapa pun dalam sekejap.',
+      ),
+      p(
+        'Baris ketiga adalah jebakan yang paling sering menimpa orang saat mendiagnosis masalah. Flag `-v` menyuruh curl mencetak seluruh header permintaan, termasuk `Authorization: Bearer …` — dan karena token muncul utuh di sana, ia sebenarnya **akan** tersensor. Bahayanya justru di sisi sebaliknya: banyak API mengembalikan token atau kunci sesi di respons, dan nilai-nilai itu tidak terdaftar sebagai rahasia sehingga tercetak apa adanya. Ganti `-v` dengan `-sS` begitu diagnosis selesai.',
+      ),
       callout(
         'danger',
         'Penyensoran log hanya bekerja untuk nilai yang persis sama',
@@ -629,6 +728,12 @@ export const lessons: LessonDraft[] = [
               id-token: write      # hanya kalau memakai OIDC
         `,
       ),
+      p(
+        '`permissions` muncul dua kali di sini, dan itu disengaja. Yang di tingkat atas berlaku sebagai bawaan untuk semua job; yang di dalam `deploy` **menimpa**-nya untuk job itu saja. Polanya: setel serendah mungkin di atas, lalu naikkan hanya di job yang benar-benar memerlukannya.',
+      ),
+      p(
+        '`id-token: write` terdengar seperti izin menulis yang berbahaya, padahal ia hanya memberi job hak **meminta** token identitas OIDC untuk dirinya sendiri — bukan hak menulis ke repositori. Itulah izin yang dibutuhkan pola di bawah, dan komentarnya menegaskan agar tidak dipasang kalau OIDC tidak dipakai.',
+      ),
 
       h2('OIDC — lebih baik daripada kunci jangka panjang'),
       code(
@@ -639,6 +744,12 @@ export const lessons: LessonDraft[] = [
             role-to-assume: arn:aws:iam::123456789:role/github-deploy
             aws-region: ap-southeast-1
         `,
+      ),
+      p(
+        'Yang paling penting dari potongan ini adalah **apa yang tidak ada di dalamnya**: tidak ada `aws-access-key-id`, tidak ada `aws-secret-access-key`, tidak ada rujukan ke `secrets` sama sekali. Yang tertulis hanya `role-to-assume` — ARN sebuah peran IAM, yang bukan rahasia dan boleh terbaca siapa pun.',
+      ),
+      p(
+        'Mekanismenya: GitHub menerbitkan token identitas yang menyatakan "job ini berasal dari repositori X, branch Y", dan AWS sudah dikonfigurasi untuk mempercayai pernyataan itu dari GitHub. AWS lalu menukarnya dengan kredensial sementara yang berumur menit. Konsekuensi praktisnya besar — tidak ada kunci yang bisa bocor dari pengaturan repositori, dan pembatasan "hanya branch `main` yang boleh memakai peran ini" ditegakkan di sisi AWS, bukan sekadar diharapkan dari sisi workflow.',
       ),
       callout(
         'tip',
@@ -678,7 +789,7 @@ export const lessons: LessonDraft[] = [
         },
         {
           title: '4. Tutup jalurnya',
-          body: 'Pemindai rahasia di pre-commit dan CI, dan izin yang lebih sempit.',
+          body: 'Secret scanner di pre-commit dan CI, dan izin yang lebih sempit.',
         },
       ),
       callout(
@@ -729,6 +840,12 @@ export const lessons: LessonDraft[] = [
         pm2 reload ecosystem.config.js
         `,
       ),
+      p(
+        'Empat baris itu bukan alternatif yang setara — masing-masing milik platform berbeda, dan yang berlaku untukmu adalah satu di antaranya. Yang penting bukan menghafal keempatnya, melainkan **mengetahui yang mana milikmu dan sudah pernah menjalankannya**. Perintah rollback yang baru pertama kali diketik saat produksi bermasalah adalah perintah yang belum kamu tahu apakah berhasil.',
+      ),
+      p(
+        'Perhatikan `./deploy.sh <sha-sebelumnya>` menuntut satu hal yang harus disiapkan lebih dulu: kamu harus **tahu** SHA yang sedang berjalan sebelum deploy terakhir. Itulah gunanya mencatat SHA di setiap deploy — tanpa catatan itu, langkah pertama saat panik justru menjadi menelusuri riwayat git untuk menebak versi mana yang tadinya baik.',
+      ),
       callout(
         'tip',
         'Rollback kode biasanya hitungan detik — kalau kamu punya artefak lamanya',
@@ -763,6 +880,12 @@ export const lessons: LessonDraft[] = [
         }
         return <EditorLama />;
         `,
+      ),
+      p(
+        "Argumen kedua pada `fitur.aktif('editor-baru', pengguna)` yang membuat pola ini lebih dari sekadar sakelar hidup-mati. Karena keputusannya diambil **per pengguna**, fitur bisa dinyalakan untuk 1% dulu, lalu 10%, lalu semua — dan kalau ada yang salah, ia dimatikan tanpa menyentuh deploy sama sekali.",
+      ),
+      p(
+        'Perbedaannya dengan rollback biasa adalah waktu dan cakupan. Rollback deployment mengembalikan **seluruh** rilis, termasuk perbaikan lain yang ikut di dalamnya, dan butuh waktu sepanjang proses deploy. Mematikan bendera hanya mencabut satu fitur, berlaku dalam hitungan detik. Harganya sudah disebut di bab sebelumnya: tiap bendera melipatgandakan jalur kode yang harus diuji, jadi ia dipasang untuk perubahan berisiko dan dihapus begitu fiturnya permanen.',
       ),
       callout(
         'tip',
@@ -803,6 +926,15 @@ export const lessons: LessonDraft[] = [
         - Migrasi destruktif dipisah ke rilis sendiri
         - Ambang alert 5xx diturunkan dari 5% ke 1%
         `,
+      ),
+      p(
+        'Baris **Dampak** ditulis dalam angka yang bisa dibandingkan seperti 8 menit dan sekitar 2% permintaan, bukan "sempat error sebentar". Itu yang memungkinkan insiden ini ditimbang terhadap insiden lain nanti, dan yang membuat keputusan seperti menurunkan ambang alert punya dasar.',
+      ),
+      p(
+        'Baris **Penyebab** tidak berhenti pada "migrasi gagal". Ia menyebut mekanismenya (`NOT NULL` ditambahkan ke kolom yang masih punya baris `NULL`) **dan** alasan hal itu tidak terdeteksi lebih awal: staging punya data lebih sedikit dan tidak punya baris lama. Kedua bagian itu diperlukan — yang pertama menjelaskan apa yang rusak, yang kedua menjelaskan kenapa pengaman yang ada tidak menangkapnya.',
+      ),
+      p(
+        'Perhatikan hubungan langsung antara baris **Kenapa lolos CI** ("tes berjalan pada database kosong") dan butir pertama di bagian **Perubahan** ("tes migrasi dijalankan pada salinan data realistis"). Itu bentuk catatan pasca-insiden yang berguna: setiap celah yang ditemukan punya satu perubahan konkret yang menutupnya. Selisih 90 detik di baris **Deteksi** juga informasi tersendiri — ia mengukur seberapa cepat sistem pemantauanmu bekerja, terpisah dari seberapa cepat masalahnya diperbaiki.',
       ),
       callout(
         'tip',

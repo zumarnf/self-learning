@@ -117,6 +117,12 @@ export const lessons: LessonDraft[] = [
         $kota = $pengguna?->alamat?->kota ?? 'Tidak diketahui';
         `,
       ),
+      p(
+        "Tiga baris di tengah adalah sumber kebingungan paling sering bagi yang datang dari JavaScript. Penggabungan string memakai **titik**, bukan `+`, karena `+` di PHP selalu berarti penjumlahan angka. Dan interpolasi `$nama` hanya bekerja di dalam kutip **ganda**: baris `echo 'Halo $nama'` mencetak apa adanya, termasuk tanda dolarnya. Perhatikan pula PHP tidak membedakan array dan objek seperti JavaScript — `$daftar` dan `$peta` sama-sama bertipe `array`, hanya berbeda kuncinya (angka berurutan versus string).",
+      ),
+      p(
+        "Dua baris terakhir justru terasa akrab: `?->` sama persis dengan `?.` di JavaScript, dan `??` sama persis dengan `??`. Keduanya bisa dirantai, sehingga `$pengguna?->alamat?->kota` berhenti aman kalau `$pengguna` atau `alamat`-nya `null`, dan `?? 'Tidak diketahui'` mengisi nilai cadangannya. Baris `declare(strict_types=1)` di atas dibahas tersendiri di bawah — ia yang membedakan PHP modern dari PHP yang diam-diam mengubah tipe.",
+      ),
       callout(
         'danger',
         '`declare(strict_types=1)` bukan opsional',
@@ -145,6 +151,12 @@ export const lessons: LessonDraft[] = [
             ) {}
         }
         `,
+      ),
+      p(
+        'Tipe di PHP modern ditulis di dua tempat: sebelum nama parameter (`array $items`) dan setelah tanda titik dua untuk return value (`: float`). Dipadukan dengan `strict_types=1`, keduanya menjadi jaminan yang ditegakkan saat program berjalan — memanggil `hitungTotal` dengan string akan melempar `TypeError` seketika, bukan menghasilkan angka yang aneh beberapa lapisan kemudian. Tanda `?` pada `?Catatan` berarti "boleh `null`", dan `int|string` adalah union type yang menerima salah satu dari keduanya.',
+      ),
+      p(
+        'Kelas `Uang` memperlihatkan dua fitur yang akan sering kamu lihat di kode Laravel modern. **Promosi konstruktor** menggabungkan deklarasi properti dan penugasannya dalam satu baris — tanpanya kamu harus menulis properti di atas lalu `$this->jumlah = $jumlah;` di dalam konstruktor. Dan `readonly` membuat nilainya tidak bisa diubah setelah objek dibuat, sehingga sebuah nilai uang tidak mungkin berubah diam-diam di tengah perjalanan. Kata `final` di depan kelas melarangnya diwarisi, pilihan bawaan yang baik: pewarisan dibuka hanya kalau memang dirancang untuk itu.',
       ),
 
       h2('Enum — dipakai di mana-mana di Laravel modern'),
@@ -202,6 +214,12 @@ export const lessons: LessonDraft[] = [
         ./vendor/bin/phpstan analyse --level=8   # cari bug tanpa menjalankan kode
         ./vendor/bin/pest                        # jalankan tes
         `,
+      ),
+      p(
+        'Ketiganya dipasang dengan `--dev` karena hanya dibutuhkan saat mengembangkan, bukan saat aplikasi berjalan di server — setara `devDependencies` di npm. Perhatikan perintah menjalankannya berawalan `./vendor/bin/`: Composer memasang berkas yang bisa dieksekusi ke folder itu, sama seperti `node_modules/.bin` di ekosistem Node.',
+      ),
+      p(
+        'Opsi `--level=8` pada PHPStan menentukan seberapa ketat pemeriksaannya. Levelnya bertingkat dari 0 sampai 9, dan level 8 adalah titik di mana **nilai `null` yang tidak diperiksa** mulai dianggap kesalahan — inilah yang membuatnya sebanding dengan `strictNullChecks` di TypeScript. Untuk project yang sudah berjalan, mulailah dari level rendah lalu naikkan bertahap; menyalakan level 8 sekaligus pada kode lama biasanya menghasilkan ribuan temuan yang membuat orang menyerah.',
       ),
       callout(
         'tip',
@@ -302,6 +320,12 @@ export const lessons: LessonDraft[] = [
         composer dump-autoload  # muat ulang peta autoload
         `,
       ),
+      p(
+        'Dua perintah pertama gampang tertukar, dan bedanya sama seperti `npm ci` versus `npm install`. `composer install` memasang **persis** apa yang tertulis di `composer.lock` — inilah yang dipakai di CI dan produksi, karena ia menjamin server menjalankan versi yang sudah teruji. `composer update` mengabaikan lockfile, mencari versi terbaru yang masih cocok dengan rentang di `composer.json`, lalu **menulis ulang lockfile**. Jalankan `update` hanya saat kamu memang berniat memperbarui, dan jangan pernah di server.',
+      ),
+      p(
+        '`composer dump-autoload` tidak punya padanan di npm dan sering membingungkan. PHP tidak punya `import`, sehingga kelas ditemukan lewat **peta autoload** yang disusun Composer dari struktur folder. Kalau kamu membuat kelas baru secara manual alih-alih lewat `php artisan make:`, lalu PHP mengeluh kelasnya tidak ditemukan padahal berkasnya jelas ada, perintah inilah jawabannya.',
+      ),
       table(
         ['npm', 'Composer'],
         [
@@ -328,6 +352,12 @@ export const lessons: LessonDraft[] = [
         php artisan key:generate     # membuat APP_KEY
         php artisan serve            # http://localhost:8000
         `,
+      ),
+      p(
+        'Dua baris di tengah adalah langkah yang paling sering terlewat dan menghasilkan error yang membingungkan. `cp .env.example .env` membuat berkas konfigurasi lokal — ingat dari Bab 3.12, hanya `.env.example` yang ikut di repositori, jadi berkas `.env`-nya memang belum ada setelah `create-project`. Lalu `key:generate` mengisi `APP_KEY` dengan kunci acak; kunci itu dipakai Laravel untuk mengenkripsi cookie dan sesi, dan tanpanya aplikasi menolak berjalan dengan pesan "No application encryption key has been specified".',
+      ),
+      p(
+        'Karena `APP_KEY` menentukan enkripsi, ia adalah **rahasia**: setiap lingkungan punya kuncinya sendiri, dan menggantinya di produksi akan membuat seluruh sesi serta cookie terenkripsi yang ada menjadi tidak bisa dibaca. `php artisan serve` sendiri hanyalah server pengembangan bawaan PHP — cukup untuk belajar, tetapi produksi memakai Nginx atau Apache dengan konfigurasi yang dibahas di bawah.',
       ),
 
       h2('Struktur folder'),
@@ -360,6 +390,15 @@ export const lessons: LessonDraft[] = [
         tests/                     Feature/ dan Unit/
         public/                    SATU-SATUNYA folder yang terbuka ke web
         `,
+      ),
+      p(
+        'Bandingkan susunan ini dengan struktur Express di sub-bab 3.9, karena `Controllers/`, `Middleware/`, dan `Models/` punya padanan langsung. Bedanya, Laravel sudah **menyediakan** foldernya sejak awal beserta perintah `make:` untuk mengisinya, sementara di Express kamu yang menyusun sendiri. Perhatikan keterangan pada `app/Services/` di daftar istilah, bahwa folder itu **tidak** dibuat Laravel. Lapisan aturan bisnis tetap keputusanmu, dan tanpanya logika cenderung menumpuk di controller.',
+      ),
+      p(
+        'Pembagian `routes/web.php` dan `routes/api.php` adalah keputusan keamanan, bukan kerapian. Rute di `web.php` mendapat sesi dan perlindungan CSRF — model dari sub-bab 5.3. Rute di `api.php` bersifat stateless dan **tidak** punya keduanya, karena API berbasis token memang tidak butuh mesin CSRF. Menaruh rute di berkas yang salah berarti memakai model keamanan yang salah: endpoint API di `web.php` akan menolak permintaan tanpa token CSRF, sedangkan form web di `api.php` kehilangan perlindungannya.',
+      ),
+      p(
+        'Baris terakhir yang bertanda "SATU-SATUNYA" adalah hal terpenting di seluruh diagram ini. Berkas `.env` berisi seluruh rahasiamu berada di **akar** project, satu tingkat di atas `public/`. Karena itu document root server web wajib menunjuk ke `public/`; kalau ia menunjuk ke akar project, siapa pun bisa mengunduh `https://situs.com/.env` dan mendapat kredensial databasemu.',
       ),
       callout(
         'danger',
@@ -474,7 +513,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'middleware global vs rute',
           meaning:
-            'Dua tingkat penjagaan. **Global** berjalan untuk setiap permintaan — CORS, batas ukuran body, trim string. **Rute** hanya untuk rute yang menyebutnya — `auth`, `throttle`. Persis pembagian `app.use()` versus middleware per rute di Express.',
+            'Dua tingkat penjagaan. **Global** berjalan untuk setiap permintaan, misalnya CORS, batas ukuran body, dan trim string. **Rute** hanya untuk rute yang menyebutnya, misalnya `auth` dan `throttle`. Persis pembagian `app.use()` versus middleware per rute di Express.',
         },
       ),
 
@@ -543,6 +582,12 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Perhatikan tidak ada `new LayananCatatan(...)` di mana pun, padahal `$this->layanan` bisa dipakai. Itulah kerja service container: Laravel membaca **tipe** pada parameter konstruktor, mencari cara membuat objek bertipe itu, lalu menyuntikkannya sendiri. Kalau `LayananCatatan` sendiri membutuhkan sesuatu di konstruktornya, container juga akan menyediakannya secara berantai — kamu tidak pernah merangkai objeknya secara manual.',
+      ),
+      p(
+        'Yang membuat ini berharga bukan kenyamanannya, melainkan **siapa yang menentukan** implementasinya. Controller ini tidak tahu bagaimana `LayananCatatan` dibuat, jadi saat menguji, kamu bisa menyuruh container memberikan versi tiruan tanpa menyentuh satu baris pun di sini. Bandingkan dengan controller yang menulis `new LayananCatatan()` di dalam method-nya: ia terikat mati pada implementasi itu, dan mengujinya berarti menyiapkan database sungguhan.',
+      ),
       callout(
         'info',
         'Kenapa ini berguna',
@@ -567,6 +612,12 @@ export const lessons: LessonDraft[] = [
             });
         }
         `,
+      ),
+      p(
+        '`bind` mengajarkan container satu aturan, yaitu setiap kali ada yang meminta antarmuka `PengirimEmail`, berikan `PengirimEmailSmtp`. Karena kelas-kelas lain hanya menyebut **antarmukanya**, mengganti penyedia email nanti cukup mengubah satu baris di sini tanpa ada berkas lain yang menyebut nama implementasinya. Ini juga yang membuat pengujian mudah, sebab satu `bind` ke versi tiruan sudah membuat seluruh aplikasi memakai yang tiruan.',
+      ),
+      p(
+        'Beda `bind` dan `singleton` ada pada berapa kali objeknya dibuat. `bind` membuat instans **baru** setiap kali diminta; `singleton` membuatnya sekali lalu memakai ulang untuk sisa permintaan itu. Pakai `singleton` ketika objeknya mahal dibuat atau memang harus tunggal — seperti `KlienPembayaran` yang membaca konfigurasi dan mungkin memegang koneksi. Perhatikan pula ia dibuat lewat closure, sehingga kunci dari `config(...)` baru dibaca ketika objeknya benar-benar dibutuhkan, bukan di setiap permintaan yang tidak menyentuh pembayaran sama sekali.',
       ),
 
       h2('Facade'),
@@ -727,6 +778,12 @@ export const lessons: LessonDraft[] = [
         Route::apiResource('catatan', CatatanController::class);
         `,
       ),
+      p(
+        "Bandingkan lima baris ini dengan `router.get(...)` di Express, karena bentuknya berbeda tapi isinya sama. `[CatatanController::class, 'index']` menyebut kelas beserta nama method-nya, dan `{catatan}` adalah route parameter yang setara dengan `:id`. Yang perlu diperhatikan, nama parameternya `{catatan}` alih-alih `{id}`, dan itu disengaja karena nama itulah yang nanti dicocokkan dengan tipe `Catatan` pada method controller supaya route model binding bekerja.",
+      ),
+      p(
+        'Baris `apiResource` menggantikan kelimanya sekaligus dengan konvensi nama method yang baku, yaitu `index`, `store`, `show`, `update`, dan `destroy`. Nilainya bukan sekadar hemat baris melainkan **keseragaman**, sebab setiap sumber daya di aplikasimu memakai pola alamat dan nama method yang sama sehingga siapa pun bisa menebak di mana kode sebuah endpoint berada. Perhatikan namanya `apiResource` alih-alih `resource`, karena yang terakhir juga membuat rute `create` dan `edit` untuk menampilkan formulir HTML yang tidak berguna pada API.',
+      ),
       callout(
         'info',
         '`routes/api.php` berbeda dari `routes/web.php`',
@@ -767,6 +824,12 @@ export const lessons: LessonDraft[] = [
           notes: ['404 otomatis', 'Controller menerima model, bukan id'],
         },
       ),
+      p(
+        'Kolom kanan menghapus empat baris yang di kolom kiri harus diulang di setiap rute. Mekanismenya: nama parameter `{catatan}` di alamat cocok dengan nama variabel `$catatan` yang bertipe `Catatan`, dan dari situ Laravel tahu ia harus mencari baris dengan id tersebut lalu menyerahkannya ke fungsimu. Kalau barisnya tidak ada, Laravel sendiri yang menjawab `404` — jadi kodemu boleh mengasumsikan `$catatan` selalu ada.',
+      ),
+      p(
+        'Justru di situ letak bahayanya, dan peringatan di bawah perlu dibaca serius. Binding menjawab "baris ini ada", **bukan** "kamu berhak melihatnya". Kodenya terlihat bersih dan tidak ada yang tampak salah — dan itulah kenapa bentuk IDOR ini begitu sering lolos di aplikasi Laravel. Kolom kiri setidaknya masih memperlihatkan query-nya secara terbuka, sehingga tidak adanya pemeriksaan pemilik lebih mudah terlihat saat review.',
+      ),
       callout(
         'danger',
         'Binding mengambil datanya, TIDAK memeriksa kewenangannya',
@@ -784,6 +847,12 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        "Satu baris `$this->authorize('view', $catatan)` inilah yang menutup celahnya. Ia menjalankan method `view` pada Policy sumber daya tersebut dan **melempar `403`** kalau ditolak, sehingga baris di bawahnya tidak pernah tercapai. Perhatikan argumen keduanya berupa objek `$catatan`, bukan id — itulah yang membedakannya dari pemeriksaan izin biasa: Policy memutuskan berdasarkan **objek ini**, sehingga ia bisa membandingkan `penulis_id`-nya dengan pengguna yang sedang masuk.",
+      ),
+      p(
+        'Jadikan pemanggilan ini refleks: setiap method controller yang menerima model dari route binding butuh satu baris `authorize` sebelum menyentuh datanya. Untuk data privat, pertimbangkan Policy yang membuatnya tampak tidak ada — di sub-bab 5.7 alasannya sudah dibahas, `403` sudah membocorkan bahwa barisnya memang ada.',
+      ),
 
       h2('Binding dengan kolom lain'),
       code(
@@ -797,7 +866,10 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        '`scopeBindings()` penting: tanpa itu, `/artikel/1/komentar/999` akan mengembalikan komentar 999 meski ia milik artikel lain. Dengan itu, Laravel memastikan komentar tersebut benar-benar anak dari artikel tersebut.',
+        'Titik dua pada `{artikel:slug}` menyuruh Laravel mencari berdasarkan kolom `slug`, bukan `id` — itulah yang membuat alamat artikel bisa berbentuk `/artikel/belajar-laravel` alih-alih `/artikel/42`. Syaratnya kolom itu harus `UNIQUE` di database; tanpa itu, dua artikel berslug sama akan membuat alamatnya ambigu.',
+      ),
+      p(
+        '`scopeBindings()` menutup celah yang sangat mudah terlewat pada rute bersarang. Tanpa itu, Laravel mencari `{artikel}` dan `{komentar}` secara **terpisah**, sehingga `/artikel/1/komentar/999` akan mengembalikan komentar 999 walaupun ia sebenarnya milik artikel 7 — alamatnya berbohong, dan aplikasimu ikut membenarkannya. Dengan `scopeBindings()`, komentar dicari **di dalam** artikel induknya, jadi pasangan yang tidak cocok menghasilkan `404`. Perhatikan ini sekaligus lapisan pertahanan tambahan: kalau kewenangan diperiksa di tingkat artikel, komentar yang tidak benar-benar miliknya tidak bisa lolos lewat celah ini.',
       ),
 
       h2('Grup rute'),
@@ -816,6 +888,12 @@ export const lessons: LessonDraft[] = [
             });
         `,
       ),
+      p(
+        'Grup rute adalah padanan `app.use(\'/api\', middleware, router)` di Express: penjagaan dipasang **sekali** untuk sekelompok rute, bukan diulang di setiap baris. Blok pertama membungkus semua rute di dalamnya dengan `auth:sanctum`, sehingga rute baru yang ditambahkan ke dalam grup itu otomatis ikut terlindungi — inilah bentuk konkret prinsip "default tolak" dari sub-bab 5.1. Rute yang ditulis di luar grup adalah rute yang **sengaja** dibuka.',
+      ),
+      p(
+        'Blok kedua menumpuk tiga setelan sekaligus. `prefix(\'admin\')` menambahkan `/admin` di depan setiap alamat di dalamnya, sementara array middleware-nya menerapkan dua lapisan berurutan. `auth:sanctum` menjawab "siapa kamu", lalu `can:kelola-pengguna` menjawab "boleh tidak kamu di sini", mengikuti pemisahan autentikasi dan otorisasi yang sama seperti di sub-bab 5.6. Urutannya penting, sebab memeriksa izin sebelum identitas dipastikan tidak ada artinya.',
+      ),
 
       h2('Memeriksa rute yang benar-benar terdaftar'),
       code(
@@ -824,6 +902,12 @@ export const lessons: LessonDraft[] = [
         php artisan route:list
         php artisan route:list --path=catatan
         `,
+      ),
+      p(
+        'Perintah ini menjawab pertanyaan yang tidak bisa dijawab dengan membaca berkas rute, yaitu **apa yang benar-benar terdaftar**. Karena `apiResource` membuat lima rute dari satu baris dan grup menyuntikkan middleware dari tempat lain, susunan akhirnya tidak terlihat utuh di satu berkas mana pun. Keluarannya menampilkan method, alamat, controller, dan yang paling berguna, daftar middleware yang benar-benar melekat pada setiap rute.',
+      ),
+      p(
+        'Jadikan kolom middleware itu alat audit rutin: setiap baris yang seharusnya terlindungi tetapi kolomnya kosong adalah endpoint terbuka, dan inilah cara tercepat menemukan rute yang lupa dimasukkan ke dalam grup `auth`. Opsi `--path=catatan` menyaring keluarannya saat daftarnya sudah terlalu panjang untuk dibaca sekaligus.',
       ),
       callout(
         'tip',
@@ -869,7 +953,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'controller',
           meaning:
-            'Kelas tempat permintaan diterima dan jawabannya disusun. Sama seperti di Express: ia boleh tahu HTTP — status, header, bentuk respons — tapi tidak boleh memuat aturan bisnis maupun SQL mentah.',
+            'Kelas tempat permintaan diterima dan jawabannya disusun. Sama seperti di Express, ia boleh tahu HTTP berupa status, header, dan bentuk respons, tapi tidak boleh memuat aturan bisnis maupun SQL mentah.',
         },
         {
           term: 'resource controller',
@@ -985,6 +1069,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        "Perhatikan `index` memakai `where('penulis_id', ...)` sedangkan empat method lain memakai `$this->authorize(...)`. Perbedaan itu bukan ketidakkonsistenan melainkan keharusan, dan alasannya sama seperti di sub-bab 5.6: Policy bekerja **per objek**, dan endpoint daftar tidak memanggilnya untuk setiap baris. Untuk daftar, penjagaannya harus ada di query. Perhatikan pula batas paginasinya ditulis `min((int) ..., 100)` — batas atas dari sisi server, supaya `?per_page=999999` tidak memaksa seluruh tabel masuk ke memori.",
+      ),
+      p(
+        'Pada `store`, dua hal menutup celah mass assignment sekaligus. `$request->validated()` mengembalikan **hanya** field yang lolos aturan Form Request, bukan seluruh isi body — jadi `{"penulis_id":999}` yang diselipkan penyerang tidak akan ikut. Dan `$request->user()->catatan()->create(...)` membuat catatan **lewat relasi** penggunanya, sehingga `penulis_id` diisi Laravel dari pengguna yang terautentikasi dan tidak mungkin ditentukan klien. Bandingkan dengan `Catatan::create($request->validated())` yang tampak lebih sederhana tetapi menyerahkan kepemilikan kepada isi body.',
+      ),
+      p(
+        'Tiga method terakhir memperlihatkan pola yang harus kamu ulangi di setiap sumber daya: `authorize` **sebelum** menyentuh datanya, dengan nama aksi yang cocok dengan method di Policy (`view`, `update`, `delete`). Menghapus satu baris `authorize` cukup untuk membuka IDOR, karena route model binding sudah terlanjur menyerahkan objeknya. Perhatikan pula status yang dikembalikan mengikuti kontrak dari Bab 3: `201` beserta header `Location` untuk pembuatan, dan `noContent()` yang berarti `204` tanpa body untuk penghapusan.',
+      ),
 
       h2('Tujuh method baku'),
       table(
@@ -1039,6 +1132,12 @@ export const lessons: LessonDraft[] = [
           notes: ['Aturan bisnis ada di service', 'Bisa dipanggil dari mana saja'],
         },
       ),
+      p(
+        'Enam komentar di kolom kiri sebenarnya enam tanggung jawab yang berbeda, dan hanya satu di antaranya, yaitu menyusun respons, yang benar-benar urusan controller. Sisanya adalah aturan bisnis yang terkurung di dalam method HTTP. Begitu perhitungan diskon dan pengurangan stok berada di sana, kamu tidak bisa memakainya lagi dari perintah artisan, dari job antrean, atau dari impor CSV, tanpa memalsukan sebuah objek `Request`.',
+      ),
+      p(
+        'Kolom kanan memindahkan semuanya ke `LayananPesanan`, dan perhatikan bagaimana service itu **masuk lewat parameter method**, bukan dibuat dengan `new`. Laravel membaca tipenya dan menyuntikkan instansnya dari service container — mekanisme yang sama seperti injeksi konstruktor tadi, dan itulah yang membuat service-nya bisa diganti versi tiruan saat menguji. Perhatikan pula service menerima `$request->user()` dan `$request->validated()`, bukan objek `$request` itu sendiri: dengan begitu service tetap tidak mengenal HTTP, sesuai batas yang sama seperti di sub-bab 3.9.',
+      ),
       callout(
         'tip',
         'Aturan yang sama dengan Bab 3.8',
@@ -1063,6 +1162,12 @@ export const lessons: LessonDraft[] = [
 
         Route::post('/artikel/{artikel}/terbitkan', TerbitkanArtikelController::class);
         `,
+      ),
+      p(
+        'Method bernama `__invoke` membuat objeknya bisa dipanggil seperti fungsi, dan itulah sebabnya rutenya cukup menyebut nama kelas tanpa nama method. Bentuk ini dipakai untuk aksi yang **tidak muat** dalam tujuh method baku — "terbitkan" bukan `store` maupun `update`, dan memaksakannya ke sana hanya akan membuat `update` menjadi method serba guna yang bercabang-cabang.',
+      ),
+      p(
+        'Perhatikan alamatnya `/artikel/{artikel}/terbitkan` memakai kata kerja, padahal REST menganjurkan alamat berupa benda. Itu pengecualian yang wajar dan umum: untuk **transisi keadaan** seperti menerbitkan, membatalkan, atau mengarsipkan, alamat berkata kerja jauh lebih jujur daripada memaksa klien mengirim `PATCH {"status":"terbit"}` dan berharap servernya menjalankan seluruh aturan penerbitan. Perhatikan pula `authorize(\'terbitkan\', ...)` tetap ada — aksi khusus butuh method Policy-nya sendiri, bukan menumpang pada `update`.',
       ),
       references(
         {
@@ -1100,14 +1205,14 @@ export const lessons: LessonDraft[] = [
     'Template engine Laravel — dan kapan kamu tidak membutuhkannya.',
     [
       p(
-        'Blade menghasilkan HTML di server. Untuk API murni — yang menjadi fokus kategori ini — kamu tidak akan memakainya. Tapi kamu perlu mengenalinya, karena sebagian besar aplikasi Laravel di dunia nyata memakainya.',
+        'Blade menghasilkan HTML di server. Untuk API murni, yang menjadi fokus kategori ini, kamu tidak akan memakainya. Tetapi kamu perlu mengenalinya, karena sebagian besar aplikasi Laravel di dunia nyata memakainya.',
       ),
 
       terms(
         {
           term: 'Blade',
           meaning:
-            'Template engine Laravel yang menghasilkan **HTML di server**. Untuk API murni — fokus kategori ini — kamu tidak akan memakainya. Tapi kenali bentuknya: sebagian besar aplikasi Laravel di dunia nyata memakainya.',
+            'Template engine Laravel yang menghasilkan **HTML di server**. Untuk API murni yang menjadi fokus kategori ini, kamu tidak akan memakainya. Tapi kenali bentuknya, karena sebagian besar aplikasi Laravel di dunia nyata memakainya.',
         },
         {
           term: 'template engine',
@@ -1175,6 +1280,12 @@ export const lessons: LessonDraft[] = [
         @endsection
         `,
       ),
+      p(
+        'Blade adalah HTML biasa dengan tambahan dua bentuk, yaitu `{{ }}` untuk menampilkan nilai dan direktif berawalan `@` untuk logika. `@extends` dan `@section` bekerja berpasangan, sehingga berkas ini mengisi bagian bernama `konten` di dalam kerangka `layouts.app` dan header serta footer tidak perlu ditulis ulang di setiap halaman. Perhatikan komentar Blade ditulis `{{-- --}}` alih-alih `<!-- -->`, dan bedanya komentar Blade dihapus saat render serta **tidak** ikut terkirim ke browser, sehingga catatan internalmu tidak bisa dibaca lewat view-source.',
+      ),
+      p(
+        'Yang paling penting untuk dipahami sekarang: `{{ $judul }}` **otomatis meng-escape** isinya. Kalau judulnya berisi `<script>`, yang tampil di halaman adalah teks `<script>` itu sendiri, bukan skrip yang berjalan. Perilaku bawaan inilah yang membuat Blade aman dari XSS selama kamu memakainya apa adanya — dan itu pula yang membuat bentuk `{!! !!}` di bawah begitu berbahaya, karena ia sengaja mematikannya.',
+      ),
 
       h2('`{{ }}` menyaring, `{!! !!}` tidak'),
       code(
@@ -1187,10 +1298,16 @@ export const lessons: LessonDraft[] = [
         {!! $inputPengguna !!}
         `,
       ),
+      p(
+        'Kedua baris menampilkan variabel yang sama, dan hanya tanda kurungnya yang berbeda. `{{ }}` mengubah `<`, `>`, dan `"` menjadi entitas HTML sehingga browser menampilkannya sebagai teks. `{!! !!}` menyerahkan isinya ke browser apa adanya — jadi kalau `$inputPengguna` berisi `<script>curiCookie()</script>`, skrip itu benar-benar berjalan di komputer setiap pengunjung yang membuka halamannya.',
+      ),
+      p(
+        'Ini persis `dangerouslySetInnerHTML` di React, dan berlaku aturan yang sama: perlakukan setiap pemakaiannya pada data pengguna sebagai **cacat**, bukan pilihan gaya. Pakai `{!! !!}` hanya untuk HTML yang kamu hasilkan sendiri sepenuhnya, atau setelah disanitasi dengan library seperti HTMLPurifier. Dan ingat cakupan "data pengguna" lebih luas daripada yang terlihat: nama, hasil pencarian, pesan error, bahkan teks yang datang dari API partner semuanya termasuk.',
+      ),
       callout(
         'danger',
         '`{!! !!}` dengan data pengguna adalah XSS',
-        'Kalau `$inputPengguna` berisi `<script>curiCookie()</script>`, skrip itu benar-benar berjalan di browser pengunjung. Ini persis sama dengan `dangerouslySetInnerHTML` di React. Pakai `{!! !!}` **hanya** untuk HTML yang kamu hasilkan sendiri, atau setelah disanitasi dengan pustaka seperti HTMLPurifier.',
+        'Kalau `$inputPengguna` berisi `<script>curiCookie()</script>`, skrip itu benar-benar berjalan di browser pengunjung. Ini persis sama dengan `dangerouslySetInnerHTML` di React. Pakai `{!! !!}` **hanya** untuk HTML yang kamu hasilkan sendiri, atau setelah disanitasi dengan library seperti HTMLPurifier.',
       ),
 
       h2('Komponen'),
@@ -1279,7 +1396,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'batch',
           meaning:
-            'Sekumpulan migration yang dijalankan bersamaan dalam satu `php artisan migrate`. `migrate:rollback` membatalkan **satu batch terakhir** — bukan satu berkas — dan itu sering mengejutkan kalau tidak diketahui.',
+            'Sekumpulan migration yang dijalankan bersamaan dalam satu `php artisan migrate`. `migrate:rollback` membatalkan **satu batch terakhir** dan bukan satu berkas, dan itu sering mengejutkan kalau tidak diketahui.',
         },
         {
           term: 'Schema Builder',
@@ -1323,6 +1440,12 @@ export const lessons: LessonDraft[] = [
         php artisan migrate:status        # lihat mana yang sudah jalan
         php artisan migrate:fresh --seed  # hapus semua, buat ulang, isi data
         `,
+      ),
+      p(
+        'Laravel mencatat migration mana yang sudah dijalankan di sebuah tabel khusus, jadi `migrate` selalu aman dipanggil berulang — ia hanya menjalankan yang belum. `migrate:status` memperlihatkan catatan itu, dan biasakan menjalankannya sebelum `migrate` di lingkungan yang bukan laptopmu.',
+      ),
+      p(
+        'Dua perintah terakhir perlu kehati-hatian yang berbeda. `migrate:rollback` membatalkan **batch terakhir**, artinya bukan satu migration melainkan semua yang dijalankan bersamaan pada `migrate` terakhir. Ia menjalankan method `down()` masing-masing, jadi hasilnya hanya sebaik `down()` yang kamu tulis. `migrate:fresh` **menghapus seluruh tabel** lalu membangunnya dari nol, dan `--seed` mengisinya dengan data uji. Perintah itu sangat berguna di laptop dan **tidak boleh** dijalankan di server yang berisi data sungguhan, sebab tidak ada konfirmasi dan tidak ada pembatalan.',
       ),
 
       h2('Isi sebuah migration'),
@@ -1368,6 +1491,15 @@ export const lessons: LessonDraft[] = [
         };
         `,
       ),
+      p(
+        'Setiap migration punya dua method yang berpasangan, yaitu `up()` yang menerapkan perubahan dan `down()` yang membatalkannya. Pasangan itulah yang membuat `migrate:rollback` mungkin, dan `down()` yang ditulis asal-asalan berarti kamu tidak punya jalan mundur. Perhatikan `dropIfExists` dipakai alih-alih `drop`, sebab rollback yang dijalankan dua kali tidak akan meledak karena tabelnya sudah tidak ada.',
+      ),
+      p(
+        "Rangkaian `foreignId(...)->constrained('users')->cascadeOnDelete()` mengerjakan tiga hal dalam satu baris, yaitu membuat kolom `unsignedBigInteger`, memasang foreign key ke tabel `users`, **dan membuat index-nya**. Baris terakhir itu yang paling berharga karena ia menutup jebakan dari sub-bab 2.9, sebab foreign key tanpa index membuat setiap `JOIN` dan setiap penghapusan induk memindai seluruh tabel. Perhatikan `cascadeOnDelete()` adalah keputusan sadar dan bukan bawaan, sebab untuk data yang tidak boleh ikut hilang bersama induknya, `restrictOnDelete()` yang tepat.",
+      ),
+      p(
+        "Dua baris di bawahnya adalah singkatan yang akan kamu lihat di hampir setiap migration Laravel. `timestamps()` membuat `created_at` dan `updated_at`, yang diisi Eloquent otomatis. `softDeletes()` membuat kolom `deleted_at` — pola soft delete dari sub-bab 2.6, lengkap dengan penyaringannya yang nanti dikerjakan trait `SoftDeletes` di model. Dan `index(['penulis_id', 'created_at'])` adalah composite index yang urutan kolomnya sengaja mengikuti query \"catatan milik saya, terbaru dulu\".",
+      ),
       callout(
         'tip',
         '`constrained()` sekaligus membuat index',
@@ -1393,6 +1525,12 @@ export const lessons: LessonDraft[] = [
         $table->index(['penulis_id', 'created_at']);
         `,
       ),
+      p(
+        "Daftar ini adalah lapisan tipis di atas tipe SQL dari sub-bab 2.2, jadi pertimbangannya sama persis. `decimal('harga', 12, 2)` untuk uang — komentarnya sengaja ditulis besar, karena `float` akan menghasilkan `0.1 + 0.2 ≠ 0.3` yang menumpuk diam-diam sampai laporan keuangan tidak cocok. `string('judul', 200)` menghasilkan `VARCHAR(200)`, dan batas panjangnya berfungsi sebagai validasi tambahan di lapisan yang tidak bisa dilewati.",
+      ),
+      p(
+        "Dua baris terakhir membuat index, dan `unique('email')` layak diperhatikan tersendiri: ia bukan sekadar index, melainkan **jaminan** bahwa dua baris tidak bisa punya email sama — jaminan yang bertahan bahkan ketika dua pendaftaran tiba bersamaan dan pemeriksaan di kode saling menyela. Itu jenis aturan yang tidak bisa ditegakkan `if` mana pun, dan pelanggarannya muncul sebagai kode error `23505` yang ditangani pada sub-bab 5.9.",
+      ),
 
       h2('Mengubah tabel yang sudah ada'),
       code(
@@ -1414,6 +1552,12 @@ export const lessons: LessonDraft[] = [
             });
         }
         `,
+      ),
+      p(
+        "Perhatikan yang dipakai `Schema::table` dan bukan `Schema::create`, sebab yang pertama mengubah tabel yang sudah ada sedangkan yang kedua membuat tabel baru dan akan gagal kalau tabelnya sudah ada. Kolom baru ditulis `nullable()` karena tabelnya mungkin sudah berisi ribuan baris yang tidak punya nilai untuk kolom itu, sebab menambahkan kolom `NOT NULL` tanpa nilai bawaan akan langsung ditolak database, dan itulah masalah yang dibahas tepat di bawah. `after('judul')` hanya mengatur urutan tampilan kolom di MySQL, jadi ia kosmetik dan tidak memengaruhi apa pun secara fungsional.",
+      ),
+      p(
+        'Perhatikan `down()` membatalkan dalam **urutan terbalik**: index dihapus lebih dulu, baru kolomnya. Urutan itu bukan selera — sebagian database menolak menghapus kolom yang masih dipakai sebuah index. Aturan umumnya, `down()` membongkar dengan urutan kebalikan dari cara `up()` membangun, sama seperti membongkar tumpukan.',
       ),
       callout(
         'danger',
@@ -1540,7 +1684,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'query builder vs Eloquent',
           meaning:
-            'Eloquent mengembalikan **objek model**; query builder (`DB::table`) mengembalikan objek biasa. Yang kedua lebih cepat dan cocok untuk laporan besar — dengan harga: tidak ada relasi, cast, maupun event model.',
+            'Eloquent mengembalikan **objek model**, sedangkan query builder (`DB::table`) mengembalikan objek biasa. Yang kedua lebih cepat dan cocok untuk laporan besar, dengan harga berupa tidak adanya relasi, cast, maupun event model.',
         },
       ),
 
@@ -1586,6 +1730,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Sebuah model Eloquent mewakili **satu tabel**, dan hampir semua isinya berupa deklarasi, bukan kode yang berjalan. `$table` hanya perlu ditulis ketika nama tabelnya menyimpang dari tebakan Laravel — biasanya bentuk jamak bahasa Inggris dari nama kelas, yang jelas tidak berlaku untuk "catatan". `use SoftDeletes` adalah trait yang menyalakan pola soft delete: `delete()` akan mengisi `deleted_at` alih-alih menghapus baris, dan **setiap query dari model ini otomatis menyaring** yang sudah terhapus. Bandingkan dengan sub-bab 2.6, di mana `WHERE dihapus_pada IS NULL` harus kamu tulis di setiap query dan satu yang terlupa berarti data terhapus muncul kembali.',
+      ),
+      p(
+        '`$fillable` dan `$hidden` menjaga dua arah yang berlawanan. `$fillable` mengatur apa yang boleh **masuk** dari input — allow-list yang menutup mass assignment, dibahas tepat di bawah. `$hidden` mengatur apa yang tidak boleh **keluar** ke JSON, jaring pengaman yang membuat `return $catatan` sekalipun tidak membocorkan kolom internal. Keduanya bekerja pada kolom yang berbeda dan tidak saling menggantikan.',
+      ),
+      p(
+        "Method `casts()` menerjemahkan nilai mentah database menjadi tipe PHP yang benar. Tanpa `'diarsipkan' => 'boolean'`, MySQL mengembalikan `0` atau `1` dan pemeriksaan `if ($catatan->diarsipkan)` akan bernilai benar untuk keduanya — persis jebakan string `'false'` dari sub-bab 3.7. `'datetime'` mengubah string menjadi objek `Carbon` yang bisa diformat dan dibandingkan, dan `StatusArtikel::class` mengubah string menjadi enum, sehingga nilai status yang tidak dikenal langsung melempar alih-alih diam-diam beredar.",
+      ),
 
       h2('Mass assignment — celah yang paling sering terbuka'),
       code(
@@ -1612,6 +1765,12 @@ export const lessons: LessonDraft[] = [
         // 3. relasi user()->catatan() menetapkan penulis_id dari SESI, bukan dari input
         $catatan = $request->user()->catatan()->create($request->validated());
         `,
+      ),
+      p(
+        'Perhatikan permintaan penyerang di blok pertama: ia menyertakan `penulis_id` dan `diverifikasi` yang **tidak pernah ada di formulirmu**. Itu tidak sulit dilakukan — cukup satu `curl`, karena formulir hanya mengatur apa yang dikirim browser, bukan apa yang bisa dikirim orang. `Catatan::create($request->all())` menyerahkan seluruhnya ke query, dan `$fillable` menjadi satu-satunya yang berdiri di antara input itu dan kolom di database.',
+      ),
+      p(
+        'Blok kedua menutupnya dengan tiga lapis yang saling menopang, dan lapisan ketiga yang paling menentukan. `validated()` sudah membuang field yang tidak ada di aturan validasi, dan `$fillable` menyaring sekali lagi di tingkat model. Tetapi yang benar-benar menghilangkan pertanyaan "siapa pemiliknya" adalah `$request->user()->catatan()->create(...)`: karena catatannya dibuat **lewat relasi** pengguna yang sedang masuk, `penulis_id` diisi Laravel dari sesi dan tidak ada jalan bagi input untuk memengaruhinya. Bandingkan dengan `Catatan::create($request->validated())` yang tampak setara tetapi menyerahkan kepemilikan kepada isi body.',
       ),
       callout(
         'danger',
@@ -1641,6 +1800,15 @@ export const lessons: LessonDraft[] = [
         $catatan->delete();          // soft delete kalau pakai SoftDeletes
         $catatan->forceDelete();     // benar-benar dihapus
         `,
+      ),
+      p(
+        'Tiga cara membaca satu baris punya perilaku berbeda saat datanya tidak ada, dan memilih yang tepat menghemat banyak `if`. `find()` mengembalikan `null`, sehingga kamu wajib memeriksanya sebelum memakai hasilnya. `findOrFail()` melempar pengecualian yang otomatis diterjemahkan Laravel menjadi respons `404` — inilah yang dipakai route model binding di balik layar. Komentar "hati-hati" pada `all()` perlu diperhatikan: ia menarik **seluruh tabel** ke memori, aman di tabel berisi sepuluh baris dan mematikan di tabel berisi sejuta.',
+      ),
+      p(
+        'Rangkaian `where()->orderByDesc()->paginate(20)` menunjukkan sifat query builder Eloquent, yaitu tidak ada query yang dijalankan sampai method **terminal** dipanggil di ujungnya. `where` dan `orderByDesc` hanya menyusun query, dan `paginate(20)` yang mengeksekusinya sekaligus menambahkan `LIMIT` dan `OFFSET` beserta metadata jumlah halaman. Karena itu kamu bisa membangun query bertahap, misalnya menambahkan `where` di dalam `if`, tanpa memicu perjalanan bolak-balik ke database di setiap langkah.',
+      ),
+      p(
+        'Dua baris terakhir berpasangan dengan trait `SoftDeletes` tadi. `delete()` hanya mengisi `deleted_at` sehingga barisnya masih ada dan bisa dipulihkan dengan `restore()`, sedangkan `forceDelete()` benar-benar menghapusnya dari tabel. Perhatikan penamaannya sengaja demikian: yang tidak bisa dibatalkan diberi nama yang lebih panjang dan lebih tegas, jadi tidak ada yang menjalankannya karena salah kira.',
       ),
       callout(
         'warning',
@@ -1680,6 +1848,12 @@ export const lessons: LessonDraft[] = [
         dd($query->toSql());        // lihat SQL-nya
         dd($query->toRawSql());     // lengkap dengan nilai (Laravel 11+)
         `,
+      ),
+      p(
+        'Perhatikan `$query` di baris pertama **belum** menjalankan apa pun, sesuai sifat query builder tadi bahwa tidak ada perjalanan ke database sampai method terminal dipanggil. Itulah yang membuat `toSql()` mungkin, sebab ia meminta Eloquent menuliskan SQL yang **akan** dijalankan tanpa menjalankannya. Keluarannya memakai placeholder `?` untuk setiap nilai, dan itu bukti langsung bahwa Eloquent memakai prepared statement sehingga query yang kamu susun lewatnya aman dari SQL injection secara bawaan.',
+      ),
+      p(
+        'Karena `toSql()` menyembunyikan nilainya, `toRawSql()` ada untuk saat kamu perlu menyalin query itu apa adanya ke `psql` atau ke `EXPLAIN ANALYZE` dari sub-bab 2.3. Biasakan memeriksa keluarannya — terutama saat relasi terlibat, karena satu baris Eloquent yang terlihat sederhana bisa berubah menjadi puluhan query, dan itulah masalah N+1 di sub-bab berikutnya. Perhatikan `dd()` berarti *dump and die*: ia mencetak lalu **menghentikan** eksekusi, jadi ia alat penelusuran sementara yang tidak boleh tertinggal di kode yang dikirim.',
       ),
       callout(
         'tip',
@@ -1750,7 +1924,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'eager loading',
           meaning:
-            "Mengambil relasi **di depan** dengan `with('penulis')`. Query-nya jadi dua — satu untuk catatan, satu untuk semua penulisnya sekaligus — berapa pun jumlah barisnya. Ini obat langsung untuk N+1.",
+            "Mengambil relasi **di depan** dengan `with('penulis')`. Query-nya jadi dua, yaitu satu untuk catatan dan satu untuk semua penulisnya sekaligus, berapa pun jumlah barisnya. Ini obat langsung untuk N+1.",
         },
         {
           term: 'preventLazyLoading',
@@ -1802,6 +1976,12 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Perhatikan relasi 1-N ditulis **dua kali**, dari dua sisi yang berlawanan: `hasMany` di `User` dan `belongsTo` di `Catatan`. Keduanya menggambarkan hubungan yang sama, dan yang menentukan pilihan katanya adalah letak foreign key — `penulis_id` ada di tabel `catatan`, jadi `Catatan` yang "milik" (`belongsTo`) dan `User` yang "punya banyak" (`hasMany`). Ini persis pemahaman dari sub-bab 2.8, hanya dinyatakan dalam bentuk method.',
+      ),
+      p(
+        "Argumen kedua `'penulis_id'` ditulis eksplisit karena Laravel secara bawaan menebak nama foreign key dari nama relasinya. Untuk relasi bernama `penulis` ia akan mencari kolom `penulis_id` yang kebetulan cocok, tetapi menuliskannya tetap lebih jujur ketika nama kolom tidak mengikuti nama modelnya. Perhatikan `komentar()` tidak menyebutnya sama sekali, karena `catatan_id` memang persis tebakan bawaan. Dan `belongsToMany` menyebut nama tabel pivot `catatan_tag`, yaitu tabel penghubung dari sub-bab 2.8 yang hanya berisi sepasang rujukan.",
+      ),
       table(
         ['Relasi', 'Method', 'Foreign key ada di'],
         [
@@ -1828,6 +2008,12 @@ export const lessons: LessonDraft[] = [
         $catatan->tag()->sync([1, 2]);     // ganti seluruh isinya
         $catatan->tag()->detach(3);
         `,
+      ),
+      p(
+        'Perhatikan beda `$catatan->penulis` tanpa kurung dan `$catatan->tag()` dengan kurung — ini sumber kebingungan yang sering. **Tanpa** kurung, Eloquent langsung menjalankan query dan memberimu hasilnya (sebuah model atau koleksi). **Dengan** kurung, yang kamu dapat adalah query builder-nya, sehingga bisa dilanjutkan dengan `where`, `create`, atau `attach`. Komentar pada baris kedua menandai hal penting: query itu dijalankan **saat properti diakses**, dan justru perilaku inilah yang melahirkan masalah N+1 di bawah.',
+      ),
+      p(
+        'Tiga method pivot di akhir mudah tertukar dan akibatnya berbeda jauh. `attach` **menambah** tag tanpa menyentuh yang sudah ada, `detach` membuang yang disebutkan, dan `sync` **mengganti seluruh isinya** — tag yang tidak ada di daftar akan dilepas. Untuk formulir edit yang mengirim daftar tag lengkap, `sync` yang tepat; memakai `attach` di sana akan menumpuk tag lama dengan yang baru, dan memakai `sync` di tempat yang seharusnya `attach` akan diam-diam menghapus tag yang tidak ikut dikirim.',
       ),
 
       h2('N+1: masalah performa nomor satu di aplikasi ORM'),
@@ -1860,6 +2046,15 @@ export const lessons: LessonDraft[] = [
           notes: ['Satu query tambahan, bukan N'],
         },
       ),
+      p(
+        'Kedua kolom terlihat hampir sama, dan itulah yang membuat N+1 begitu sulit dilihat. Pada kolom kiri, `$c->penulis` di dalam perulangan menjalankan satu query **setiap kali** — sesuai perilaku "query dijalankan saat properti diakses" tadi. Seratus catatan berarti seratus query tambahan, dan yang mahal bukan query-nya melainkan seratus perjalanan bolak-balik ke database, masing-masing beberapa milidetik.',
+      ),
+      p(
+        "Kolom kanan menambahkan `with('penulis')`, dan jumlah query-nya menjadi **dua** — berapa pun jumlah barisnya. Yang dilakukan Laravel: setelah mengambil semua catatan, ia mengumpulkan seluruh `penulis_id`-nya lalu menjalankan satu query `WHERE id IN (...)` untuk mengambil semua penulis sekaligus, kemudian mencocokkannya kembali di memori. Karena itu jumlah query tetap dua entah barisnya sepuluh atau sepuluh ribu.",
+      ),
+      p(
+        'Catatan "cepat dengan 5 data uji, runtuh dengan 5.000" adalah inti bahayanya. Tidak ada error, tidak ada peringatan, dan pengujian di laptop berisi beberapa baris terasa instan. Masalahnya muncul sebagai "aplikasinya makin lambat" berbulan-bulan kemudian, saat penyebab dan gejalanya sudah terlalu jauh terpisah untuk dihubungkan. Karena itu bagian berikutnya menyalakan deteksi otomatis — mengubahnya dari masalah performa menjadi error saat pengembangan.',
+      ),
       callout(
         'danger',
         'Kenapa N+1 begitu berbahaya',
@@ -1880,6 +2075,12 @@ export const lessons: LessonDraft[] = [
             Model::preventSilentlyDiscardingAttributes(! $this->app->isProduction());
         }
         `,
+      ),
+      p(
+        'Dua baris ini mengubah dua masalah senyap menjadi error yang berisik. `preventLazyLoading` membuat setiap akses relasi yang belum di-`with` **melempar pengecualian**, sehingga N+1 baru tertangkap di detik kamu menulisnya — bukan enam bulan kemudian sebagai keluhan performa. `preventSilentlyDiscardingAttributes` melempar ketika ada field yang dikirim tetapi tidak ada di `$fillable`; secara bawaan Laravel membuangnya diam-diam, dan itu menyembunyikan salah ketik nama kolom sekaligus percobaan mass assignment.',
+      ),
+      p(
+        'Perhatikan keduanya dipagari `! $this->app->isProduction()`, sehingga menyala di pengembangan dan pengujian tetapi mati di produksi. Alasannya sederhana, yaitu kamu ingin masalahnya meledak di depan matamu tetapi tidak ingin satu N+1 yang terlewat menjatuhkan halaman pengguna sungguhan. Ini pola yang sama seperti mode strict di frontend, sebab aturan yang dijaga mesin bertahan sedangkan aturan yang dijaga ingatan akan terlewat pada endpoint kesepuluh.',
       ),
       callout(
         'tip',
@@ -1907,6 +2108,12 @@ export const lessons: LessonDraft[] = [
         Catatan::withCount('komentar')->get();   // -> $catatan->komentar_count
         `,
       ),
+      p(
+        "Kelima bentuk ini menjawab kebutuhan yang sering memaksa orang kembali ke lazy loading. Titik pada `'komentar.penulis'` memuat relasi **bersarang**, yaitu komentar beserta penulis masing-masing, tetap dalam jumlah query yang tetap. Bentuk `'penulis:id,name'` memuat hanya kolom yang dibutuhkan sehingga berguna untuk tabel `users` yang lebar, tetapi perhatikan `id` **wajib** ikut. Tanpanya Laravel tidak punya cara mencocokkan hasilnya kembali ke induknya, dan relasinya menjadi `null` tanpa satu pun error.",
+      ),
+      p(
+        'Dua bentuk terakhir yang paling sering menyelamatkan. Closure pada `[\'komentar\' => fn ($q) => ...]` memungkinkan eager loading **bersyarat** — muat lima komentar terbaru saja, bukan seluruh dua ribu komentar hanya untuk menampilkan cuplikan. Dan `withCount` mengambil **jumlahnya** lewat subquery tanpa memuat satu baris komentar pun, menghasilkan properti `komentar_count`. Untuk halaman daftar yang hanya menampilkan angka "42 komentar", ini bedanya antara satu query ringan dan memuat puluhan ribu baris ke memori.',
+      ),
       callout(
         'warning',
         "Pada `with('relasi:kolom')`, jangan lupa foreign key-nya",
@@ -1929,6 +2136,12 @@ export const lessons: LessonDraft[] = [
         // Catatan TANPA komentar
         Catatan::doesntHave('komentar')->get();
         `,
+      ),
+      p(
+        "Keempatnya **menyaring baris induk berdasarkan relasinya**, bukan memuat relasi itu — jadi jangan tertukar dengan `with()` di bagian sebelumnya. `has('komentar')` hanya mengembalikan catatan yang punya setidaknya satu komentar, dan `has('komentar', '>', 5)` menambahkan syarat jumlahnya. Di balik layar keduanya menjadi subquery `EXISTS`, sehingga penyaringannya dikerjakan database dan bukan dengan memuat semua catatan lalu membuangnya di PHP.",
+      ),
+      p(
+        '`whereHas` menambahkan syarat **di dalam** relasinya lewat closure: yang dicari adalah catatan yang punya komentar dari pengguna 42, dan komentarnya sendiri tidak ikut dimuat. Perhatikan pasangannya di baris terakhir — `doesntHave` adalah kebalikan dari `has`, dan ia yang menjawab pertanyaan seperti "artikel mana yang belum dikomentari" tanpa perlu `LEFT JOIN` beserta pemeriksaan `IS NULL` dari sub-bab 2.5.',
       ),
       references(
         {
@@ -2013,7 +2226,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'jangan pakai seeder di produksi',
           meaning:
-            'Seeder untuk data **uji**. Data awal produksi yang sungguhan — daftar kategori, peran, pengaturan — lebih tepat lewat migration, karena ia berversi dan hanya berjalan sekali.',
+            'Seeder untuk data **uji**. Data awal produksi yang sungguhan seperti daftar kategori, peran, dan pengaturan lebih tepat lewat migration, karena ia berversi dan hanya berjalan sekali.',
         },
       ),
 
@@ -2055,6 +2268,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Method `definition()` menggambarkan **satu baris yang masuk akal**, dan `fake()` mengisinya dengan data acak yang bentuknya realistis — kalimat sungguhan, bukan `"test1"`, `"test2"`. Itu penting karena data uji yang seragam menyembunyikan masalah: judul yang selalu sepuluh karakter tidak akan pernah memperlihatkan tata letak yang rusak oleh judul panjang.',
+      ),
+      p(
+        "Baris `'penulis_id' => User::factory()` adalah bagian yang paling menghemat waktu. Ia tidak berisi angka melainkan factory lain, dan artinya: kalau pemanggil tidak menyebutkan penulisnya, buatkan satu `User` baru sekalian. Dengan begitu `Catatan::factory()->create()` cukup satu baris dan tetap menghasilkan data yang memenuhi foreign key.",
+      ),
+      p(
+        'Dua method di bawahnya adalah **state**, yaitu variasi bernama dari definisi dasarnya. Alih-alih menulis `create([\'diarsipkan\' => true])` berulang kali di banyak berkas tes, kamu menulis `->diarsipkan()` yang terbaca sebagai kalimat. Nilainya bukan sekadar ringkas, sebab ketika bentuk data "diarsipkan" nanti berubah, misalnya butuh mengisi `diarsipkan_pada` juga, perubahannya cukup di satu tempat ini.',
+      ),
 
       h2('Memakainya'),
       code(
@@ -2073,6 +2295,12 @@ export const lessons: LessonDraft[] = [
             ->has(Catatan::factory()->count(5))
             ->create();
         `,
+      ),
+      p(
+        "Perbedaan `create()` dan `make()` menentukan kecepatan tesmu. `create()` menyimpan barisnya ke database, `make()` hanya membangun objeknya di memori. Untuk unit test yang menguji logika sebuah method tanpa perlu menyimpan apa pun, `make()` jauh lebih cepat karena tidak ada perjalanan ke database sama sekali. Perhatikan pula `create(['judul' => '...'])` menimpa satu field saja — sisanya tetap diisi acak oleh `definition()`, sehingga tesmu hanya menyebutkan hal yang benar-benar ia pedulikan.",
+      ),
+      p(
+        'Bentuk `->has(Catatan::factory()->count(5))` membuat pengguna **beserta** lima catatannya dalam satu pernyataan, dan `penulis_id`-nya disambungkan otomatis. Ini yang membuat tes N+1 atau tes paginasi bisa disiapkan dalam satu baris, alih-alih perulangan manual yang mengisi foreign key sendiri.',
       ),
 
       h2('Seeder'),
@@ -2098,12 +2326,21 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Seeder menjawab pertanyaan "seperti apa isi database saat aku baru mulai bekerja". Blok pertama membuat akun dengan email **tetap** — sengaja tidak acak, supaya kamu bisa selalu masuk dengan kredensial yang sama setelah membangun ulang database. Perhatikan domainnya `.test`, bukan domain sungguhan: alamat itu tidak bisa dikirimi email nyata, jadi tidak ada risiko surat uji coba nyasar ke orang.',
+      ),
+      p(
+        'Blok kedua yang menentukan kualitas pengembanganmu: 20 pengguna dengan 30 catatan masing-masing menghasilkan **600 catatan**. Jumlah itu sengaja dipilih besar, karena dengan lima baris uji semuanya terasa instan dan tidak ada masalah yang terlihat — N+1 tidak terasa, paginasi tidak pernah sampai halaman kedua, dan index yang hilang tidak berpengaruh. Data yang cukup banyak membuat masalah performa muncul di laptopmu, bukan di produksi.',
+      ),
       code(
         'bash',
         `
         php artisan db:seed
         php artisan migrate:fresh --seed     # bangun ulang dari nol
         `,
+      ),
+      p(
+        'Perhatikan `db:seed` **menambah** data ke database yang ada, sehingga menjalankannya dua kali akan membuat dua Admin dan yang kedua gagal kalau emailnya `unique`. Karena itu perintah kedua yang biasanya kamu pakai sehari-hari. `migrate:fresh --seed` menghapus seluruh tabel, membangunnya kembali dari migration, lalu mengisi data uji, sehingga satu perintah cukup untuk kembali ke keadaan bersih yang bisa diprediksi. Dan seperti disebut sebelumnya, ia menghapus **tanpa konfirmasi**, jadi ia perintah untuk laptop dan bukan untuk server.',
       ),
       callout(
         'danger',
@@ -2293,6 +2530,18 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        "Sebuah Form Request menyatukan dua penjagaan yang di Express tersebar di dua middleware terpisah, dan urutannya penting karena `authorize()` dijalankan **sebelum** `rules()`. Artinya permintaan dari orang yang tidak berhak ditolak `403` tanpa servermu repot memvalidasi isinya. Perhatikan bagaimana method itu membedakan dua kasus lewat `$this->route('catatan')`. Kalau tidak ada model di rutenya berarti ini pembuatan baru sehingga cukup sudah masuk, sedangkan kalau ada berarti pengubahan dan Policy `update` yang menentukan.",
+      ),
+      p(
+        'Di dalam `rules()`, perhatikan beda `required` dan `sometimes`. `required` berarti field itu **wajib ada**, sedangkan `sometimes` berarti "kalau dikirim, harus lolos aturan ini", dan itulah yang tepat untuk `PATCH` yang hanya mengirim sebagian kolom. Pasangan `tag_ids` dan `tag_ids.*` juga bekerja pada tingkat berbeda, sebab yang pertama memeriksa arraynya berupa bertipe array dan maksimal sepuluh elemen, sedangkan yang kedua memeriksa **setiap isinya**. Tanpa `max:10`, satu permintaan bisa mengirim sepuluh ribu tag dan memaksa sepuluh ribu pemeriksaan `exists`.',
+      ),
+      p(
+        'Aturan `exists:tag,id` menutup kelas bug yang tidak tertangkap pemeriksaan tipe: id `999` berbentuk integer yang sah tetapi menunjuk baris yang tidak ada, dan tanpa aturan ini kegagalannya baru muncul sebagai pelanggaran foreign key jauh di dalam. `Rule::enum(StatusArtikel::class)` lebih baik daripada menuliskan `in:draf,terbit` karena daftar nilainya hidup di **satu tempat** — menambah status baru cukup di enum-nya.',
+      ),
+      p(
+        'Method `prepareForValidation()` berjalan **sebelum** aturan diterapkan, dan itulah tempat yang benar untuk normalisasi. `trim()` di sana memastikan judul berisi tiga spasi ditolak oleh `min:1`, bukan tersimpan sebagai judul kosong — urutan yang sama seperti `.trim()` sebelum `.min(1)` pada skema Zod di sub-bab 3.13. Sementara `messages()` mengganti pesan bawaan berbahasa Inggris dengan kalimat yang layak ditampilkan ke pengguna, per field dan per aturan.',
+      ),
 
       h2('Memakainya'),
       code(
@@ -2308,6 +2557,12 @@ export const lessons: LessonDraft[] = [
             return (new CatatanResource($catatan))->response()->setStatusCode(201);
         }
         `,
+      ),
+      p(
+        'Perhatikan tidak ada satu pun pemanggilan validasi di dalam method ini — yang ada hanyalah **tipe** `SimpanCatatanRequest` pada parameternya. Laravel melihat tipe itu, membangun objeknya lewat service container, lalu menjalankan `authorize()` dan `rules()` **sebelum** badan method dijalankan. Jadi kalau baris pertama tercapai, kamu sudah dijamin dua hal sekaligus: peminta berhak, dan datanya sah.',
+      ),
+      p(
+        'Bandingkan dengan Express di sub-bab 3.13, yang memasang `validasiBody(Skema)` sebagai middleware terpisah di daftar rute. Keduanya menjalankan disiplin yang sama; bedanya, Laravel menempelkannya pada tipe parameter sehingga tidak mungkin ada handler yang lupa dipasangi validasinya. Perhatikan `$request->validated()` yang dioper ke `create()` — inilah yang membuat rangkaiannya aman, dan mengganti satu kata itu menjadi `all()` cukup untuk membuka mass assignment.',
       ),
       callout(
         'danger',
@@ -2330,6 +2585,12 @@ export const lessons: LessonDraft[] = [
         // unique yang mengabaikan baris ini sendiri saat mengubah
         'email' => ['required', 'email', Rule::unique('users')->ignore($this->user()->id)],
         `,
+      ),
+      p(
+        'Beberapa di antaranya menyentuh database dan itu perlu disadari. `unique:users,email` menjalankan query untuk memastikan emailnya belum dipakai — berguna karena ia menghasilkan pesan `422` yang ramah alih-alih error `23505` yang mentah, tetapi ia **bukan** pengganti batasan `UNIQUE` di tabel: dua pendaftaran yang tiba bersamaan bisa sama-sama lolos pemeriksaan ini, dan hanya batasan di database yang menangkapnya.',
+      ),
+      p(
+        'Baris terakhir menutup jebakan klasik pada formulir edit. Tanpa `->ignore(...)`, aturan `unique` akan menolak permintaan seorang pengguna yang menyimpan profilnya **tanpa mengubah emailnya** — karena email itu memang sudah ada di tabel, yaitu miliknya sendiri. `ignore` mengecualikan baris tersebut dari pemeriksaan. Perhatikan pula `after:mulai` pada `selesai`: aturan yang membandingkan **dua field**, padanan `.refine()` dari sub-bab 3.13. Dan `mimes:pdf,jpg` memeriksa jenis berkas dari isinya, bukan dari ekstensi nama yang dikirim klien.',
       ),
       callout(
         'tip',
@@ -2450,7 +2711,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'Resource vs $hidden',
           meaning:
-            'Keduanya menyembunyikan field, tapi berbeda arah. `$hidden` adalah **blocklist** — kolom baru otomatis terlihat. Resource adalah **allow-list** — kolom baru otomatis tersembunyi sampai kamu menyebutnya. Yang kedua yang benar untuk API.',
+            'Keduanya menyembunyikan field, tapi berbeda arah. `$hidden` adalah **blocklist**, sehingga kolom baru otomatis terlihat. Resource adalah **allow-list**, sehingga kolom baru otomatis tersembunyi sampai kamu menyebutnya. Yang kedua yang benar untuk API.',
         },
       ),
 
@@ -2525,6 +2786,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Resource adalah **allow-list untuk data yang keluar**, kebalikan dari `$fillable` yang mengatur data masuk. Karena setiap field disebut satu per satu di `toArray()`, kolom baru yang ditambahkan ke tabel bulan depan **tidak** otomatis ikut terkirim — tepat masalah yang ditunjukkan JSON mentah di atas. Ini padanan langsung dari "sebutkan kolomnya, jangan `SELECT *`" di sub-bab 3.10, hanya diterapkan di lapisan respons.',
+      ),
+      p(
+        "`whenLoaded('penulis')` adalah baris yang paling mudah diremehkan. Menulis `new PenggunaResource($this->penulis)` akan **memicu satu query per item** kalau relasinya belum di-eager-load — N+1 yang lahir di lapisan respons, jauh dari controller tempat orang mencarinya. `whenLoaded` hanya menyertakan field itu kalau relasinya memang sudah dimuat, dan diam kalau belum. `whenCounted` melakukan hal setara untuk `withCount`.",
+      ),
+      p(
+        'Blok `when(...)` terakhir memperlihatkan bahwa bentuk respons bisa **berbeda per pengguna**, karena `catatanInternal` hanya muncul bagi yang lolos Policy `lihatInternal`. Perhatikan nilainya dibungkus closure `fn () => ...`, sehingga `catatan_internal` baru dibaca ketika syaratnya terpenuhi. Perhatikan pula `?->` dan `?? false`, sebab permintaan tanpa pengguna yang masuk menghasilkan `false` sehingga ketiadaan identitas berujung pada **tidak menampilkan**, bukan pada error maupun kebocoran.',
+      ),
       callout(
         'danger',
         '`whenLoaded` bukan sekadar kerapian',
@@ -2557,6 +2827,12 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Perhatikan hasilnya dibungkus kunci `data`, bukan array telanjang di tingkat teratas. Itu bawaan Laravel, dan ia yang membuat penambahan `links` serta `meta` mungkin tanpa memutus klien — bandingkan dengan respons berbentuk array polos, yang tidak punya tempat untuk metadata sama sekali. Bentuk `{ data, meta }` ini sama seperti kontrak yang dipakai di Bab 3.',
+      ),
+      p(
+        "Blok `links` dan `meta` muncul **otomatis** hanya ketika yang dioper ke `collection()` adalah hasil `paginate()`. Perhatikan pula `Catatan::with('penulis')` pada contoh terakhir: eager loading harus dipasang di sini, karena `whenLoaded` di Resource sengaja tidak memuat apa pun sendiri. Keduanya bekerja berpasangan — controller yang memutuskan relasi apa yang dimuat, Resource yang memutuskan apa yang ditampilkan.",
+      ),
 
       h2('Penamaan field yang konsisten'),
       code(
@@ -2567,6 +2843,9 @@ export const lessons: LessonDraft[] = [
         'dibuatPada' => $this->created_at->toIso8601String(),
         'jumlahKomentar' => $this->whenCounted('komentar'),
         `,
+      ),
+      p(
+        'Resource adalah tempat kedua konvensi penamaan bertemu, sebab kolom database memakai `snake_case` sesuai kebiasaan SQL sementara klien JavaScript lebih nyaman dengan `camelCase`. Karena penerjemahannya terjadi di satu lapisan ini, mengubah nama kolom di database nanti tidak memutus klien mana pun, sebab nama yang dipakai API ditentukan di sini alih-alih oleh bentuk tabel. Yang penting bukan pilihan gayanya melainkan **konsistensinya**, karena campuran `created_at` dan `dibuatPada` dalam satu respons memaksa klien mengingat mana yang mana.',
       ),
       callout(
         'warning',
@@ -2583,6 +2862,9 @@ export const lessons: LessonDraft[] = [
                 'meta' => ['versi' => 'v1'],
             ]);
         `,
+      ),
+      p(
+        '`additional()` menyisipkan kunci tambahan **di samping** `data` dan bukan di dalamnya, sehingga bentuk `data` yang sudah menjadi kontrak dengan klien tidak berubah. Ini tempat yang tepat untuk hal yang menerangkan responsnya alih-alih isinya, misalnya nomor versi API, penanda apakah datanya berasal dari cache, atau id permintaan untuk penelusuran. Perhatikan yang tidak boleh ditaruh di sini adalah data sumber daya itu sendiri, sebab begitu klien harus membaca `meta` untuk mendapat isi, kontraknya jadi kabur.',
       ),
 
       h2('Kaitannya dengan Bab 3.9'),
@@ -2695,6 +2977,12 @@ export const lessons: LessonDraft[] = [
         php artisan config:show database
         `,
       ),
+      p(
+        'Perintah `make:` bukan sekadar penghemat ketikan, sebab ia menempatkan berkas di folder yang benar dengan namespace yang benar sehingga autoload Composer langsung menemukannya tanpa `dump-autoload`. Perhatikan opsi-opsinya. `-mfs` pada `make:model` sekaligus membuat migration, factory, dan seeder. `--api` pada `make:controller` menghasilkan lima method tanpa `create` dan `edit` yang hanya berguna untuk formulir HTML. Dan `--model=Catatan` mengisi type-hint route model binding-nya sejak awal.',
+      ),
+      p(
+        'Dua perintah diagnosis di akhir jarang disebut tetapi sangat menolong. `php artisan about` merangkum versi PHP dan Laravel, driver database, driver cache, serta apakah konfigurasi sedang di-cache — jawaban cepat untuk "kenapa perilakunya berbeda di sini". `config:show database` menampilkan konfigurasi yang **benar-benar berlaku** setelah semua lapisan digabung, bukan apa yang kamu kira tertulis di `.env`.',
+      ),
 
       h2('Tinker — REPL dengan seluruh aplikasi termuat'),
       code(
@@ -2722,6 +3010,12 @@ export const lessons: LessonDraft[] = [
         = "$2y$12$..."
         `,
       ),
+      p(
+        'Tinker adalah REPL dengan **seluruh aplikasimu sudah termuat** — model, konfigurasi, koneksi database, dan facade semuanya siap pakai. Nilainya bukan sekadar menjalankan potongan PHP, melainkan bisa mencoba sesuatu tanpa membuat rute, controller, dan permintaan HTTP hanya untuk memeriksa satu hal.',
+      ),
+      p(
+        'Perhatikan tiga pemakaian yang berbeda sifatnya. Dua baris pertama adalah **pemeriksaan**, yaitu menghitung baris dan menelusuri relasi lewat `$u->catatan()`. Baris `factory()->count(5)->create(...)` adalah **penyiapan data**, cara tercepat mengisi tabel untuk mencoba paginasi tanpa mengubah seeder. Dan `toRawSql()` adalah **penelusuran**, di mana keluarannya memuat `deleted_at is null` yang tidak pernah kamu tulis. Itu bukti trait `SoftDeletes` benar-benar bekerja, hal yang tidak bisa kamu lihat dari kodenya saja.',
+      ),
       callout(
         'danger',
         'Tinker di produksi menjalankan perintah sungguhan',
@@ -2740,6 +3034,12 @@ export const lessons: LessonDraft[] = [
         # Saat pengembangan: bersihkan
         php artisan optimize:clear
         `,
+      ),
+      p(
+        'Ketiga perintah `:cache` memampatkan hal yang jarang berubah menjadi satu berkas siap pakai, sehingga Laravel tidak perlu membaca puluhan berkas konfigurasi dan berkas rute di **setiap** permintaan. Bedanya nyata di produksi, dan itulah sebabnya ketiganya masuk ke langkah deploy. Sebaliknya, jangan menjalankannya saat mengembangkan: hasil cache tidak ikut berubah ketika kamu menyunting konfigurasi atau rute, dan kamu akan menghabiskan waktu bingung mengapa perubahanmu tidak berpengaruh.',
+      ),
+      p(
+        '`optimize:clear` adalah tombol pembatalnya — ia membersihkan semua cache di atas sekaligus. Jadikan perintah ini refleks pertama saat perubahanmu "tidak muncul", dan perhatikan konsekuensi terpenting dari `config:cache` dijelaskan di peringatan berikut: setelah cache aktif, fungsi `env()` di luar folder `config/` mengembalikan `null`.',
       ),
       callout(
         'warning',
@@ -2760,6 +3060,12 @@ export const lessons: LessonDraft[] = [
         $kunci = config('layanan.pembayaran.kunci');   // BENAR
         $kunci = env('KUNCI_PEMBAYARAN');              // null setelah config:cache
         `,
+      ),
+      p(
+        "Aturannya bisa diringkas satu kalimat, yaitu `env()` **hanya** boleh muncul di dalam berkas `config/*.php` dan di mana pun selain itu pakai `config('...')`. Alasannya ada pada cara `config:cache` bekerja, sebab ia mengevaluasi seluruh berkas config sekali lalu menyimpan hasilnya, dan setelah itu berkas `.env` tidak dibaca lagi. Fungsi `config()` membaca dari hasil cache tersebut sehingga tetap benar, sedangkan `env()` mencari berkas yang tidak lagi dibaca dan mengembalikan `null`.",
+      ),
+      p(
+        'Yang membuat ini menjatuhkan begitu banyak deploy adalah kodenya bekerja **sempurna di lokal**, karena di sana cache tidak menyala. Gejalanya baru muncul di produksi, sebagai koneksi yang gagal atau kunci API yang kosong — jauh dari baris yang menyebabkannya. Perhatikan pola berkas config di atas sekaligus memberi keuntungan lain: nama variabel lingkungan hanya disebut di satu tempat, jadi menggantinya nanti tidak perlu menyisir seluruh kode.',
       ),
 
       h2('Membuat perintah sendiri'),
@@ -2856,7 +3162,7 @@ export const lessons: LessonDraft[] = [
             "Nama metode Policy dipetakan ke aksi: `view`, `update`, `delete`. Laravel menemukannya sendiri saat kamu memanggil `$this->authorize('view', $catatan)` — jadi penamaannya bukan pilihan bebas.",
         },
         {
-          term: 'pertahanan berlapis',
+          term: 'defense in depth',
           meaning:
             "Otorisasi ada di **dua tempat**: Policy (`authorize`) dan scope query (`where('penulis_id', ...)`) . Bukan pengulangan sia-sia — kalau satu terlewat di endpoint baru, yang lain masih menahan.",
         },
@@ -2891,6 +3197,9 @@ export const lessons: LessonDraft[] = [
         Pengguna HANYA bisa melihat dan mengubah catatannya sendiri.
         `,
       ),
+      p(
+        'Judulnya berbunyi "sama persis", dan itu disengaja: spesifikasi ini identik dengan praktik Express di sub-bab 3.14. Membangun hal yang sama dua kali dengan stack berbeda memperlihatkan mana yang benar-benar prinsip dan mana yang sekadar cara sebuah framework menuliskannya. Status kodenya sama, aturan kepemilikannya sama, dan alasan `404` dipilih untuk catatan milik orang lain juga sama — yang berbeda hanya nama alat yang mengerjakannya.',
+      ),
 
       h2('Menyiapkan'),
       code(
@@ -2908,6 +3217,12 @@ export const lessons: LessonDraft[] = [
         php artisan make:resource CatatanResource
         php artisan make:policy CatatanPolicy --model=Catatan
         `,
+      ),
+      p(
+        '`php artisan install:api` adalah langkah yang mudah terlewat pada Laravel 11 ke atas: berkas `routes/api.php` **tidak ada** secara bawaan, dan perintah inilah yang membuatnya sekaligus mendaftarkan migration token Sanctum. Tanpa itu, rute API yang kamu tulis tidak akan pernah terdaftar dan `route:list` tidak menampilkannya.',
+      ),
+      p(
+        'Lima perintah `make:` di bawahnya menyiapkan seluruh lapisan sekaligus, dan urutannya mencerminkan aliran satu permintaan: rute → controller → Form Request → Policy → Resource. Perhatikan `--model=Catatan` muncul dua kali; pada controller ia mengisi type-hint route model binding, dan pada policy ia menghasilkan kerangka method yang sudah menerima `User` dan `Catatan`. Jalankan semuanya sekarang supaya berkasnya siap, lalu isi satu per satu di bagian berikut.',
       ),
 
       h2('Policy — inti otorisasinya'),
@@ -2942,6 +3257,12 @@ export const lessons: LessonDraft[] = [
         }
         `,
         { filename: 'app/Policies/CatatanPolicy.php' },
+      ),
+      p(
+        'Ketiga method berisi perbandingan yang sama persis, dan itu wajar karena aturan kepemilikannya memang satu, yaitu `penulis_id` harus sama dengan id pengguna yang meminta. Nilainya bukan pada kerumitan melainkan pada **letaknya**, sebab aturan itu tertulis di satu berkas, bukan tersebar sebagai `if` di lima method controller yang masing-masing bisa salah tulis. Ketika nanti admin boleh melihat semuanya, satu method `before()` di kelas ini mengubah perilaku seluruh aplikasi.',
+      ),
+      p(
+        'Perhatikan nama method-nya, yaitu `view`, `update`, dan `delete`, cocok dengan argumen pertama `$this->authorize(...)` di controller. Pencocokan itu berdasarkan nama, jadi salah ketik `updated` alih-alih `update` akan membuat Laravel mengeluh policy-nya tidak ada, bukan diam-diam meloloskan. Laravel 11 ke atas juga menemukan kelas ini otomatis dari konvensi penamaannya (`Catatan` → `CatatanPolicy`), sehingga tidak ada pendaftaran manual yang perlu ditulis.',
       ),
 
       h2('Controller'),
@@ -3001,6 +3322,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        "Method `index` merangkum hampir seluruh bab ini dalam satu rangkaian. `where('penulis_id', ...)` menjaga kepemilikan di lapisan data — bukan Policy, karena Policy bekerja per objek dan endpoint daftar tidak memanggilnya per baris. `with('penulis:id,name')` mencegah N+1 sekaligus membatasi kolom yang diambil, dengan `id` yang wajib ikut. `withCount('komentar')` mengambil jumlahnya lewat subquery tanpa memuat satu komentar pun. Dan `orderByDesc('id')` setelah `latest('created_at')` adalah pemecah seri dari sub-bab 2.4, yang mencegah item muncul dua kali antar halaman.",
+      ),
+      p(
+        'Perhatikan pembagian tugas antara `index` dan tiga method di bawahnya. Yang pertama memakai **scope query**, sisanya memakai `$this->authorize(...)` karena route model binding sudah terlanjur mengambil objeknya, dan tanpa baris itu komentar "Tanpa baris ini: IDOR" pada `show` berlaku harfiah. Perhatikan juga `$catatan->load(\'penulis:id,name\')` di `show`, sebab `load` adalah versi `with` untuk model yang **sudah** diambil, dan tanpa itu `whenLoaded` di Resource akan diam sehingga field penulisnya hilang dari respons.',
+      ),
+      p(
+        "Batas `min((int) ..., 100)` pada `per_page` menutup satu permintaan yang bisa menjatuhkan server, dan status yang dikembalikan mengikuti kontrak di awal: `201` beserta header `Location` yang disusun `route('catatan.show', $catatan)` alih-alih dirangkai sebagai string, dan `noContent()` yang berarti `204` tanpa body.",
+      ),
 
       h2('Rute'),
       code(
@@ -3011,6 +3341,12 @@ export const lessons: LessonDraft[] = [
             Route::apiResource('catatan', CatatanController::class);
         });
         `,
+      ),
+      p(
+        'Tiga baris ini menghasilkan lima endpoint yang seluruhnya terjaga. `auth:sanctum` menolak permintaan tanpa token yang sah, dan `throttle:100,1` membatasi seratus permintaan per menit per pemanggil — padanan `express-rate-limit` dari Bab 3, hanya sudah tersedia bawaan. Perhatikan keduanya dipasang pada **grup**, sehingga endpoint baru yang ditambahkan ke dalamnya otomatis ikut terlindungi: bentuk konkret prinsip "default tolak" dari sub-bab 5.1.',
+      ),
+      p(
+        'Setelah menulis ini, jalankan `php artisan route:list --path=catatan` dan periksa kolom middleware-nya. Kelima baris harus menampilkan `auth:sanctum` dan `throttle`; baris yang kolomnya kosong berarti rutenya jatuh di luar grup dan terbuka untuk siapa saja.',
       ),
 
       h2('Tes yang membuktikan otorisasinya bekerja'),
@@ -3064,6 +3400,15 @@ export const lessons: LessonDraft[] = [
             expect(count(DB::getQueryLog()))->toBeLessThan(6);
         });
         `,
+      ),
+      p(
+        'Ketiga tes ini punya satu kesamaan, yaitu semuanya membuktikan sesuatu **tidak** terjadi. Tes pertama memakai dua pengguna, dengan catatan milik Budi dan permintaan atas nama Ana lewat `actingAs($ana)`, dan itulah yang tidak akan pernah kamu lakukan saat menguji manual dengan akunmu sendiri. Perhatikan baris terakhirnya memanggil `fresh()` untuk membaca ulang dari database, sebab status `403` saja belum membuktikan apa-apa kalau ternyata datanya sempat berubah sebelum ditolak.',
+      ),
+      p(
+        'Tes kedua menembakkan `penulis_id` milik Budi ke endpoint pembuatan, lalu memastikan hasilnya tetap tercatat atas nama Ana. Perhatikan yang diharapkan adalah `assertCreated()` — permintaannya memang **berhasil**, hanya field asingnya yang diabaikan. Inilah yang membuktikan rangkaian `validated()` + `$fillable` + pembuatan lewat relasi benar-benar bekerja; hapus salah satunya dan tes ini langsung merah.',
+      ),
+      p(
+        "Tes ketiga menjadikan N+1 sesuatu yang bisa **diuji**, bukan sekadar diingat. `DB::enableQueryLog()` mencatat setiap query yang dijalankan, dan ambang `toBeLessThan(6)` berlaku untuk 20 catatan — angka itu tidak boleh tumbuh mengikuti jumlah baris. Kalau seseorang nanti menghapus `with('penulis:id,name')` dari controller, jumlah query melonjak menjadi lebih dari dua puluh dan tes ini gagal seketika, jauh sebelum masalahnya sampai ke pengguna.",
       ),
       callout(
         'danger',

@@ -84,12 +84,12 @@ const reactFundamental = defineChapter({
   // 2026-08-03: revisi ADR-0006 — setiap sub-bab kini menjelaskan istilahnya sendiri dan
   // menunjuk halaman dokumentasi resminya.
   // 2026-08-05: revisi kedalaman narasi (plans/revisi-kedalaman-narasi/) — sub-bab
-  // `react-compiler` mendapat paragraf penjelas mekanisme cache memoisasi.
+  // `react-compiler` mendapat paragraf penjelas mekanisme cache memoization.
   // 2026-08-05: pass kedua (lebih ketat) — 3 paragraf tambahan: gotcha `aktif="false"`
   // truthy di sub-bab props, dan dua paragraf penutup di praktik akhir bab.
   // 2026-08-05: pass ketiga (sisir seluruh bab) — 13 paragraf tambahan: props dasar,
   // data-turun-perubahan-naik, sisa props, kondisional, skeleton, key (×2), CSS Module,
-  // class kondisional, slot, komponen-di-dalam-komponen, posisi/identitas, memoisasi manual.
+  // class kondisional, slot, komponen-di-dalam-komponen, posisi/identitas, memoization manual.
   reviewedAt: '2026-08-05',
   lessons: lessonsReactFundamental,
   quiz: [
@@ -242,7 +242,7 @@ const stateEvent = defineChapter({
       'Apa masalah menyimpan nilai yang bisa dihitung dari state lain?',
       [
         'Boros memori',
-        'Dua sumber kebenaran yang harus disinkronkan manual — dan akan menyimpang cepat atau lambat',
+        'Dua source of truth yang harus disinkronkan manual — dan akan menyimpang cepat atau lambat',
         'React melarangnya',
         'Membuat render lebih lambat',
       ],
@@ -286,7 +286,7 @@ const stateManagement = defineChapter({
       'Kenapa data dari API sebaiknya tidak disimpan di store global biasa?',
       [
         'Karena store global lambat',
-        'Karena data server punya kebasian, revalidasi, dan mode gagal sendiri yang harus ditulis ulang manual di store biasa',
+        'Karena data server punya staleness, revalidasi, dan mode gagal sendiri yang harus ditulis ulang manual di store biasa',
         'Karena store global tidak bisa menyimpan objek',
         'Karena API selalu berubah',
       ],
@@ -298,7 +298,7 @@ const stateManagement = defineChapter({
       'Apa masalah utama memakai Context untuk state yang sering berubah?',
       [
         'Context tidak mendukung objek',
-        'Setiap perubahan nilai me-render ulang seluruh komponen yang mengonsumsinya, sedalam apa pun pohonnya',
+        'Setiap perubahan nilai melakukan re-render seluruh komponen yang mengonsumsinya, sedalam apa pun pohonnya',
         'Context hanya bekerja di server',
         'Context tidak bisa dipakai bersama TypeScript',
       ],
@@ -406,11 +406,11 @@ const hooks = defineChapter({
         'Saat komponen di-unmount',
       ],
       1,
-      'Menghitung nilai turunan di dalam Effect berarti satu render tambahan dan satu sumber kebenaran tambahan. Hitung saja saat render. Effect adalah untuk menyinkronkan dengan sistem di luar React.',
+      'Menghitung derived value di dalam Effect berarti satu render tambahan dan satu source of truth tambahan. Hitung saja saat render. Effect adalah untuk menyinkronkan dengan sistem di luar React.',
     ),
     q(
       'fi7-q2',
-      'Apa fungsi nilai kembalian dari `useEffect`?',
+      'Apa fungsi return value dari `useEffect`?',
       [
         'Menentukan nilai state',
         'Fungsi cleanup yang dijalankan sebelum Effect berjalan lagi dan saat komponen dilepas',

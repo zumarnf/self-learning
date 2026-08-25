@@ -62,6 +62,12 @@ export const lessons: LessonDraft[] = [
         `,
         { filename: '.nvmrc' },
       ),
+      p(
+        'Dua berkas ini menutup butir "versi runtime" dari daftar di atas, dan keduanya perlu karena bekerja pada **pihak yang berbeda**. `engines` di `package.json` dibaca oleh npm dan sebagian besar penyedia hosting: kalau versi Node di sana tidak memenuhi rentangnya, pemasangan memberi peringatan atau gagal. `.nvmrc` dibaca oleh `nvm` di laptopmu — `nvm use` tanpa argumen langsung berpindah ke versi yang tertulis.',
+      ),
+      p(
+        'Perhatikan rentangnya ditulis `">=22 <23"`, bukan `">=22"`. Batas atas itu disengaja: Node 23 mungkin membawa perubahan yang memutus, dan kamu ingin **memutuskan sadar** untuk naik, bukan ikut terbawa saat penyedia hosting memperbarui bawaannya. Ini pola yang sama seperti mengunci versi mayor dependency.',
+      ),
 
       h2('Yang berbeda dan memang harus berbeda'),
       code(
@@ -79,6 +85,15 @@ export const lessons: LessonDraft[] = [
         LOG_LEVEL=debug
         MAIL_MAILER=log        # JANGAN pernah SMTP produksi
         `,
+      ),
+      p(
+        'Keempat variabel ini adalah perbedaan yang **memang harus ada** — kebalikan dari daftar sebelumnya yang harus diseragamkan. `APP_DEBUG=false` di produksi menutup kebocoran terbesar: halaman error mode debug menampilkan stack trace, potongan kode, dan pada beberapa versi isi environment beserta kredensial database. Satu error yang sengaja dipicu sudah cukup untuk mendapat semuanya.',
+      ),
+      p(
+        '`LOG_LEVEL` berbeda karena kebutuhannya berbeda: di pengembangan kamu ingin melihat segalanya, di produksi `debug` akan membanjiri penyimpanan log dan menenggelamkan peristiwa yang benar-benar penting. Dan `NODE_ENV=production` bukan sekadar penanda — banyak library memakai nilai itu untuk menyalakan jalur cepat dan mematikan pemeriksaan yang hanya berguna saat mengembangkan.',
+      ),
+      p(
+        'Komentar berhuruf besar pada `MAIL_MAILER` menandai kecelakaan yang tidak bisa dibatalkan, dan bahayanya lebih halus daripada yang terlihat. Bukan hanya "jangan kirim email uji ke pengguna" — satu seeder yang memicu notifikasi, atau satu tes yang lupa `Notification::fake()`, bisa mengirim **ribuan** email ke alamat sungguhan sekaligus. Email yang sudah terkirim tidak bisa ditarik.',
       ),
       callout(
         'danger',
@@ -133,6 +148,15 @@ export const lessons: LessonDraft[] = [
         // nilainya sudah ada di dalam JavaScript-nya.
         `,
       ),
+      p(
+        'Komentar di dalamnya menjelaskan mengapa ini kelas bug tersendiri: **mengubah environment produksi tidak menolong**. Biasanya variabel yang salah cukup diperbaiki lalu aplikasi di-restart. Di sini tidak — nilainya sudah tersalin ke dalam berkas JavaScript saat build, dan berkas itulah yang diunduh browser. Satu-satunya perbaikan adalah **membangun ulang**.',
+      ),
+      p(
+        'Gejalanya juga menyesatkan. Aplikasi produksi berjalan mulus, tidak ada error di log servermu — hanya saja setiap permintaan dari browser menembak API staging. Data yang muncul terlihat wajar karena staging biasanya punya data serupa, sehingga masalahnya bisa berhari-hari tidak disadari sampai ada yang menyadari perubahannya tidak pernah tersimpan di produksi.',
+      ),
+      p(
+        'Konsekuensi praktisnya disebut di peringatan berikut, dan ia mengubah cara pipeline dirancang: kamu **tidak bisa** membangun sekali lalu memakai artefak yang sama untuk staging dan produksi, selama ada variabel publik yang berbeda. Pilihannya dua — build terpisah per lingkungan, atau memindahkan nilai itu ke runtime dengan membacanya di Server Component lalu mengopernya sebagai props.',
+      ),
       callout(
         'danger',
         'Artefak build terikat pada environment saat ia dibangun',
@@ -167,6 +191,12 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Pola ini memindahkan konfigurasi dari **build time ke runtime**: Server Component membaca `process.env` saat permintaan datang, lalu mengopernya sebagai prop. Karena pembacaannya terjadi di server pada setiap permintaan, mengubah nilainya cukup dengan mengubah environment lalu restart — tanpa build ulang, dan artefak yang sama bisa dipakai untuk staging maupun produksi.',
+      ),
+      p(
+        'Peringatan berikutnya menandai batas yang tetap berlaku, yaitu nilainya **tetap publik**. Props dari Server Component ke Client Component dikirim ke browser lewat payload RSC, sehingga terlihat meski tidak dirender di layar. Jadi pola ini menyelesaikan masalah *build-time versus runtime*, **bukan** masalah kerahasiaan. Pakai hanya untuk hal yang memang boleh diketahui pengguna, misalnya URL API, bendera fitur, dan nama lingkungan.',
+      ),
       callout(
         'warning',
         'Apa pun yang dioper ke Client Component ikut ke browser',
@@ -186,6 +216,18 @@ export const lessons: LessonDraft[] = [
         7. Restart pekerja antrean   queue:restart
         8. Verifikasi
         `,
+      ),
+      p(
+        'Urutan ini adalah rantai gerbang, bukan daftar tugas. Perhatikan keterangan "gagal di sini, jangan lanjut" pada langkah 2 dan 3: yang membuat pipeline berharga bukan langkah-langkahnya, melainkan **kemampuannya berhenti**. Pipeline yang tetap men-deploy meskipun tesnya merah hanya menambah waktu tunggu tanpa menambah jaminan apa pun.',
+      ),
+      p(
+        'Langkah 4 membawa keterangan yang paling mudah terlewat: build memakai env lingkungan **tujuan**. Itu konsekuensi langsung dari sub-bab sebelumnya — artefak terikat pada environment saat ia dibangun, jadi membangun dengan env staging lalu men-deploy hasilnya ke produksi akan membawa alamat staging ikut serta.',
+      ),
+      p(
+        'Langkah 5 diletakkan **sebelum** kode baru menerima trafik, dan itu urutan yang menentukan. Kode baru yang berjalan di atas skema lama akan gagal mencari kolom yang belum ada. Perhatikan ini menuntut migrasinya bersifat **aditif** dengan menambah kolom alih-alih menghapus, sesuai pola expand–migrate–contract. Migrasi yang menghapus kolom harus menunggu rilis berikutnya, setelah tidak ada lagi kode yang memakainya.',
+      ),
+      p(
+        'Langkah 7 yang paling sering terlupa, dan alasannya ada di peringatan berikut: pekerja antrean memuat kode **sekali** saat dijalankan. Tanpa `queue:restart`, pekerja lama tetap menjalankan kode lama — sehingga perbaikan yang sudah rilis tetap gagal dengan cara yang persis sama, dan tidak ada yang tampak salah di kodenya.',
       ),
       callout(
         'danger',
@@ -240,6 +282,15 @@ export const lessons: LessonDraft[] = [
         # Harus 404. Kalau 200, hentikan semuanya dan rotasi seluruh rahasia.
         `,
       ),
+      p(
+        '`chmod 600` memberi izin baca-tulis **hanya kepada pemiliknya**, dan `chown app:app` memastikan pemiliknya adalah user yang menjalankan aplikasi. Keduanya perlu bersama: izin ketat pada berkas yang pemiliknya salah tetap tidak bisa dibaca aplikasimu, dan pemilik yang benar dengan izin longgar bisa dibaca setiap user lain di server itu — termasuk proses milik aplikasi lain yang menumpang di mesin yang sama.',
+      ),
+      p(
+        'Perintah `curl` di bawahnya menguji hal yang **tidak bisa** dijawab izin berkas, yaitu apakah `.env` terjangkau lewat web. Berkas itu berada di akar project, satu tingkat di atas `public/`, jadi document root yang salah membuatnya bisa diunduh siapa pun, terlepas dari `chmod` apa pun yang kamu pasang. Ini kesalahan yang tidak bergejala, sebab aplikasinya berjalan normal, semua halaman terbuka, tidak ada satu pun error di log.',
+      ),
+      p(
+        'Komentar terakhir menyebut tindakan yang tepat kalau hasilnya `200`, dan ia sengaja tegas: **rotasi seluruh rahasia**. Memperbaiki document root saja tidak cukup — pemindai otomatis menyisir internet mencari `/.env` terus-menerus, jadi berkas yang pernah terbuka harus dianggap sudah terbaca. Ini prinsip yang sama seperti rahasia yang pernah ter-commit ke git.',
+      ),
       callout(
         'danger',
         '`.env` yang bisa diunduh lewat web adalah kompromi total',
@@ -259,6 +310,12 @@ export const lessons: LessonDraft[] = [
         # Docker Compose — dari berkas di luar repo
         docker compose --env-file /etc/app/.env up -d
         `,
+      ),
+      p(
+        'Ketiganya punya sifat yang sama dan itulah nilainya: rahasianya **disuntikkan saat deploy** oleh platform, bukan disimpan sebagai berkas di dalam project. Tidak ada `.env` yang bisa salah izin, tidak ada berkas yang bisa ikut ter-commit, dan tidak ada yang bisa diunduh lewat web.',
+      ),
+      p(
+        'Perhatikan dua perintah pertama menyimpan nilainya di sisi penyedia, sehingga sekali disimpan ia tidak bisa dibaca kembali lewat CLI dan hanya bisa diganti. Itu perilaku yang benar, tetapi berarti kamu tetap butuh tempat lain untuk menyimpan salinannya bagi tim. Perhatikan pula baris Docker Compose menunjuk `/etc/app/.env` yang berada **di luar direktori project**, sehingga ia tidak mungkin ikut ter-commit maupun terjangkau document root.',
       ),
 
       h2('Secrets manager'),
@@ -299,6 +356,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Skema ini berjalan **saat boot**, bukan saat variabelnya pertama dipakai — dan perbedaan waktu itu yang menentukan biayanya. Perhatikan `.min(32)` pada `JWT_SECRET`: ia menegakkan aturan yang biasanya hanya hidup sebagai niat baik, karena rahasia sepanjang delapan karakter bisa ditebak dan tidak ada yang akan menyadarinya sampai token dipalsukan.',
+      ),
+      p(
+        'Perulangan `hasil.error.issues` mencetak **setiap** masalah beserta nama variabelnya, bukan berhenti di yang pertama. Orang yang menyiapkan lingkungan baru langsung melihat daftar lengkap apa yang kurang, bukan memperbaiki satu lalu menjalankan lagi untuk menemukan yang berikutnya.',
+      ),
+      p(
+        '`process.exit(1)` yang menutupnya, dan kode keluar bukan-nol itulah yang membuat sistem deploy tahu prosesnya gagal. Peringatan berikutnya menjelaskan kenapa itu justru hasil yang baik: aplikasi yang **menolak menyala** membuat deploy dibatalkan dan versi lama tetap melayani pengguna. Aplikasi yang menyala dengan `JWT_SECRET` bernilai `undefined` akan menandatangani token yang tidak sah — dan baru ketahuan saat pengguna pertama mencoba masuk, dengan penyebab yang letaknya jauh di belakang.',
+      ),
       callout(
         'tip',
         'Deploy yang gagal saat boot jauh lebih murah daripada deploy yang "berhasil"',
@@ -337,6 +403,12 @@ export const lessons: LessonDraft[] = [
           # Gagalkan build kalau ada yang terdeteksi.
         `,
       ),
+      p(
+        'Pemindai di CI adalah **jaring kedua**, bukan yang pertama. Pertahanan yang sesungguhnya adalah pre-commit hook yang menahan rahasianya sebelum masuk riwayat git sama sekali — tetapi hook lokal bisa dilewati dengan `--no-verify`, dan mesin yang belum menjalankan `npm install` tidak punya hook-nya. Pemindaian di server tidak bisa dilewati siapa pun.',
+      ),
+      p(
+        'Komentar "gagalkan build" menentukan apakah ini berguna. Pemindai yang hanya memberi peringatan akan diabaikan pada temuan kelima, dan setelah itu ia tidak menjaga apa pun. Perhatikan pula konsekuensi yang disebut peringatan berikut: kalau pemindainya menemukan sesuatu, memperbaiki commit **tidak cukup** — rahasia yang pernah ter-push ada di setiap clone, setiap fork, dan kemungkinan besar sudah terindeks pemindai otomatis. Satu-satunya perbaikan yang benar adalah rotasi.',
+      ),
       callout(
         'danger',
         'Rahasia yang pernah ter-commit dianggap bocor selamanya',
@@ -372,6 +444,15 @@ export const lessons: LessonDraft[] = [
         contoh.com.        CAA    0 issue "letsencrypt.org"
         `,
       ),
+      p(
+        'Perhatikan titik di akhir setiap nama — `contoh.com.` bukan `contoh.com`. Titik itu menandai **nama absolut** (FQDN); tanpanya, sebagian penyedia DNS menambahkan nama zona di belakangnya, sehingga `contoh.com` menjadi `contoh.com.contoh.com`. Kesalahan kecil yang menghasilkan alamat yang tidak pernah menjawab.',
+      ),
+      p(
+        'Baris kedua memakai `CNAME` untuk `www`, sedangkan `contoh.com` sendiri memakai `A`. Itu bukan selera: **`CNAME` tidak boleh dipasang di root domain** — spesifikasinya melarangnya karena root harus bisa punya record lain seperti `MX`, dan `CNAME` bersifat eksklusif. Sebagian penyedia menawarkan "ALIAS" atau "ANAME" sebagai jalan keluar.',
+      ),
+      p(
+        'Baris `CAA` adalah yang paling jarang dipasang padahal paling murah. Tanpanya, **CA mana pun di dunia** bisa menerbitkan sertifikat yang sah untuk domainmu — dan itu berarti siapa pun yang berhasil membujuk satu CA mana pun bisa menyamar sebagai situsmu dengan sertifikat yang dipercaya browser. Satu baris membatasinya ke penerbit yang kamu izinkan.',
+      ),
       callout(
         'tip',
         'Record `CAA` menutup satu kelas serangan yang jarang dibicarakan',
@@ -385,6 +466,12 @@ export const lessons: LessonDraft[] = [
         dig contoh.com A +short
         dig contoh.com A          # lihat TTL-nya
         `,
+      ),
+      p(
+        'Opsi `+short` mencetak jawabannya saja — cocok untuk memeriksa cepat "sekarang menunjuk ke mana". Tanpa `+short`, keluarannya memuat **TTL** dalam detik, dan angka itulah yang menentukan berapa lama perubahanmu baru terasa oleh semua orang.',
+      ),
+      p(
+        'Peringatan berikutnya menyebut urutan yang menentukan, dan ia berlawanan dengan naluri: **turunkan TTL beberapa hari sebelum perpindahan, bukan saat memindahkan**. Alasannya, resolver di seluruh dunia sudah menyimpan jawaban lama beserta TTL lamanya — menurunkan TTL sekarang tidak membatalkan salinan yang sudah tersimpan. Dengan TTL 86400, sebagian pengguna tetap diarahkan ke server lama sepanjang hari itu, dan data yang mereka tulis mendarat di tempat yang salah.',
       ),
       callout(
         'warning',
@@ -401,6 +488,12 @@ export const lessons: LessonDraft[] = [
         sudo certbot renew --dry-run     # uji pembaruan otomatisnya
         `,
       ),
+      p(
+        'Perintah pertama menerbitkan sertifikat **sekaligus** menyunting konfigurasi Nginx untuk memakainya — itulah arti flag `--nginx`. Perhatikan kedua nama disebut dalam satu perintah: sertifikat harus mencakup `www` dan non-`www`, karena keduanya nama yang berbeda bagi browser, dan yang tidak tercakup akan menampilkan peringatan keamanan.',
+      ),
+      p(
+        'Baris kedua yang paling sering dilewatkan. Certbot memasang timer pembaruan otomatis, tetapi **tidak ada yang membuktikan timer itu bekerja** sampai sertifikatnya benar-benar hampir kedaluwarsa — dan saat itu terlambat. `renew --dry-run` menjalankan seluruh alur pembaruan tanpa benar-benar menggantinya, sehingga kegagalan konfigurasi ketahuan sekarang. Jalankan ulang setiap kali kamu mengubah konfigurasi web server.',
+      ),
       code(
         'text',
         `
@@ -409,6 +502,15 @@ export const lessons: LessonDraft[] = [
             reverse_proxy localhost:3000
         }
         `,
+      ),
+      p(
+        'Empat baris ini melakukan seluruh yang dilakukan Certbot **plus** konfigurasi Nginx sekaligus. Caddy menerbitkan sertifikat, memasangnya, mengalihkan HTTP ke HTTPS, dan memperbaruinya otomatis — tanpa satu pun baris tambahan. Itu bukan hanya lebih ringkas: ia menghapus kelas kesalahan konfigurasi TLS yang harus ditulis manual di Nginx.',
+      ),
+      p(
+        'Perhatikan tidak ada penyebutan sertifikat, port 443, maupun `redirect` di mana pun. Caddy menyimpulkannya dari kenyataan bahwa blok ini dinamai sebuah **domain**. Harganya: kendali yang lebih sedikit atas detail TLS, dan satu perkakas lagi yang perlu dipahami tim. Untuk project yang tidak butuh penyetelan khusus, pertukaran itu hampir selalu menguntungkan.',
+      ),
+      p(
+        'Peringatan berikutnya tetap berlaku untuk kedua pendekatan. Sertifikat kedaluwarsa bukan peringatan kecil — **browser menolak memuat situsnya sama sekali**, dan gangguannya total. Pembaruan otomatis memang biasanya bekerja; yang tidak boleh diandalkan adalah asumsi bahwa ia masih bekerja. Pasang pemantauan yang memberi tahu tiga puluh hari sebelum kedaluwarsa, sehingga kegagalannya ketahuan saat masih ada waktu memperbaikinya.',
       ),
       callout(
         'danger',
@@ -441,6 +543,15 @@ export const lessons: LessonDraft[] = [
             add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
         }
         `,
+      ),
+      p(
+        'Dua blok `server` di sini punya tugas yang berbeda. Yang pertama hanya mendengar port 80 dan **selalu** mengalihkan ke HTTPS lewat `301` — permanen, sehingga browser mengingatnya. Perhatikan ia tidak menyajikan apa pun; satu-satunya pekerjaannya adalah memastikan tidak ada permintaan yang dilayani tanpa enkripsi.',
+      ),
+      p(
+        '`ssl_protocols TLSv1.2 TLSv1.3` menyebut versi yang diizinkan secara **eksplisit**, dan komentarnya menjelaskan kenapa: TLS 1.0 dan 1.1 sudah tidak aman dan ditolak browser modern. Menyebutkannya sendiri mencegah versi lama ikut aktif kalau bawaan Nginx-mu masih longgar. Dan `ssl_prefer_server_ciphers off` menyerahkan pilihan cipher ke klien — yang justru **lebih baik** pada TLS 1.3, karena klien modern biasanya tahu cipher mana yang paling aman dan cepat di perangkatnya.',
+      ),
+      p(
+        'Kata `always` pada `add_header` adalah detail Nginx yang mudah terlewat, sebab tanpanya header hanya dikirim pada respons sukses sehingga halaman error `404` atau `500` tidak membawa HSTS sama sekali. Dan peringatan berikutnya perlu dibaca serius sebelum menyalin `max-age=31536000`, sebab setelah browser menerima HSTS, ia **menolak** koneksi HTTP ke domainmu selama masa berlakunya, dan mematikan headernya **tidak** membatalkan yang sudah tersimpan. Mulai dari `max-age=300`, naikkan bertahap setelah yakin semuanya bekerja.',
       ),
       callout(
         'warning',
@@ -529,6 +640,18 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Empat baris `proxy_set_header` bertanda WAJIB adalah bagian yang paling sering terlewat, dan komentarnya menjelaskan akibatnya: tanpa keduanya, aplikasi melihat **semua** permintaan datang dari `127.0.0.1`. Rate limit per IP jadi menghitung seluruh dunia sebagai satu pemanggil, dan log servermu tidak lagi bisa menjawab siapa yang melakukan apa.',
+      ),
+      p(
+        '`X-Forwarded-Proto $scheme` menutup masalah yang berbeda: proxy menerima HTTPS lalu meneruskannya ke aplikasi lewat HTTP biasa. Tanpa header itu, aplikasi mengira koneksinya tidak aman — sehingga cookie bertanda `Secure` tidak dikirim, dan tautan yang dibangkitkan Laravel atau Next.js memakai skema `http://`.',
+      ),
+      p(
+        'Blok `location /_next/static/` menyajikan aset langsung dari Nginx, tanpa menyentuh proses aplikasi sama sekali. `expires 1y` bersama `immutable` aman di sini justru karena Next.js menyisipkan hash isi ke dalam nama berkasnya — berkas dengan nama itu tidak akan pernah berubah isinya, jadi browser boleh menyimpannya selamanya tanpa pernah bertanya lagi.',
+      ),
+      p(
+        "Peringatan berikutnya menutup sisi aplikasinya, dan ia harus dibaca berpasangan dengan header di atas. Karena `X-Forwarded-For` bisa **dipalsukan siapa pun**, aplikasi tidak boleh mempercayai seluruh rantainya. `app.set('trust proxy', 1)` berarti hanya satu proxy terdekat yang dipercaya; dengan `true`, penyerang cukup mengirim IP acak di setiap permintaan untuk melewati rate limit sepenuhnya.",
+      ),
       callout(
         'danger',
         '`trust proxy` di aplikasi harus diberi ANGKA, bukan `true`',
@@ -576,6 +699,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Dua zona dengan laju berbeda menerapkan pola berjenjang yang sama seperti di sub-bab 2.6: `/api/` mendapat 10 permintaan per detik, sedangkan `/api/auth/` jauh lebih ketat di 1 per detik. Endpoint login adalah target penebakan password, dan batas yang wajar untuk penjelajahan biasa terlalu longgar di sana.',
+      ),
+      p(
+        '`burst=20 nodelay` adalah bagian yang membuat rate limit ini tidak menyiksa pengguna biasa. Tanpa `burst`, permintaan ke-11 dalam satu detik langsung ditolak — padahal memuat satu halaman sering memicu beberapa permintaan sekaligus. `burst` mengizinkan lonjakan pendek, dan `nodelay` melayaninya **seketika** alih-alih mengantrekannya; tanpa `nodelay`, permintaan dalam burst tetap dilayani tetapi diperlambat, yang terasa seperti aplikasi yang tersendat.',
+      ),
+      p(
+        'Peringatan berikutnya menyebut batas yang tidak bisa ditutup lapisan ini: proxy membatasi **per IP**. Botnet dengan ribuan IP yang masing-masing hanya mencoba beberapa kali lolos sepenuhnya dari batas ini — yang menangkapnya adalah batas **per akun** di aplikasi. Keduanya lapisan yang berbeda dan sama-sama diperlukan.',
+      ),
       callout(
         'tip',
         'Rate limit di proxy melengkapi, bukan menggantikan',
@@ -593,6 +725,15 @@ export const lessons: LessonDraft[] = [
             server 10.0.0.3:3000 backup;
         }
         `,
+      ),
+      p(
+        '`least_conn` mengirim permintaan ke instance dengan koneksi aktif **paling sedikit**, bukan bergiliran merata. Bedanya terasa saat durasi permintaan tidak seragam: dengan pembagian giliran biasa, instance yang kebetulan mendapat beberapa permintaan lambat akan terus menerima jatah baru meski sudah kewalahan.',
+      ),
+      p(
+        '`max_fails=3 fail_timeout=30s` adalah health check sederhana: setelah tiga kegagalan berturut-turut, instance itu dikeluarkan dari rotasi selama tiga puluh detik lalu dicoba lagi. Perhatikan baris ketiga ditandai `backup` — ia **tidak menerima trafik** sama sekali selama dua instance utama masih sehat, dan baru dipakai kalau keduanya jatuh.',
+      ),
+      p(
+        'Peringatan berikutnya adalah syarat yang harus dipenuhi **sebelum** menambah instance kedua, bukan sesudahnya. Sesi di memori proses membuat pengguna tampak "logout sendiri" secara acak — tergantung instance mana yang menerima permintaannya. Rate limit di memori membuat batasnya efektif dikalikan jumlah instance. Keduanya harus pindah ke penyimpanan bersama (Redis atau database) lebih dulu; menambah instance di atas aplikasi yang belum stateless menghasilkan bug yang tampak acak dan sangat sulit direproduksi.',
       ),
       callout(
         'warning',

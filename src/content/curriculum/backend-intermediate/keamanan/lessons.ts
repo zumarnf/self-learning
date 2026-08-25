@@ -131,6 +131,15 @@ export const lessons: LessonDraft[] = [
         );
         `,
       ),
+      p(
+        'Ketiga lapisan menjawab pertanyaan yang berbeda, dan tidak satu pun menggantikan yang lain. Lapisan 1 bertanya **"peran ini boleh menyentuh endpoint ini?"**, dan jawabannya sama untuk semua baris. Lapisan 2 bertanya **"pengguna ini boleh menyentuh baris ini?"**, dan di sinilah kepemilikan diperiksa. Lapisan 3 tidak bertanya sama sekali, sebab ia membuat baris milik orang lain **tidak bisa ditemukan**.',
+      ),
+      p(
+        'Perhatikan lapisan 2 melempar `KesalahanTidakDitemukan`, bukan `TidakBerhak`. Itu pilihan sadar untuk data privat: `403` sudah membocorkan bahwa baris dengan id tersebut memang ada, dan penyerang bisa memetakan seluruh database hanya dari perbedaan antara `403` dan `404`.',
+      ),
+      p(
+        'Lapisan 3 yang paling sering hilang justru karena ia terasa mengulang. Bedanya, lapisan 1 dan 2 adalah pemeriksaan yang **bisa dilupakan**, entah pada endpoint kesepuluh, pada jalur pemanggilan baru, atau pada refactor yang memindahkan logika. `AND penulis_id = $2` melekat pada query itu sendiri, sehingga selama query-nya dipakai penjagaannya ikut. Perhatikan pula ia mengubah cara membaca hasil, sebab jumlah baris terpengaruh `0` kini berarti "tidak ada atau bukan milikmu", dan keduanya dijawab sama.',
+      ),
       callout(
         'danger',
         'Lapisan ketiga yang paling sering hilang, dan yang paling penting',
@@ -168,6 +177,15 @@ export const lessons: LessonDraft[] = [
           `,
           notes: ['Penjagaan ada di query'],
         },
+      ),
+      p(
+        'Catatan "Policy lengkap, tetap bocor" pada kolom kiri adalah inti sub-bab ini. Aplikasi itu **punya** Policy yang benar, lengkap, dan teruji, tetapi `index` tidak memanggilnya. Dan memang tidak bisa, karena Policy bekerja per objek sementara endpoint daftar mengembalikan dua puluh objek sekaligus tanpa pernah memeriksa satu pun. Inilah kenapa endpoint daftar disebut titik buta, sebab penjagaan yang sudah kamu bangun tidak berlaku di sana, dan tidak ada yang memberi tahu.',
+      ),
+      p(
+        "Perbaikannya hanya satu baris `where('penulis_id', ...)`, dan letaknya menentukan: **di query**, bukan sebagai penyaringan setelah data diambil. Menyaring di PHP setelah `paginate(20)` akan menghasilkan halaman yang jumlah itemnya berubah-ubah — dua puluh baris diambil dari seluruh pengguna, lalu tersisa tiga yang benar-benar milik peminta.",
+      ),
+      p(
+        'Perhatikan juga catatan "Tidak ada error apa pun". Endpoint bocor ini merespons `200` dengan data yang tampak wajar, lolos setiap tes jalur sukses, dan terlihat normal saat kamu mencobanya sendiri — karena saat mencoba, kamu memakai akun yang memang punya artikel. Ia hanya terlihat kalau kamu **sengaja** memeriksa isi daftarnya dengan akun yang seharusnya tidak melihat apa-apa.',
       ),
 
       h2('Default: tolak'),
@@ -207,6 +225,12 @@ export const lessons: LessonDraft[] = [
         php artisan route:list --json | jq -r '.[] | select(.middleware | contains("auth") | not) | .uri'
         `,
       ),
+      p(
+        'Perulangan pertama menyerang dari sisi **data**, yaitu kirim token milik Ana ke sumber daya milik Budi lalu baca status codenya. Komentar terakhirnya menyatakan kriteria yang tegas, bahwa setiap `200` adalah temuan. Perhatikan daftar jalurnya mencakup lebih dari baris database, sebab berkas unggahan dan status job ekspor juga objek yang punya pemilik, dan keduanya sering terlewat karena tidak terasa seperti "data".',
+      ),
+      p(
+        'Perintah kedua menyerang dari sisi **konfigurasi**, dan ia menemukan kelas masalah yang berbeda. `select(.middleware | contains("auth") | not)` menyaring rute yang **tidak** punya middleware auth, jadi keluarannya adalah daftar endpoint terbuka. Sebagian memang seharusnya publik, seperti `/health` dan halaman login, tetapi apa pun di luar itu adalah rute yang lupa dimasukkan ke grup terlindungi. Ini cara tercepat menemukan kelalaian yang tidak akan pernah muncul lewat pengujian biasa, karena endpoint-nya bekerja sempurna.',
+      ),
 
       h2('Menegakkannya dengan tes'),
       code(
@@ -229,10 +253,19 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        '`describe.each` menjalankan blok tes yang **sama** untuk setiap sumber daya di dalam array-nya. Itu yang membuat pola ini bertahan, sebab menambahkan sumber daya baru cukup menambah satu string ke daftarnya, bukan menyalin seluruh blok tes dan berharap tidak ada yang lupa. Perhatikan komentar di atasnya yang berbunyi "salin untuk SETIAP sumber daya yang punya pemilik", lalu bandingkan dengan tabel bentuk serangan di awal sub-bab. Escalation horizontal terjadi persis di sumber daya yang tidak ikut dalam daftar ini.',
+      ),
+      p(
+        'Perulangan atas tiga method di dalamnya menutup kelalaian yang paling umum. Sangat sering `GET` sudah diperbaiki sementara `PATCH` dan `DELETE` masih memakai query lama, karena keduanya jarang diuji dengan token orang lain — dan keduanya justru yang paling merusak kalau bocor. Perhatikan label `` `${method} ${sumber}` `` pada `expect`: tanpa itu, kegagalan hanya berbunyi "expected 200 to be 404" tanpa menyebut kombinasi mana yang bocor di antara sembilan yang diuji.',
+      ),
+      p(
+        'Perhatikan yang diharapkan `404`, bukan `403` — konsisten dengan keputusan di lapisan 2 tadi. Kalau aplikasimu memilih `403` untuk sumber daya yang keberadaannya memang publik, sesuaikan angkanya; yang tidak boleh adalah `200`.',
+      ),
       callout(
         'tip',
         'Aturan yang dijaga tes bertahan; yang dijaga ingatan akan terlewat',
-        'Kamu akan ingat memeriksa otorisasi pada endpoint pertama, kedua, dan kelima. Endpoint kesepuluh — yang ditambahkan buru-buru enam bulan kemudian — adalah yang bocor. Tes parametrik seperti di atas membuatnya mustahil terlewat.',
+        'Kamu akan ingat memeriksa otorisasi pada endpoint pertama, kedua, dan kelima. Endpoint kesepuluh, yang ditambahkan buru-buru enam bulan kemudian, adalah yang bocor. Tes parametrik seperti di atas membuatnya mustahil terlewat.',
       ),
 
       references(
@@ -321,7 +354,7 @@ export const lessons: LessonDraft[] = [
             'Kunci enkripsi aplikasi Laravel. Cast `encrypted` bergantung penuh padanya: kehilangan `APP_KEY` berarti seluruh kolom terenkripsi tidak bisa dibaca lagi.',
         },
         {
-          term: 'redaction (penyensoran log)',
+          term: 'redaction (redaksi)',
           meaning:
             'Menghapus nilai sensitif dari log berdasarkan jalur field-nya sebelum ditulis. Diperlukan karena log dibaca lebih banyak orang, disimpan lebih lama, dan sering dikirim ke pihak ketiga.',
         },
@@ -366,6 +399,12 @@ export const lessons: LessonDraft[] = [
         REDIS_URL="rediss://cache:6380"
         `,
       ),
+      p(
+        'Komentar di atasnya menandai asumsi yang sering keliru: TLS **bukan hanya di tepi publik**. Anggapan "sudah di belakang load balancer, jadi internal boleh plaintext" adalah model perimeter yang sudah runtuh — satu container yang dibajak atau satu akun VPN yang bocor cukup untuk menempatkan penyerang di dalam jaringan yang kamu anggap aman.',
+      ),
+      p(
+        '`sslmode=verify-full` adalah bagian yang menentukan, dan ia berbeda dari `require` dengan cara yang penting. `require` hanya menuntut koneksinya terenkripsi; ia **tidak memeriksa** sertifikatnya, sehingga penyerang yang bisa menyisip di tengah jalan tinggal menyodorkan sertifikat buatannya sendiri dan membaca seluruh lalu lintas. `verify-full` memeriksa sertifikatnya sah **dan** nama host-nya cocok. Perhatikan pula `rediss://` dengan dua huruf s — itu skema TLS untuk Redis, mudah tertukar dengan `redis://` biasa yang mengirim perintah dalam teks polos.',
+      ),
       callout(
         'danger',
         'Jangan pernah mematikan verifikasi sertifikat',
@@ -399,6 +438,15 @@ export const lessons: LessonDraft[] = [
           return Buffer.concat([iv, tag, data]).toString('base64');
         }
         `,
+      ),
+      p(
+        'Huruf **GCM** pada `aes-256-gcm` yang membedakan ini dari enkripsi biasa: ia terenkripsi **dan terautentikasi**. Mode tanpa autentikasi seperti CBC menyembunyikan isinya tetapi tidak mendeteksi perubahan — penyerang bisa membalik bit di ciphertext, dan hasil dekripsinya berubah tanpa satu pun tanda bahwa ada yang mengutak-atik. `getAuthTag()` menghasilkan penanda yang membuat perubahan seperti itu langsung ketahuan saat dekripsi.',
+      ),
+      p(
+        '`crypto.randomBytes(12)` menghasilkan **IV**, yaitu nilai acak yang membuat dua teks identik menghasilkan ciphertext berbeda. Aturan mutlaknya adalah **jangan pernah memakai ulang IV dengan kunci yang sama**. Pada GCM, pengulangan itu bukan sekadar melemahkan, sebab ia bisa membocorkan isi pesan dan merusak jaminan keasliannya. Karena itu IV dibuat baru di setiap pemanggilan, bukan disimpan sebagai konstanta.',
+      ),
+      p(
+        'Komentar terakhir menjawab pertanyaan yang wajar muncul, yaitu kalau IV dan tag disimpan bersama ciphertext, bukankah itu membocorkannya? Jawabannya tidak, karena **keduanya memang bukan rahasia**. IV hanya perlu unik dan tidak harus tersembunyi, sedangkan tag hanya perlu utuh. Yang rahasia hanya kuncinya. Menyimpannya bersama justru keharusan praktis, sebab tanpa keduanya ciphertext-nya tidak bisa didekripsi sama sekali. Urutan `[iv, tag, data]` yang tetap itulah yang membuat fungsi dekripsinya tahu di mana memotong.',
       ),
       callout(
         'danger',
@@ -438,6 +486,12 @@ export const lessons: LessonDraft[] = [
           'SELECT id, nama, email FROM pengguna WHERE id = $1', [id],
         );
         `,
+      ),
+      p(
+        'Bahaya `SELECT *` di sini bukan pemborosan, melainkan bahwa ia **berubah artinya seiring waktu**. Hari ini tabel `pengguna` mungkin hanya berisi tiga kolom dan blok pertama lolos review dengan mulus. Masalahnya muncul bulan depan saat seseorang menambahkan `kata_sandi_hash`, `token_reset`, atau `skor_risiko` — dan endpoint yang **tidak pernah disentuh siapa pun** mulai mengirimkannya ke setiap klien.',
+      ),
+      p(
+        'Blok kedua menghilangkan kemungkinan itu dengan membalik siapa yang menentukan. Daftar kolom yang keluar ditetapkan oleh **keputusanmu di baris ini**, bukan oleh bentuk tabel yang bisa berubah kapan saja tanpa sepengetahuanmu. Perlakukan aturan ini sama seperti daftar `select` pada Prisma dan API Resource di Laravel: bentuk respons adalah kontrak yang dipilih sadar, bukan cerminan otomatis dari skema database.',
       ),
       callout(
         'warning',
@@ -580,7 +634,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'path traversal',
           meaning:
-            'Menaiki direktori dengan `../` untuk menyentuh berkas di luar folder yang dimaksud. Punya banyak penyandian (`..%2f`, `....//`), jadi pertahanannya adalah **resolve lalu bandingkan**, bukan menyaring.',
+            'Menaiki direktori dengan `../` untuk menyentuh berkas di luar folder yang dimaksud. Punya banyak encoding (`..%2f`, `....//`), jadi pertahanannya adalah **resolve lalu bandingkan**, bukan menyaring.',
         },
         {
           term: 'XXE',
@@ -619,6 +673,15 @@ export const lessons: LessonDraft[] = [
         await db.query(\`SELECT ... ORDER BY \${kolom} \${arah} LIMIT $1\`, [batas]);
         `,
       ),
+      p(
+        'Komentar pertama menyebut batas yang membuat bagian ini perlu ada: **identifier tidak bisa diparameterkan**. Placeholder `$1` hanya bisa menggantikan **nilai**, sementara nama kolom dan arah `ASC`/`DESC` adalah bagian dari struktur query — database sudah harus mengetahuinya sebelum slot nilai diisi. Jadi untuk keduanya, prepared statement tidak tersedia sebagai jalan keluar.',
+      ),
+      p(
+        'Allow-list menggantikannya, dan perhatikan **arah alirannya** pada `KOLOM[req.query.urut]`: input klien dipakai sebagai **kunci pencarian** ke dalam objek milikmu, dan yang masuk ke query adalah **nilai dari objek itu**. Kirim `?urut=judul; DROP TABLE artikel--` dan pencariannya menghasilkan `undefined`, sehingga `??` mengembalikan `dibuat_pada`. Tidak ada satu karakter pun dari klien yang pernah menyentuh teks query.',
+      ),
+      p(
+        'Inilah yang membedakannya dari "sanitasi". Sanitasi berusaha **membersihkan** teks berbahaya, dan selalu tertinggal dari kreativitas penyerang, karena daftar hal buruk tidak pernah lengkap. Allow-list tidak membersihkan apa pun, melainkan memastikan teks dari klien tidak pernah sampai ke query sama sekali. Perhatikan `LIMIT $1` di baris yang sama tetap memakai parameter, karena batas adalah nilai, dan campuran keduanya dalam satu query justru bentuk yang benar.',
+      ),
 
       h2('ORM tidak otomatis aman'),
       code(
@@ -643,6 +706,15 @@ export const lessons: LessonDraft[] = [
         User::whereRaw("email = '{$email}'")->first();
         `,
       ),
+      p(
+        'Perhatikan bentuk aman di Prisma memakai **tagged template** — `` $queryRaw`...` `` tanpa tanda kurung. Bentuk itu menyerahkan potongan teks dan nilainya secara **terpisah** ke Prisma, yang lalu memparameterkannya. Menuliskannya dengan kurung, `$queryRaw(\`...\`)`, mengubah artinya sepenuhnya: string sudah tergabung sebelum Prisma melihatnya, dan perlindungannya hilang. Satu pasang kurung yang membedakan aman dan rentan.',
+      ),
+      p(
+        'Baris `$queryRawUnsafe` memberi pelajaran tentang penamaan, sebab kata **Unsafe** ada di namanya karena memang begitulah adanya. Fungsi seperti ini punya alasan untuk ada, sebab sesekali kamu benar-benar butuh menyusun query secara dinamis, tetapi namanya memastikan tidak ada yang memakainya tanpa sadar, dan pencarian `Unsafe` di codebase langsung menemukan setiap tempat yang perlu ditinjau.',
+      ),
+      p(
+        'Di Laravel, `whereRaw` adalah jebakan yang lebih halus daripada `DB::select` mentah. `User::where(...)` yang biasa memang aman dan memparameterkan sendiri, sehingga orang terbiasa menganggap "pakai Eloquent berarti aman". Lalu datang satu kondisi rumit yang tidak terwakili query builder, `whereRaw` dipakai dengan interpolasi string — dan satu baris itu membatalkan seluruh perlindungan di berkas yang sama.',
+      ),
 
       h2('NoSQL injection'),
       code(
@@ -659,6 +731,12 @@ export const lessons: LessonDraft[] = [
         // -> cocok dengan password apa pun
         `,
       ),
+      p(
+        'Serangan ini tidak menyisipkan teks berbahaya, melainkan mengirim **objek di tempat yang seharusnya string**. Karena body JSON bisa membawa struktur apa pun, `req.body.kataSandi` bernilai `{ "$ne": null }` diteruskan apa adanya ke query, dan MongoDB membacanya sebagai operator "tidak sama dengan null". Artinya syaratnya berubah dari "password harus sama dengan ini" menjadi "password apa pun asal ada", sehingga login berhasil tanpa mengetahui satu karakter pun passwordnya.',
+      ),
+      p(
+        'Perhatikan yang salah di sini **bukan** karena query-nya dirangkai dengan string. Kodenya sudah memakai bentuk objek yang dianjurkan, tidak ada penggabungan teks sama sekali, dan tetap rentan. Itulah kenapa nasihat "pakai query builder, jangan string" tidak cukup untuk NoSQL — yang dieksploitasi adalah **tipe datanya**, bukan sintaksnya.',
+      ),
       code(
         'js',
         `
@@ -671,6 +749,15 @@ export const lessons: LessonDraft[] = [
         const { email, kataSandi } = Skema.parse(req.body);
         // Sekarang keduanya dijamin string, bukan objek operator.
         `,
+      ),
+      p(
+        'Perbaikannya bukan menyaring karakter berbahaya, melainkan **memastikan tipenya**. `z.string()` menolak apa pun yang bukan string, termasuk objek `{ "$ne": null }`, sehingga permintaan itu gagal validasi sebelum menyentuh database sama sekali. Inilah alasan validasi skema disebut kontrol keamanan di `security.md` dan bukan sekadar kerapian.',
+      ),
+      p(
+        'Komentar terakhir menandai jaminan yang diberikan baris di atasnya, yaitu setelah `Skema.parse`, `email` dan `kataSandi` **dijamin string**. Kode di bawahnya bisa memakainya tanpa memeriksa apa pun lagi. Perhatikan `.parse` dipakai di sini dan bukan `.safeParse`, sebab pada jalur autentikasi melempar seketika adalah perilaku yang tepat. Tidak ada yang perlu dilanjutkan kalau bentuk masukannya sudah salah.',
+      ),
+      p(
+        '`.strict()` menutup varian yang berbeda dari serangan yang sama: menyelipkan **field tambahan** yang tidak ada di skema, misalnya `{"email":"...","kataSandi":"...","$where":"1==1"}`. Tanpa `.strict()`, Zod membuangnya diam-diam — hasilnya tetap aman, tetapi kamu kehilangan sinyal bahwa ada yang mencoba. Dengan `.strict()`, percobaan itu menjadi `422` yang tercatat di log.',
       ),
       callout(
         'danger',
@@ -691,6 +778,15 @@ export const lessons: LessonDraft[] = [
         // AMAN: argumen sebagai ARRAY, tanpa shell
         execFile('convert', [jalurMasuk, jalurKeluar], { timeout: 30_000 });
         `,
+      ),
+      p(
+        'Bedanya ada pada siapa yang mengurai perintahnya. `exec` menyerahkan seluruh string ke **shell**, dan shell memberi arti khusus pada `;`, `|`, `&&`, `$()`, serta backtick. Karena itu `namaBerkas` bernilai `"a.jpg; rm -rf /"` bukan dibaca sebagai nama berkas aneh, melainkan sebagai **dua perintah** — dan keduanya dijalankan dengan hak akses aplikasimu.',
+      ),
+      p(
+        '`execFile` tidak melibatkan shell sama sekali. Nama program disebut terpisah dari argumennya, dan argumen diserahkan sebagai **array** — jadi `"a.jpg; rm -rf /"` sampai ke `convert` sebagai satu nama berkas utuh, yang lalu ditolak karena berkas itu tidak ada. Tidak ada yang perlu disaring, karena tidak ada yang bisa ditafsirkan.',
+      ),
+      p(
+        'Perhatikan `{ timeout: 30_000 }` yang mudah dianggap opsional. Proses eksternal bisa menggantung — menunggu masukan, terjebak pada berkas rusak, atau memproses gambar yang sengaja dibuat mahal. Tanpa timeout, setiap permintaan seperti itu meninggalkan satu proses yang tidak pernah selesai, dan cukup beberapa puluh untuk menghabiskan sumber daya server.',
       ),
       ol(
         'Pakai API yang menerima **array argumen**, bukan string perintah.',
@@ -727,6 +823,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Urutan dua baris ini yang menentukan: **resolve dulu, baru bandingkan**. `path.resolve` menyelesaikan seluruh `..` dan menormalkan jalurnya menjadi bentuk absolut yang tunggal — jadi `../../etc/passwd`, `....//....//etc/passwd`, dan varian ber-encoding lainnya semuanya berakhir sebagai jalur yang sama. Setelah itu, satu perbandingan `startsWith` cukup untuk memutuskan apakah ia masih di dalam akar.',
+      ),
+      p(
+        'Perhatikan `AKAR + path.sep`, bukan `AKAR` saja. Tanpa pemisah itu, jalur `/var/data/unggahan-lama/rahasia.txt` akan lolos — ia memang diawali `/var/data/unggahan`, tetapi berada di direktori yang **berbeda**. Kesalahan satu karakter yang membuka kembali celah yang baru saja ditutup.',
+      ),
+      p(
+        'Yang tidak boleh dilakukan adalah **menyaring karakter**. Menghapus `../` dari input terlihat masuk akal sampai kamu menyadari `....//` menjadi `../` setelah penghapusan itu sendiri, dan `..%2f` belum ter-decode saat penyaringan berjalan. Daftar bentuk berbahaya tidak pernah lengkap; membandingkan hasil resolve dengan akar tidak bergantung pada daftar apa pun. Lebih baik lagi, seperti di sub-bab 2.7: jangan pernah memakai nama dari klien sebagai jalur berkas sama sekali.',
+      ),
       callout(
         'warning',
         'Path traversal punya banyak bentuk',
@@ -745,15 +850,21 @@ export const lessons: LessonDraft[] = [
         const data = SkemaData.parse(JSON.parse(teks));
         `,
       ),
+      p(
+        'Format serialisasi asli seperti `pickle` dan `unserialize` tidak sekadar mengangkut data — ia mengangkut **objek beserta kelasnya**, dan saat dibangkitkan kembali, konstruktor atau method khusus kelas itu ikut berjalan. Di situlah eksekusi kode terjadi: penyerang menyusun payload yang menyebutkan kelas yang kebetulan ada di aplikasimu, dan proses "membaca data" berubah menjadi menjalankan perintah.',
+      ),
+      p(
+        'JSON tidak punya kemampuan itu sama sekali, sebab ia hanya bisa menyatakan angka, string, boolean, array, dan objek biasa. Keterbatasan itulah keamanannya. Perhatikan urutannya di baris terakhir, sebab `JSON.parse` mengubah teks menjadi struktur, lalu `SkemaData.parse` memastikan strukturnya sesuai yang diharapkan. Yang pertama menjaga dari format yang berbahaya dan yang kedua dari isi yang tidak masuk akal, dan keduanya diperlukan.',
+      ),
 
-      h2('Pertahanan berlapis'),
+      h2('Defense in depth'),
       p(
         'Parameterisasi menutup celahnya. Dua lapisan berikutnya membatasi kerusakan kalau ada yang lolos:',
       ),
       ul(
         '**Hak akses database minimum** — aplikasi yang tidak pernah mengubah skema tidak boleh terhubung sebagai pemilik skema.',
         '**Validasi skema** — menolak bentuk yang salah sebelum mencapai query.',
-        '**Batas ukuran** — muatan injeksi sering panjang.',
+        '**Batas ukuran** — payload injeksi sering panjang.',
         '**Pemantauan** — permintaan yang cocok dengan pola injeksi layak dicatat dan diberi alert.',
       ),
 
@@ -814,7 +925,7 @@ export const lessons: LessonDraft[] = [
             'Menelaah sebuah fitur untuk menemukan apa yang bisa disalahgunakan **sebelum** ia dibangun. Bentuk praktisnya cuma empat pertanyaan, dan biasanya cukup tiga puluh menit.',
         },
         {
-          term: 'batas kepercayaan (trust boundary)',
+          term: 'trust boundary (trust boundary)',
           meaning:
             'Titik di mana data berpindah dari pihak yang tidak dikendalikan ke pihak yang dikendalikan. Setiap panah yang menyeberangi batas ini adalah tempat validasi dan otorisasi harus ada.',
         },
@@ -880,7 +991,7 @@ export const lessons: LessonDraft[] = [
       steps(
         {
           title: '1. Apa yang sedang kita bangun?',
-          body: 'Gambar alur datanya. Di mana data masuk, ke mana ia pergi, siapa yang menyentuhnya. Batas kepercayaan ada di setiap panah yang menyeberang dari luar ke dalam.',
+          body: 'Gambar alur datanya. Di mana data masuk, ke mana ia pergi, siapa yang menyentuhnya. Trust boundary ada di setiap panah yang menyeberang dari luar ke dalam.',
         },
         {
           title: '2. Apa yang bisa salah?',
@@ -902,7 +1013,7 @@ export const lessons: LessonDraft[] = [
         `
         Fitur: pengguna bisa membagikan artikel privat lewat tautan.
 
-        Batas kepercayaan: siapa pun yang memegang tautan.
+        Trust boundary: siapa pun yang memegang tautan.
 
         Yang bisa salah:
           - Tautan diteruskan ke orang yang tidak dimaksud
@@ -921,6 +1032,15 @@ export const lessons: LessonDraft[] = [
             Ini memang inti fiturnya. Dinyatakan jelas di antarmuka.
         `,
       ),
+      p(
+        'Perhatikan dokumen ini tidak berisi satu baris kode pun, sebab ia dibuat **sebelum** implementasi, dan justru itu nilainya. Baris "Trust boundary: siapa pun yang memegang tautan" adalah kalimat yang mengubah seluruh sisanya, karena begitu dinyatakan seterang itu, kelima risiko di bawahnya menjadi konsekuensi yang jelas alih-alih penemuan mengejutkan setelah rilis.',
+      ),
+      p(
+        'Setiap keputusan menjawab satu risiko di atasnya, dan pasangannya bisa ditelusuri satu per satu. "Bisa ditebak kalau id-nya berurutan" dijawab token acak 32 byte. "Berlaku selamanya" dijawab kedaluwarsa wajib. "Muncul di header Referer" dijawab `Referrer-Policy: no-referrer`, yang mencegah URL rahasia ikut terkirim saat pengguna mengeklik tautan keluar dari halaman itu. Dan "tidak ada cara mencabutnya" dijawab tombol cabut — kemampuan yang hampir mustahil ditambahkan belakangan kalau tautannya terlanjur dirancang sebagai id permanen.',
+      ),
+      p(
+        'Baris `DITERIMA` di akhir yang paling sering hilang dari dokumen semacam ini. Risiko itu **tidak bisa dimitigasi** tanpa membunuh fiturnya — inti berbagi tautan memang siapa pun yang memegangnya bisa membaca. Menuliskannya sebagai keputusan sadar, lengkap dengan alasannya, mengubahnya dari kelalaian menjadi pilihan yang bisa ditinjau ulang saat keadaan berubah. Yang berbahaya bukan risiko yang diterima, melainkan risiko yang tidak pernah disebut.',
+      ),
       callout(
         'tip',
         'Baris terakhir sama pentingnya dengan yang lain',
@@ -938,7 +1058,7 @@ export const lessons: LessonDraft[] = [
         [
           ['Gagal ke keadaan tertutup', 'Error di pemeriksaan izin berarti tolak, bukan izinkan'],
           ['Hak minimum', 'Setiap identitas hanya punya yang benar-benar dibutuhkan'],
-          ['Pertahanan berlapis', 'Otorisasi di rute, di objek, **dan** di query'],
+          ['Defense in depth', 'Otorisasi di rute, di objek, **dan** di query'],
           ['Server yang menentukan', 'Harga, peran, dan kepemilikan tidak pernah dari klien'],
           ['Batas di mana-mana', 'Ukuran, laju, jumlah, masa berlaku'],
           ['Bisa diaudit', 'Aksi penting meninggalkan jejak yang tidak bisa dihapus pelakunya'],
@@ -968,7 +1088,7 @@ export const lessons: LessonDraft[] = [
           label: 'Referrer-Policy',
           href: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Referrer-Policy',
           source: 'MDN Web Docs',
-          note: 'Mencegah URL rahasia — seperti tautan berbagi bertoken — bocor lewat header `Referer`.',
+          note: 'Mencegah URL rahasia, seperti tautan berbagi bertoken, bocor lewat header `Referer`.',
         },
       ),
     ],
@@ -1024,7 +1144,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'document root',
           meaning:
-            'Direktori yang benar-benar dilayani web server. Menyetelnya ke akar project — bukan ke `public/` — membuat `.env`, `vendor/`, dan `.git/` bisa diunduh siapa saja.',
+            'Direktori yang benar-benar dilayani web server. Menyetelnya ke akar project alih-alih ke `public/` membuat `.env`, `vendor/`, dan `.git/` bisa diunduh siapa saja.',
         },
         {
           term: 'introspection GraphQL',
@@ -1092,6 +1212,15 @@ export const lessons: LessonDraft[] = [
         app.disable('x-powered-by');
         `,
       ),
+      p(
+        "Empat direktif di tengah blok CSP itu sering dilewatkan padahal masing-masing menutup jalur pintas yang nyata. `objectSrc: ['none']` menutup `<object>` dan `<embed>`, yang bisa memuat plugin dan melewati pembatasan `scriptSrc`. `baseUri: ['self']` mencegah penyerang menyuntikkan `<base href=\"https://jahat.com\">` yang membelokkan **setiap** jalur relatif di halamanmu. Dan `formAction: ['self']` mencegah formulir dikirim ke domain lain — jalur pencurian kredensial yang tidak tersentuh direktif skrip mana pun.",
+      ),
+      p(
+        "Perhatikan `styleSrc` mengizinkan `'unsafe-inline'` sementara `scriptSrc` tidak, dan itu bukan ketidakkonsistenan. Gaya inline paling banter bisa dipakai menyamarkan tampilan; skrip inline **menjalankan kode** — dan justru itu vektor XSS yang paling umum. Kalau aplikasimu benar-benar butuh skrip inline, pakai nonce yang dihasilkan per permintaan, bukan `unsafe-inline` permanen.",
+      ),
+      p(
+        '`imgSrc` menyertakan `data:` dan `blob:` karena keduanya dibutuhkan pratinjau unggahan dari sub-bab 4.6 — `URL.createObjectURL` menghasilkan alamat `blob:`, dan tanpa izin itu pratinjaunya diblokir CSP. Ini pola yang berulang: setiap fitur menambah kebutuhan pada CSP, dan menambahkannya harus dilakukan sadar per direktif, bukan dengan melonggarkan `defaultSrc`.',
+      ),
       table(
         ['Header', 'Melindungi dari'],
         [
@@ -1128,6 +1257,15 @@ export const lessons: LessonDraft[] = [
         #   - Berkas .map sumber untuk kode server
         `,
       ),
+      p(
+        'Dua baris pertama menutup kebocoran terbesar sekaligus paling mudah terjadi. `APP_DEBUG=true` di Laravel membuat halaman error menampilkan stack trace, potongan kode, isi variabel — dan pada beberapa versi, isi environment beserta kredensial database. Satu error yang **sengaja dipicu** sudah cukup untuk mendapat semuanya. `NODE_ENV=production` melakukan hal setara di sisi Node, sekaligus menyalakan jalur cepat di banyak library.',
+      ),
+      p(
+        'Lima larangan di bawahnya punya satu kesamaan, yaitu semuanya adalah alat yang **memang berguna saat pengembangan**, dan itulah kenapa mereka tertinggal menyala. GraphQL introspection membocorkan seluruh skema API-mu, mulai dari setiap tipe, setiap field, sampai setiap mutasi. Endpoint `/metrics` membocorkan peta operasional berupa nama rute, volume trafik, dan jam sibuk. Dan dashboard antrean memperlihatkan **payload job**, yang sering memuat data yang sudah kamu susah-payah lindungi di endpoint lain.',
+      ),
+      p(
+        'Perhatikan kelimanya tidak dilindungi dengan mematikan saja — sebagian tetap kamu butuhkan di produksi. Yang tepat adalah menaruhnya di balik autentikasi, seperti yang dicontohkan pada `Gate::define` berikutnya. "Tidak ditautkan di mana pun" bukan kontrol akses.',
+      ),
 
       h2('Endpoint yang sering lupa dilindungi'),
       code(
@@ -1138,6 +1276,12 @@ export const lessons: LessonDraft[] = [
         Gate::define('viewTelescope', fn ($u) => $u->peran === 'admin');
         Gate::define('viewPulse', fn ($u) => $u->peran === 'admin');
         `,
+      ),
+      p(
+        'Ketiga dashboard ini dipasang lewat paket dan langsung punya rutenya sendiri — tanpa kamu menulis satu baris pun di berkas rute. Itulah yang membuatnya sering luput dari audit: perintah `route:list` menampilkannya, tetapi tidak ada berkas di project-mu yang menyebutnya, sehingga ia tidak muncul saat kamu menelusuri kode.',
+      ),
+      p(
+        'Perhatikan apa yang sebenarnya mereka perlihatkan. Horizon menampilkan **payload job**, yang menurut sub-bab 2.8 seharusnya hanya berisi id — tetapi kalau ada satu saja job yang membawa data lengkap, ia terpampang di sana. Telescope lebih jauh lagi: ia merekam permintaan **beserta body-nya**, termasuk yang berisi password saat pendaftaran. Dibiarkan terbuka, keduanya memberi lebih banyak daripada endpoint API mana pun yang kamu jaga ketat.',
       ),
       callout(
         'danger',
@@ -1155,6 +1299,12 @@ export const lessons: LessonDraft[] = [
         # SALAH — .env, storage/, dan vendor/ bisa diunduh
         root /var/www/app;
         `,
+      ),
+      p(
+        'Selisihnya satu segmen jalur, dan akibatnya adalah seluruh isi project-mu bisa diunduh dari internet. Berkas `.env` berada di **akar** project, satu tingkat di atas `public/` — jadi document root yang menunjuk akar membuat `https://contoh.com/.env` melayani berkas berisi kredensial database, `APP_KEY`, dan setiap rahasia lain. Tidak ada yang perlu diretas; cukup mengetik alamatnya.',
+      ),
+      p(
+        'Dan bukan hanya `.env`. `storage/` memuat log yang bisa berisi data pengguna, `vendor/` memperlihatkan setiap paket beserta versinya — daftar belanja bagi siapa pun yang mencari kerentanan yang sudah diketahui. Kesalahan ini masih sering ditemukan di server sungguhan karena ia **tidak menimbulkan gejala apa pun**: aplikasinya berjalan normal, semua halaman terbuka, dan tidak ada satu pun error di log.',
       ),
 
       h2('Verifikasi, jangan berasumsi'),
@@ -1181,6 +1331,15 @@ export const lessons: LessonDraft[] = [
         curl -s https://contoh.com/rute-yang-tidak-ada | grep -iE "stack trace|vendor/|APP_KEY" \\
           && echo "DEBUG MENYALA — perbaiki segera"
         `,
+      ),
+      p(
+        'Judulnya menyatakan alasannya: seluruh sub-bab ini tentang **konfigurasi**, dan konfigurasi yang benar di berkas tidak berarti apa-apa kalau tidak diterapkan di server. Berkas `.env` yang salah salin, deploy yang gagal separuh, atau proxy di depan yang menimpa header — ketiganya menghasilkan server yang berperilaku berbeda dari yang tertulis di repo. Yang membuktikannya hanya memanggil server yang **benar-benar berjalan**.',
+      ),
+      p(
+        'Perulangan kedua dan ketiga memakai pola yang sama dan layak diperhatikan, karena keduanya **berharap gagal**. `.env` yang menjawab `200` berarti document root salah, sedangkan `/horizon` yang menjawab `200` berarti dashboard-nya terbuka. Perhatikan komentarnya menyebut `401/403/404` sebagai jawaban yang benar untuk endpoint internal, sebab ketiganya sama-sama menutup akses, dan `404` bahkan sedikit lebih baik karena tidak mengonfirmasi endpoint itu ada.',
+      ),
+      p(
+        'Uji terakhir memakai cara yang berbeda: ia sengaja memanggil rute yang tidak ada untuk **memancing halaman error**, lalu mencari jejak khas mode debug di dalamnya — kata "stack trace", jalur `vendor/`, atau bahkan `APP_KEY`. Ini satu-satunya dari empat uji yang mendeteksi masalah dari **isi** respons, bukan dari status code, karena halaman error debug tetap menjawab `500` seperti halaman error biasa.',
       ),
       callout(
         'tip',
@@ -1309,6 +1468,15 @@ export const lessons: LessonDraft[] = [
         composer outdated --direct
         `,
       ),
+      p(
+        'Opsi `--production` pada baris kedua sering menjadi pembeda antara laporan yang bisa ditindaklanjuti dan laporan yang diabaikan. `npm audit` polos ikut memeriksa `devDependencies` seperti linter, test runner, dan alat build, padahal kerentanan di sana **tidak terekspos ke pengguna** karena paketnya tidak pernah berjalan di server. Menyaringnya membuat temuan yang tersisa benar-benar layak diperhatikan, alih-alih tenggelam di antara puluhan yang tidak relevan.',
+      ),
+      p(
+        '`npm audit fix` tanpa `--force` hanya menerapkan perbaikan yang **tidak memutus** — kenaikan versi patch dan minor dalam rentang yang sudah kamu izinkan. Itu aman dijalankan rutin. Yang berbahaya adalah varian `--force`, dan peringatan berikutnya memakai project ini sendiri sebagai contoh nyata.',
+      ),
+      p(
+        'Dua perintah terakhir berbeda maksud dari `audit`. `npm outdated` dan `composer outdated --direct` menjawab "apa yang sudah ketinggalan", bukan "apa yang rentan" — dan keduanya perlu, karena paket yang tertinggal jauh akan sulit dinaikkan saat suatu hari kerentanannya muncul. Opsi `--direct` membatasi keluarannya ke paket yang **kamu sebut sendiri** di `composer.json`, bukan seluruh pohon transitif yang bukan urusanmu langsung.',
+      ),
       callout(
         'danger',
         'Jangan pernah menjalankan `npm audit fix --force` tanpa membaca akibatnya',
@@ -1369,6 +1537,12 @@ export const lessons: LessonDraft[] = [
         composer update   # perbarui dan tulis ulang lockfile
         `,
       ),
+      p(
+        'Perbedaan dua perintah pertama adalah **sikapnya terhadap lockfile**, dan di konteks keamanan itu bukan detail. `npm ci` memasang persis apa yang tertulis di lockfile dan **gagal** kalau lockfile tidak cocok dengan `package.json`. `npm install` boleh menyelesaikan versi yang berbeda — artinya paket yang dipasang di CI bisa berbeda dari yang pernah kamu tinjau, dan perbedaan itu bisa memuat kode yang belum dilihat siapa pun.',
+      ),
+      p(
+        'Kegagalan `npm ci` justru yang kamu inginkan. Ia mengubah masalah senyap yang biasa berbunyi "kok versi di server beda" menjadi build yang berhenti dengan pesan jelas. Perhatikan pasangannya di Composer bekerja dengan cara yang sama, karena `install` membaca `composer.lock` sedangkan `update` menulis ulangnya. Aturannya identik di kedua ekosistem, yaitu **`update` hanya dijalankan saat kamu memang berniat memperbarui, dan tidak pernah di server**.',
+      ),
       callout(
         'warning',
         'CI harus memakai `npm ci`, bukan `npm install`',
@@ -1404,6 +1578,12 @@ export const lessons: LessonDraft[] = [
             npm audit --production --audit-level=high
             # Gagalkan build kalau ada kerentanan tinggi di dependency produksi.
         `,
+      ),
+      p(
+        'Dua opsi di baris itu menentukan apakah gerbang ini berguna atau sekadar mengganggu. `--production` membuang temuan di `devDependencies` yang tidak terekspos ke pengguna, dan `--audit-level=high` menetapkan ambang yang **memang menghentikan rilis**. Tanpa ambang, satu temuan `low` pada paket yang tidak pernah dipanggil akan menggagalkan build — dan gerbang yang terlalu sering merah untuk hal sepele akan segera dimatikan orang, sehingga tidak lagi menjaga apa pun.',
+      ),
+      p(
+        'Perhatikan gerbang ini bekerja pada **setiap** build, bukan hanya saat kamu ingat memeriksanya. Itu bedanya dengan menjalankan `npm audit` secara manual: kerentanan yang diumumkan hari Selasa akan menggagalkan build hari Rabu, tanpa ada yang perlu mengingatnya. Pasangkan dengan Dependabot di atas — yang satu memberi tahu ada masalah, yang lain menyiapkan pull request perbaikannya.',
       ),
 
       h2('Yang paling sering terlupa'),
@@ -1482,7 +1662,7 @@ export const lessons: LessonDraft[] = [
             'Menyimpulkan rahasia dari **selisih waktu** respons. Jika akun tak ada langsung ditolak sementara akun ada harus melewati verifikasi hash, selisihnya bisa diukur — itu kebocoran juga.',
         },
         {
-          term: 'hash palsu (dummy hash)',
+          term: 'dummy hash',
           meaning:
             'Hash yang tetap diverifikasi ketika pengguna tidak ditemukan, semata agar waktu prosesnya sama. Cara paling sederhana menutup timing attack pada endpoint login.',
         },
@@ -1570,14 +1750,14 @@ export const lessons: LessonDraft[] = [
             await catatGagal(kunci, req.ip);
             // SATU pesan untuk kedua kemungkinan.
             return res.status(401).json({
-              error: { kode: 'KREDENSIAL_SALAH', pesan: 'Email atau kata sandi salah' },
+              error: { kode: 'KREDENSIAL_SALAH', pesan: 'Email atau password salah' },
             });
           }
 
           if (pengguna.dinonaktifkan) {
             // Pesan yang sama juga di sini — jangan ungkap status akun.
             return res.status(401).json({
-              error: { kode: 'KREDENSIAL_SALAH', pesan: 'Email atau kata sandi salah' },
+              error: { kode: 'KREDENSIAL_SALAH', pesan: 'Email atau password salah' },
             });
           }
 
@@ -1597,10 +1777,22 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Rate limit di awal memeriksa **dua** kunci sekaligus, dan keduanya menutup serangan yang berbeda. Kunci per akun menahan seribu mesin yang masing-masing mencoba beberapa kali terhadap satu akun — pola botnet yang setiap IP-nya berada jauh di bawah ambang per-IP. Kunci per IP menahan satu mesin yang mencoba ribuan password. Menghilangkan salah satunya menyisakan satu pintu terbuka lebar.',
+      ),
+      p(
+        'Perhatikan **tiga** cabang penolakan di tengah fungsi ini mengembalikan kode dan pesan yang **sama persis**, yaitu untuk email tidak ada, password salah, dan akun dinonaktifkan. Yang ketiga paling sering dianggap tidak berbahaya dengan alasan "kan cuma memberi tahu akunnya nonaktif", padahal ia mengonfirmasi bahwa email itu **terdaftar**, dan itu separuh informasi yang dicari penyerang.',
+      ),
+      p(
+        'Baris `argon2.verify(pengguna?.kataSandiHash ?? HASH_PALSU, ...)` menutup kebocoran yang tidak terlihat di isi respons. Karena argon2 sengaja lambat, langsung `return` saat pengguna tidak ada akan menghasilkan jawaban dalam milidetik, sementara email yang terdaftar butuh ratusan milidetik. Selisih itu bisa diukur dari luar, dan hasilnya sama saja dengan pesan error yang berbeda. Perhatikan `HASH_PALSU` dihitung **sekali** di luar fungsi — menghitungnya per permintaan justru menambah beban tanpa manfaat.',
+      ),
+      p(
+        'Tiga langkah terakhir menutup kelas kegagalan dari tabel di atas. `needsRehash` mengangkat password lama ke parameter biaya baru — dan inilah satu-satunya momen password aslinya tersedia. `regenerasiSesi` mengganti id sesi **sebelum** identitas dititipkan, mencegah session fixation. Dan `log.info` mencatat login berhasil beserta IP-nya; tanpa jejak itu, "akun saya diakses orang lain" tidak bisa ditelusuri sama sekali.',
+      ),
       callout(
         'danger',
         'Waktu respons juga membocorkan',
-        'Kalau email tidak ada dan kamu langsung `return`, responsnya jauh lebih cepat daripada saat hash sungguhan diverifikasi. Selisih itu bisa diukur, dan ia sama saja dengan pesan error yang berbeda. Verifikasi terhadap hash palsu menutupnya.',
+        'Kalau email tidak ada dan kamu langsung `return`, responsnya jauh lebih cepat daripada saat hash sungguhan diverifikasi. Selisih itu bisa diukur, dan ia sama saja dengan pesan error yang berbeda. Verifikasi terhadap dummy hash menutupnya.',
       ),
 
       h2('Aturan password'),
@@ -1639,6 +1831,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Struktur fungsi ini yang paling penting, yaitu **respons di luar blok `if`**. Apa pun hasil pencarian emailnya, jawabannya sama persis, sehingga tidak ada yang bisa memakai formulir "lupa password" sebagai alat memetakan email mana yang terdaftar. Perhatikan kalimat jawabannya juga disusun untuk itu, sebab kalimat "kalau email terdaftar, kami sudah mengirim…" tidak mengaku apa pun.',
+      ),
+      p(
+        'Pengiriman emailnya lewat **antrean**, bukan langsung, dan itu bukan sekadar kerapian. Memanggil layanan email di sini akan menambah waktu respons hanya untuk email yang **terdaftar** — dan selisih waktu itu membocorkan persis yang baru saja kamu tutup. Antrean membuat kedua jalur selesai sama cepatnya.',
+      ),
+      p(
+        'Komentar pada `hash: sha256(token)` menandai keputusan yang sama seperti pada refresh token di sub-bab 2.4: yang tersimpan adalah **sidik jarinya**, sedangkan token aslinya hanya ada di email pengguna. Database yang bocor jadi tidak cukup untuk mengambil alih akun mana pun. Perhatikan SHA-256 memadai di sini dan argon2 justru tidak perlu — token ini nilai acak 32 byte yang mustahil ditebak, bukan password buatan manusia yang rawan serangan kamus.',
+      ),
       ol(
         'Token acak berentropi tinggi, disimpan sebagai hash.',
         'Berumur pendek: 15–60 menit.',
@@ -1665,6 +1866,15 @@ export const lessons: LessonDraft[] = [
           Buffer.from(kodeBenar.padEnd(6)),
         );
         `,
+      ),
+      p(
+        'Komentar pembuka menyatakan aritmetikanya dengan jujur: kode enam digit hanya punya **satu juta** kemungkinan. Tanpa batas percobaan, itu bukan pertahanan sama sekali — skrip sederhana bisa menghabiskan seluruhnya dalam hitungan menit. Ini kelalaian yang menyakitkan karena MFA dipasang justru untuk melindungi akun, lalu endpoint verifikasinya dibiarkan terbuka dan seluruh manfaatnya hilang.',
+      ),
+      p(
+        'Perhatikan komentar `kode dibatalkan, bukan sekadar ditolak`. Bedanya menentukan: kalau kamu hanya menolak percobaan ke-6, penyerang tinggal menunggu jendela rate limit berlalu lalu melanjutkan dari tebakan berikutnya — kodenya masih sah dan ruang tebakannya menyusut terus. `batalkanKodeOtp` membuang kodenya sepenuhnya, sehingga setiap serangan harus dimulai dari nol dengan kode baru.',
+      ),
+      p(
+        '`timingSafeEqual` menutup kebocoran yang lebih halus. Perbandingan `===` biasa **berhenti pada karakter pertama yang berbeda**, jadi kode yang tiga digit pertamanya benar dibandingkan sedikit lebih lama daripada yang salah sejak awal. Selisihnya sangat kecil, tetapi cukup untuk menebak digit demi digit — mengubah satu juta kemungkinan menjadi enam puluh percobaan. Perhatikan `.padEnd(6)` di kedua sisi: `timingSafeEqual` melempar kalau panjang buffer-nya berbeda, dan pengecualian itu sendiri akan membocorkan panjang kode yang benar.',
       ),
       callout(
         'danger',
@@ -1798,7 +2008,7 @@ export const lessons: LessonDraft[] = [
             'Perintah SQL untuk mencabut izin. `REVOKE UPDATE, DELETE ON audit_log` menegakkan sifat append-only di **lapisan database**, bukan sekadar di kesepakatan tim.',
         },
         {
-          term: 'jejak audit (audit trail)',
+          term: 'audit trail',
           meaning:
             'Catatan **siapa melakukan apa, terhadap objek mana, kapan**. Ia yang membedakan insiden yang bisa dijawab dari insiden yang hanya bisa ditebak luasnya.',
         },
@@ -1822,6 +2032,15 @@ export const lessons: LessonDraft[] = [
         # Pin action ke SHA, bukan tag — tag bisa dipindahkan pemiliknya
         - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608   # v4.1.0
         `,
+      ),
+      p(
+        '`npm ci --ignore-scripts` menutup jalur serangan yang bekerja **saat pemasangan**, jauh sebelum kodemu berjalan. Skrip `postinstall` sebuah paket berjalan dengan hak penggunamu — di laptopmu, dan lebih berbahaya lagi di CI, tempat variabel environment memuat token npm serta kredensial deploy. Perhatikan komentarnya menambahkan syarat: hanya kalau paketmu memang tidak membutuhkannya, karena sebagian paket sah benar-benar mengandalkan skrip itu untuk mengompilasi binary.',
+      ),
+      p(
+        'Blok kedua menyematkan action ke **SHA commit**, bukan tag. Bedanya mendasar: tag Git hanyalah penunjuk yang **bisa dipindahkan** pemilik repositori kapan saja, sedangkan SHA adalah sidik jari isi commit yang mustahil dipalsukan. Repositori action yang dibajak tinggal memindahkan tag `v4` ke commit berbahaya, dan setiap workflow yang memakai `@v4` langsung menjalankannya — dengan akses ke seluruh rahasia CI-mu.',
+      ),
+      p(
+        'Perhatikan komentar `# v4.1.0` di ujung baris. SHA tidak terbaca manusia, jadi tanpa catatan itu tidak ada yang tahu versi apa yang sedang dipakai maupun kapan layak dinaikkan. Alat seperti Dependabot juga membacanya untuk mengusulkan pembaruan — jadi komentar itu bagian dari mekanismenya, bukan sekadar catatan.',
       ),
       callout(
         'danger',
@@ -1875,6 +2094,15 @@ export const lessons: LessonDraft[] = [
         }));
         `,
       ),
+      p(
+        'Komentar berhuruf besar menandai kesalahan yang paling sering membuat verifikasi webhook gagal misterius: tanda tangan **wajib** dihitung dari body **mentah**, bukan dari hasil `JSON.parse` yang diserialisasi ulang. `JSON.stringify(req.body)` bisa menghasilkan urutan kunci atau spasi yang berbeda dari yang dikirim pengirim, dan satu byte berbeda sudah cukup membuat HMAC-nya tidak cocok. Blok kedua menunjukkan caranya: opsi `verify` pada `express.json` menyimpan buffer aslinya **sebelum** diurai.',
+      ),
+      p(
+        'Pemeriksaan `umur > 300` menutup **replay attack**. Tanpa itu, permintaan sah yang pernah disadap, entah dari log proxy, dari riwayat, atau dari mana pun, bisa dikirim ulang berkali-kali dengan tanda tangan yang tetap valid selamanya, karena tanda tangan hanya membuktikan keaslian isi, bukan kesegarannya. Perhatikan `timestamp` ikut masuk ke perhitungan HMAC (`${timestamp}.${req.rawBody}`), sebab kalau tidak, penyerang tinggal mengganti header timestamp-nya sendiri.',
+      ),
+      p(
+        '`timingSafeEqual` di akhir memakai alasan yang sama seperti pada OTP, sebab perbandingan `===` berhenti di karakter pertama yang berbeda, dan selisih waktunya bisa diukur untuk menebak tanda tangan yang benar karakter demi karakter. Perhatikan `a.length !== b.length` diperiksa lebih dulu dengan `||`, karena `timingSafeEqual` melempar untuk panjang yang berbeda, dan hubung-singkat itu mencegah pengecualiannya. Dan `log.warn` mencatat setiap kegagalan, sebab lonjakan tanda tangan tidak sah adalah sinyal seseorang sedang mencoba memalsukan peristiwa.',
+      ),
       callout(
         'danger',
         'Webhook tanpa verifikasi tanda tangan adalah endpoint publik yang dipercaya',
@@ -1899,6 +2127,15 @@ export const lessons: LessonDraft[] = [
         res.status(200).end();
         `,
       ),
+      p(
+        'Komentar pembuka menyebut sifat yang menentukan seluruh rancangan ini, yaitu pengirim webhook memakai jaminan **at-least-once**. Kalau jawabanmu lambat, gagal, atau koneksinya putus sebelum sampai, mereka mengirim ulang, dan itu perilaku yang benar dari sisi mereka alih-alih bug. Konsekuensinya, handler webhook **wajib** aman dijalankan berulang, persis seperti handler job di sub-bab 2.8.',
+      ),
+      p(
+        '`klaimPeristiwaWebhook` mengerjakan pemeriksaan dan penandaan dalam **satu operasi atomik** — biasanya `INSERT` yang mengandalkan batasan `UNIQUE` pada `idPeristiwa`. Itu penting karena dua pengiriman ulang bisa tiba benar-benar bersamaan; pola "cek dulu, lalu tulis" punya jendela di antaranya, dan di jendela itulah keduanya sama-sama menyimpulkan peristiwanya belum pernah diproses.',
+      ),
+      p(
+        'Perhatikan duplikat dijawab **`200`**, bukan `409` atau error. Ini berlawanan dengan naluri karena duplikat terasa seperti sesuatu yang layak ditolak, tetapi status `4xx`/`5xx` akan membuat pengirim mencoba lagi untuk peristiwa yang **sudah berhasil** kamu proses, dan pengulangannya tidak akan pernah berhenti. Duplikat yang terdeteksi bukan kegagalan melainkan hasil yang benar, dan `200` yang menyatakannya.',
+      ),
       callout(
         'warning',
         'Jawab `200` untuk duplikat, bukan error',
@@ -1921,7 +2158,7 @@ export const lessons: LessonDraft[] = [
         'Berlaku juga untuk `pickle` di Python, serialisasi native Java, dan `yaml.load` tanpa loader aman. Semuanya bisa membangun objek arbitrer saat mengurai.',
       ),
 
-      h2('Integritas data dan jejak audit'),
+      h2('Integritas data dan audit trail'),
       code(
         'sql',
         `
@@ -1940,6 +2177,15 @@ export const lessons: LessonDraft[] = [
         -- Hanya INSERT. Aplikasi TIDAK boleh bisa mengubah atau menghapusnya.
         REVOKE UPDATE, DELETE ON audit_log FROM app_user;
         `,
+      ),
+      p(
+        'Pasangan kolom `sebelum` dan `sesudah` adalah yang membedakan audit log dari log biasa. Log aplikasi mencatat bahwa sesuatu **terjadi**, sedangkan kedua kolom `JSONB` ini mencatat **apa yang berubah**, sehingga saat menyelidiki insiden, kamu bisa melihat nilai lamanya dan memulihkannya. Perhatikan keduanya `nullable`, sebab pembuatan tidak punya `sebelum` dan penghapusan tidak punya `sesudah`.',
+      ),
+      p(
+        'Baris `REVOKE` di akhir yang paling penting, dan ia menerapkan hak akses minimum di tempat yang jarang terpikir. Aplikasi hanya perlu **menulis** ke tabel ini — ia tidak pernah punya alasan sah untuk mengubah atau menghapus catatan audit. Mencabut izinnya di lapisan database berarti penyerang yang menguasai aplikasi tetap tidak bisa membersihkan jejaknya, bahkan dengan menjalankan query apa pun yang ia mau.',
+      ),
+      p(
+        'Perhatikan pencabutan ini dilakukan pada `app_user`, yaitu user database yang dipakai aplikasi, dan bukan pada pemilik skema. Konsekuensinya harus diterima sadar, sebab migrasi dan pembersihan berkala tabel ini nanti butuh kredensial berbeda. Itu memang tujuannya. Dan seperti disebut di sub-bab 5.9, salin juga ke penyimpanan terpisah yang append-only, karena siapa pun yang menguasai server database masih bisa menyentuh tabelnya langsung.',
       ),
       callout(
         'tip',
@@ -2012,7 +2258,7 @@ export const lessons: LessonDraft[] = [
             'Kejadian yang bernilai untuk investigasi: login berhasil/gagal, penolakan otorisasi, perubahan izin, aksi admin, ekspor data. Daftarnya ditentukan **sebelum** insiden, bukan sesudah.',
         },
         {
-          term: 'id korelasi (`reqId`)',
+          term: 'correlation id (`reqId`)',
           meaning:
             'Satu id yang menempel pada semua catatan dari satu permintaan. Tanpa itu, log adalah ribuan baris terpisah yang tidak bisa dirangkai menjadi satu cerita.',
         },
@@ -2071,7 +2317,7 @@ export const lessons: LessonDraft[] = [
           ['Log hanya di disk instance', 'Hilang bersama instance yang dibuang'],
           ['Tidak ada alert', 'Serangan berlangsung berbulan-bulan'],
           ['Log memuat rahasia', 'Log itu sendiri jadi target'],
-          ['Tanpa id korelasi', 'Tidak bisa merangkai satu permintaan'],
+          ['Tanpa correlation id', 'Tidak bisa merangkai satu permintaan'],
           ['Retensi terlalu pendek', 'Kejadian lama tidak bisa ditelusuri'],
         ],
       ),
@@ -2120,6 +2366,15 @@ export const lessons: LessonDraft[] = [
         # log yang sudah terkirim keluar.
         node server.js
         `,
+      ),
+      p(
+        'Perhatikan perintahnya sengaja **polos** — tidak ada pengalihan ke berkas, tidak ada konfigurasi rotasi. Aplikasinya hanya menulis ke stdout, dan lingkungan yang menangkapnya: Docker, systemd, atau agen pengumpul milik penyedia hosting. Ini prinsip 12-Factor dari sub-bab 1.7, tetapi di konteks keamanan ia punya alasan tambahan yang lebih penting.',
+      ),
+      p(
+        'Komentar di dalamnya menyebutkannya: **penyerang yang menguasai satu instance tidak bisa menghapus log yang sudah terkirim keluar**. Log yang hanya ada di disk instance adalah log yang bisa dihapus oleh siapa pun yang berhasil masuk ke sana — dan menghapus jejak adalah salah satu hal pertama yang dilakukan penyerang. Begitu log terkirim ke sistem terpusat, ia berada di luar jangkauan mesin yang dibobol.',
+      ),
+      p(
+        'Idealnya sistem penyimpanan itu bersifat **append-only**: catatan bisa ditambahkan tetapi tidak bisa diubah atau dihapus, bahkan oleh akun yang mengirimnya. Tanpa itu, kredensial pengirim log yang ikut bocor cukup untuk membersihkan jejak dari pusat sekalipun.',
       ),
 
       h2('Log tanpa alert adalah arsip'),
@@ -2182,6 +2437,15 @@ export const lessons: LessonDraft[] = [
         # Lalu periksa: apakah alertnya benar-benar datang?
         `,
       ),
+      p(
+        'Perulangan ini **meniru serangan penebakan password** — tiga puluh percobaan gagal terhadap satu akun, persis pola "kegagalan login beruntun satu akun" di tabel di atas. Yang diuji bukan apakah servermu menolak (itu sudah pasti), melainkan apakah **rantai pemantauannya sampai ke ujung**: peristiwa tercatat, aturan alert cocok, notifikasi terkirim, dan seseorang benar-benar menerimanya.',
+      ),
+      p(
+        'Rantai itu punya banyak titik putus yang **tidak bergejala**. Aturan alert bisa salah tulis nama field. Saluran Slack bisa diarsipkan. Kunci integrasi bisa kedaluwarsa. Ambang bisa disetel terlalu tinggi saat seseorang mencoba mengurangi kebisingan. Semuanya diam sampai hari kamu benar-benar membutuhkannya — dan hari itu bukan waktu yang tepat untuk menemukan bahwa alertnya tidak pernah bekerja.',
+      ),
+      p(
+        'Perlakukan ini seperti menguji cadangan: **cadangan yang tidak pernah dipulihkan bukan cadangan**, dan alert yang tidak pernah dipicu bukan deteksi. Jalankan berkala, dan catat kapan terakhir jalurnya terbukti utuh. Jalankan di lingkungan staging kalau memicu tiga puluh kegagalan login di produksi akan mengunci akun sungguhan.',
+      ),
       callout(
         'tip',
         'Pemantauan yang tidak pernah diuji biasanya tidak bekerja',
@@ -2236,7 +2500,7 @@ export const lessons: LessonDraft[] = [
       {
         term: 'IMDSv2',
         meaning:
-          'Versi kedua layanan metadata AWS yang **mewajibkan token** lewat permintaan `PUT` lebih dulu. Ia membuat SSRF sederhana — yang hanya bisa melakukan `GET` — tidak lagi cukup.',
+          'Versi kedua layanan metadata AWS yang **mewajibkan token** lewat permintaan `PUT` lebih dulu. Ia membuat SSRF sederhana yang hanya bisa melakukan `GET` tidak lagi cukup.',
       },
       {
         term: 'rentang IP privat',
@@ -2373,7 +2637,7 @@ export const lessons: LessonDraft[] = [
       'Antara pemeriksaan dan permintaan sebenarnya, DNS bisa berubah — nama yang tadi menunjuk IP publik kini menunjuk `127.0.0.1`. Ini disebut DNS rebinding. Pertahanan yang benar-benar menutupnya: **allow-list host**, atau menyambung ke IP yang sudah diverifikasi sambil menyetel header `Host`.',
     ),
 
-    h2('Pertahanan berlapis'),
+    h2('Defense in depth'),
     table(
       ['Lapisan', 'Kontrol'],
       [
@@ -2386,12 +2650,12 @@ export const lessons: LessonDraft[] = [
     callout(
       'tip',
       'Egress firewall adalah kontrol yang paling sering terlewat',
-      'Hampir semua orang membatasi lalu lintas **masuk**. Membatasi lalu lintas **keluar** — server aplikasi hanya boleh menghubungi database, cache, dan daftar host tertentu — membuat SSRF yang lolos tetap tidak bisa menjangkau apa pun yang berharga.',
+      'Hampir semua orang membatasi lalu lintas **masuk**. Membatasi lalu lintas **keluar**, sehingga server aplikasi hanya boleh menghubungi database, cache, dan daftar host tertentu, membuat SSRF yang lolos tetap tidak bisa menjangkau apa pun yang berharga.',
     ),
 
     h2('Kalau URL sepenuhnya bebas'),
     p(
-      'Untuk fitur yang memang harus mengambil URL apa pun (pratinjau tautan, perayap), jalankan pengambilannya di **layanan terpisah** yang berada di jaringan terisolasi tanpa akses ke database, rahasia, maupun layanan internal. Dengan begitu, SSRF di sana tidak mendapat apa-apa.',
+      'Untuk fitur yang memang harus mengambil URL apa pun (pratinjau tautan, crawler), jalankan pengambilannya di **layanan terpisah** yang berada di jaringan terisolasi tanpa akses ke database, rahasia, maupun layanan internal. Dengan begitu, SSRF di sana tidak mendapat apa-apa.',
     ),
 
     references(
@@ -2462,7 +2726,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'fail fast',
           meaning:
-            'Gagal keras dan segera, bukan diam-diam dan belakangan. Untuk konfigurasi, artinya menolak menyala — bukan melempar error pada permintaan pertama pengguna.',
+            'Fail loudly dan segera, bukan diam-diam dan belakangan. Untuk konfigurasi, artinya menolak menyala — bukan melempar error pada permintaan pertama pengguna.',
         },
         {
           term: 'default aman',
@@ -2477,10 +2741,10 @@ export const lessons: LessonDraft[] = [
         {
           term: 'secrets manager / vault',
           meaning:
-            'Layanan penyimpan rahasia dengan kontrol akses, jejak audit, dan rotasi terkelola. Aplikasi mengambil nilainya **saat runtime**, sehingga rahasia tidak pernah tersimpan di artefak build.',
+            'Layanan penyimpan rahasia dengan kontrol akses, audit trail, dan rotasi terkelola. Aplikasi mengambil nilainya **saat runtime**, sehingga rahasia tidak pernah tersimpan di artefak build.',
         },
         {
-          term: 'pemindai rahasia (secret scanner)',
+          term: 'secret scanner',
           meaning:
             'Perkakas seperti gitleaks atau secretlint yang mencari pola rahasia di kode. Dipasang sebagai pre-commit hook dan gerbang CI, ia menangkap kebocoran **sebelum** ter-push.',
         },
@@ -2517,6 +2781,15 @@ export const lessons: LessonDraft[] = [
         NEXT_PUBLIC_SITE_URL="https://contoh.com"
         VITE_API_URL="https://api.contoh.com"
         `,
+      ),
+      p(
+        'Prefiks `NEXT_PUBLIC_` dan `VITE_` bukan sekadar konvensi penamaan — keduanya **instruksi kepada bundler**. Saat build, nilainya disalin langsung ke dalam JavaScript yang diunduh browser, jadi ia bukan lagi variabel yang dibaca saat berjalan melainkan teks yang tertanam di berkas. Siapa pun bisa menemukannya dengan membuka DevTools dan mencari di berkas bundle.',
+      ),
+      p(
+        'Perhatikan dua contoh publik di atas memang **layak** publik: alamat situs dan alamat API akan terlihat di setiap permintaan jaringan, jadi tidak ada yang disembunyikan. Itulah pemakaian prefiks yang benar — untuk konfigurasi yang kebetulan dibutuhkan browser, bukan untuk rahasia yang ingin kamu jangkau dari sana.',
+      ),
+      p(
+        'Cara kesalahan ini biasanya terjadi patut dikenali karena alurnya sangat wajar: seseorang memakai `process.env.API_KEY` di Client Component, mendapat `undefined`, mencari di internet, menemukan jawaban "tambahkan prefiks `NEXT_PUBLIC_`", dan errornya hilang. Yang sebenarnya terjadi adalah kunci API-nya baru saja diterbitkan ke setiap pengunjung. Kalau sebuah rahasia dibutuhkan dari browser, jawabannya bukan memindahkannya ke bundle — melainkan membuat endpoint di servermu yang memakainya atas nama klien.',
       ),
       callout(
         'danger',
@@ -2557,7 +2830,7 @@ export const lessons: LessonDraft[] = [
       code(
         'bash',
         `
-        # Pemindai rahasia
+        # Secret scanner
         npx secretlint "**/*"
         gitleaks detect --source .
 
@@ -2572,6 +2845,15 @@ export const lessons: LessonDraft[] = [
           uses: gitleaks/gitleaks-action@v2
           # Gagalkan CI kalau ada yang terdeteksi
         `,
+      ),
+      p(
+        'Kedua blok memasang pemindai yang sama pada **dua titik berbeda**, dan keduanya perlu karena masing-masing menangkap hal yang lolos dari yang lain. Pre-commit hook menahan rahasianya **sebelum** masuk ke riwayat git sama sekali — inilah pertahanan yang benar-benar mencegah, karena sesuai peringatan di atas, rahasia yang sudah ter-commit harus dianggap bocor dan wajib dirotasi.',
+      ),
+      p(
+        'Tetapi hook lokal bisa dilewati: `git commit --no-verify` melewatinya, dan mesin yang belum menjalankan `npm install` tidak punya hook-nya sama sekali. Karena itu pemindaian di CI ada sebagai jaring kedua — ia berjalan di server dan tidak bisa dilewati siapa pun. Perhatikan komentar "gagalkan CI kalau ada yang terdeteksi": pemindai yang hanya memberi peringatan akan diabaikan pada temuan kelima.',
+      ),
+      p(
+        'Perhatikan pula opsi `--secretlintignore .gitignore` pada hook. Tanpa itu, pemindainya akan memeriksa berkas `.env` lokalmu yang **memang** berisi rahasia sungguhan dan gagal setiap kali — lalu orang mematikan hook-nya. Menghormati `.gitignore` membuat pemindai fokus pada apa yang benar-benar akan ter-commit.',
       ),
 
       h2('Vault untuk produksi'),
@@ -2595,6 +2877,15 @@ export const lessons: LessonDraft[] = [
         # Siapa pun yang bisa menarik image itu bisa membacanya —
         # termasuk dari layer yang sudah "dihapus" di layer berikutnya.
         `,
+      ),
+      p(
+        'Kedua baris salah dengan cara yang berbeda tetapi berakhir sama. `ENV` menanam nilainya sebagai **metadata image** — siapa pun bisa membacanya dengan `docker inspect`, tanpa perlu menjalankan container-nya. `COPY .env .env` menyalin berkasnya ke dalam sistem berkas image, tempat ia bisa diekstrak dengan membongkar layer-nya.',
+      ),
+      p(
+        'Komentar terakhir menandai bagian yang paling sering disalahpahami: menambahkan `RUN rm .env` di baris berikutnya **tidak menghapusnya**. Image Docker tersusun dari layer bertumpuk, dan setiap layer menyimpan perubahannya sendiri secara permanen. Layer yang menghapus berkas hanya menandainya tidak terlihat di lapisan atas; isinya tetap utuh di layer sebelumnya dan bisa dibaca dengan menarik layer itu sendiri.',
+      ),
+      p(
+        'Konsekuensinya sama persis dengan rahasia yang pernah masuk git: begitu image-nya pernah di-push ke registry, rahasianya harus **dirotasi**, bukan sekadar dibangun ulang tanpanya. Yang benar adalah menyuntikkan rahasia **saat menjalankan** container — lewat variabel environment dari platform, atau lewat secrets manager yang dibaca aplikasi saat boot.',
       ),
       callout(
         'danger',
@@ -2620,6 +2911,15 @@ export const lessons: LessonDraft[] = [
         export const db = buatKoneksi(env.DATABASE_URL);
         `,
       ),
+      p(
+        "Satu baris `import 'server-only'` mengubah kesepakatan tim menjadi **pertahanan waktu-kompilasi**. Paketnya sendiri tidak melakukan apa-apa saat berjalan; ia dirancang agar **gagal di-resolve** dalam konteks bundle klien, sehingga build berhenti dengan pesan jelas begitu ada Client Component yang mengimpor berkas ini — entah langsung, atau lewat rantai impor sepanjang lima berkas.",
+      ),
+      p(
+        'Tanpa itu, kebocorannya **tidak bergejala sama sekali**. Bundler dengan patuh menyertakan modul yang diminta, dan `env.DATABASE_URL` ikut ke berkas JavaScript yang diunduh browser. Aplikasinya tetap berjalan normal, tidak ada error, tidak ada peringatan — kredensial databasemu hanya diam-diam terbit ke setiap pengunjung.',
+      ),
+      p(
+        'Pasang di setiap modul yang menyentuh rahasia atau koneksi: `lib/db.ts`, `lib/redis.ts`, `config/env.ts`, dan berkas yang memuat kunci penandatangan. Project ini memakai pendekatan yang sama untuk masalah berbeda — `client-bundle-boundary.test.ts` menjaga agar kurikulum tidak terimpor Client Component, karena kebocoran itu juga tidak terlihat di UI dan hanya membengkakkan bundle pembaca.',
+      ),
       callout(
         'tip',
         '`server-only` mengubah kesalahan diam menjadi kegagalan build',
@@ -2633,7 +2933,7 @@ export const lessons: LessonDraft[] = [
         'Tidak ada rahasia asli di belakang prefiks publik.',
         'Tidak ada rahasia yang di-`console.log` atau masuk log.',
         'Tidak ada rahasia di Dockerfile atau layer image.',
-        'Pemindai rahasia berjalan di pre-commit dan di CI.',
+        'Secret scanner berjalan di pre-commit dan di CI.',
         'Aplikasi gagal boot kalau ada rahasia yang hilang atau terlalu lemah.',
       ),
 
@@ -2721,7 +3021,7 @@ export const lessons: LessonDraft[] = [
         {
           term: '`500` sebagai sinyal injeksi',
           meaning:
-            'Muatan injeksi yang menghasilkan `500` berarti ia **sampai ke database**. Jawaban yang benar adalah `200` dengan hasil kosong atau `422` — bukan error internal.',
+            'Payload injeksi yang menghasilkan `500` berarti ia **sampai ke database**. Jawaban yang benar adalah `200` dengan hasil kosong atau `422` — bukan error internal.',
         },
         {
           term: 'temuan yang diterima sadar',
@@ -2765,6 +3065,15 @@ export const lessons: LessonDraft[] = [
           localhost:3000/api/admin/pengguna -H "Authorization: Bearer $TOKEN_ANA"
         `,
       ),
+      p(
+        'Ketiga uji ini menyerang kategori peringkat satu OWASP dari tiga arah berbeda, dan ketiganya perlu. Yang pertama menguji **akses per objek** — token Ana terhadap sumber daya milik Budi. Perhatikan daftar jalurnya melampaui baris database: berkas unggahan dan status job ekspor juga objek yang punya pemilik, dan keduanya paling sering terlewat karena tidak terasa seperti "data".',
+      ),
+      p(
+        "Uji kedua menyerang **endpoint daftar**, titik buta yang dibahas di sub-bab 5.1. `jq '[.data[].penulisId] | unique'` mengambil seluruh `penulisId` dari hasil lalu membuang duplikatnya — jadi keluarannya seharusnya array berisi **satu** id saja, milik Ana. Dua id atau lebih berarti scope query-nya bocor. Ini cara memeriksa yang jauh lebih cepat daripada membaca dua puluh objek satu per satu.",
+      ),
+      p(
+        'Uji ketiga menguji **escalation vertikal**: pengguna biasa memanggil endpoint admin. Bedanya dengan dua uji sebelumnya, yang diperiksa di sini bukan kepemilikan melainkan peran — dan kegagalannya biasanya lahir dari rute admin yang lupa dimasukkan ke grup middleware, bukan dari query yang salah.',
+      ),
 
       h2('2. Mass assignment'),
       code(
@@ -2777,18 +3086,27 @@ export const lessons: LessonDraft[] = [
         # Lalu periksa di database: penulisId HARUS Ana, status HARUS draf.
         `,
       ),
+      p(
+        'Body permintaan ini menyelipkan **tiga** field yang tidak seharusnya bisa diisi klien, masing-masing menguji hal berbeda. `penulisId: 999` mencoba membuat artikel atas nama orang lain. `status: "terbit"` mencoba melewati alur penerbitan yang mungkin butuh izin tersendiri. Dan `peran: "admin"` mencoba field yang bahkan tidak ada di sumber daya ini — kalau kode di belakangnya menyebar body mentah ke `update`, field itu bisa mendarat di tempat yang tidak diduga.',
+      ),
+      p(
+        'Perhatikan komentar terakhir menyuruh **memeriksa di database**, bukan membaca respons. Itu penting: respons `201` yang tampak normal tidak membuktikan apa-apa — bisa saja artikelnya memang dibuat, tetapi dengan `penulisId` milik Budi. Bahkan respons yang menampilkan `penulisId` Ana pun belum cukup kalau lapisan Resource kebetulan menimpanya saat serialisasi. Yang menentukan adalah baris yang benar-benar tersimpan.',
+      ),
+      p(
+        'Hasil yang benar juga bukan penolakan. Dengan skema `.strict()`, permintaan ini seharusnya dijawab `422` karena ada field asing; tanpa `.strict()` tetapi dengan `$fillable` yang benar, ia dijawab `201` sambil mengabaikan ketiganya. Keduanya aman — yang menjadi temuan adalah `201` dengan field yang **benar-benar tersimpan**.',
+      ),
 
       h2('3. Injeksi'),
       code(
         'bash',
         `
-        for muatan in "' OR '1'='1" "'; DROP TABLE artikel; --" "\\" OR 1=1--"; do
+        for payload in "' OR '1'='1" "'; DROP TABLE artikel; --" "\\" OR 1=1--"; do
           curl -s -o /dev/null -w "%{http_code} " localhost:3000/api/artikel \\
-            --get --data-urlencode "cari=$muatan" -H "Authorization: Bearer $TOKEN_ANA"
+            --get --data-urlencode "cari=$payload" -H "Authorization: Bearer $TOKEN_ANA"
         done
         echo
         # Harus 200 dengan hasil kosong, atau 422 — TIDAK BOLEH 500.
-        # 500 berarti muatannya sampai ke database.
+        # 500 berarti payload-nya sampai ke database.
 
         # NoSQL / type confusion
         curl -s -o /dev/null -w "%{http_code}\\n" -X POST localhost:3000/api/auth/masuk \\
@@ -2796,6 +3114,15 @@ export const lessons: LessonDraft[] = [
           -d '{"email":"admin@x.com","kataSandi":{"$ne":null}}'
         # Harus 422, bukan 200.
         `,
+      ),
+      p(
+        'Komentar di tengah menyatakan kriteria yang paling berguna dari seluruh checklist ini: **`500` berarti payload-nya sampai ke database**. Jawaban `200` dengan hasil kosong berarti tanda kutipnya diperlakukan sebagai teks pencarian biasa — persis yang diinginkan. Jawaban `422` berarti validasi menolaknya lebih awal, juga baik. Tetapi `500` berarti query-nya rusak karena sintaks SQL berubah, dan itu bukti langsung bahwa input klien ikut menyusun perintah.',
+      ),
+      p(
+        "Ketiga payload sengaja berbeda bentuk. `' OR '1'='1` menutup kutip tunggal, `\"` menutup kutip ganda, dan `'; DROP TABLE artikel; --` menguji apakah beberapa perintah bisa dirangkai sekaligus. Perhatikan `--data-urlencode` dipakai alih-alih menempelkannya langsung ke URL — tanpa itu, karakter seperti `&` dan spasi akan mengubah bentuk query string dan ujiannya jadi tidak menguji apa pun.",
+      ),
+      p(
+        'Uji terakhir menyerang kelas yang berbeda dan sering luput: **type confusion**. Yang dikirim bukan teks berbahaya melainkan **objek** di tempat yang seharusnya string. Kalau jawabannya `200`, artinya login berhasil tanpa mengetahui password — operator `$ne` diteruskan ke query dan mengubah syaratnya menjadi "password apa pun asal ada". Jawaban `422` membuktikan skema validasi memeriksa tipenya, bukan hanya keberadaannya.',
       ),
 
       h2('4. Autentikasi'),
@@ -2821,6 +3148,15 @@ export const lessons: LessonDraft[] = [
           localhost:3000/api/saya/artikel -H "Authorization: Bearer $TOKEN_SEBELUM_GANTI"
         `,
       ),
+      p(
+        'Uji pertama memeriksa **dua** hal sekaligus lewat `%{time_total}s` dan `jq` pada pesannya. Pesan yang berbeda antara email terdaftar dan tidak adalah enumerasi akun yang jelas. Tetapi selisih **waktu** sama membocorkannya walau pesannya identik — dan itulah yang biasanya lolos review, karena membaca kode tidak memperlihatkan durasi. Keduanya harus mirip; selisih yang konsisten beberapa ratus milidetik adalah temuan.',
+      ),
+      p(
+        'Uji kedua membuktikan rate limit **benar-benar aktif di server yang berjalan**, bukan hanya terpasang di kode. Bacalah deretan status codenya: seharusnya `401` beberapa kali lalu berubah menjadi `429`. Kalau ketiga puluh percobaan seluruhnya `401`, limiter-nya tidak bekerja — mungkin `trust proxy` salah sehingga semua permintaan dihitung dari IP proxy, atau penyimpanannya di memori sementara ada beberapa proses berjalan.',
+      ),
+      p(
+        'Uji ketiga menutup kelalaian yang paling merugikan korban: **token lama setelah ganti password**. Alasan utama orang mengganti password adalah kecurigaan akun dibajak — dan kalau token penyerang tetap sah setelahnya, tindakan itu tidak mengubah apa pun baginya sementara korban mengira dirinya sudah aman. Jawaban yang benar `401`.',
+      ),
 
       h2('5. Kebocoran data'),
       code(
@@ -2838,6 +3174,15 @@ export const lessons: LessonDraft[] = [
           | grep -iE "stack|at /|node_modules|vendor/|constraint|relation" \\
           && echo "DETAIL INTERNAL BOCOR"
         `,
+      ),
+      p(
+        'Perulangan pertama menyisir **beberapa endpoint sekaligus** mencari kata yang tidak boleh ada di respons mana pun. Itu penting karena kebocoran kolom biasanya tidak merata: endpoint profil mungkin sudah rapi memilih kolomnya, sementara endpoint daftar masih memakai `SELECT *` dan ikut mengirim `password_hash`. Perhatikan pencariannya memakai `-i` supaya `passwordHash`, `PasswordHash`, dan `password_hash` sama-sama tertangkap.',
+      ),
+      p(
+        'Uji kedua sengaja mengirim id yang **terlalu besar untuk tipe kolomnya** — itu cara memancing error dari lapisan database, bukan dari validasi. Yang dicari di jawabannya adalah jejak khas kebocoran internal: `stack` dan `at /` menandakan stack trace, `node_modules`/`vendor/` membocorkan struktur project, dan `constraint`/`relation` adalah kata dari pesan PostgreSQL mentah yang menyebut nama tabel serta kolom.',
+      ),
+      p(
+        'Perhatikan kedua uji memakai pola `grep ... && echo "BOCOR"` — keduanya **berhasil bila tidak menemukan apa pun**. Keluaran yang kosong berarti bersih. Ini kebalikan dari kebiasaan membaca hasil perintah, dan patut disadari supaya kamu tidak salah menyimpulkan "tidak ada keluaran" sebagai "ujinya tidak jalan".',
       ),
 
       h2('6. Konfigurasi & header'),
@@ -2863,6 +3208,15 @@ export const lessons: LessonDraft[] = [
           | grep -i "access-control-allow-origin" && echo "MEMANTULKAN ORIGIN" || echo "menolak (benar)"
         `,
       ),
+      p(
+        'Uji header pertama mencari enam nama sekaligus, tetapi yang keenam **berbeda maksud** dari lima lainnya. Lima yang pertama harus **ada**; `x-powered-by` harus **tidak ada** — ia mengumumkan framework beserta versinya, dan itu pengintaian gratis bagi penyerang yang mencari kerentanan yang sudah diketahui.',
+      ),
+      p(
+        'Dua perulangan berikutnya menguji apa yang **tidak boleh terjangkau**. Berkas `.env` yang menjawab `200` berarti document root menunjuk akar project, bukan `public/` — kebocoran total yang tidak bergejala sama sekali. Dan endpoint internal seperti `/horizon` atau `/metrics` yang menjawab `200` berarti dashboard-nya terbuka; ingat dari sub-bab 5.9, keduanya memperlihatkan payload job dan peta operasional yang sering lebih kaya daripada endpoint API mana pun.',
+      ),
+      p(
+        'Uji CORS di akhir memakai pola yang perlu dibaca terbalik: ia **berhasil ketika `grep` tidak menemukan apa-apa**. Keluaran "menolak (benar)" berarti tidak ada header `Access-Control-Allow-Origin` untuk origin asing. Kalau yang muncul "MEMANTULKAN ORIGIN", berarti servermu memantulkan origin apa pun kembali — dan kebijakan CORS-mu sama saja tidak ada.',
+      ),
 
       h2('7. Batas & anti-penyalahgunaan'),
       code(
@@ -2881,6 +3235,15 @@ export const lessons: LessonDraft[] = [
         # Harus 413, bukan server mati.
         `,
       ),
+      p(
+        "Uji pertama memeriksa hasilnya lewat `jq '.data | length'`, bukan lewat status code — dan itu disengaja. Permintaan `?per_hal=999999` akan tetap menjawab `200`; yang membuktikan batasnya ditegakkan adalah **jumlah item** yang benar-benar dikembalikan. Kalau angkanya 4.213, berarti seluruh tabel ikut terkirim dan batas atasnya tidak pernah dipasang.",
+      ),
+      p(
+        'Uji kedua membangun berkas 20 MB berisi huruf `a` lewat `head -c` dan `tr`, lalu mengirimkannya sebagai body. Komentar terakhir menyatakan dua hasil yang berbeda maknanya: `413` berarti batas ukuran bekerja dan permintaannya ditolak sebelum diuraikan. Yang **tidak boleh** terjadi adalah server mati atau menggantung — itu berarti body raksasa sempat masuk ke memori, dan satu permintaan seperti ini cukup untuk menjatuhkan layanan.',
+      ),
+      p(
+        'Ingat dari sub-bab 2.6 bahwa setiap jalur masuk punya batasnya sendiri. Lulus uji ini pada endpoint JSON **tidak** berarti endpoint unggahan berkas ikut terlindungi — Multer punya `limits` terpisah yang perlu diuji sendiri dengan berkas besar sungguhan.',
+      ),
 
       h2('8. Dependency'),
       code(
@@ -2890,6 +3253,12 @@ export const lessons: LessonDraft[] = [
         composer audit
         gitleaks detect --source . --no-git
         `,
+      ),
+      p(
+        'Tiga perintah ini menutup dua kategori OWASP sekaligus. Dua yang pertama memeriksa **dependency rentan**, dengan opsi yang membuat hasilnya bisa ditindaklanjuti: `--production` membuang temuan di `devDependencies` yang tidak terekspos ke pengguna, dan `--audit-level=high` menetapkan ambang yang memang layak menghentikan rilis.',
+      ),
+      p(
+        'Perintah ketiga memeriksa **rahasia yang bocor**, dan opsi `--no-git` di sana penting. Tanpanya, `gitleaks` hanya menyisir riwayat commit; dengan `--no-git`, ia memeriksa berkas yang benar-benar ada di direktori kerja — termasuk berkas yang belum ter-commit, hasil build, dan berkas konfigurasi yang tersalin ke tempat yang tidak seharusnya. Keduanya berguna, dan menjalankan yang ini melengkapi pemindai riwayat yang sudah berjalan di CI.',
       ),
 
       h2('Menuliskan temuan'),
@@ -2917,6 +3286,15 @@ export const lessons: LessonDraft[] = [
         [ ] Tautan berbagi bisa diteruskan siapa pun — ini memang inti fiturnya,
             dinyatakan jelas di antarmuka, dan bisa dicabut pemiliknya.
         `,
+      ),
+      p(
+        'Perhatikan setiap butir BERAT disertai baris **Bukti** berisi perintah dan hasilnya. Itu yang membedakan temuan dari opini: "GET menjawab 200 untuk artikel milik pengguna lain" bisa diverifikasi ulang siapa pun dalam sepuluh detik, sedangkan "otorisasinya kurang ketat" akan berakhir sebagai perdebatan. Tulis temuan dalam bentuk yang bisa dibuktikan salah.',
+      ),
+      p(
+        'Label BERAT diberi keterangan **"tunda rilis sampai diperbaiki"**, dan itu bukan hiasan. Pembagian tingkatnya bukan soal seberapa mudah diperbaiki melainkan **seberapa besar akibatnya kalau dibiarkan** — dua butir BERAT di atas sama-sama membocorkan data pengguna lain, sementara `X-Powered-By` yang masih terkirim hanya mempermudah pengintaian. Menaruh keduanya sederet akan mengubur yang penting di antara yang sepele.',
+      ),
+      p(
+        'Bagian **DITERIMA SECARA SADAR** adalah yang paling sering hilang dari laporan audit, dan ketiadaannya justru berbahaya. Risiko itu tidak bisa dimitigasi tanpa membunuh fiturnya — inti berbagi tautan memang siapa pun yang memegangnya bisa membaca. Menuliskannya lengkap dengan alasan dan mitigasi yang menyertainya mengubahnya dari kelalaian menjadi keputusan yang bisa **ditinjau ulang** saat keadaan berubah, misalnya saat fitur itu nanti dipakai untuk dokumen yang jauh lebih sensitif.',
       ),
       callout(
         'tip',
@@ -2946,7 +3324,7 @@ export const lessons: LessonDraft[] = [
         'Pengambilan URL memakai allow-list host dan tidak mengikuti redirect otomatis',
         'Webhook memverifikasi tanda tangan dari body mentah, dan idempoten',
         '`npm audit` / `composer audit` bersih untuk dependency produksi',
-        'Pemindai rahasia berjalan dan tidak menemukan apa pun',
+        'Secret scanner berjalan dan tidak menemukan apa pun',
         'Peristiwa keamanan tercatat, terpusat, dan punya alert yang sudah diuji',
         'Temuan ditulis dan diurutkan berdasarkan dampak, termasuk yang diterima sadar',
       ),

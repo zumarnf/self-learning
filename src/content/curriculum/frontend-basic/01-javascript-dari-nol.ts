@@ -64,7 +64,7 @@ export const chapter = defineChapter({
           {
             term: 'API',
             meaning:
-              'Singkatan *Application Programming Interface*, dibaca huruf per huruf "a-pe-i". Terjemahan bebasnya: **daftar perintah siap pakai yang disediakan sesuatu, supaya programmu bisa menyuruhnya melakukan sesuatu**. Analogi yang paling dekat adalah daftar menu di rumah makan — kamu tidak perlu tahu cara memasaknya, cukup tahu apa yang boleh dipesan dan bagaimana cara memesannya. `document` dan `fetch` adalah API yang disediakan browser; `fs` dan `http` adalah API yang disediakan Node.js. Nanti di bab Backend, kata "API" juga dipakai untuk arti yang sedikit berbeda — layanan di server yang dipanggil lewat jaringan. Konsep dasarnya tetap sama: sesuatu yang menyediakan perintah, dan sesuatu yang memakainya.',
+              'Singkatan *Application Programming Interface*, dibaca huruf per huruf "a-pe-i". Terjemahan bebasnya adalah **daftar perintah siap pakai yang disediakan sesuatu, supaya programmu bisa menyuruhnya melakukan sesuatu**. Analogi yang paling dekat adalah daftar menu di rumah makan, sebab kamu tidak perlu tahu cara memasaknya, cukup tahu apa yang boleh dipesan dan bagaimana cara memesannya. `document` dan `fetch` adalah API yang disediakan browser, sedangkan `fs` dan `http` adalah API yang disediakan Node.js. Nanti di bab Backend, kata "API" juga dipakai untuk arti yang sedikit berbeda, yaitu layanan di server yang dipanggil lewat jaringan. Konsep dasarnya tetap sama, yakni sesuatu yang menyediakan perintah dan sesuatu yang memakainya.',
           },
           {
             term: 'document',
@@ -99,7 +99,7 @@ export const chapter = defineChapter({
           {
             term: 'process',
             meaning:
-              'Artinya *proses*, yaitu satu program yang sedang berjalan di sistem operasi. Objek **Node.js** yang mewakili program**mu** sendiri: dari sini kamu membaca argumen baris perintah (`process.argv`), variabel lingkungan (`process.env`, tempat rahasia seperti kata sandi database disimpan), dan menghentikan program (`process.exit()`). Objek ini akan sering muncul lagi di bab Deployment.',
+              'Artinya *proses*, yaitu satu program yang sedang berjalan di sistem operasi. Objek **Node.js** yang mewakili program**mu** sendiri: dari sini kamu membaca argumen baris perintah (`process.argv`), variabel lingkungan (`process.env`, tempat rahasia seperti password database disimpan), dan menghentikan program (`process.exit()`). Objek ini akan sering muncul lagi di bab Deployment.',
           },
           {
             term: 'http',
@@ -160,10 +160,10 @@ export const chapter = defineChapter({
           'Inti bahasanya (`let`, `if`, `Array`, `Promise`) sama di ketiganya.',
         ),
         p(
-          'Ada satu cara sederhana untuk mengingat pembagiannya. Semua yang berhubungan dengan **layar, klik, dan halaman** — `document`, `window`, `localStorage` — hanya masuk akal di browser, karena hanya di sanalah ada halaman yang dilihat orang. Sebaliknya, semua yang berhubungan dengan **berkas, folder, dan mesin** — `fs`, `path`, `process` — hanya masuk akal di Node.js, karena di sanalah programmu benar-benar punya akses ke komputer.',
+          'Ada satu cara sederhana untuk mengingat pembagiannya. Semua yang berhubungan dengan **layar, klik, dan halaman**, seperti `document`, `window`, dan `localStorage`, hanya masuk akal di browser, karena hanya di sanalah ada halaman yang dilihat orang. Sebaliknya, semua yang berhubungan dengan **berkas, folder, dan mesin**, seperti `fs`, `path`, dan `process`, hanya masuk akal di Node.js, karena di sanalah programmu benar-benar punya akses ke komputer.',
         ),
         p(
-          'Pembagian itu bukan kebetulan, melainkan **keputusan keamanan yang disengaja**. Kalau halaman web bisa memanggil `fs`, situs mana pun yang kamu buka — termasuk yang jahat — bisa membaca dokumen di laptopmu tanpa kamu sadari. Browser sengaja tidak menyediakan perintah itu sama sekali, dan itulah sebabnya ketiadaannya bukan kekurangan yang perlu "diakali".',
+          'Pembagian itu bukan kebetulan, melainkan **keputusan keamanan yang disengaja**. Kalau halaman web bisa memanggil `fs`, situs mana pun yang kamu buka, termasuk yang jahat, bisa membaca dokumen di laptopmu tanpa kamu sadari. Browser sengaja tidak menyediakan perintah itu sama sekali, dan itulah sebabnya ketiadaannya bukan kekurangan yang perlu "diakali".',
         ),
         callout(
           'info',
@@ -185,7 +185,7 @@ export const chapter = defineChapter({
           { caption: 'Console mengevaluasi ekspresi dan langsung menampilkan hasilnya.' },
         ),
         p(
-          'Dua baris itu sengaja berbeda jenis, dan perbedaannya menjelaskan cara console bekerja. Baris pertama **memerintahkan** sesuatu dicetak, jadi teks `Halo dari browser` muncul karena kamu memintanya. Baris kedua tidak memerintahkan apa-apa — ia hanya sebuah perhitungan — tapi hasilnya `31` tetap muncul, karena console selalu menampilkan nilai dari ekspresi terakhir yang diketik. Itulah sebabnya kamu tidak perlu menulis `console.log` saat sekadar mencoba sesuatu di sini. Satu hal yang sering membingungkan pemula: setelah `console.log(...)` dijalankan, console juga menampilkan `undefined` di baris berikutnya. Itu bukan error — `console.log` memang tidak mengembalikan nilai apa pun, dan console jujur menampilkan ketiadaan itu.',
+          'Dua baris itu sengaja berbeda jenis, dan perbedaannya menjelaskan cara console bekerja. Baris pertama **memerintahkan** sesuatu dicetak, jadi teks `Halo dari browser` muncul karena kamu memintanya. Baris kedua tidak memerintahkan apa-apa dan hanya berupa perhitungan, tetapi hasilnya `31` tetap muncul, karena console selalu menampilkan nilai dari ekspresi terakhir yang diketik. Itulah sebabnya kamu tidak perlu menulis `console.log` saat sekadar mencoba sesuatu di sini. Satu hal yang sering membingungkan pemula, setelah `console.log(...)` dijalankan console juga menampilkan `undefined` di baris berikutnya. Itu bukan error, sebab `console.log` memang tidak mengembalikan nilai apa pun, dan console jujur menampilkan ketiadaan itu.',
         ),
         callout(
           'tip',
@@ -227,7 +227,7 @@ export const chapter = defineChapter({
           { filename: 'app.js' },
         ),
         p(
-          'Dua berkas ini bekerja berpasangan, dan yang menyambungkannya hanya satu baris: `<script type="module" src="./app.js">`. Atribut `src` menunjuk berkas JavaScript-nya, dan `./` di depannya berarti "di folder yang sama dengan berkas HTML ini". Letak tag itu — di bagian bawah `<body>` — juga bukan kebetulan: browser membaca HTML dari atas ke bawah, jadi menaruh skrip di akhir menjamin seluruh isi halaman sudah ada saat skrip mulai berjalan. Perhatikan `app.js` sama sekali tidak menyebut `index.html`; hubungannya satu arah, HTML yang memanggil JS. Isi `app.js` sendiri hanya menghitung selisih dua angka lalu mencetaknya lewat template literal — dan hasilnya muncul di console, bukan di halaman, karena `console.log` memang menulis ke sana, bukan ke layar.',
+          'Dua berkas ini bekerja berpasangan, dan yang menyambungkannya hanya satu baris berupa `<script type="module" src="./app.js">`. Atribut `src` menunjuk berkas JavaScript-nya, dan `./` di depannya berarti "di folder yang sama dengan berkas HTML ini". Letak tag itu di bagian bawah `<body>` juga bukan kebetulan, sebab browser membaca HTML dari atas ke bawah, jadi menaruh skrip di akhir menjamin seluruh isi halaman sudah ada saat skrip mulai berjalan. Perhatikan `app.js` sama sekali tidak menyebut `index.html`, sebab hubungannya satu arah dengan HTML yang memanggil JS. Isi `app.js` sendiri hanya menghitung selisih dua angka lalu mencetaknya lewat template literal, dan hasilnya muncul di console alih-alih di halaman karena `console.log` memang menulis ke sana.',
         ),
         callout(
           'warning',
@@ -254,7 +254,7 @@ export const chapter = defineChapter({
           `,
         ),
         p(
-          'Ketiga perintah ini diketik di **terminal**, bukan di dalam berkas JavaScript — itu perbedaan pertama yang perlu dipegang. `node --version` bukan sekadar formalitas: kalau terminal menjawab `command not found`, artinya Node.js memang belum terpasang, dan itu jauh lebih baik diketahui sekarang daripada saat kamu bingung kenapa perintah berikutnya tidak jalan. `node app.js` menjalankan seluruh isi berkas dari atas ke bawah lalu keluar, persis seperti browser menjalankan `app.js` tadi — bedanya di sini tidak ada halaman, tidak ada `document`, dan hasilnya tercetak langsung di terminal. `node` tanpa argumen membuka REPL, padanan console browser yang berjalan di terminal, dan cocok untuk mencoba satu-dua baris tanpa membuat berkas. Perhatikan baris berawalan `#` — itu komentar di terminal, bukan perintah, jadi tidak perlu ikut diketik.',
+          'Ketiga perintah ini diketik di **terminal** dan bukan di dalam berkas JavaScript, dan itu perbedaan pertama yang perlu dipegang. `node --version` bukan sekadar formalitas, sebab kalau terminal menjawab `command not found`, artinya Node.js memang belum terpasang, dan itu jauh lebih baik diketahui sekarang daripada saat kamu bingung kenapa perintah berikutnya tidak jalan. `node app.js` menjalankan seluruh isi berkas dari atas ke bawah lalu keluar, persis seperti browser menjalankan `app.js` tadi, dan bedanya di sini tidak ada halaman, tidak ada `document`, dan hasilnya tercetak langsung di terminal. `node` tanpa argumen membuka REPL, padanan console browser yang berjalan di terminal, dan cocok untuk mencoba satu-dua baris tanpa membuat berkas. Perhatikan baris berawalan `#` adalah komentar di terminal dan bukan perintah, jadi tidak perlu ikut diketik.',
         ),
         callout(
           'info',
@@ -267,7 +267,7 @@ export const chapter = defineChapter({
           'Kamu akan lebih sering melihat error daripada hasil yang benar — itu normal, dan berlaku juga untuk programmer yang sudah bertahun-tahun bekerja. Yang membedakan pemula dari yang berpengalaman bukan jumlah errornya, melainkan **berapa lama waktu yang dibutuhkan untuk membacanya**. Error bukan tanda kamu gagal; ia justru satu-satunya laporan terperinci yang program berikan tentang apa yang sebenarnya terjadi.',
         ),
         p(
-          'Kabar baiknya, bentuk pesan error selalu sama. Begitu kamu hafal strukturnya sekali, kamu bisa membaca error apa pun — bahkan dari pustaka yang belum pernah kamu pakai. Perhatikan contoh berikut baris demi baris:',
+          'Kabar baiknya, bentuk pesan error selalu sama. Begitu kamu hafal strukturnya sekali, kamu bisa membaca error apa pun — bahkan dari library yang belum pernah kamu pakai. Perhatikan contoh berikut baris demi baris:',
         ),
         code(
           'text',
@@ -354,7 +354,7 @@ export const chapter = defineChapter({
           {
             term: 'deklarasi',
             meaning:
-              'Dari *declaration*, artinya **pernyataan atau pemberitahuan**. Baris yang memperkenalkan sebuah nama baru ke dalam program: `const namaSitus = "Ruang Belajar"`. Kata "mendeklarasikan" berarti memberi tahu JavaScript bahwa nama itu ada dan mulai sekarang boleh dipakai. Ini berbeda dari sekadar mengisi nilai — deklarasi hanya boleh dilakukan **sekali** untuk satu nama di satu scope; mengulanginya dengan `let` atau `const` justru menghasilkan `SyntaxError`.',
+              'Dari *declaration*, artinya **pernyataan atau pemberitahuan**. Ia adalah baris yang memperkenalkan sebuah nama baru ke dalam program, misalnya `const namaSitus = "Ruang Belajar"`. Kata "mendeklarasikan" berarti memberi tahu JavaScript bahwa nama itu ada dan mulai sekarang boleh dipakai. Ini berbeda dari sekadar mengisi nilai, sebab deklarasi hanya boleh dilakukan **sekali** untuk satu nama di satu scope, dan mengulanginya dengan `let` atau `const` justru menghasilkan `SyntaxError`.',
           },
           {
             term: 'assign',
@@ -384,7 +384,7 @@ export const chapter = defineChapter({
           {
             term: 'immutable',
             meaning:
-              'Dibaca "i-myu-ta-bel", artinya **tidak bisa diubah isinya**. Lawan katanya *mutable* (bisa diubah). Di JavaScript, semua nilai primitif — angka, teks, boolean — bersifat immutable: `"halo".toUpperCase()` tidak mengubah teks aslinya, melainkan menghasilkan teks baru. Sebaliknya array dan object bersifat mutable, dan justru sifat itulah sumber banyak bug "kok ikut berubah?" yang dibahas di Sub-bab 1.3.',
+              'Dibaca "i-myu-ta-bel", artinya **tidak bisa diubah isinya**. Lawan katanya *mutable* (bisa diubah). Di JavaScript, semua nilai primitif seperti angka, teks, dan boolean bersifat immutable, sehingga `"halo".toUpperCase()` tidak mengubah teks aslinya, melainkan menghasilkan teks baru. Sebaliknya array dan object bersifat mutable, dan justru sifat itulah sumber banyak bug "kok ikut berubah?" yang dibahas di Sub-bab 1.3.',
           },
           {
             term: 'shallow',
@@ -399,7 +399,7 @@ export const chapter = defineChapter({
           {
             term: 'camelCase',
             meaning:
-              'Dibaca "ke-mel-keis". Gaya penamaan tanpa spasi di mana kata pertama huruf kecil semua dan setiap kata berikutnya diawali huruf besar: `jumlahKunjungan`, `sisaHariLangganan`. Disebut *camel* (unta) karena huruf besarnya naik-turun seperti punuk. Ini adalah idiom resmi JavaScript — bukan `snake_case` (gaya Python) dan bukan `PascalCase`, yang di JavaScript sudah punya arti khusus: nama class dan nama komponen React.',
+              'Dibaca "ke-mel-keis". Gaya penamaan tanpa spasi di mana kata pertama huruf kecil semua dan setiap kata berikutnya diawali huruf besar: `jumlahKunjungan`, `sisaHariLangganan`. Disebut *camel* (unta) karena huruf besarnya naik-turun seperti punuk. Ini adalah idiom resmi JavaScript, bukan `snake_case` gaya Python dan bukan `PascalCase` yang di JavaScript sudah punya arti khusus untuk nama class dan nama komponen React.',
           },
           {
             term: 'SCREAMING_SNAKE_CASE',
@@ -418,7 +418,7 @@ export const chapter = defineChapter({
           ],
         ),
         p(
-          'Urutan berpikirnya: tulis `const`. Kalau ternyata linter atau runtime protes karena kamu perlu menugaskan ulang, baru ubah jadi `let`. Cara ini membuat setiap `let` di kodemu menjadi sinyal — "yang ini memang berubah" — bukan sekadar kebiasaan.',
+          'Urutan berpikirnya, tulis `const` lebih dulu. Kalau ternyata linter atau runtime protes karena kamu perlu menugaskan ulang, baru ubah jadi `let`. Cara ini membuat setiap `let` di kodemu menjadi sinyal bahwa "yang ini memang berubah", bukan sekadar kebiasaan.',
         ),
         code(
           'js',
@@ -431,7 +431,7 @@ export const chapter = defineChapter({
           `,
         ),
         p(
-          'Perhatikan pilihan kata kuncinya bukan soal jenis nilai, melainkan soal **apakah nilainya akan diganti nanti**. `namaSitus` tidak pernah berubah sepanjang program, jadi `const`. `jumlahKunjungan` memang dirancang untuk naik, jadi `let`. Baris yang dikomentari di bawah menunjukkan apa yang terjadi bila aturan itu dilanggar: `TypeError` muncul **saat program berjalan**, bukan saat diketik, dan pesannya menyebut langsung "Assignment to constant variable" sehingga penyebabnya tidak perlu ditebak. Satu hal yang membingungkan di awal: baris `jumlahKunjungan = jumlahKunjungan + 1` membaca nilai lama di sisi kanan lebih dulu, baru menugaskan hasilnya ke nama yang sama di sisi kiri — tanda `=` di JavaScript berarti "isi dengan", bukan "sama dengan" seperti di matematika.',
+          'Perhatikan pilihan kata kuncinya bukan soal jenis nilai, melainkan soal **apakah nilainya akan diganti nanti**. `namaSitus` tidak pernah berubah sepanjang program, jadi `const`. `jumlahKunjungan` memang dirancang untuk naik, jadi `let`. Baris yang dikomentari di bawah menunjukkan apa yang terjadi bila aturan itu dilanggar, sebab `TypeError` muncul **saat program berjalan** dan bukan saat diketik, dan pesannya menyebut langsung "Assignment to constant variable" sehingga penyebabnya tidak perlu ditebak. Satu hal yang membingungkan di awal, baris `jumlahKunjungan = jumlahKunjungan + 1` membaca nilai lama di sisi kanan lebih dulu lalu menugaskan hasilnya ke nama yang sama di sisi kiri. Tanda `=` di JavaScript berarti "isi dengan", bukan "sama dengan" seperti di matematika.',
         ),
 
         h2('`const` bukan berarti nilainya beku'),
@@ -454,7 +454,7 @@ export const chapter = defineChapter({
           `,
         ),
         p(
-          "Bandingkan baris yang boleh dengan baris yang dikomentari, karena di situlah letak seluruh perbedaannya. `pengguna.level = 2` mengubah **isi** object — objectnya masih object yang sama, hanya salah satu propertinya berganti nilai; nama `pengguna` tetap menunjuk ke alamat yang sama, sehingga `const` tidak merasa dilanggar. Sedangkan `pengguna = { nama: 'Lain' }` membuat object yang benar-benar baru di alamat baru dan meminta nama `pengguna` menunjuk ke sana — **itu** yang dilarang `const`. Cara mengingatnya: `const` menjaga panah, bukan kotak yang ditunjuk panah itu. Pasangan array di bawahnya menegaskan hal yang sama dengan cara berbeda: `push` menambah isi kotak (boleh), sedangkan `daftar = []` menyodorkan kotak baru (dilarang).",
+          "Bandingkan baris yang boleh dengan baris yang dikomentari, karena di situlah letak seluruh perbedaannya. `pengguna.level = 2` mengubah **isi** object, sebab objectnya masih object yang sama dan hanya salah satu propertinya berganti nilai. Nama `pengguna` tetap menunjuk ke alamat yang sama, sehingga `const` tidak merasa dilanggar. Sedangkan `pengguna = { nama: 'Lain' }` membuat object yang benar-benar baru di alamat baru dan meminta nama `pengguna` menunjuk ke sana, dan **itu** yang dilarang `const`. Cara mengingatnya, `const` menjaga panah dan bukan kotak yang ditunjuk panah itu. Pasangan array di bawahnya menegaskan hal yang sama dengan cara berbeda, sebab `push` menambah isi kotak (boleh), sedangkan `daftar = []` menyodorkan kotak baru (dilarang).",
         ),
         callout(
           'tip',
@@ -481,7 +481,7 @@ export const chapter = defineChapter({
           `,
         ),
         p(
-          'Kedua variabel dideklarasikan di tempat yang **persis sama** — di dalam blok `if` — tapi hanya satu yang masih hidup setelah blok itu ditutup. `var` mengabaikan kurung kurawal `if` sepenuhnya; satu-satunya batas yang ia kenal adalah batas fungsi, jadi `pakaiVar` seolah-olah dideklarasikan langsung di dalam `contoh()`. `let` berhenti di kurung kurawal terdekat, sehingga `pakaiLet` benar-benar lenyap begitu blok `if` selesai — dan mengaksesnya menghasilkan `ReferenceError` yang jelas menyebut namanya. Kebocoran itu terdengar seperti kemudahan, padahal justru sumber masalah: variabel yang lolos dari bloknya bisa bertabrakan dengan nama lain di bagian bawah fungsi yang sama, dan tidak ada peringatan apa pun ketika itu terjadi.',
+          'Kedua variabel dideklarasikan di tempat yang **persis sama**, yaitu di dalam blok `if`, tetapi hanya satu yang masih hidup setelah blok itu ditutup. `var` mengabaikan kurung kurawal `if` sepenuhnya, sebab satu-satunya batas yang ia kenal adalah batas fungsi, jadi `pakaiVar` seolah-olah dideklarasikan langsung di dalam `contoh()`. `let` berhenti di kurung kurawal terdekat, sehingga `pakaiLet` benar-benar lenyap begitu blok `if` selesai, dan mengaksesnya menghasilkan `ReferenceError` yang jelas menyebut namanya. Kebocoran itu terdengar seperti kemudahan padahal justru sumber masalah, sebab variabel yang lolos dari bloknya bisa bertabrakan dengan nama lain di bagian bawah fungsi yang sama, dan tidak ada peringatan apa pun ketika itu terjadi.',
         ),
         p(
           'Kebocoran itu terlihat sepele sampai kamu bertemu kasus klasik ini — perbedaan hasilnya bukan gaya penulisan, tapi bug sungguhan:',
@@ -503,7 +503,7 @@ export const chapter = defineChapter({
           `,
         ),
         p(
-          'Yang membuat contoh ini menjadi bug sungguhan, bukan sekadar keanehan, adalah **jeda waktunya**. `setTimeout` tidak menjalankan fungsinya saat itu juga — ia menitipkannya untuk dijalankan setelah kode yang sedang berjalan selesai, dan itu berlaku bahkan dengan jeda `0`. Jadi ketiga loop selesai lebih dulu, baru ketiga fungsi dijalankan. Pada versi `var`, ketiganya membaca satu variabel `i` yang sama, dan pada saat mereka akhirnya dijalankan nilainya sudah `3` — angka yang membuat loop berhenti. Pada versi `let`, tiap putaran menciptakan `j` yang benar-benar baru, sehingga masing-masing fungsi membawa nilainya sendiri. Pola "nilai yang dibaca terlambat" ini akan kamu temui lagi di React, ketika sebuah handler menampilkan nilai state dari render sebelumnya — akarnya persis sama dengan yang terjadi di sini.',
+          'Yang membuat contoh ini menjadi bug sungguhan, bukan sekadar keanehan, adalah **jeda waktunya**. `setTimeout` tidak menjalankan fungsinya saat itu juga, melainkan menitipkannya untuk dijalankan setelah kode yang sedang berjalan selesai, dan itu berlaku bahkan dengan jeda `0`. Jadi ketiga loop selesai lebih dulu, baru ketiga fungsi dijalankan. Pada versi `var`, ketiganya membaca satu variabel `i` yang sama, dan pada saat mereka akhirnya dijalankan nilainya sudah `3`, yaitu angka yang membuat loop berhenti. Pada versi `let`, tiap putaran menciptakan `j` yang benar-benar baru, sehingga masing-masing fungsi membawa nilainya sendiri. Pola "nilai yang dibaca terlambat" ini akan kamu temui lagi di React, ketika sebuah handler menampilkan nilai state dari render sebelumnya, sebab akarnya persis sama dengan yang terjadi di sini.',
         ),
 
         h2('Hoisting & Temporal Dead Zone'),
@@ -610,7 +610,7 @@ export const chapter = defineChapter({
           {
             term: 'NaN',
             meaning:
-              'Singkatan *Not a Number*, dibaca "nan", artinya **bukan sebuah angka**. Nilai khusus yang muncul ketika sebuah perhitungan angka gagal menghasilkan angka yang sah — misalnya `Number("12abc")` atau `0 / 0`. Dua keanehannya perlu diingat: pertama, `typeof NaN` justru menjawab `"number"`; kedua, `NaN === NaN` bernilai `false`, menjadikannya satu-satunya nilai di JavaScript yang tidak sama dengan dirinya sendiri. Karena itu satu-satunya cara mengeceknya adalah `Number.isNaN(nilai)`.',
+              'Singkatan *Not a Number*, dibaca "nan", artinya **bukan sebuah angka**. Nilai khusus yang muncul ketika sebuah perhitungan angka gagal menghasilkan angka yang sah, misalnya `Number("12abc")` atau `0 / 0`. Dua keanehannya perlu diingat. Pertama, `typeof NaN` justru menjawab `"number"`. Kedua, `NaN === NaN` bernilai `false`, menjadikannya satu-satunya nilai di JavaScript yang tidak sama dengan dirinya sendiri. Karena itu satu-satunya cara mengeceknya adalah `Number.isNaN(nilai)`.',
           },
           {
             term: 'floating point',
@@ -689,7 +689,7 @@ export const chapter = defineChapter({
           `,
         ),
         p(
-          "Enam baris pertama berperilaku persis seperti dugaanmu: `typeof` mengembalikan **teks** berisi nama tipenya, jadi hasilnya selalu berupa string — itu sebabnya pengecekan ditulis `typeof x === 'string'` dengan tanda kutip. Tiga baris berikutnya mulai jujur soal keterbatasannya. Array menjawab `'object'` karena di JavaScript array memang **sejenis object** dengan kunci berupa angka, sehingga `typeof` tidak bisa dipakai untuk membedakan keduanya — untuk itu ada `Array.isArray()`. Fungsi menjawab `'function'` meski sebenarnya juga object, dan itu pengecualian yang kebetulan berguna. Baris terakhir adalah cacat sejarah: `null` seharusnya menjawab `'null'`, tapi implementasi pertama JavaScript keliru dan memperbaikinya sekarang akan merusak situs yang tak terhitung jumlahnya. Kesimpulan praktisnya, `typeof` andal untuk primitif tapi tidak untuk membedakan jenis-jenis object.",
+          "Enam baris pertama berperilaku persis seperti dugaanmu, sebab `typeof` mengembalikan **teks** berisi nama tipenya sehingga hasilnya selalu berupa string. Itu sebabnya pengecekan ditulis `typeof x === 'string'` dengan tanda kutip. Tiga baris berikutnya mulai jujur soal keterbatasannya. Array menjawab `'object'` karena di JavaScript array memang **sejenis object** dengan kunci berupa angka, sehingga `typeof` tidak bisa dipakai untuk membedakan keduanya, dan untuk itu ada `Array.isArray()`. Fungsi menjawab `'function'` meski sebenarnya juga object, dan itu pengecualian yang kebetulan berguna. Baris terakhir adalah cacat sejarah, sebab `null` seharusnya menjawab `'null'` tetapi implementasi pertama JavaScript keliru dan memperbaikinya sekarang akan merusak situs yang tak terhitung jumlahnya. Kesimpulan praktisnya, `typeof` andal untuk primitif tapi tidak untuk membedakan jenis-jenis object.",
         ),
         callout(
           'warning',
@@ -722,7 +722,7 @@ export const chapter = defineChapter({
           `,
         ),
         p(
-          'Tiga contoh pertama semuanya menghasilkan `undefined`, tapi lewat jalan yang berbeda — dan itu inti perbedaannya. `belumDiisi` dideklarasikan tanpa nilai, jadi JavaScript mengisinya sendiri. `pengguna.email` menghasilkan `undefined` karena property itu memang tidak pernah ada; perhatikan JavaScript **tidak melempar error** untuk property yang tidak ditemukan, dan sifat pemaaf itu justru yang membuat salah ketik nama property sulit terdeteksi. Sebaliknya `fotoProfil = null` ditulis manusia, dan pesannya jelas: sudah dicek, memang tidak ada. Dua baris terakhir menegaskan konsekuensi praktisnya — `==` menganggap keduanya sama karena sama-sama berarti "kosong", sementara `===` membedakannya karena tipenya berlainan. Karena itulah `nilai == null` menjadi satu-satunya pemakaian `==` yang banyak tim izinkan: ia menangkap keduanya sekaligus dalam satu pemeriksaan.',
+          'Tiga contoh pertama semuanya menghasilkan `undefined`, tetapi lewat jalan yang berbeda, dan itu inti perbedaannya. `belumDiisi` dideklarasikan tanpa nilai, jadi JavaScript mengisinya sendiri. `pengguna.email` menghasilkan `undefined` karena property itu memang tidak pernah ada. Perhatikan JavaScript **tidak melempar error** untuk property yang tidak ditemukan, dan sifat pemaaf itu justru yang membuat salah ketik nama property sulit terdeteksi. Sebaliknya `fotoProfil = null` ditulis manusia, dan pesannya jelas bahwa nilainya sudah dicek dan memang tidak ada. Dua baris terakhir menegaskan konsekuensi praktisnya, sebab `==` menganggap keduanya sama karena sama-sama berarti "kosong", sementara `===` membedakannya karena tipenya berlainan. Karena itulah `nilai == null` menjadi satu-satunya pemakaian `==` yang banyak tim izinkan, karena ia menangkap keduanya sekaligus dalam satu pemeriksaan.',
         ),
 
         h2('Angka: satu tipe, satu jebakan'),
@@ -744,7 +744,7 @@ export const chapter = defineChapter({
           `,
         ),
         p(
-          'Angka `0.30000000000000004` itu bukan kesalahan JavaScript, dan komentar di tengah contoh sudah menyebut alasannya — tapi analogi pecahannya layak diperjelas. Dalam desimal, sepertiga tidak bisa ditulis tepat: `0,333…` akan selalu terpotong di suatu titik. Komputer menyimpan angka dalam basis dua, dan di basis itu **`0,1` mengalami nasib yang sama** — ia jadi deretan tak berujung yang harus dipotong. Menjumlahkan dua angka yang sudah dibulatkan menghasilkan pembulatan yang meleset sedikit, dan itulah `…04` di ujung. Baris terakhir menunjukkan cara menghadapinya: alih-alih menanyakan "apakah persis sama", tanyakan "apakah selisihnya lebih kecil dari toleransi". `Number.EPSILON` adalah selisih terkecil yang masih bisa dibedakan JavaScript, dan `Math.abs` membuat perbandingannya berlaku ke dua arah — selisih `-0,0000001` sama diterimanya dengan `+0,0000001`.',
+          'Angka `0.30000000000000004` itu bukan kesalahan JavaScript, dan komentar di tengah contoh sudah menyebut alasannya, tetapi analogi pecahannya layak diperjelas. Dalam desimal, sepertiga tidak bisa ditulis tepat karena `0,333…` akan selalu terpotong di suatu titik. Komputer menyimpan angka dalam basis dua, dan di basis itu **`0,1` mengalami nasib yang sama**, sebab ia jadi deretan tak berujung yang harus dipotong. Menjumlahkan dua angka yang sudah dibulatkan menghasilkan pembulatan yang meleset sedikit, dan itulah `…04` di ujung. Baris terakhir menunjukkan cara menghadapinya, yaitu alih-alih menanyakan "apakah persis sama", tanyakan "apakah selisihnya lebih kecil dari toleransi". `Number.EPSILON` adalah selisih terkecil yang masih bisa dibedakan JavaScript, dan `Math.abs` membuat perbandingannya berlaku ke dua arah, sehingga selisih `-0,0000001` sama diterimanya dengan `+0,0000001`.',
         ),
         callout(
           'danger',
@@ -767,7 +767,7 @@ export const chapter = defineChapter({
           `,
         ),
         p(
-          'Blok ini memuat dua batasan yang berbeda. Yang pertama soal **ukuran**: di atas `Number.MAX_SAFE_INTEGER`, dua bilangan bulat yang berbeda bisa dinilai sama, karena keduanya dibulatkan ke angka tersimpan yang sama — dan perhatikan tidak ada error maupun peringatan saat itu terjadi. Akhiran `n` pada `9007199254740992n` menandai **BigInt**, tipe terpisah yang dirancang untuk bilangan bulat sebesar apa pun; ia menjawab `false` dengan benar. Batasan kedua soal **kegagalan konversi**: `Number(\'12abc\')` menghasilkan `NaN`, yang meski namanya "Not a Number" justru bertipe `number` — itu terdengar aneh sampai kamu memahaminya sebagai "angka yang tidak sah", bukan "bukan angka". Sifatnya yang paling penting ada di baris berikutnya: `NaN === NaN` bernilai `false`, satu-satunya nilai di JavaScript yang tidak sama dengan dirinya sendiri. Itulah sebabnya mengecek `NaN` **wajib** lewat `Number.isNaN()`; perbandingan biasa tidak akan pernah berhasil.',
+          'Blok ini memuat dua batasan yang berbeda. Yang pertama soal **ukuran**. Di atas `Number.MAX_SAFE_INTEGER`, dua bilangan bulat yang berbeda bisa dinilai sama karena keduanya dibulatkan ke angka tersimpan yang sama, dan perhatikan tidak ada error maupun peringatan saat itu terjadi. Akhiran `n` pada `9007199254740992n` menandai **BigInt**, tipe terpisah yang dirancang untuk bilangan bulat sebesar apa pun, dan ia menjawab `false` dengan benar. Batasan kedua soal **kegagalan konversi**, sebab `Number(\'12abc\')` menghasilkan `NaN` yang meski namanya "Not a Number" justru bertipe `number`. Itu terdengar aneh sampai kamu memahaminya sebagai "angka yang tidak sah" alih-alih "bukan angka". Sifatnya yang paling penting ada di baris berikutnya, yaitu `NaN === NaN` bernilai `false`, satu-satunya nilai di JavaScript yang tidak sama dengan dirinya sendiri. Itulah sebabnya mengecek `NaN` **wajib** lewat `Number.isNaN()`, karena perbandingan biasa tidak akan pernah berhasil.',
         ),
 
         h2('Primitif disalin, reference dibagikan'),
@@ -775,7 +775,7 @@ export const chapter = defineChapter({
           'Inilah inti sub-bab ini, dan kalau hanya satu hal yang kamu bawa pulang dari halaman ini, biarlah bagian ini yang tersisa. Perbedaannya terdengar teknis, tapi akibatnya sangat praktis: ia menjelaskan kenapa sebuah data "ikut berubah" padahal kamu merasa tidak pernah menyentuhnya.',
         ),
         p(
-          'Duduk perkaranya begini. Setiap variabel sebenarnya adalah sebuah kotak kecil. Untuk nilai **primitif**, isi kotak itu adalah nilainya sendiri — angka `10` benar-benar tersimpan di dalam kotak bernama `a`. Untuk nilai **reference**, isi kotaknya bukan datanya, melainkan **secarik kertas berisi alamat**; datanya sendiri tersimpan di tempat lain. Menyalin variabel selalu berarti menyalin isi kotaknya. Untuk primitif, yang tersalin adalah nilainya; untuk reference, yang tersalin hanyalah alamatnya — dan dua alamat yang sama tentu menunjuk ke rumah yang sama.',
+          'Duduk perkaranya begini. Setiap variabel sebenarnya adalah sebuah kotak kecil. Untuk nilai **primitif**, isi kotak itu adalah nilainya sendiri, sehingga angka `10` benar-benar tersimpan di dalam kotak bernama `a`. Untuk nilai **reference**, isi kotaknya bukan datanya, melainkan **secarik kertas berisi alamat**, sedangkan datanya sendiri tersimpan di tempat lain. Menyalin variabel selalu berarti menyalin isi kotaknya. Untuk primitif, yang tersalin adalah nilainya, sedangkan untuk reference yang tersalin hanyalah alamatnya, dan dua alamat yang sama tentu menunjuk ke rumah yang sama.',
         ),
         p('Perhatikan hasil kedua contoh berikut, lalu bandingkan dengan penjelasan di atas:'),
         code(
@@ -795,7 +795,7 @@ export const chapter = defineChapter({
           `,
         ),
         p(
-          'Kedua contoh punya bentuk yang identik — buat variabel, salin ke variabel kedua, ubah yang kedua, lalu periksa yang pertama — dan justru karena bentuknya sama, hasil yang berbeda jadi mudah dilihat. Pada blok primitif, `let b = a` menyalin angka `10` itu sendiri ke kotak `b`; sejak saat itu keduanya tidak punya hubungan apa pun, jadi `b = 20` tidak menyentuh `a`. Pada blok reference, `const y = x` menyalin **alamatnya**, sehingga `x` dan `y` menjadi dua nama untuk satu object yang sama — mengubah `y.skor` sama saja dengan mengubah `x.skor`, karena tidak pernah ada object kedua. Perhatikan `const` di sana tidak menghalangi apa pun, persis seperti yang dijelaskan di sub-bab variabel: yang dikunci `const` adalah alamatnya, dan `y.skor = 20` tidak mengubah alamat.',
+          'Kedua contoh punya bentuk yang identik, yaitu buat variabel, salin ke variabel kedua, ubah yang kedua, lalu periksa yang pertama, dan justru karena bentuknya sama, hasil yang berbeda jadi mudah dilihat. Pada blok primitif, `let b = a` menyalin angka `10` itu sendiri ke kotak `b`, dan sejak saat itu keduanya tidak punya hubungan apa pun, jadi `b = 20` tidak menyentuh `a`. Pada blok reference, `const y = x` menyalin **alamatnya**, sehingga `x` dan `y` menjadi dua nama untuk satu object yang sama. Mengubah `y.skor` sama saja dengan mengubah `x.skor`, karena tidak pernah ada object kedua. Perhatikan `const` di sana tidak menghalangi apa pun, persis seperti yang dijelaskan di sub-bab variabel, sebab yang dikunci `const` adalah alamatnya, dan `y.skor = 20` tidak mengubah alamat.',
         ),
         callout(
           'info',
@@ -821,7 +821,7 @@ export const chapter = defineChapter({
           `,
         ),
         p(
-          'Dua baris pertama berperilaku sesuai naluri: primitif dibandingkan **isinya**, jadi angka 10 mana pun sama dengan angka 10 lainnya. Dua baris di tengah adalah yang mengejutkan — isi keduanya identik sampai ke koma terakhir, tapi hasilnya tetap `false`, karena yang dibandingkan adalah **alamat**, dan setiap kali kamu menulis `{ ... }` JavaScript membuat object baru di alamat baru. Tiga baris terakhir menutup logikanya: `dua` tidak membuat object baru, ia hanya menyalin alamat dari `satu`, sehingga perbandingannya `true`. Konsekuensi praktis yang perlu dipegang: **tidak ada cara membandingkan isi dua object dengan `===`**. Untuk itu kamu harus membandingkan property yang kamu pedulikan satu per satu, atau memakai fungsi pembanding dari library.',
+          'Dua baris pertama berperilaku sesuai naluri, sebab primitif dibandingkan **isinya** sehingga angka 10 mana pun sama dengan angka 10 lainnya. Dua baris di tengah adalah yang mengejutkan, karena isi keduanya identik sampai ke koma terakhir tetapi hasilnya tetap `false`, sebab yang dibandingkan adalah **alamat**, dan setiap kali kamu menulis `{ ... }` JavaScript membuat object baru di alamat baru. Tiga baris terakhir menutup logikanya, sebab `dua` tidak membuat object baru melainkan hanya menyalin alamat dari `satu` sehingga perbandingannya `true`. Konsekuensi praktis yang perlu dipegang, **tidak ada cara membandingkan isi dua object dengan `===`**. Untuk itu kamu harus membandingkan property yang kamu pedulikan satu per satu, atau memakai fungsi pembanding dari library.',
         ),
 
         callout(
@@ -855,7 +855,7 @@ export const chapter = defineChapter({
           `,
         ),
         p(
-          'Contoh ini sengaja menunjukkan salinan dangkal **berhasil dulu, baru gagal** — dan urutan itu yang membuatnya berbahaya. Mengubah `dangkal.nama` tidak menyentuh `asli.nama`, karena `nama` berisi string, sebuah primitif yang ikut tersalin nilainya. Sampai di sini semuanya terasa benar. Tapi `alamat` berisi object, dan spread hanya menyalin **alamatnya** — sehingga `dangkal.alamat` dan `asli.alamat` masih menunjuk object yang sama persis, dan mengubah kotanya lewat salinan ikut mengubah aslinya. Inilah sebabnya bug seperti ini sulit dilacak: kodenya terlihat benar, pengujian pada data sederhana lolos, dan kegagalannya baru muncul pada data yang kebetulan bersarang. `structuredClone` menelusuri sampai lapisan terdalam dan membuat object baru di setiap tingkat, sehingga `dalam.alamat` benar-benar terpisah.',
+          'Contoh ini sengaja menunjukkan salinan dangkal **berhasil dulu, baru gagal**, dan urutan itu yang membuatnya berbahaya. Mengubah `dangkal.nama` tidak menyentuh `asli.nama`, karena `nama` berisi string, sebuah primitif yang ikut tersalin nilainya. Sampai di sini semuanya terasa benar. Tapi `alamat` berisi object, dan spread hanya menyalin **alamatnya**, sehingga `dangkal.alamat` dan `asli.alamat` masih menunjuk object yang sama persis, dan mengubah kotanya lewat salinan ikut mengubah aslinya. Inilah sebabnya bug seperti ini sulit dilacak, sebab kodenya terlihat benar, pengujian pada data sederhana lolos, dan kegagalannya baru muncul pada data yang kebetulan bersarang. `structuredClone` menelusuri sampai lapisan terdalam dan membuat object baru di setiap tingkat, sehingga `dalam.alamat` benar-benar terpisah.',
         ),
         callout(
           'tip',

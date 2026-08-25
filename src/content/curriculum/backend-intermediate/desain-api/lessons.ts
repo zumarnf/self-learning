@@ -55,7 +55,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'kedalaman bersarang',
           meaning:
-            'Berapa tingkat kepemilikan yang dinyatakan di path. Satu tingkat (`/artikel/42/komentar`) baik; dua masih wajar; **lebih dari itu** sulit dibaca, sulit di-cache, dan sulit diubah. Obatnya: pecah jadi endpoint tingkat atas dengan filter.',
+            'Berapa tingkat kepemilikan yang dinyatakan di path. Satu tingkat seperti `/artikel/42/komentar` masih baik dan dua tingkat masih wajar, sedangkan **lebih dari itu** sulit dibaca, sulit di-cache, dan sulit diubah. Obatnya, pecah jadi endpoint tingkat atas dengan filter.',
         },
         {
           term: 'sub-resource aksi',
@@ -127,6 +127,12 @@ export const lessons: LessonDraft[] = [
         GET /tugas?proyekId=12
         `,
       ),
+      p(
+        'Perhatikan hubungan induk-anaknya tidak hilang, ia hanya **pindah tempat**: dari jalur alamat ke query string. `GET /lampiran?komentarId=56` menjawab pertanyaan yang sama dengan alamat bertingkat tadi, tetapi lampirannya kini punya alamat tingkat atas sendiri (`/lampiran/99`) yang bisa dirujuk langsung tanpa menyebut seluruh silsilahnya.',
+      ),
+      p(
+        'Keuntungan konkretnya ada tiga. **Cache** jadi mungkin, sebab satu lampiran punya satu alamat kanonik alih-alih alamat berbeda tergantung dari mana ia diakses. **Perubahan struktur** jadi murah, karena kalau nanti lampiran bisa menempel di tugas dan bukan hanya di komentar, kamu cukup menambah `?tugasId=`, bukan membuat cabang alamat baru. Dan **filter bisa digabung**, sebab `?komentarId=56&tipe=gambar` masuk akal sementara menambahkan filter di ujung alamat bertingkat tujuh segmen tidak lagi terbaca oleh siapa pun.',
+      ),
 
       h2('Aksi yang bukan CRUD'),
       p(
@@ -161,6 +167,15 @@ export const lessons: LessonDraft[] = [
           `,
           notes: ['Satu endpoint, satu aturan, satu kumpulan status code'],
         },
+      ),
+      p(
+        'Tiga pertanyaan di kolom kiri bukan retorika, sebab ketiganya harus dijawab kodemu, dan `PATCH` tidak menyediakan tempat untuk menjawabnya. Karena `PATCH` secara semantik berarti "ubah field ini", klien wajar mengira ia boleh mengirim `"status": "selesai"` juga. Setiap aturan yang membatasi itu, mulai dari transisi mana yang sah, siapa yang boleh, sampai apa yang harus terjadi bersamaan, akhirnya tersembunyi di dalam validasi satu field, tempat yang tidak akan dicari siapa pun.',
+      ),
+      p(
+        'Kolom kanan mengubah aksinya menjadi **sumber daya tersendiri**, sebab sebuah pembatalan adalah benda yang punya alasan, waktu, dan pelaku. Perhatikan akibatnya pada status code, sebab `201` berarti "pembatalan berhasil dibuat" dan `409` berarti "bentrok dengan keadaan sekarang, pesanannya sudah dikirim". Keduanya menjelaskan diri sendiri, sedangkan pada versi `PATCH` kamu terpaksa memakai `422` untuk semua kegagalan dan menjelaskan bedanya lewat pesan teks.',
+      ),
+      p(
+        'Ada satu keuntungan lagi yang baru terasa belakangan: karena pembatalan kini punya alamat sendiri, ia bisa **dibaca kembali** lewat `GET /pesanan/42/pembatalan` — lengkap dengan alasan dan waktunya. Dengan `PATCH`, informasi itu tidak ke mana-mana kecuali kamu membuat tabel dan endpoint terpisah untuknya.',
       ),
 
       h2('Singular atau plural untuk sumber daya tunggal'),
@@ -247,7 +262,7 @@ export const lessons: LessonDraft[] = [
         {
           term: '4xx vs 5xx',
           meaning:
-            'Garis pemisah yang paling menentukan. `4xx` berarti **"kamu yang salah"** — mengulang permintaan yang sama tidak akan menolong. `5xx` berarti **"aku yang salah"** — mencoba lagi masuk akal.',
+            'Garis pemisah yang paling menentukan. `4xx` berarti **"kamu yang salah"**, sehingga mengulang permintaan yang sama tidak akan menolong. `5xx` berarti **"aku yang salah"**, sehingga mencoba lagi masuk akal.',
         },
         {
           term: 'biaya salah memakai 500',
@@ -257,7 +272,7 @@ export const lessons: LessonDraft[] = [
         {
           term: '400 vs 422',
           meaning:
-            '`400` berarti **parser gagal** — server tidak bisa memahami bentuknya. `422` berarti bentuknya sah tapi **isinya melanggar aturan**. Bedanya berguna: `400` menandakan bug di kode klien; `422` menandakan pengguna perlu memperbaiki isiannya.',
+            '`400` berarti **parser gagal**, sehingga server tidak bisa memahami bentuknya. `422` berarti bentuknya sah tetapi **isinya melanggar aturan**. Bedanya berguna, karena `400` menandakan bug di kode klien sedangkan `422` menandakan pengguna perlu memperbaiki isiannya.',
         },
         {
           term: '409 Conflict',
@@ -347,6 +362,12 @@ export const lessons: LessonDraft[] = [
         PUT  /artikel/7               -> 409 "versi yang kamu ubah sudah usang"
         `,
       ),
+      p(
+        'Ketiga baris ini punya satu kesamaan yang membedakannya dari `422`: **permintaannya tidak salah apa pun**. Body-nya sah, isinya lolos setiap aturan, dan permintaan yang persis sama akan berhasil bila dikirim beberapa menit lebih awal. Yang menolak adalah **keadaan sumber daya saat ini** — pesanan sudah dikirim, email sudah dipakai, artikel sudah diubah orang lain.',
+      ),
+      p(
+        'Bedanya penting bagi klien karena menentukan apa yang harus dilakukan berikutnya. `422` berarti "perbaiki isian lalu kirim lagi", sehingga tampilkan pesan di sebelah field yang salah. `409` berarti "isianmu benar, tapi dunia sudah berubah", sehingga yang tepat adalah memuat ulang keadaan terbaru dan menunjukkannya kepada pengguna. Baris ketiga adalah bentuk paling khas, yaitu dua orang menyunting artikel yang sama, dan `409` mencegah suntingan yang belakangan menimpa yang duluan tanpa ada yang menyadarinya.',
+      ),
       callout(
         'warning',
         '`409` untuk email terdaftar membocorkan akun',
@@ -371,6 +392,12 @@ export const lessons: LessonDraft[] = [
         { "data": { "id": 42, "judul": "Halo" } }
         `,
       ),
+      p(
+        'Header `Location` adalah bagian yang paling sering dilupakan pada `201`, padahal ia yang membuat kode itu berbeda dari `200`. Ia memberi tahu klien **di mana benda yang baru lahir itu tinggal**, sehingga klien tidak perlu menebak alamatnya dari isi respons. Perhatikan nilainya alamat lengkap ke sumber daya barunya, bukan alamat endpoint yang tadi dipanggil.',
+      ),
+      p(
+        'Body tetap disertakan di sini, dan itu bukan pemborosan: tanpanya, klien harus mengirim satu permintaan `GET` lagi hanya untuk mengetahui `id` serta nilai-nilai yang diisi server (waktu dibuat, slug, status awal). Perhatikan pula ketiga kode di tabel atas punya kewajiban masing-masing yang membuatnya berguna — `201` wajib menyertakan `Location`, `202` wajib memberi cara memantau prosesnya, dan `204` wajib **tidak** berisi apa pun.',
+      ),
       callout(
         'danger',
         '`204` dengan body melanggar spesifikasi',
@@ -387,7 +414,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        '`404` berarti endpoint atau sumber dayanya tidak ada. "Tidak ada hasil untuk filtermu" adalah jawaban yang sah — klien yang menerima `404` akan menampilkan halaman error alih-alih keadaan kosong.',
+        '`404` berarti endpoint atau sumber dayanya tidak ada. "Tidak ada hasil untuk filtermu" adalah jawaban yang sah — klien yang menerima `404` akan menampilkan halaman error alih-alih empty state.',
       ),
 
       h2('Konsistensi lebih penting daripada kesempurnaan'),
@@ -442,7 +469,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'RFC 9457',
           meaning:
-            'Standar resmi bentuk error HTTP, dulu bernama RFC 7807. Ia menetapkan sekumpulan field baku — `type`, `title`, `status`, `detail`, `instance` — dan **membolehkan** kamu menambah field sendiri di sampingnya.',
+            'Standar resmi bentuk error HTTP, dulu bernama RFC 7807. Ia menetapkan sekumpulan field baku berupa `type`, `title`, `status`, `detail`, dan `instance`, lalu **membolehkan** kamu menambah field sendiri di sampingnya.',
         },
         {
           term: 'application/problem+json',
@@ -462,7 +489,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'requestId di badan error',
           meaning:
-            'Id korelasi yang ikut dikirim ke klien. Ia yang membuat detail lengkap bisa tinggal di **log server** sementara pengguna tetap punya sesuatu untuk dilaporkan — dan kamu bisa menemukan permintaannya persis.',
+            'Correlation id yang ikut dikirim ke klien. Ia yang membuat detail lengkap bisa tinggal di **log server** sementara pengguna tetap punya sesuatu untuk dilaporkan — dan kamu bisa menemukan permintaannya persis.',
         },
         {
           term: 'pesan database sebagai peta',
@@ -498,6 +525,12 @@ export const lessons: LessonDraft[] = [
         Internal Server Error
         `,
       ),
+      p(
+        'Empat endpoint di **satu API yang sama**, empat bentuk error yang tidak ada hubungannya satu sama lain. Bacalah dari sudut pandang klien: untuk mengetahui apakah sebuah permintaan gagal, ia harus memeriksa `error` (A), lalu `success` (C), lalu apakah responsnya JSON sama sekali (D). Setiap endpoint baru menuntut satu cabang penanganan baru, dan cabang yang terlewat muncul sebagai layar kosong tanpa pesan.',
+      ),
+      p(
+        'Perhatikan endpoint D adalah yang terburuk sekaligus paling sering terjadi: teks polos itu biasanya jawaban bawaan framework saat ada error yang tidak tertangani. Kliennya memanggil `response.json()`, gagal mengurainya, dan melempar error kedua yang **menutupi** error aslinya — sehingga pesan yang sampai ke pengguna sama sekali tidak menjelaskan apa yang sebenarnya salah. Itulah alasan penampung error di ujung rantai middleware tidak bisa ditawar.',
+      ),
 
       h2('RFC 9457 — Problem Details'),
       p(
@@ -524,6 +557,12 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Perhatikan `Content-Type: application/problem+json`, bukan `application/json` biasa. Itu bagian dari standarnya: klien bisa mengenali "ini badan error berformat baku" dari header saja, tanpa menebak dari isinya. Perbedaan paling penting di dalam badan itu adalah antara `type` dan `detail`. `type` adalah **URI yang stabil** yang menandai jenis masalah — inilah yang dicocokkan program, dan ia tidak boleh berubah. `detail` adalah kalimat untuk kejadian ini saja, dan boleh diubah atau diterjemahkan kapan pun.',
+      ),
+      p(
+        'Dua field terakhir adalah tambahanmu sendiri, dan standarnya memang mengizinkan itu. `errors` membawa rincian **per field** — inilah yang memungkinkan antarmuka menempelkan "wajib diisi" tepat di bawah input judul, bukan sebagai satu pesan umum di atas formulir. Dan `requestId` menyambungkan respons ini ke baris log di servermu; pengguna melaporkan kode delapan karakter itu, dan kamu menemukan jejak lengkapnya tanpa menebak dari perkiraan waktu.',
+      ),
       table(
         ['Field', 'Isinya'],
         [
@@ -549,6 +588,12 @@ export const lessons: LessonDraft[] = [
           }
         }
         `,
+      ),
+      p(
+        'Bentuk ini membawa **informasi yang sama** dengan RFC 9457, hanya dengan nama field sendiri: `kode` menggantikan `type`, `pesan` menggantikan `title`/`detail`, `field` menggantikan `errors`. Yang tidak boleh hilang adalah pembagian perannya — satu penanda yang **stabil dan dibaca program** (`kode`), satu kalimat yang **boleh berubah dan dibaca manusia** (`pesan`), dan penanda penelusuran (`requestId`).',
+      ),
+      p(
+        'Perhatikan seluruhnya dibungkus satu kunci `error`. Pembungkus itu yang membuat klien bisa membedakan sukses dari gagal dengan satu pemeriksaan, apa pun endpoint-nya — pasangan dari `{ data, meta }` pada respons berhasil. Pilih salah satu bentuk ini, tulis keputusannya, lalu tegakkan di **seluruh** API: yang merugikan klien bukan bentuk mana yang kamu pilih, melainkan adanya dua bentuk sekaligus.',
       ),
       callout(
         'tip',
@@ -589,6 +634,12 @@ export const lessons: LessonDraft[] = [
           `,
           notes: ['Detail lengkapnya ada di log server, dikaitkan lewat requestId'],
         },
+      ),
+      p(
+        'Kolom kiri tidak dibuat oleh orang yang ceroboh — ia lahir dari niat baik "supaya mudah di-debug". Masalahnya, yang menerima respons itu **bukan hanya kamu**. Baca apa yang diserahkannya kepada siapa pun yang mengirim permintaan: nama tabel `pengguna`, nama constraint `pengguna_email_key` yang mengungkap kolom `email` itu unik, jalur berkas `/app/src/repositories/pengguna.js` yang membocorkan struktur project, dan potongan `INSERT` yang memperlihatkan bentuk query-mu. Itu peta gratis untuk menyusun serangan berikutnya.',
+      ),
+      p(
+        'Kolom kanan tidak menghilangkan informasinya, melainkan **memindahkannya**. Seluruh detail tadi tetap dicatat di log server, dan `requestId` adalah benang yang menyambungkan keduanya. Perhatikan pula `kode` berubah dari pesan database mentah menjadi `SUDAH_TERDAFTAR`, sehingga klien tetap bisa bercabang dengan tepat, tanpa perlu tahu satu pun detail internal. Aturan umumnya, error yang **kamu buat sendiri** boleh pesannya diteruskan, sedangkan error yang datang dari database atau paket pihak ketiga tidak pernah boleh.',
       ),
       callout(
         'danger',
@@ -705,7 +756,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'kolom urut yang unik',
           meaning:
-            'Cursor bekerja dengan membandingkan nilai (`WHERE id < 10023`). Kalau kolom urutnya **tidak unik** — misalnya `dibuat_pada` saja — dua baris dengan nilai sama bisa terlewat atau ganda. Selalu pasangkan dengan `id` sebagai pemecah seri.',
+            'Cursor bekerja dengan membandingkan nilai (`WHERE id < 10023`). Kalau kolom urutnya **tidak unik**, misalnya `dibuat_pada` saja, dua baris dengan nilai sama bisa terlewat atau ganda. Selalu pasangkan dengan `id` sebagai pemecah seri.',
         },
         {
           term: 'batas atas limit',
@@ -734,6 +785,12 @@ export const lessons: LessonDraft[] = [
           }
         }
         `,
+      ),
+      p(
+        'Permintaannya hanya dua parameter, dan itulah daya tarik model offset: siapa pun langsung paham `hal=2` berarti halaman kedua. Perhatikan blok `meta` mengembalikan **kembali** nilai yang diminta (`halaman`, `perHalaman`) — bukan pengulangan yang sia-sia, melainkan cara klien tahu nilai apa yang benar-benar dipakai server. Kalau klien mengirim `per_hal=999999` dan server membatasinya ke 100, `perHalaman: 100` di sini yang memberitahunya.',
+      ),
+      p(
+        'Dua field terakhir yang membuat model ini istimewa sekaligus mahal. `total: 1337` dan `totalHalaman: 67` memungkinkan antarmuka menggambar deretan nomor halaman — sesuatu yang mustahil dilakukan model cursor. Harganya, keduanya menuntut satu query `COUNT` tambahan pada **setiap** permintaan, dan `COUNT` pada tabel berisi jutaan baris bukan operasi murah. Itulah pertukaran yang dirinci tabel di bawah.',
       ),
       table(
         ['Kelebihan', 'Kekurangan'],
@@ -768,6 +825,15 @@ export const lessons: LessonDraft[] = [
           }
         }
         `,
+      ),
+      p(
+        'Permintaan pertama tidak menyebut cursor sama sekali, dan itulah cara meminta halaman awal. Jawabannya membawa `cursorBerikutnya`, dan klien menempelkannya apa adanya pada permintaan berikutnya. Perhatikan nilai `eyJpZCI6MTAwMjN9` itu **base64 biasa** dan bukan enkripsi, sebab ia berisi `{"id":10023}`. Karena bisa dibaca siapa pun, jangan pernah menaruh sesuatu yang sensitif di dalamnya, dan tetap validasi isinya di server, karena klien bisa mengarang cursor sendiri.',
+      ),
+      p(
+        'Alasan cursor dikodekan dan bukan dikirim sebagai `?setelah_id=10023` adalah **kebebasan mengubahnya nanti**. Hari ini penandanya cukup satu `id`; besok, saat pengurutan berubah menjadi berdasarkan tanggal, penandanya butuh dua nilai sekaligus (tanggal + id sebagai pemecah seri). Karena klien memperlakukan cursor sebagai teks buram yang hanya diteruskan kembali, perubahan itu tidak memutus siapa pun.',
+      ),
+      p(
+        'Perhatikan pula `meta`-nya tidak punya `total` maupun `totalHalaman`, hanya `adaLagi`. Itu bukan kelalaian melainkan konsekuensi: model ini tidak pernah menghitung seluruh baris, dan justru itu yang membuatnya tetap cepat di kedalaman mana pun. Bandingkan SQL-nya di bawah.',
       ),
       code(
         'sql',
@@ -807,6 +873,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Perhatikan `buatCursor` memasukkan **dua** nilai dan bukan hanya `id`, yaitu `dibuatPada` beserta `id`. Itu keharusan begitu pengurutannya berdasarkan tanggal, sebab tanpa `id` sebagai pemecah seri, dua artikel yang terbit pada detik yang sama membuat posisinya ambigu, dan itulah yang dibahas bagian "Urutan harus unik" di bawah. `base64url` dipilih alih-alih base64 biasa karena hasilnya aman ditaruh di URL, sebab ia tidak menghasilkan karakter `+`, `/`, dan `=` yang harus di-escape.',
+      ),
+      p(
+        '`bacaCursor` punya **dua** lapis penjagaan, dan keduanya perlu. `try/catch` menangkap cursor yang bentuknya rusak sama sekali — teks sembarang yang bukan base64, atau base64 yang isinya bukan JSON. Lapis kedua, `SkemaCursor.safeParse`, menangkap yang jauh lebih berbahaya: cursor yang **bentuknya sah tetapi isinya dikarang**. Ingat isinya base64 biasa, jadi siapa pun bisa menyusun `{"id":"1 OR 1=1"}` lalu mengodekannya.',
+      ),
+      p(
+        'Perhatikan keduanya mengembalikan `null` alih-alih melempar. Itu keputusan sadar: cursor tidak sah paling masuk akal diperlakukan sebagai "tidak ada cursor", sehingga permintaannya jatuh kembali ke halaman pertama — merepotkan bagi yang mengarangnya, tidak berbahaya bagi siapa pun. Nilai yang lolos skema lalu dipakai **sebagai parameter query**, bukan disisipkan ke teks SQL.',
+      ),
       callout(
         'danger',
         'Cursor adalah masukan yang tidak tepercaya',
@@ -834,6 +909,12 @@ export const lessons: LessonDraft[] = [
         LIMIT 20
         `,
       ),
+      p(
+        'Bentuk `(dibuat_pada, id) < ($1, $2)` disebut **perbandingan baris**, dan ia melakukan persis yang kamu maksud: bandingkan `dibuat_pada` dulu, dan hanya kalau nilainya sama, bandingkan `id` sebagai penentu. Menuliskannya sebagai `dibuat_pada < $1 AND id < $2` **salah** — syarat itu akan membuang artikel yang tanggalnya lebih tua tetapi `id`-nya kebetulan lebih besar, sehingga sebagian data tidak pernah muncul di halaman mana pun.',
+      ),
+      p(
+        'Perhatikan urutan kolom di `WHERE` harus sama persis dengan urutan di `ORDER BY`, dan arahnya (`<` berpasangan dengan `DESC`) juga harus cocok. Ketidakcocokan di antara keduanya menghasilkan paginasi yang tampak bekerja pada halaman pertama lalu melewatkan baris di halaman-halaman berikutnya — kegagalan senyap yang hanya ketahuan kalau seseorang menghitung total item yang benar-benar terlihat. Bonusnya, bentuk ini bisa memakai composite index `(dibuat_pada DESC, id DESC)` sekaligus.',
+      ),
 
       h2('Memilih'),
       table(
@@ -854,6 +935,12 @@ export const lessons: LessonDraft[] = [
         // Batas atas ditentukan SERVER, bukan klien.
         const perHalaman = Math.min(Number(req.query.per_hal) || 20, 100);
         `,
+      ),
+      p(
+        'Satu baris ini menangani tiga hal sekaligus, dan ketiganya perlu. `Number(...)` mengubah string query menjadi angka. `|| 20` menangkap dua kasus sekaligus, yaitu parameter yang tidak dikirim (`undefined` → `NaN`) dan yang isinya bukan angka (`"abc"` → `NaN`), dan keduanya jatuh ke nilai bawaan. Dan `Math.min(..., 100)` adalah batas atas yang **ditentukan server** alih-alih sekadar disarankan ke klien.',
+      ),
+      p(
+        'Perhatikan urutannya, sebab batas dipasang **setelah** konversi dan bukan sebelum. Satu celah yang masih tersisa di baris ini patut kamu sadari, sebab `?per_hal=-5` lolos karena `-5` adalah angka yang sah dan lebih kecil dari 100. Nilai negatif pada `LIMIT` ditolak sebagian database dan diperlakukan aneh oleh sebagian lain, jadi bentuk yang lebih lengkap membungkusnya lagi menjadi `Math.max(1, Math.min(..., 100))`, atau lebih baik lagi memindahkan seluruh aturan ini ke skema validasi seperti pada `z.coerce.number().int().min(1).max(100).default(20)`.',
       ),
       callout(
         'warning',
@@ -904,7 +991,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'query builder di URL',
           meaning:
-            'Anti-pola berbahaya: API yang menerima `?where[peran]=admin` atau `?filter={"$ne":null}`. Itu **menyerahkan penyusunan query kepada klien** — bukan fitur fleksibel, melainkan injeksi dengan pintu depan terbuka.',
+            'Anti-pattern berbahaya: API yang menerima `?where[peran]=admin` atau `?filter={"$ne":null}`. Itu **menyerahkan penyusunan query kepada klien** — bukan fitur fleksibel, melainkan injeksi dengan pintu depan terbuka.',
         },
         {
           term: 'sorting dengan tanda minus',
@@ -965,6 +1052,15 @@ export const lessons: LessonDraft[] = [
         }).strict();
         `,
       ),
+      p(
+        'Perhatikan filternya ditulis **datar** dalam bentuk `?status=terbit&penulis_id=42`, bukan sebagai struktur bersarang seperti `?filter[status][eq]=terbit`. Bentuk datar itu keputusan sadar, sebab ia mudah dibaca di bilah alamat, mudah dijadikan tautan, dan yang terpenting, setiap nama parameter adalah **satu kemampuan yang kamu daftarkan**. Bentuk bersarang cepat berkembang menjadi bahasa query mini yang harus kamu urai sendiri, dan di situlah celah injeksi lahir.',
+      ),
+      p(
+        'Skema Zod-nya menegakkan hal itu di kode. Setiap filter punya barisnya sendiri dengan tipe yang tepat. `status` dibatasi tiga nilai lewat `z.enum` sebagai allow-list alih-alih string bebas, `penulis_id` di-`coerce` menjadi integer positif karena query selalu string, dan `cari` dibatasi 100 karakter agar pencarian tidak dipakai untuk membebani server. Semuanya `.optional()` karena filter memang tidak wajib.',
+      ),
+      p(
+        '`.strict()` di baris terakhir yang menutup rapat. Tanpa itu, Zod diam-diam membuang parameter asing dan kamu tidak pernah tahu ada klien yang mengirim `?password_hash=...` atau mencoba `?where[peran]=admin`. Dengan `.strict()`, percobaan seperti itu menjadi `422` yang tercatat — dan itu memberimu sinyal, bukan sekadar keamanan pasif.',
+      ),
       callout(
         'danger',
         'Jangan pernah menerjemahkan query string langsung menjadi query database',
@@ -979,6 +1075,9 @@ export const lessons: LessonDraft[] = [
         GET /artikel?urut=judul                 # menaik
         GET /artikel?urut=-dibuat_pada,judul    # beberapa kunci
         `,
+      ),
+      p(
+        'Konvensi tanda minus ini dipakai luas (JSON:API memakainya juga), dan alasannya praktis, sebab satu parameter cukup untuk menyatakan **kolom dan arahnya sekaligus**. Alternatifnya, `?urut=dibuat_pada&arah=desc`, langsung buntu begitu klien ingin mengurutkan dua kolom dengan arah berbeda, persis seperti yang dilakukan baris ketiga dengan tanggal menurun lalu judul menaik sebagai pemecah seri.',
       ),
       code(
         'js',
@@ -1038,6 +1137,12 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Polanya sama dengan `susunOrderBy`: input klien dipakai untuk **menyaring daftar milikmu**, bukan untuk menyusun daftar baru. Perhatikan `filter((f) => FIELD_BOLEH.has(f))` — yang lolos hanyalah nama yang sudah ada di `FIELD_BOLEH`, jadi `?fields=password_hash` menghasilkan array kosong, bukan kolom sensitif yang ikut terkirim.',
+      ),
+      p(
+        'Dua cabang pengembaliannya menangani dua keadaan yang berbeda dan mudah tertukar. Kalau parameter `fields` **tidak dikirim sama sekali**, artinya klien tidak peduli — kembalikan semua. Kalau dikirim tetapi **tidak satu pun namanya dikenal**, itu kemungkinan besar salah ketik atau percobaan; kembalikan default juga, bukan objek kosong. Merespons dengan `{}` akan membuat klien mengira datanya memang tidak ada, dan bug seperti itu jauh lebih sulit dilacak daripada respons yang sekadar membawa lebih banyak field dari yang diminta.',
+      ),
       callout(
         'warning',
         'Allow-list field juga kontrol keamanan',
@@ -1056,6 +1161,12 @@ export const lessons: LessonDraft[] = [
         WHERE to_tsvector('indonesian', judul || ' ' || isi)
               @@ plainto_tsquery('indonesian', $1)
         `,
+      ),
+      p(
+        'Bentuk pertama menempelkan `%` di **kedua sisi** kata kunci, dan justru `%` di depan itu yang mematikan index — database tidak punya titik awal untuk melompat, jadi ia memindai seluruh tabel. Untuk tabel berisi beberapa ribu baris itu masih terasa instan; untuk ratusan ribu, setiap ketikan di kotak pencarian menjadi pemindaian penuh. Perhatikan kata kuncinya tetap dikirim sebagai parameter `$1` dan digabung dengan `||` **di dalam SQL**, bukan disisipkan ke teks query dari JavaScript.',
+      ),
+      p(
+        'Bentuk kedua bekerja dengan cara yang berbeda secara mendasar. `to_tsvector` memecah judul dan isi menjadi daftar kata dasar, sehingga "berlari", "pelari", dan "lari" dipetakan ke akar yang sama menurut aturan bahasa yang disebut (`\'indonesian\'`). `plainto_tsquery` melakukan hal serupa pada kata pencarian, lalu `@@` mencocokkan keduanya. Karena hasil `to_tsvector` bisa disimpan di kolom tersendiri dan diberi index GIN, pencarian tetap cepat pada data besar, dan sebagai bonus ia menemukan kecocokan yang `ILIKE` lewatkan karena bentuk katanya berbeda.',
       ),
       callout(
         'tip',
@@ -1238,6 +1349,12 @@ export const lessons: LessonDraft[] = [
         Link: <https://contoh.com/docs/migrasi-v2>; rel="deprecation"
         `,
       ),
+      p(
+        'Ketiga header ini mengubah pengumuman "endpoint ini akan dihapus" dari catatan di dokumentasi, yang mungkin tidak pernah dibaca siapa pun, menjadi sesuatu yang **bisa dibaca mesin**. `Deprecation: true` menandai endpoint-nya sudah usang, `Sunset` menyebut tanggal pastinya dalam format tanggal HTTP, dan `Link` menunjuk ke panduan migrasinya. Klien yang tertib bisa mencatat ketiganya ke log dan memunculkan peringatan bagi timnya jauh sebelum tanggalnya tiba.',
+      ),
+      p(
+        'Perhatikan status responsnya tetap `200` — endpoint yang usang **masih bekerja normal**, dan itu memang inti dari deprecation: memberi waktu, bukan memutus. Perhatikan pula ketiganya baru bermakna kalau langkah 3 di atas benar-benar dijalankan. Mengirim header lalu menghapus endpoint pada tanggal yang tertulis, tanpa pernah memeriksa apakah masih ada yang memakainya, adalah cara paling rapi untuk merusak aplikasi orang lain sambil merasa sudah memberi tahu.',
+      ),
 
       h2('Berapa lama versi lama dipertahankan'),
       p(
@@ -1418,6 +1535,18 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Baris `kunci di-scope PER PENGGUNA` adalah penjagaan keamanan yang mudah terlewat. Kalau kunci disimpan apa adanya, penyerang tinggal menebak atau mencuri satu kunci milik orang lain, mengirimkannya, dan servermu akan dengan patuh **mengembalikan hasil operasi orang tersebut** — termasuk detail pembayaran. Menempelkan `req.pengguna.id` di depan membuat ruang kunci setiap pengguna terpisah sepenuhnya.',
+      ),
+      p(
+        'Sidik jari body menutup masalah yang berbeda, yaitu klien yang keliru memakai kunci yang sama untuk **dua operasi berbeda**. Tanpa pemeriksaan itu, permintaan kedua akan menerima hasil pembayaran pertama seolah pembayaran keduanya berhasil, padahal tidak pernah diproses. Karena itu jawabannya `422` dan bukan hasil tersimpan, sebab ini bug di sisi klien, dan ia harus tahu.',
+      ),
+      p(
+        'Perhatikan status `409 SEDANG_DIPROSES` muncul di **dua** tempat, dan keduanya perlu. Yang pertama menangani percobaan ulang yang tiba saat permintaan awal masih berjalan. Yang kedua menangani keadaan yang lebih sempit: dua permintaan tiba **benar-benar bersamaan**, keduanya melihat kunci belum ada, lalu berlomba mengklaimnya. `klaimIdempotensi` menang untuk satu dan gagal untuk yang lain — dan kegagalan itulah yang mencegah pemrosesan ganda.',
+      ),
+      p(
+        'Perhatikan pula urutan tiga baris terakhir: `layanan.proses` dijalankan **sebelum** hasilnya disimpan, dan status `201` yang disimpan sama persis dengan yang dikirim. Kesamaan itu bukan kerapian — percobaan ulang yang menerima `200` padahal aslinya `201` akan membuat klien mengira tidak ada yang dibuat, lalu bercabang ke jalur yang keliru.',
+      ),
       callout(
         'danger',
         'Klaim kunci harus atomik',
@@ -1509,7 +1638,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'public vs private',
           meaning:
-            '`public` membolehkan cache **bersama** — CDN, proxy — menyimpannya. `private` membatasi ke browser pengguna itu saja. Salah memilih berarti jawaban milik satu orang bisa tersaji ke orang lain.',
+            '`public` membolehkan cache **bersama** seperti CDN dan proxy menyimpannya. `private` membatasi ke browser pengguna itu saja. Salah memilih berarti jawaban milik satu orang bisa tersaji ke orang lain.',
         },
         {
           term: 'stale-while-revalidate',
@@ -1563,6 +1692,12 @@ export const lessons: LessonDraft[] = [
         Cache-Control: public, max-age=60, stale-while-revalidate=600
         `,
       ),
+      p(
+        'Kata `public` dan `private` di sini **tidak berbicara soal izin akses** — keduanya menyebut *siapa yang boleh menyimpan*. `public` berarti cache bersama (CDN, proxy perusahaan) boleh menyimpannya dan menyajikannya ke siapa saja. `private` berarti hanya browser milik satu pengguna itu yang boleh. Salah memilih di sini adalah bagaimana data satu pengguna berakhir tersaji ke pengguna lain, dan itulah yang disebut cache poisoning di daftar istilah.',
+      ),
+      p(
+        '`max-age=3600` menyebut berapa **detik** respons dianggap segar; selama itu klien memakainya tanpa bertanya ke server sama sekali. Baris terakhir menambahkan `stale-while-revalidate=600`, dan ini pola yang sangat berguna: setelah 60 detik pertama lewat, klien boleh **langsung menyajikan yang basi** sambil menyegarkannya di latar belakang. Penggunanya tidak pernah menunggu, dan servermu tidak dibanjiri permintaan serentak begitu masa segarnya habis.',
+      ),
       callout(
         'danger',
         '`no-cache` tidak berarti "jangan simpan"',
@@ -1577,6 +1712,9 @@ export const lessons: LessonDraft[] = [
         // Data publik yang boleh disimpan CDN
         res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600');
         `,
+      ),
+      p(
+        'Dua baris ini adalah keputusan yang harus kamu ambil **per endpoint**, bukan sekali untuk seluruh aplikasi. Aturan praktisnya sederhana: kalau responsnya berbeda tergantung siapa yang bertanya, ia tidak boleh `public`. Endpoint di balik autentikasi hampir selalu masuk kategori pertama — dan di sana `no-store` lebih tepat daripada `private`, karena `private` masih mengizinkan browser menyimpannya ke disk, tempat ia bisa terbaca di perangkat bersama.',
       ),
 
       h2('`ETag` — validasi bersyarat'),
@@ -1594,6 +1732,9 @@ export const lessons: LessonDraft[] = [
         If-None-Match: "a1b2c3d4"
         -> 304 Not Modified              <- 0 byte body
         `,
+      ),
+      p(
+        'ETag adalah **sidik jari isi respons**, yaitu string apa pun yang pasti berubah begitu isinya berubah. Perhatikan alurnya, sebab server mengirimnya di permintaan pertama, klien menyimpannya, lalu mengembalikannya lewat `If-None-Match` di permintaan berikutnya. Kalau sidik jarinya masih sama, server cukup menjawab `304` tanpa body sama sekali. Perhatikan pula ETag ditulis **di dalam tanda kutip**, dan itu bagian dari formatnya alih-alih hiasan, dan menghilangkannya membuat sebagian klien tidak mengenalinya.',
       ),
       code(
         'js',
@@ -1632,6 +1773,12 @@ export const lessons: LessonDraft[] = [
         -> 412 Precondition Failed kalau sudah diubah orang lain
         `,
       ),
+      p(
+        'Perhatikan headernya `If-Match` dan bukan `If-None-Match` seperti pada caching tadi, dan artinya pun berlawanan. `If-None-Match` berkata "kirimkan **kalau sudah berubah**", sedangkan `If-Match` berkata "terapkan **hanya kalau belum berubah**". ETag yang sama dipakai untuk dua tujuan yang berbeda, yaitu menghemat bandwidth pada `GET`, dan mencegah tindihan pada `PUT`.',
+      ),
+      p(
+        'Yang membuat pola ini disebut **optimistic** adalah ia tidak mengunci apa pun. Tidak ada yang menahan artikel selama seseorang menyuntingnya — dua orang bebas membuka dan mengetik bersamaan. Bentroknya baru terdeteksi **saat menyimpan**, dan `412` adalah cara server berkata "isian yang kamu ubah sudah bukan versi terbaru". Klien lalu bisa mengambil versi baru dan menawarkan penggabungan, alih-alih diam-diam menghapus pekerjaan orang lain.',
+      ),
       callout(
         'tip',
         'Ini optimistic concurrency, dan ia menutup bug yang halus',
@@ -1645,6 +1792,12 @@ export const lessons: LessonDraft[] = [
         Cache-Control: private, max-age=60
         Vary: Authorization, Accept-Language
         `,
+      ),
+      p(
+        'Cache secara bawaan mengenali sebuah respons **hanya dari alamatnya**. Itu masalah begitu alamat yang sama bisa menghasilkan isi yang berbeda: `/api/saya/profil` mengembalikan profil Ana atau profil Budi tergantung header `Authorization`, tetapi cache tidak tahu itu kecuali diberi tahu. `Vary` adalah cara memberitahunya — "isi respons ini bergantung pada header berikut, jadi jadikan header itu bagian dari kunci penyimpanannya".',
+      ),
+      p(
+        'Perhatikan `Accept-Language` disebut juga, karena masalahnya sama persis: alamat yang sama menghasilkan teks Indonesia atau Inggris, dan tanpa `Vary` pembaca kedua bisa menerima bahasa milik pembaca pertama. Aturan praktisnya, **setiap header yang ikut memengaruhi isi respons wajib disebut di `Vary`**. Dan untuk data pribadi, jangan mengandalkan `Vary` sebagai satu-satunya penjagaan — pasangkan dengan `no-store`, karena `Vary` yang benar tetap tidak menghalangi respons itu tersimpan di disk perangkat bersama.',
       ),
       callout(
         'danger',
@@ -1749,7 +1902,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'keadaan akhir',
           meaning:
-            'Setiap job **wajib** punya keadaan akhir, dan batas waktu yang memindahkannya ke `gagal` kalau macet terlalu lama. Job yang gagal diam-diam lebih buruk daripada yang gagal keras: pengguna menunggu tanpa batas untuk sesuatu yang tidak akan pernah selesai.',
+            'Setiap job **wajib** punya keadaan akhir, dan batas waktu yang memindahkannya ke `gagal` kalau macet terlalu lama. Job yang gagal diam-diam lebih buruk daripada yang fail loudly: pengguna menunggu tanpa batas untuk sesuatu yang tidak akan pernah selesai.',
         },
         {
           term: 'bisaDiulang',
@@ -1790,6 +1943,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Kunci pola ini ada di langkah 1, yaitu `202 Accepted` dan bukan `200`. Bedanya bukan sekadar angka, sebab `202` berarti *"permintaanmu diterima, tapi belum dikerjakan"*, sebuah janji yang berbeda dari "sudah selesai". Dan header `Location` mengubah janji itu jadi bisa ditindaklanjuti, sebab ia menunjuk **alamat job** dan bukan alamat hasilnya. Perhatikan responsnya sudah membawa `jobId` dan `status` sejak awal, sehingga klien punya sesuatu untuk ditampilkan seketika alih-alih layar kosong.',
+      ),
+      p(
+        'Langkah 2 dan 3 memakai alamat yang **sama persis**, dan hanya isinya yang berubah seiring waktu. Itu keputusan desain yang penting: job adalah sumber daya yang punya satu alamat tetap, bukan rangkaian endpoint berbeda per keadaan. Klien cukup menanyakan alamat itu berulang dan membaca field `status` untuk tahu kapan berhenti bertanya.',
+      ),
+      p(
+        'Perhatikan hasil akhirnya **tidak** dikirim langsung di dalam respons, melainkan sebagai `unduhUrl` beserta `kedaluwarsaPada`. Untuk ekspor yang bisa berukuran puluhan megabita, menyisipkannya ke JSON akan memaksa seluruh berkas masuk ke memori server dan memori klien sekaligus. Tanggal kedaluwarsa yang ikut dikirim juga bukan hiasan: ia memberi tahu klien bahwa tautan itu berbatas waktu, sesuai pola URL bertanda tangan di bagian akhir sub-bab ini.',
+      ),
 
       h2('Bentuk status job'),
       code(
@@ -1807,6 +1969,12 @@ export const lessons: LessonDraft[] = [
           error: null,                          // diisi kalau status 'gagal'
         }
         `,
+      ),
+      p(
+        'Daftar `STATUS` di baris pertama adalah kontrak yang menentukan kapan klien boleh berhenti bertanya. Tiga di antaranya, yaitu `selesai`, `gagal`, dan `dibatalkan`, adalah **keadaan akhir**, sedangkan sisanya sementara. Tanpa pembagian yang tegas seperti ini, klien tidak punya cara tahu apakah ia masih perlu menunggu, dan job yang macet berubah menjadi spinner yang berputar selamanya.',
+      ),
+      p(
+        'Perhatikan `hasil` dan `error` keduanya `null` selama job berjalan, dan **hanya salah satu** yang terisi di akhir. Bentuk seperti ini membuat klien bisa bercabang tanpa menebak. `kemajuan` diberi komentar "kalau bisa dihitung" karena tidak semua pekerjaan bisa diukur persentasenya — dan mengarang angka palsu yang melompat dari 10 ke 90 lebih merusak kepercayaan daripada tidak mengirimnya sama sekali; untuk kasus itu, kirim `null` dan biarkan antarmuka menampilkan indikator tak-tentu.',
       ),
       callout(
         'danger',
@@ -1831,6 +1999,12 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Tanpa penjagaan ini, tombol "Ekspor" yang diklik dua kali menghasilkan dua job identik yang memindai tabel yang sama dan menghasilkan berkas yang sama, sehingga bebannya dua kali lipat dan ada dua tautan unduhan yang membingungkan. Perhatikan `cariJobAktif` dicari lewat **dua** hal sekaligus, yaitu `req.pengguna.id` dan kuncinya. Tanpa id pengguna, satu orang bisa memakai kunci tebakan untuk mengambil job orang lain, persis seperti IDOR yang diperingatkan di atas.',
+      ),
+      p(
+        'Yang paling penting: respons untuk permintaan kedua **sama persis** dengan yang pertama — `202` beserta header `Location` yang menunjuk job yang sudah ada. Klien tidak bisa membedakan mana permintaan pertama dan mana yang kedua, dan memang tidak perlu. Ini penerapan langsung idempotensi dari sub-bab 1.7, hanya diterapkan pada operasi yang jawabannya memang selalu "sedang dikerjakan".',
+      ),
 
       h2('Memberi tahu klien tanpa polling terus-menerus'),
       table(
@@ -1851,6 +2025,12 @@ export const lessons: LessonDraft[] = [
         { "data": { "status": "diproses" } }
         `,
       ),
+      p(
+        '`Retry-After: 5` memberi tahu klien untuk menunggu lima detik sebelum bertanya lagi. Tanpa itu, setiap klien menebak sendiri — dan tebakan yang umum adalah "secepat mungkin", sehingga satu job yang berjalan dua menit menghasilkan ratusan permintaan sia-sia dari satu pengguna saja. Perhatikan servernya berada di posisi yang jauh lebih tahu: ia bisa menaikkan angka itu saat antreannya panjang, dan menurunkannya saat job hampir selesai.',
+      ),
+      p(
+        'Perhatikan pula statusnya `200`, bukan `202`. Permintaan **membaca status** memang berhasil sepenuhnya — yang belum selesai adalah pekerjaan yang sedang ditanyakan, dan itu tercermin di field `status` di dalam body, bukan di kode HTTP-nya.',
+      ),
 
       h2('Kegagalan harus terlihat'),
       code(
@@ -1870,10 +2050,16 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Perhatikan status HTTP-nya tetap `200`, sebab permintaan membaca status berhasil dan yang gagal adalah **job**-nya. Kegagalan itu dinyatakan di dalam data lewat `status: "gagal"` beserta objek `error` yang bentuknya sama seperti error API biasa (`kode`, `pesan`, `requestId`). Keseragaman itu berharga, sebab klien bisa memakai penangan error yang sama tanpa menulis cabang khusus untuk job.',
+      ),
+      p(
+        '`bisaDiulang: true` adalah field yang paling sering dilupakan dan paling menghemat waktu semua orang. Ia menjawab pertanyaan yang hanya bisa dijawab server, yaitu apakah kegagalan ini karena gangguan sementara seperti sumber data tidak terjangkau atau timeout, atau karena masukannya memang salah. Untuk yang pertama, tombol "Coba lagi" masuk akal. Untuk yang kedua, mencoba lagi hanya akan gagal dengan cara yang persis sama, dan yang perlu ditampilkan adalah cara memperbaiki masukannya.',
+      ),
       callout(
         'warning',
-        'Job yang gagal diam-diam lebih buruk daripada yang gagal keras',
-        'Pengguna menunggu tanpa batas untuk sesuatu yang tidak akan pernah selesai. Setiap job harus punya keadaan akhir — `selesai`, `gagal`, atau `dibatalkan` — dan batas waktu yang memindahkannya ke `gagal` kalau macet terlalu lama.',
+        'Job yang gagal diam-diam lebih buruk daripada yang fail loudly',
+        'Pengguna menunggu tanpa batas untuk sesuatu yang tidak akan pernah selesai. Setiap job harus punya keadaan akhir berupa `selesai`, `gagal`, atau `dibatalkan`, beserta batas waktu yang memindahkannya ke `gagal` kalau macet terlalu lama.',
       ),
 
       h2('Hasil yang bisa diunduh'),
@@ -1934,7 +2120,7 @@ export const lessons: LessonDraft[] = [
             'Masalah yang diselesaikan sub-bab ini. Dokumentasi yang ditulis terpisah dari kode **pasti** akan berbeda — bukan karena orang malas, tapi karena **tidak ada yang membuatnya gagal** saat menyimpang.',
         },
         {
-          term: 'satu sumber kebenaran',
+          term: 'satu source of truth',
           meaning:
             'Menghasilkan OpenAPI dari **skema validasi yang sudah kamu tulis**, bukan menulisnya terpisah. Dengan begitu keduanya tidak bisa berbeda: mengubah aturan validasi otomatis mengubah dokumentasinya.',
         },
@@ -2016,6 +2202,15 @@ export const lessons: LessonDraft[] = [
               bearerFormat: JWT
         `,
       ),
+      p(
+        'OpenAPI adalah **kontrak API yang bisa dibaca mesin** — itulah yang membedakannya dari dokumentasi biasa. Perhatikan setiap parameter menyebut bukan hanya tipenya tetapi juga batasnya: `minimum: 1`, `maximum: 100`, `default: 20`. Angka-angka itu sama persis dengan yang ditegakkan skema validasimu, dan menuliskannya di sini membuat klien tahu batasnya **sebelum** mencoba dan menerima `422`.',
+      ),
+      p(
+        'Bagian `responses` menyebut `401` di samping `200`, dan itu bagian yang paling sering dilewatkan orang. Dokumentasi yang hanya memuat jalur sukses membuat klien tidak menyiapkan penanganan untuk kegagalan yang pasti akan terjadi. Perhatikan pula `$ref` yang dipakai dua kali — ia menunjuk definisi yang ditulis sekali di `components`, sehingga bentuk `TidakTerautentikasi` yang sama bisa dipakai puluhan endpoint tanpa disalin.',
+      ),
+      p(
+        'Di dalam `components/schemas`, `required: [id, judul, status]` menyatakan field mana yang **dijamin ada** — pembeda penting bagi klien TypeScript, karena field di luar daftar itu harus diperlakukan sebagai mungkin tidak ada. Dan `securitySchemes` mendokumentasikan cara autentikasinya, sehingga alat seperti Swagger UI bisa menyediakan kolom isian token dan mencoba endpoint-nya langsung dari halaman dokumentasi.',
+      ),
 
       h2('Hasilkan dari skema, jangan tulis dua kali'),
       code(
@@ -2035,9 +2230,15 @@ export const lessons: LessonDraft[] = [
         }).openapi('Artikel');
         `,
       ),
+      p(
+        "Perhatikan yang ditulis di sini **hanya satu** skema, dan ia mengerjakan dua pekerjaan sekaligus: menolak permintaan yang tidak sah saat runtime, dan menghasilkan blok `components/schemas/Artikel` di spesifikasi. `extendZodWithOpenApi(z)` menambahkan method `.openapi()` ke Zod, dan `.openapi('Artikel')` di baris terakhir memberi nama pada skemanya sehingga bisa dirujuk lewat `$ref`.",
+      ),
+      p(
+        'Nilai `example` bukan sekadar hiasan. Ia yang muncul di halaman dokumentasi interaktif dan di data tiruan untuk frontend, dan contoh yang **masuk akal** membuat dokumentasi jauh lebih cepat dipahami daripada deretan `"string"` dan `0` yang dihasilkan otomatis. Yang mendasari seluruh pendekatan ini: dokumentasi yang ditulis terpisah pasti akan menyimpang dari kode, bukan karena orang malas, melainkan karena tidak ada yang membuatnya **gagal** saat menyimpang.',
+      ),
       callout(
         'tip',
-        'Satu sumber kebenaran',
+        'Satu source of truth',
         'Dokumentasi yang ditulis tangan pasti akan berbeda dari kode — bukan karena orang malas, tapi karena tidak ada yang membuatnya gagal saat menyimpang. Menghasilkannya dari skema validasi membuat keduanya tidak bisa berbeda.',
       ),
       code(
@@ -2047,6 +2248,9 @@ export const lessons: LessonDraft[] = [
         composer require dedoc/scramble
         // -> dokumentasi tersedia di /docs/api tanpa anotasi tambahan
         `,
+      ),
+      p(
+        'Di Laravel prinsipnya sama tetapi jalannya lebih pendek: Form Request sudah memuat aturan validasi dan API Resource sudah memuat bentuk respons, jadi keduanya **sudah menjadi** source of truth tanpa perlu ditambahi apa pun. Scramble membacanya langsung — itulah arti "tanpa anotasi tambahan" pada komentar terakhir, dan ia berbeda dari pendekatan lama yang menuntut blok komentar `@OA\\...` di atas setiap method, yang pada akhirnya menyimpang dari kodenya sama seperti dokumentasi yang ditulis terpisah.',
       ),
 
       h2('Apa yang harus ada di setiap endpoint'),
@@ -2081,6 +2285,12 @@ export const lessons: LessonDraft[] = [
         # Menghasilkan tipe TypeScript untuk frontend dari spesifikasi yang sama
         npx openapi-typescript http://localhost:3000/openapi.json -o src/tipe-api.ts
         `,
+      ),
+      p(
+        'Perintah ini menutup lingkarannya: skema Zod di backend menghasilkan spesifikasi OpenAPI, dan spesifikasi itu menghasilkan **tipe TypeScript untuk frontend**. Akibatnya, mengubah `judul` menjadi wajib di backend akan memunculkan error kompilasi di frontend yang belum menyesuaikan — ketidakcocokan kontrak tertangkap saat build, bukan sebagai bug runtime di tangan pengguna.',
+      ),
+      p(
+        'Perhatikan berkas `src/tipe-api.ts` yang dihasilkan **tidak boleh disunting tangan**, karena ia akan ditimpa pada pembangkitan berikutnya. Jalankan perintah ini sebagai bagian dari alur kerja, misalnya skrip npm yang dipanggil setelah backend berubah, alih-alih sesekali saat teringat. Tipe yang basi lebih menyesatkan daripada tidak ada tipe sama sekali.',
       ),
       p(
         'Ini yang membuat kontrak benar-benar berguna: frontend memakai tipe yang **diturunkan** dari API, bukan ditulis ulang dengan tangan. Perubahan di backend langsung menjadi error type-check di frontend — dibahas lagi di Bab 4.1.',
@@ -2188,6 +2398,9 @@ export const lessons: LessonDraft[] = [
         # atau baca berkas routes/ untuk Express
         `,
       ),
+      p(
+        'Mulai dari sini karena keluaran perintah ini adalah **daftar yang benar-benar terdaftar**, bukan yang kamu kira terdaftar. Rute bisa lahir dari tempat yang tidak terlihat di satu berkas mana pun — `apiResource` yang membuat lima sekaligus, grup yang menyuntikkan middleware, paket pihak ketiga yang mendaftarkan endpoint sendiri. Baca kolom middleware-nya bersamaan dengan kolom path; empat pertanyaan di bawah dijawab dari tabel yang sama.',
+      ),
       ul(
         'Semua kata benda jamak dan konsisten satu bahasa?',
         'Ada kata kerja yang tersisa di path (`/getCatatan`, `/hapusCatatan`)?',
@@ -2258,6 +2471,9 @@ export const lessons: LessonDraft[] = [
         # Lalu bandingkan: apakah semuanya berbentuk sama?
         `,
       ),
+      p(
+        'Yang diuji di sini bukan satu error, melainkan **keseragaman antar error**. Karena itu keempat kasusnya harus dikumpulkan berdampingan lalu dibandingkan — perbedaan bentuk baru terlihat saat keempatnya ada di layar bersamaan, tidak saat kamu memeriksanya satu per satu di waktu berbeda. Perhatikan keempat kasus itu sengaja menyentuh lapisan yang berbeda: validasi, parser body, middleware auth, dan handler. Empat lapisan itulah tempat bentuk error paling sering menyimpang, karena masing-masing punya penanganan bawaannya sendiri.',
+      ),
       ul(
         'Satu bentuk untuk semua error?',
         'Ada `err.message` mentah yang bocor untuk kasus `5xx`?',
@@ -2279,6 +2495,12 @@ export const lessons: LessonDraft[] = [
         diff /tmp/a.json /tmp/b.json && echo "stabil" || echo "TIDAK STABIL"
         `,
       ),
+      p(
+        'Perintah pertama menguji satu hal saja: apakah `?per_hal=999999` benar-benar dibatasi. `head -c 200` sengaja memotong keluarannya, karena kalau batasnya **tidak** ditegakkan, responsnya bisa puluhan megabita dan terminalmu ikut tersendat — pemotongan itu bagian dari pengujiannya, bukan kerapian.',
+      ),
+      p(
+        'Uji kedua menangkap masalah yang tidak akan pernah terlihat dengan memanggil endpoint sekali. Dua permintaan **identik** dijalankan berturut-turut, lalu `diff` membandingkan hasilnya. Kalau keluarannya "TIDAK STABIL", `ORDER BY`-mu kekurangan pemecah seri yang unik — dan konsekuensinya adalah paginasi yang menampilkan item ganda serta melewatkan item lain, bug yang keluhannya biasanya berbunyi "kadang datanya hilang" dan hampir mustahil dilacak tanpa uji seperti ini.',
+      ),
 
       h2('5. Header'),
       code(
@@ -2286,6 +2508,9 @@ export const lessons: LessonDraft[] = [
         `
         curl -sI localhost:3000/api/catatan -H "Authorization: Bearer $T"
         `,
+      ),
+      p(
+        'Opsi `-I` meminta **header saja** tanpa body, jadi keluarannya cukup pendek untuk diperiksa sekaligus. Header adalah bagian API yang paling jarang diaudit justru karena ia tidak terlihat di alat seperti Postman kecuali kamu sengaja membuka tabnya — sementara empat pertanyaan di bawah semuanya dijawab dari beberapa baris ini. Perhatikan token tetap disertakan: sebagian header hanya muncul pada respons terautentikasi, dan `Cache-Control` khususnya sering berbeda antara rute publik dan rute privat.',
       ),
       ul(
         '`Cache-Control: no-store` pada data privat?',
@@ -2312,6 +2537,12 @@ export const lessons: LessonDraft[] = [
         [ ] DELETE mengembalikan 200 dengan body, seharusnya 204
         [ ] Tidak ada header Location pada 201
         `,
+      ),
+      p(
+        'Perhatikan setiap butir menyebut **endpoint dan perilaku yang teramati**, bukan penilaian umum. "GET /api/catatan/{id} menjawab 200 untuk catatan milik pengguna lain" bisa langsung diverifikasi ulang oleh siapa pun dengan satu `curl`; "otorisasinya kurang ketat" tidak bisa, dan biasanya berakhir sebagai perdebatan. Tulis temuan dalam bentuk yang bisa dibuktikan salah — itu yang membedakan audit dari opini.',
+      ),
+      p(
+        'Pembagian BERAT/SEDANG/RINGAN bukan soal seberapa mudah diperbaiki, melainkan **seberapa besar akibatnya kalau dibiarkan**. Perhatikan dua butir di bawah BERAT: keduanya membocorkan sesuatu ke pihak luar — data pengguna lain, dan struktur internal databasemu. Yang di RINGAN adalah ketidakrapian kontrak yang membuat klien bekerja lebih keras, tetapi tidak membahayakan siapa pun. Menaruh "204 seharusnya tanpa body" sederet dengan IDOR akan mengubur yang penting di antara yang sepele.',
       ),
       callout(
         'tip',

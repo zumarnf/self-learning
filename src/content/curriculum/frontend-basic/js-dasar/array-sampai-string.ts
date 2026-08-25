@@ -57,7 +57,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'akumulator',
           meaning:
-            'Dari *accumulate*, artinya **mengumpulkan** atau **menumpuk**. Nilai berjalan yang dibawa `reduce` dari satu elemen ke elemen berikutnya, seperti saldo yang terus diperbarui saat kamu menjumlah belanjaan satu per satu. Di materi ini namanya ditulis `total` atau `hasil` supaya terbaca; di dokumentasi resmi ia sering disingkat `acc`. Nilai awalnya — argumen kedua `reduce` — adalah saldo pembukaannya.',
+            'Dari *accumulate*, artinya **mengumpulkan** atau **menumpuk**. Nilai berjalan yang dibawa `reduce` dari satu elemen ke elemen berikutnya, seperti saldo yang terus diperbarui saat kamu menjumlah belanjaan satu per satu. Di materi ini namanya ditulis `total` atau `hasil` supaya terbaca, sedangkan di dokumentasi resmi ia sering disingkat `acc`. Nilai awalnya, yaitu argumen kedua `reduce`, adalah saldo pembukaannya.',
         },
         {
           term: 'u / p / n',
@@ -72,7 +72,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'referensi',
           meaning:
-            'Alamat menuju sebuah array atau object di dalam memori — bukan isinya, melainkan penunjuk ke tempat isinya berada. React memutuskan perlu-tidaknya menggambar ulang layar dengan membandingkan **referensi**, bukan isi. Karena `push` mengubah isi tanpa mengubah alamat, React tidak melihat perubahan apa pun dan layar tidak diperbarui — inilah alasan teknis di balik seluruh anjuran "jangan bermutasi" di sub-bab ini.',
+            'Alamat menuju sebuah array atau object di dalam memori, jadi bukan isinya melainkan penunjuk ke tempat isinya berada. React memutuskan perlu-tidaknya menggambar ulang layar dengan membandingkan **referensi**, bukan isi. Karena `push` mengubah isi tanpa mengubah alamat, React tidak melihat perubahan apa pun dan layar tidak diperbarui, dan inilah alasan teknis di balik seluruh anjuran "jangan bermutasi" di sub-bab ini.',
         },
         {
           term: 'to-prefixed',
@@ -97,12 +97,12 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Tiga hal di contoh itu layak diperhatikan. Pertama, `length` adalah **jumlah elemen**, sedangkan indeks dimulai dari nol — itu sebabnya elemen terakhir berada di indeks `length - 1`, dan `buah[3]` pada array berisi tiga elemen menghasilkan `undefined`, bukan error. Kedua, `at(-1)` ada justru untuk menghindari perhitungan itu: angka negatif dihitung mundur dari belakang, sehingga `at(-1)` selalu berarti "elemen terakhir" tanpa perlu menyebut panjang arraynya sama sekali. Ketiga, perhatikan `indexOf` mengembalikan `-1` saat tidak ketemu, bukan `null` atau `false` — dan karena `-1` adalah angka yang dianggap `true` oleh JavaScript, menulis `if (buah.indexOf(\'durian\'))` justru bernilai benar padahal durian tidak ada. Untuk pertanyaan "ada atau tidak", `includes` yang menjawab `true`/`false` selalu lebih aman.',
+        'Tiga hal di contoh itu layak diperhatikan. Pertama, `length` adalah **jumlah elemen**, sedangkan indeks dimulai dari nol, dan itu sebabnya elemen terakhir berada di indeks `length - 1`, dan `buah[3]` pada array berisi tiga elemen menghasilkan `undefined`, bukan error. Kedua, `at(-1)` ada justru untuk menghindari perhitungan itu, sebab angka negatif dihitung mundur dari belakang, sehingga `at(-1)` selalu berarti "elemen terakhir" tanpa perlu menyebut panjang arraynya sama sekali. Ketiga, perhatikan `indexOf` mengembalikan `-1` saat tidak ketemu dan bukan `null` atau `false`. Karena `-1` adalah angka yang dianggap `true` oleh JavaScript, menulis `if (buah.indexOf(\'durian\'))` justru bernilai benar padahal durian tidak ada. Untuk pertanyaan "ada atau tidak", `includes` yang menjawab `true`/`false` selalu lebih aman.',
       ),
 
       h2('Mengubah asli vs mengembalikan baru'),
       p(
-        'Ini pembagian terpenting di seluruh bab. Method yang **mengubah array aslinya** (mutasi) berbahaya di React, karena React membandingkan referensi untuk memutuskan perlu render ulang atau tidak — array yang sama isinya berubah tidak terlihat sebagai perubahan.',
+        'Ini pembagian terpenting di seluruh bab. Method yang **mengubah array aslinya** (mutasi) berbahaya di React, karena React membandingkan referensi untuk memutuskan perlu re-render atau tidak — array yang sama isinya berubah tidak terlihat sebagai perubahan.',
       ),
       table(
         ['Mengubah array asli (hati-hati)', 'Mengembalikan array baru (aman)'],
@@ -130,7 +130,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Contoh ini menyembunyikan satu jebakan yang bagus untuk disadari sejak awal: setelah baris `asli.sort()`, variabel `asli` **sudah bukan `[3, 1, 2]` lagi** — isinya berubah permanen menjadi `[1, 2, 3]`, dan semua baris di bawahnya bekerja pada urutan yang sudah berubah itu. Padahal `asli` dideklarasikan dengan `const`. Ini sering membingungkan pemula, jadi perlu diluruskan: `const` hanya melarang variabelnya **ditunjuk ulang** ke array lain, bukan melarang isi arraynya diubah. Bandingkan dengan empat baris terakhir — `toSorted`, spread `[...asli, 4]`, `filter`, dan `with` semuanya menghasilkan array **baru** dan meninggalkan `asli` apa adanya. Perbedaan itu terlihat sepele di layar, tapi di React ia menentukan tampil-tidaknya perubahan: array yang isinya berubah tanpa berganti alamat tidak terbaca sebagai perubahan sama sekali.',
+        'Contoh ini menyembunyikan satu jebakan yang bagus untuk disadari sejak awal. Setelah baris `asli.sort()`, variabel `asli` **sudah bukan `[3, 1, 2]` lagi**, sebab isinya berubah permanen menjadi `[1, 2, 3]`, dan semua baris di bawahnya bekerja pada urutan yang sudah berubah itu. Padahal `asli` dideklarasikan dengan `const`. Ini sering membingungkan pemula, jadi perlu diluruskan bahwa `const` hanya melarang variabelnya **ditunjuk ulang** ke array lain, bukan melarang isi arraynya diubah. Bandingkan dengan empat baris terakhir, sebab `toSorted`, spread `[...asli, 4]`, `filter`, dan `with` semuanya menghasilkan array **baru** dan meninggalkan `asli` apa adanya. Perbedaan itu terlihat sepele di layar, tetapi di React ia menentukan tampil-tidaknya perubahan, sebab array yang isinya berubah tanpa berganti alamat tidak terbaca sebagai perubahan sama sekali.',
       ),
       callout(
         'warning',
@@ -159,7 +159,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Tiga contoh itu memperlihatkan bahwa `map` selalu melakukan hal yang sama — menjalankan fungsimu sekali untuk **tiap** elemen, lalu menyusun hasilnya jadi array baru dengan panjang yang persis sama. Yang berubah hanya bentuk hasilnya: contoh pertama angka jadi angka, contoh kedua object jadi teks (`u.nama`), contoh ketiga object jadi object yang lebih kaya. Dua hal kecil layak dicatat. Angka aneh `27750.000000000004` bukan kesalahan `map`, melainkan sifat bilangan pecahan di komputer yang tidak bisa menyimpan `0,11` dengan tepat — untuk uang, pembulatan dilakukan saat menampilkan, bukan disimpan. Lalu perhatikan tanda kurung di `(u) => ({ ...u, ... })`: tanpa kurung pembungkusnya, JavaScript membaca `{` sebagai awal blok kode, bukan awal object, dan hasilnya array berisi `undefined`.',
+        'Tiga contoh itu memperlihatkan bahwa `map` selalu melakukan hal yang sama, yaitu menjalankan fungsimu sekali untuk **tiap** elemen, lalu menyusun hasilnya jadi array baru dengan panjang yang persis sama. Yang berubah hanya bentuk hasilnya, karena contoh pertama angka jadi angka, contoh kedua object jadi teks (`u.nama`), contoh ketiga object jadi object yang lebih kaya. Dua hal kecil layak dicatat. Angka aneh `27750.000000000004` bukan kesalahan `map`, melainkan sifat bilangan pecahan di komputer yang tidak bisa menyimpan `0,11` dengan tepat. Untuk uang, pembulatan dilakukan saat menampilkan, bukan disimpan. Lalu perhatikan tanda kurung di `(u) => ({ ...u, ... })`, sebab tanpa kurung pembungkusnya, JavaScript membaca `{` sebagai awal blok kode, bukan awal object, dan hasilnya array berisi `undefined`.',
       ),
       callout(
         'danger',
@@ -184,7 +184,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Kalau `map` menjaga panjang, `filter` justru **memangkasnya**: fungsimu tidak menghasilkan nilai baru, melainkan menjawab ya-atau-tidak untuk tiap elemen, dan hanya yang dijawab "ya" yang ikut ke array hasil. Dua baris di tengah menegaskannya secara ekstrem — menjawab `true` untuk semua menghasilkan salinan utuh, menjawab `false` untuk semua menghasilkan array kosong; jadi hasil `filter` tidak pernah lebih panjang dari masukannya, dan yang paling sering dilupakan: **ia bisa kosong**, sehingga kode yang langsung membaca `hasil[0]` perlu bersiap menerima `undefined`. Baris terakhir memakai pintasan yang akan sering kamu temui: `filter(Boolean)` berarti "buang semua yang dianggap kosong" — string kosong, `null`, `undefined`, `0`, dan `NaN` — karena `Boolean` sendiri adalah fungsi yang mengubah nilai apa pun menjadi `true`/`false`.',
+        'Kalau `map` menjaga panjang, `filter` justru **memangkasnya**, sebab fungsimu tidak menghasilkan nilai baru, melainkan menjawab ya-atau-tidak untuk tiap elemen, dan hanya yang dijawab "ya" yang ikut ke array hasil. Dua baris di tengah menegaskannya secara ekstrem, sebab menjawab `true` untuk semua menghasilkan salinan utuh sedangkan menjawab `false` untuk semua menghasilkan array kosong. Jadi hasil `filter` tidak pernah lebih panjang dari masukannya, dan yang paling sering dilupakan adalah **ia bisa kosong**, sehingga kode yang langsung membaca `hasil[0]` perlu bersiap menerima `undefined`. Baris terakhir memakai pintasan yang akan sering kamu temui. `filter(Boolean)` berarti "buang semua yang dianggap kosong", yaitu string kosong, `null`, `undefined`, `0`, dan `NaN`, karena `Boolean` sendiri adalah fungsi yang mengubah nilai apa pun menjadi `true`/`false`.',
       ),
 
       h2('`reduce` — meringkas jadi satu nilai'),
@@ -207,7 +207,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Empat baris komentar di bawah adalah inti `reduce`, dan sebaiknya dibaca perlahan. Fungsi yang kamu berikan menerima **dua** hal: `total` (hasil sementara sejauh ini) dan `n` (elemen yang sedang diproses). Apa pun yang kamu `return` menjadi `total` untuk putaran berikutnya — itulah yang membuat nilainya "berjalan" dari 0 ke 1, lalu 3, lalu 6, lalu 10. Angka `0` di akhir pemanggilan bukan pelengkap: ia **nilai awal** `total` sebelum elemen pertama disentuh. Coba hilangkan, dan `reduce` akan memakai elemen pertama sebagai nilai awal — yang biasanya masih benar untuk penjumlahan, tapi langsung melempar `TypeError` begitu arraynya kosong.',
+        'Empat baris komentar di bawah adalah inti `reduce`, dan sebaiknya dibaca perlahan. Fungsi yang kamu berikan menerima **dua** hal, yaitu `total` sebagai hasil sementara sejauh ini dan `n` sebagai elemen yang sedang diproses. Apa pun yang kamu `return` menjadi `total` untuk putaran berikutnya, dan itulah yang membuat nilainya "berjalan" dari 0 ke 1, lalu 3, lalu 6, lalu 10. Angka `0` di akhir pemanggilan bukan pelengkap, melainkan **nilai awal** `total` sebelum elemen pertama disentuh. Coba hilangkan, dan `reduce` akan memakai elemen pertama sebagai nilai awal, yang biasanya masih benar untuk penjumlahan tetapi langsung melempar `TypeError` begitu arraynya kosong.',
       ),
       code(
         'js',
@@ -229,12 +229,12 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Di sini nilai awalnya `{}`, bukan `0` — dan itu satu-satunya alasan hasil akhirnya berupa object, bukan angka. Bentuk nilai awal selalu menentukan bentuk hasil akhir `reduce`. Baris `hasil[item.kategori] ??= []` berarti "kalau kunci ini belum ada, isi dulu dengan array kosong"; tanpa baris itu, `push` pada kategori yang baru pertama kali muncul akan gagal karena mencoba memanggil `push` pada `undefined`. Baris `return hasil` yang diberi huruf besar juga bukan basa-basi: karena badan fungsinya memakai kurung kurawal, JavaScript tidak mengembalikan apa pun secara otomatis, sehingga lupa menulisnya membuat `hasil` bernilai `undefined` pada putaran kedua — dan pesan errornya menunjuk ke baris `??=`, jauh dari sumber masalah sebenarnya.',
+        'Di sini nilai awalnya `{}` dan bukan `0`, dan itulah satu-satunya alasan hasil akhirnya berupa object alih-alih angka. Bentuk nilai awal selalu menentukan bentuk hasil akhir `reduce`. Baris `hasil[item.kategori] ??= []` berarti "kalau kunci ini belum ada, isi dulu dengan array kosong". Tanpa baris itu, `push` pada kategori yang baru pertama kali muncul akan gagal karena mencoba memanggil `push` pada `undefined`. Baris `return hasil` yang diberi huruf besar juga bukan basa-basi. Karena badan fungsinya memakai kurung kurawal, JavaScript tidak mengembalikan apa pun secara otomatis, sehingga lupa menulisnya membuat `hasil` bernilai `undefined` pada putaran kedua, dan pesan errornya menunjuk ke baris `??=`, jauh dari sumber masalah sebenarnya.',
       ),
       callout(
         'tip',
         'Untuk pengelompokan, sekarang ada cara yang lebih pendek',
-        '`Object.groupBy(pesanan, (item) => item.kategori)` melakukan hal yang sama dalam satu baris. Tetap pelajari `reduce` — ia dipakai untuk banyak hal lain — tapi jangan pakai `reduce` kalau ada method yang namanya langsung menjelaskan maksudnya.',
+        '`Object.groupBy(pesanan, (item) => item.kategori)` melakukan hal yang sama dalam satu baris. Tetap pelajari `reduce` karena ia dipakai untuk banyak hal lain, tetapi jangan pakai `reduce` kalau ada method yang namanya langsung menjelaskan maksudnya.',
       ),
       callout(
         'warning',
@@ -262,7 +262,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Ketiga method ini menjawab pertanyaan yang berbeda-beda dari array yang sama. `find` menjawab **"yang mana?"** dan mengembalikan elemennya sendiri — pasangannya `findIndex` menjawab "di posisi berapa?" dan mengembalikan angka. `some` menjawab **"adakah minimal satu?"**, `every` menjawab **"apakah semuanya?"**; keduanya hanya mengembalikan `true` atau `false`. Komentar di baris terakhir menyebut sifat yang sering luput: ketiganya berhenti begitu jawabannya sudah pasti. `some` berhenti pada elemen pertama yang cocok, `every` berhenti pada elemen pertama yang gagal, dan `find` berhenti begitu menemukan yang dicari — jadi mencari satu pengguna di antara sepuluh ribu tidak berarti memeriksa sepuluh ribu elemen. Satu hal yang perlu diwaspadai: `find` mengembalikan `undefined` kalau tidak ketemu, sehingga langsung menulis `pengguna.find(...).nama` akan melempar `TypeError` pada hari data yang dicari kebetulan tidak ada.',
+        'Ketiga method ini menjawab pertanyaan yang berbeda-beda dari array yang sama. `find` menjawab **"yang mana?"** dan mengembalikan elemennya sendiri, sedangkan pasangannya `findIndex` menjawab "di posisi berapa?" dan mengembalikan angka. `some` menjawab **"adakah minimal satu?"** dan `every` menjawab **"apakah semuanya?"**, dan keduanya hanya mengembalikan `true` atau `false`. Komentar di baris terakhir menyebut sifat yang sering luput, yaitu ketiganya berhenti begitu jawabannya sudah pasti. `some` berhenti pada elemen pertama yang cocok, `every` berhenti pada elemen pertama yang gagal, dan `find` berhenti begitu menemukan yang dicari, jadi mencari satu pengguna di antara sepuluh ribu tidak berarti memeriksa sepuluh ribu elemen. Satu hal yang perlu diwaspadai, `find` mengembalikan `undefined` kalau tidak ketemu, sehingga langsung menulis `pengguna.find(...).nama` akan melempar `TypeError` pada hari data yang dicari kebetulan tidak ada.',
       ),
       callout(
         'info',
@@ -288,7 +288,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Baca dari atas ke bawah seperti kalimat: `filter` menyisakan hanya produk yang stoknya lebih dari 0 (Kaos dan Tas yang lolos, Topi tersingkir), `map` mengubah tiap produk yang tersisa menjadi satu angka — harga dikali stok, jadi `80000 * 3 = 240000` untuk Kaos dan `250000 * 7 = 1750000` untuk Tas — lalu `reduce` menjumlahkan kedua angka itu jadi satu nilai akhir. Tiap tahap menerima array hasil tahap sebelumnya dan mengembalikan array baru, itulah sebabnya ketiganya bisa dirangkai langsung dengan titik, persis seperti `filter` dan `map` yang sudah dipelajari sendiri-sendiri di atas.',
+        'Baca dari atas ke bawah seperti kalimat. `filter` menyisakan hanya produk yang stoknya lebih dari 0 (Kaos dan Tas yang lolos, Topi tersingkir), `map` mengubah tiap produk yang tersisa menjadi satu angka lewat harga dikali stok, sehingga `80000 * 3 = 240000` untuk Kaos dan `250000 * 7 = 1750000` untuk Tas, lalu `reduce` menjumlahkan kedua angka itu jadi satu nilai akhir. Tiap tahap menerima array hasil tahap sebelumnya dan mengembalikan array baru, itulah sebabnya ketiganya bisa dirangkai langsung dengan titik, persis seperti `filter` dan `map` yang sudah dipelajari sendiri-sendiri di atas.',
       ),
       callout(
         'tip',
@@ -308,7 +308,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Perhatikan baris pertama: `flat()` tanpa argumen hanya membongkar **satu** tingkat, sehingga `[3, [4]]` masih tersisa utuh di dalam hasilnya. Kedalaman itu bisa ditentukan lewat argumen — `flat(2)` untuk dua tingkat, atau `flat(Infinity)` bila kamu memang ingin semuanya rata berapa pun dalamnya. `flatMap` di baris terakhir adalah pintasan untuk urutan yang sangat sering muncul: `map` dulu, lalu `flat` satu tingkat. Contohnya jelas — `split(' ')` mengubah tiap kalimat menjadi array kata, sehingga `map` biasa akan menghasilkan array-di-dalam-array `[['a','b'], ['c','d']]`; `flatMap` langsung meratakannya jadi satu daftar kata. Pola ini muncul setiap kali satu elemen masukan bisa menghasilkan nol, satu, atau banyak elemen keluaran.",
+        "Perhatikan baris pertama, sebab `flat()` tanpa argumen hanya membongkar **satu** tingkat, sehingga `[3, [4]]` masih tersisa utuh di dalam hasilnya. Kedalaman itu bisa ditentukan lewat argumen, misalnya `flat(2)` untuk dua tingkat, atau `flat(Infinity)` bila kamu memang ingin semuanya rata berapa pun dalamnya. `flatMap` di baris terakhir adalah pintasan untuk urutan yang sangat sering muncul, yaitu `map` dulu lalu `flat` satu tingkat. Contohnya jelas, karena `split(' ')` mengubah tiap kalimat menjadi array kata sehingga `map` biasa akan menghasilkan array-di-dalam-array `[['a','b'], ['c','d']]`, sedangkan `flatMap` langsung meratakannya jadi satu daftar kata. Pola ini muncul setiap kali satu elemen masukan bisa menghasilkan nol, satu, atau banyak elemen keluaran.",
       ),
 
       divider,
@@ -380,7 +380,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'key / value',
           meaning:
-            'Terjemahannya **kunci** dan **nilai**. Kunci adalah nama sebuah property, nilai adalah isinya — pada `{ umur: 24 }`, `umur` kuncinya dan `24` nilainya. Disebut kunci karena fungsinya memang seperti kunci lemari: ia yang membuka akses ke isi tertentu. Tiga fungsi bawaan bekerja berdasarkan pembagian ini: `Object.keys()` mengambil daftar kuncinya, `Object.values()` daftar nilainya, dan `Object.entries()` pasangan keduanya.',
+            'Terjemahannya **kunci** dan **nilai**. Kunci adalah nama sebuah property, nilai adalah isinya, sehingga pada `{ umur: 24 }`, `umur` kuncinya dan `24` nilainya. Disebut kunci karena fungsinya memang seperti kunci lemari yang membuka akses ke isi tertentu. Tiga fungsi bawaan bekerja berdasarkan pembagian ini, yakni `Object.keys()` mengambil daftar kuncinya, `Object.values()` daftar nilainya, dan `Object.entries()` pasangan keduanya.',
         },
         {
           term: 'literal',
@@ -444,7 +444,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Contoh itu memuat empat penulisan singkat yang akan kamu lihat terus-menerus. Baris `nama,` adalah **shorthand property**: ketika nama variabel dan nama kunci kebetulan sama, cukup tulis sekali — hasilnya persis sama dengan `nama: nama`. `alamat` menunjukkan bahwa nilai sebuah property boleh berupa object lagi, dan bersarang seperti itu boleh sedalam apa pun. `sapa()` adalah **shorthand method**, bentuk pendek dari `sapa: function () { ... }`; di dalamnya `this.nama` menunjuk object yang memiliki method itu sendiri. Terakhir, kurung siku pada `{ [field]: ... }` adalah **computed key** — tanpa kurung siku itu, kuncinya akan benar-benar bernama `"field"`, bukan `"email"`, karena JavaScript membaca nama kunci apa adanya kecuali kamu memintanya mengevaluasi dulu.',
+        'Contoh itu memuat empat penulisan singkat yang akan kamu lihat terus-menerus. Baris `nama,` adalah **shorthand property**, sebab ketika nama variabel dan nama kunci kebetulan sama, cukup tulis sekali dan hasilnya persis sama dengan `nama: nama`. `alamat` menunjukkan bahwa nilai sebuah property boleh berupa object lagi, dan bersarang seperti itu boleh sedalam apa pun. `sapa()` adalah **shorthand method**, yaitu bentuk pendek dari `sapa: function () { ... }`, dan di dalamnya `this.nama` menunjuk object yang memiliki method itu sendiri. Terakhir, kurung siku pada `{ [field]: ... }` adalah **computed key**, sebab tanpa kurung siku itu kuncinya akan benar-benar bernama `"field"`, bukan `"email"`, karena JavaScript membaca nama kunci apa adanya kecuali kamu memintanya mengevaluasi dulu.',
       ),
 
       h2('Membaca: titik vs kurung siku'),
@@ -464,7 +464,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Baris `pengguna.kunci` di atas adalah jebakan yang sering terjadi: kalau variabel `kunci` berisi teks `\'umur\'`, menulis `pengguna.kunci` **tidak** membaca `pengguna[kunci]` — ia justru mencari property yang namanya benar-benar `"kunci"`, yang tidak ada di `pengguna`. Notasi titik selalu membaca nama yang ditulis apa adanya; kurung siku selalu mengevaluasi dulu apa yang ada di dalamnya sebagai ekspresi. Aturan praktis: kunci yang kamu ketik langsung dan sudah pasti namanya boleh pakai titik; kunci yang datang dari variabel wajib pakai kurung siku.',
+        'Baris `pengguna.kunci` di atas adalah jebakan yang sering terjadi. Kalau variabel `kunci` berisi teks `\'umur\'`, menulis `pengguna.kunci` **tidak** membaca `pengguna[kunci]`, sebab ia justru mencari property yang namanya benar-benar `"kunci"`, yang tidak ada di `pengguna`. Notasi titik selalu membaca nama yang ditulis apa adanya, sedangkan kurung siku selalu mengevaluasi dulu apa yang ada di dalamnya sebagai ekspresi. Aturan praktisnya, kunci yang kamu ketik langsung dan sudah pasti namanya boleh pakai titik, sedangkan kunci yang datang dari variabel wajib pakai kurung siku.',
       ),
 
       h2('Optional chaining — jangan biarkan aplikasi jatuh'),
@@ -485,7 +485,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Bandingkan dua baris pertama, karena bedanya cuma satu karakter tapi akibatnya sangat berbeda. `respons.pengguna.alamat.kota` gagal bukan di `alamat`, melainkan **saat membaca `kota` dari `undefined`** — `respons.pengguna.alamat` sendiri sah dan bernilai `undefined`, dan barunya titik berikutnya yang meledak. `?.` memutus rantai itu: begitu bagian di kirinya `null` atau `undefined`, seluruh sisa rantai dilewati dan hasilnya langsung `undefined`, tanpa error. Dua baris terakhir memperlihatkan bahwa polanya berlaku untuk bentuk akses lain juga — `?.()` untuk memanggil fungsi yang mungkin tidak ada, dan `?.[0]` untuk membaca indeks dari array yang mungkin belum terisi. Perhatikan tanda titik tetap ada sebelum kurung sikunya; menulis `respons.daftar?[0]` tanpa titik adalah kesalahan sintaks.',
+        'Bandingkan dua baris pertama, karena bedanya cuma satu karakter tapi akibatnya sangat berbeda. `respons.pengguna.alamat.kota` gagal bukan di `alamat`, melainkan **saat membaca `kota` dari `undefined`**, sebab `respons.pengguna.alamat` sendiri sah dan bernilai `undefined`, dan barunya titik berikutnya yang meledak. `?.` memutus rantai itu, sebab begitu bagian di kirinya `null` atau `undefined`, seluruh sisa rantai dilewati dan hasilnya langsung `undefined`, tanpa error. Dua baris terakhir memperlihatkan bahwa polanya berlaku untuk bentuk akses lain juga, yaitu `?.()` untuk memanggil fungsi yang mungkin tidak ada, dan `?.[0]` untuk membaca indeks dari array yang mungkin belum terisi. Perhatikan tanda titik tetap ada sebelum kurung sikunya, sebab menulis `respons.daftar?[0]` tanpa titik adalah kesalahan sintaks.',
       ),
       callout(
         'warning',
@@ -506,7 +506,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Baris pertama menunjukkan pasangan yang akan sering kamu tulis: `?.` mengamankan penelusuran, `??` menyediakan nilai cadangan bila hasilnya ternyata kosong. Bagian bawahnya menjelaskan kenapa `??` layak dipelajari terpisah dari `||` yang sudah lebih dulu kamu kenal. `||` menganggap **semua nilai falsy** sebagai kosong — termasuk angka `0`, string kosong `\'\'`, dan `false`. Padahal ketiganya sering kali data yang sah: stok yang benar-benar nol, catatan yang sengaja dikosongkan, atau pengaturan yang memang dimatikan. `??` jauh lebih sempit: ia hanya menggantikan `null` dan `undefined`, yaitu dua nilai yang artinya benar-benar "tidak ada nilainya". Aturan praktisnya, pakai `??` untuk nilai bawaan dan simpan `||` untuk pemeriksaan benar-salah biasa.',
+        'Baris pertama menunjukkan pasangan yang akan sering kamu tulis, dengan `?.` yang mengamankan penelusuran dan `??` yang menyediakan nilai cadangan bila hasilnya ternyata kosong. Bagian bawahnya menjelaskan kenapa `??` layak dipelajari terpisah dari `||` yang sudah lebih dulu kamu kenal. `||` menganggap **semua nilai falsy** sebagai kosong, termasuk angka `0`, string kosong `\'\'`, dan `false`. Padahal ketiganya sering kali data yang sah, misalnya stok yang benar-benar nol, catatan yang sengaja dikosongkan, atau pengaturan yang memang dimatikan. `??` jauh lebih sempit, sebab ia hanya menggantikan `null` dan `undefined`, yaitu dua nilai yang artinya benar-benar "tidak ada nilainya". Aturan praktisnya, pakai `??` untuk nilai bawaan dan simpan `||` untuk pemeriksaan benar-salah biasa.',
       ),
 
       h2('Menelusuri isi object'),
@@ -534,7 +534,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        '`Object.entries(skor)` mengubah object menjadi array pasangan `[kunci, nilai]`, dan begitu berbentuk array ia bisa dipakai bersama `for...of` maupun method array biasa. Perhitungan `rataRata` di atas memanfaatkan ini: `Object.values(skor)` mengambil hanya nilainya sebagai array angka, lalu `reduce` menjumlahkannya, lalu hasilnya dibagi `.length`-nya. Baris terakhir menunjukkan pola sebaliknya — **menyaring** object: `Object.entries` membongkarnya jadi array, `filter` menyaring pasangan yang nilainya `>= 80`, lalu `Object.fromEntries` merakitnya kembali jadi object. Perhatikan `[, nilai]` di dalam `filter`: koma tanpa nama di depannya sengaja melewati elemen pertama (kuncinya), karena bagian itu tidak dibutuhkan pemeriksaan ini.',
+        '`Object.entries(skor)` mengubah object menjadi array pasangan `[kunci, nilai]`, dan begitu berbentuk array ia bisa dipakai bersama `for...of` maupun method array biasa. Perhitungan `rataRata` di atas memanfaatkan ini, sebab `Object.values(skor)` mengambil hanya nilainya sebagai array angka, lalu `reduce` menjumlahkannya, lalu hasilnya dibagi `.length`-nya. Baris terakhir menunjukkan pola sebaliknya, yaitu **menyaring** object. `Object.entries` membongkarnya jadi array, `filter` menyaring pasangan yang nilainya `>= 80`, lalu `Object.fromEntries` merakitnya kembali jadi object. Perhatikan `[, nilai]` di dalam `filter`, sebab koma tanpa nama di depannya sengaja melewati elemen pertama (kuncinya), karena bagian itu tidak dibutuhkan pemeriksaan ini.',
       ),
 
       h2('Mengecek keberadaan kunci'),
@@ -552,7 +552,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Object `o` sengaja dibuat memuat kasus yang membingungkan: kunci `b` **ada**, tapi isinya `undefined`. Dari situ, tiga cara pengecekan memberi jawaban yang berbeda. `in` dan `Object.hasOwn` sama-sama menjawab `true` karena yang mereka periksa adalah keberadaan kuncinya. Sedangkan `o.b !== undefined` menjawab `false`, karena ia sebenarnya memeriksa **isinya**, dan isi yang `undefined` tidak bisa dibedakan dari kunci yang memang tidak pernah ada. Perbedaan ini penting saat menangani data dari API: "field tidak dikirim" dan "field dikirim tapi kosong" sering punya arti yang berbeda. Antara `in` dan `Object.hasOwn`, pilih yang kedua — `in` juga menjawab `true` untuk property warisan dari prototype (misalnya `\'toString\' in o` bernilai `true` pada object mana pun), sementara `Object.hasOwn` hanya melihat property milik object itu sendiri.',
+        'Object `o` sengaja dibuat memuat kasus yang membingungkan, yaitu kunci `b` yang **ada** tetapi isinya `undefined`. Dari situ, tiga cara pengecekan memberi jawaban yang berbeda. `in` dan `Object.hasOwn` sama-sama menjawab `true` karena yang mereka periksa adalah keberadaan kuncinya. Sedangkan `o.b !== undefined` menjawab `false`, karena ia sebenarnya memeriksa **isinya**, dan isi yang `undefined` tidak bisa dibedakan dari kunci yang memang tidak pernah ada. Perbedaan ini penting saat menangani data dari API, sebab "field tidak dikirim" dan "field dikirim tapi kosong" sering punya arti yang berbeda. Antara `in` dan `Object.hasOwn`, pilih yang kedua, karena `in` juga menjawab `true` untuk property warisan dari prototype (misalnya `\'toString\' in o` bernilai `true` pada object mana pun), sementara `Object.hasOwn` hanya melihat property milik object itu sendiri.',
       ),
 
       h2('Menyalin dan menggabung'),
@@ -664,7 +664,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'useState',
           meaning:
-            'Fungsi bawaan React yang mengembalikan **array berisi dua elemen**: nilai yang sedang disimpan, dan fungsi untuk mengubahnya. Karena hasilnya array, ia selalu ditulis dengan destructuring array — dan karena berbasis posisi, kamu bebas menamai keduanya apa saja. `const [hitungan, setHitungan] = useState(0)` dan `const [n, setN] = useState(0)` sama sahnya; kebiasaan `setXxx` murni kesepakatan komunitas.',
+            'Fungsi bawaan React yang mengembalikan **array berisi dua elemen**, yaitu nilai yang sedang disimpan dan fungsi untuk mengubahnya. Karena hasilnya array, ia selalu ditulis dengan destructuring array, dan karena berbasis posisi kamu bebas menamai keduanya apa saja. `const [hitungan, setHitungan] = useState(0)` dan `const [n, setN] = useState(0)` sama sahnya, dan kebiasaan `setXxx` murni kesepakatan komunitas.',
         },
         {
           term: 'x / y / a / b',
@@ -703,12 +703,12 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Kunci membaca semua bentuk di atas adalah satu kalimat: **sisi kiri `=` bukan lagi nama variabel, melainkan pola yang harus dicocokkan dengan bentuk object di sisi kanan.** `const { nama, umur } = pengguna` berarti "carikan property bernama `nama` dan `umur`, lalu buatkan variabel dengan nama yang sama". Karena pencocokannya berdasarkan **nama**, urutan penulisannya sama sekali tidak berpengaruh. Titik dua di `{ nama: namaLengkap }` sering disalahartikan sebagai "isi `namaLengkap` ke `nama`" — arahnya justru sebaliknya: ambil property `nama`, simpan ke variabel bernama `namaLengkap`. Tanda `=` di `{ negara = \'Indonesia\' }` adalah nilai cadangan, dan penting diingat ia **hanya terpicu oleh `undefined`** — kalau `pengguna.negara` bernilai `null`, defaultnya tidak dipakai dan hasilnya tetap `null`. Baris terakhir menumpuk pola di dalam pola: `profil: { alamat: { kota } }` menyusuri tiga tingkat sekaligus, dan perlu dicatat bahwa `profil` maupun `alamat` di sana **tidak** menjadi variabel — keduanya hanya jalan menuju `kota`.',
+        'Kunci membaca semua bentuk di atas adalah satu kalimat, yaitu **sisi kiri `=` bukan lagi nama variabel, melainkan pola yang harus dicocokkan dengan bentuk object di sisi kanan.** `const { nama, umur } = pengguna` berarti "carikan property bernama `nama` dan `umur`, lalu buatkan variabel dengan nama yang sama". Karena pencocokannya berdasarkan **nama**, urutan penulisannya sama sekali tidak berpengaruh. Titik dua di `{ nama: namaLengkap }` sering disalahartikan sebagai "isi `namaLengkap` ke `nama`", padahal arahnya justru sebaliknya, yaitu ambil property `nama` lalu simpan ke variabel bernama `namaLengkap`. Tanda `=` di `{ negara = \'Indonesia\' }` adalah nilai cadangan, dan penting diingat ia **hanya terpicu oleh `undefined`**, sehingga kalau `pengguna.negara` bernilai `null`, defaultnya tidak dipakai dan hasilnya tetap `null`. Baris terakhir menumpuk pola di dalam pola. `profil: { alamat: { kota } }` menyusuri tiga tingkat sekaligus, dan perlu dicatat bahwa `profil` maupun `alamat` di sana **tidak** menjadi variabel, sebab keduanya hanya jalan menuju `kota`.',
       ),
       callout(
         'warning',
         'Destructuring bersarang tidak aman terhadap data kosong',
-        'Kalau `profil` tidak ada, baris terakhir di atas melempar `TypeError`. Beri default di tiap tingkat — `const { profil: { alamat = {} } = {} } = data;` — atau lebih sederhana, pakai `?.` biasa untuk data yang tidak terjamin bentuknya.',
+        'Kalau `profil` tidak ada, baris terakhir di atas melempar `TypeError`. Beri default di tiap tingkat lewat `const { profil: { alamat = {} } = {} } = data;`, atau lebih sederhana pakai `?.` biasa untuk data yang tidak terjamin bentuknya.',
       ),
 
       h2('Destructuring array'),
@@ -727,7 +727,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Bedanya dengan destructuring object hanya satu, tapi menentukan semuanya: di sini pencocokan berdasarkan **posisi**, bukan nama. Karena itu `pertama` dan `kedua` boleh dinamai apa saja — yang menentukan isinya adalah urutan penulisannya. Baris `const [, , ketiga]` memanfaatkan hal itu: dua koma di depan sengaja mengosongkan posisi pertama dan kedua, sehingga `ketiga` mendapat elemen di indeks 2. Baris berikutnya menunjukkan default bekerja sama seperti pada object — `b` mendapat `\'y\'` karena arraynya hanya berisi satu elemen, sehingga posisi kedua bernilai `undefined`. Baris terakhir adalah trik yang sering dipamerkan: `[x, y] = [y, x]` menukar isi dua variabel karena sisi kanan dievaluasi lebih dulu menjadi array `[2, 1]`, baru kemudian dibongkar ke `x` dan `y`; nilai lamanya sudah "diamankan" di dalam array sementara itu, jadi tidak ada yang tertimpa.',
+        'Bedanya dengan destructuring object hanya satu tetapi menentukan semuanya, yaitu di sini pencocokan berdasarkan **posisi** dan bukan nama. Karena itu `pertama` dan `kedua` boleh dinamai apa saja, sebab yang menentukan isinya adalah urutan penulisannya. Baris `const [, , ketiga]` memanfaatkan hal itu, sebab dua koma di depan sengaja mengosongkan posisi pertama dan kedua, sehingga `ketiga` mendapat elemen di indeks 2. Baris berikutnya menunjukkan default bekerja sama seperti pada object, karena `b` mendapat `\'y\'` karena arraynya hanya berisi satu elemen, sehingga posisi kedua bernilai `undefined`. Baris terakhir adalah trik yang sering dipamerkan. `[x, y] = [y, x]` menukar isi dua variabel karena sisi kanan dievaluasi lebih dulu menjadi array `[2, 1]`, baru kemudian dibongkar ke `x` dan `y`. Nilai lamanya sudah "diamankan" di dalam array sementara itu, jadi tidak ada yang tertimpa.',
       ),
       callout(
         'info',
@@ -782,7 +782,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perhatikan `ditimpa` di atas: urutan penulisan menentukan siapa yang menang saat ada kunci yang sama. `{ ...dasar, x: 9 }` menyalin seluruh isi `dasar` dulu (termasuk `x: 1`), lalu menimpa `x` dengan `9` karena ditulis belakangan — kalau urutannya dibalik jadi `{ x: 9, ...dasar }`, hasilnya justru `{ x: 1 }` karena `dasar` yang menimpa belakangan. Aturan sederhananya: siapa yang ditulis paling akhir, dialah yang menang. `Math.max(...[3, 7, 2])` menunjukkan pemakaian spread yang berbeda — bukan menggabung dua array, melainkan **membongkar** satu array menjadi argumen-argumen terpisah, karena `Math.max` menerima banyak angka satu per satu, bukan satu array sekaligus.',
+        'Perhatikan `ditimpa` di atas, karena urutan penulisan menentukan siapa yang menang saat ada kunci yang sama. `{ ...dasar, x: 9 }` menyalin seluruh isi `dasar` dulu (termasuk `x: 1`), lalu menimpa `x` dengan `9` karena ditulis belakangan. Kalau urutannya dibalik jadi `{ x: 9, ...dasar }`, hasilnya justru `{ x: 1 }` karena `dasar` yang menimpa belakangan. Aturan sederhananya, siapa yang ditulis paling akhir, dialah yang menang. `Math.max(...[3, 7, 2])` menunjukkan pemakaian spread yang berbeda, sebab ia bukan menggabung dua array melainkan **membongkar** satu array menjadi argumen-argumen terpisah, karena `Math.max` menerima banyak angka satu per satu, bukan satu array sekaligus.',
       ),
 
       h2('Rest — mengumpulkan sisa'),
@@ -805,7 +805,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Ketiga contoh memakai tanda `...` yang sama persis dengan spread, tapi arah kerjanya terbalik — bukan menumpahkan isi, melainkan menampung apa yang tersisa. Pada `[utama, ...sisanya]`, posisi pertama diambil sendiri dan **seluruh** sisanya dikumpulkan ke satu array baru. Contoh kedua adalah pola yang sangat berguna di praktik: `const { id, ...tanpaId }` menghasilkan salinan object **tanpa** field `id`, dan ini cara paling bersih untuk membuang satu field tanpa menyentuh object aslinya — jauh lebih aman daripada `delete`, yang mengubah object di tempat. Contoh ketiga memindahkan gagasan yang sama ke parameter fungsi: `function total(...angka)` membuat fungsi yang bisa dipanggil dengan berapa pun argumen, dan semuanya tiba di dalam sebagai satu array biasa yang siap dipakai dengan `reduce`. Satu batasan yang perlu diingat: rest wajib berada di **posisi terakhir**, karena secara logika tidak mungkin ada "sisa" yang masih diikuti sesuatu.',
+        'Ketiga contoh memakai tanda `...` yang sama persis dengan spread, tetapi arah kerjanya terbalik, sebab ia bukan menumpahkan isi melainkan menampung apa yang tersisa. Pada `[utama, ...sisanya]`, posisi pertama diambil sendiri dan **seluruh** sisanya dikumpulkan ke satu array baru. Contoh kedua adalah pola yang sangat berguna di praktik. `const { id, ...tanpaId }` menghasilkan salinan object **tanpa** field `id`, dan ini cara paling bersih untuk membuang satu field tanpa menyentuh object aslinya, dan jauh lebih aman daripada `delete`, yang mengubah object di tempat. Contoh ketiga memindahkan gagasan yang sama ke parameter fungsi, sebab `function total(...angka)` membuat fungsi yang bisa dipanggil dengan berapa pun argumen, dan semuanya tiba di dalam sebagai satu array biasa yang siap dipakai dengan `reduce`. Satu batasan yang perlu diingat, rest wajib berada di **posisi terakhir**, karena secara logika tidak mungkin ada "sisa" yang masih diikuti sesuatu.',
       ),
       callout(
         'tip',
@@ -823,7 +823,7 @@ export const lessons: LessonDraft[] = [
         { filename: 'Tombol.jsx' },
       ),
       p(
-        'Potongan React itu memakai **kedua** sisi tanda `...` sekaligus dalam satu baris, dan itulah sebabnya ia dipilih sebagai contoh penutup. Di daftar parameter, `{ variant, ...propsSisanya }` adalah **rest**: ia mengambil `variant` untuk dipakai sendiri memilih kelas CSS, lalu mengumpulkan seluruh props lain yang dikirim pemanggil — `onClick`, `disabled`, `type`, `aria-label`, apa pun — ke satu object. Di dalam JSX, `{...propsSisanya}` adalah **spread**: ia menumpahkan kembali isi object itu menjadi atribut-atribut terpisah pada `<button>`. Hasilnya sebuah komponen yang punya gaya sendiri tapi tetap menerima semua kemampuan bawaan tombol HTML, tanpa kamu harus menuliskan atributnya satu per satu — dan tanpa `variant` ikut bocor ke DOM sebagai atribut yang tidak dikenal browser.',
+        'Potongan React itu memakai **kedua** sisi tanda `...` sekaligus dalam satu baris, dan itulah sebabnya ia dipilih sebagai contoh penutup. Di daftar parameter, `{ variant, ...propsSisanya }` adalah **rest**, sebab ia mengambil `variant` untuk dipakai sendiri memilih kelas CSS, lalu mengumpulkan seluruh props lain yang dikirim pemanggil seperti `onClick`, `disabled`, `type`, dan `aria-label` ke satu object. Di dalam JSX, `{...propsSisanya}` adalah **spread**, sebab ia menumpahkan kembali isi object itu menjadi atribut-atribut terpisah pada `<button>`. Hasilnya sebuah komponen yang punya gaya sendiri tapi tetap menerima semua kemampuan bawaan tombol HTML, tanpa kamu harus menuliskan atributnya satu per satu, dan tanpa `variant` ikut bocor ke DOM sebagai atribut yang tidak dikenal browser.',
       ),
 
       divider,
@@ -841,7 +841,7 @@ export const lessons: LessonDraft[] = [
           label: 'Destructuring assignment',
           href: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Destructuring',
           source: 'MDN',
-          note: 'Semua bentuk destructuring — object, array, bersarang, default, dan alias — di satu halaman.',
+          note: 'Semua bentuk destructuring, mulai dari object, array, bersarang, default, sampai alias, di satu halaman.',
         },
         {
           label: 'Spread syntax (...)',
@@ -899,7 +899,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'immutable',
           meaning:
-            'Artinya **tidak bisa diubah isinya**. String di JavaScript bersifat immutable, dan konsekuensinya sangat praktis: **setiap method string mengembalikan string baru dan tidak pernah menyentuh yang lama**. Karena itu menulis `s.trim();` sendirian tidak melakukan apa-apa yang terlihat — hasilnya dibuang begitu saja. Kamu harus menyimpannya: `const bersih = s.trim();`. Ini kesalahan yang sangat mudah terlewat karena tidak memunculkan error apa pun.',
+            'Artinya **tidak bisa diubah isinya**. String di JavaScript bersifat immutable, dan konsekuensinya sangat praktis, yaitu **setiap method string mengembalikan string baru dan tidak pernah menyentuh yang lama**. Karena itu menulis `s.trim();` sendirian tidak melakukan apa-apa yang terlihat, sebab hasilnya dibuang begitu saja. Kamu harus menyimpannya lewat `const bersih = s.trim();`. Ini kesalahan yang sangat mudah terlewat karena tidak memunculkan error apa pun.',
         },
         {
           term: 'trim',
@@ -956,12 +956,12 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Bandingkan dua baris pertama. Cara lama memaksamu mengurus tanda kutip, tanda plus, dan **spasi di tempat yang tepat** secara manual — perhatikan `\'Halo \'` yang harus diakhiri spasi, karena kalau lupa hasilnya menempel jadi "HaloZum". Template literal menghilangkan seluruh urusan itu: teksnya ditulis apa adanya, dan hanya bagian yang berubah yang diberi tanda `${ }`. Dua baris berikutnya menegaskan bahwa isi `${ }` bukan sekadar nama variabel — apa pun yang menghasilkan nilai boleh masuk ke sana, termasuk perhitungan `jumlah * 2` dan ternary. Bagian multi-baris di akhir juga bekerja tanpa `\\n` sama sekali: enter yang kamu tekan di editor benar-benar tersimpan sebagai baris baru di dalam string. Satu syarat mutlak untuk semua ini adalah **backtick**; memakai kutip tunggal membuat `${nama}` tampil apa adanya di layar, dan inilah kesalahan nomor satu pemula pada sub-bab ini.',
+        'Bandingkan dua baris pertama. Cara lama memaksamu mengurus tanda kutip, tanda plus, dan **spasi di tempat yang tepat** secara manual. Perhatikan `\'Halo \'` yang harus diakhiri spasi, karena kalau lupa hasilnya menempel jadi "HaloZum". Template literal menghilangkan seluruh urusan itu, sebab teksnya ditulis apa adanya, dan hanya bagian yang berubah yang diberi tanda `${ }`. Dua baris berikutnya menegaskan bahwa isi `${ }` bukan sekadar nama variabel, sebab apa pun yang menghasilkan nilai boleh masuk ke sana, termasuk perhitungan `jumlah * 2` dan ternary. Bagian multi-baris di akhir juga bekerja tanpa `\\n` sama sekali, sebab enter yang kamu tekan di editor benar-benar tersimpan sebagai baris baru di dalam string. Satu syarat mutlak untuk semua ini adalah **backtick**, karena memakai kutip tunggal membuat `${nama}` tampil apa adanya di layar, dan inilah kesalahan nomor satu pemula pada sub-bab ini.',
       ),
       callout(
         'warning',
         'Indentasi ikut terbawa',
-        'Semua spasi di awal baris kedua dan seterusnya ikut masuk ke dalam string. Kalau format teksnya penting — misalnya untuk `<pre>` — rapatkan ke kiri atau bersihkan dengan `.trim()` per baris.',
+        'Semua spasi di awal baris kedua dan seterusnya ikut masuk ke dalam string. Kalau format teksnya penting, misalnya untuk `<pre>`, rapatkan ke kiri atau bersihkan dengan `.trim()` per baris.',
       ),
 
       h2('Method yang paling sering dipakai'),
@@ -987,7 +987,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Perhatikan `slice(0, 4)` dan `slice(-5)`: argumen positif menghitung dari depan (`0` adalah karakter pertama), sementara argumen negatif menghitung mundur dari belakang — `-5` berarti \"lima karakter terakhir\". `split('')` memisah teks per karakter karena pemisahnya adalah string kosong, sehingga setiap posisi dianggap batas; sedangkan `split('-')` memisah tepat di setiap tanda hubung. `join('-')` mengerjakan kebalikannya: menyatukan array menjadi satu string dengan tanda hubung sebagai penyambung antar elemen.",
+        "Perhatikan `slice(0, 4)` dan `slice(-5)`, sebab argumen positif menghitung dari depan (`0` adalah karakter pertama), sementara argumen negatif menghitung mundur dari belakang, sehingga `-5` berarti \"lima karakter terakhir\". `split('')` memisah teks per karakter karena pemisahnya adalah string kosong, sehingga setiap posisi dianggap batas, sedangkan `split('-')` memisah tepat di setiap tanda hubung. `join('-')` mengerjakan kebalikannya dengan menyatukan array menjadi satu string dengan tanda hubung sebagai penyambung antar elemen.",
       ),
 
       h2('Mencari dan mengganti'),
@@ -1006,7 +1006,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Empat method pertama menjawab pertanyaan yang mirip tapi tidak sama. `includes` menjawab "ada di mana pun?", `startsWith` dan `endsWith` mempersempitnya ke awal dan akhir teks, dan ketiganya mengembalikan `true`/`false` sehingga langsung bisa dipakai di `if`. `indexOf` berbeda sendiri: ia mengembalikan **angka posisi** — `19` di contoh itu berarti kata "dari" mulai pada karakter ke-20 (karena hitungannya mulai dari nol) — dan mengembalikan `-1` bila tidak ketemu, jebakan yang sama persis seperti pada array. Dua baris terakhir adalah perbedaan yang paling sering memakan waktu debugging: `replace` dengan pola berupa teks biasa hanya mengganti **kemunculan pertama**, sehingga `\'a-b-c\'` menjadi `\'a+b-c\'` dan tanda hubung kedua tertinggal. Kalau maksudmu mengganti semuanya, `replaceAll` adalah jawabannya. Perlu diingat juga bahwa string bersifat *immutable*: kedua baris itu **menghasilkan string baru** dan tidak mengubah teks aslinya, jadi hasilnya harus disimpan ke variabel agar tidak terbuang.',
+        'Empat method pertama menjawab pertanyaan yang mirip tapi tidak sama. `includes` menjawab "ada di mana pun?", `startsWith` dan `endsWith` mempersempitnya ke awal dan akhir teks, dan ketiganya mengembalikan `true`/`false` sehingga langsung bisa dipakai di `if`. `indexOf` berbeda sendiri, sebab ia mengembalikan **angka posisi**. Angka `19` di contoh itu berarti kata "dari" mulai pada karakter ke-20, karena hitungannya mulai dari nol, dan ia mengembalikan `-1` bila tidak ketemu, jebakan yang sama persis seperti pada array. Dua baris terakhir adalah perbedaan yang paling sering memakan waktu debugging. `replace` dengan pola berupa teks biasa hanya mengganti **kemunculan pertama**, sehingga `\'a-b-c\'` menjadi `\'a+b-c\'` dan tanda hubung kedua tertinggal. Kalau maksudmu mengganti semuanya, `replaceAll` adalah jawabannya. Perlu diingat juga bahwa string bersifat *immutable*, sebab kedua baris itu **menghasilkan string baru** dan tidak mengubah teks aslinya, jadi hasilnya harus disimpan ke variabel agar tidak terbuang.',
       ),
       callout(
         'tip',
@@ -1028,7 +1028,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Angka `2` pada `padStart(2, '0')` bukan \"tambahkan dua karakter\", melainkan **panjang total yang diinginkan**. Karena itu `'7'` yang panjangnya satu karakter mendapat satu nol di depan menjadi `'07'`, sedangkan teks yang sudah mencapai atau melebihi panjang itu dibiarkan apa adanya — sifat inilah yang membuatnya aman dipakai untuk semua angka jam dari `0` sampai `23` tanpa pengecekan tambahan. Perhatikan juga `String(7)` yang membungkusnya: `padStart` adalah method **string**, jadi angka harus diubah dulu menjadi teks. Contoh format jam di baris terakhir menggabungkan semuanya — dua `padStart` di dalam satu template literal — dan hasilnya `'09.05'`, bukan `'9.5'` yang membuat daftar jadwal terlihat melompat-lompat karena lebarnya tidak seragam.",
+        "Angka `2` pada `padStart(2, '0')` bukan \"tambahkan dua karakter\", melainkan **panjang total yang diinginkan**. Karena itu `'7'` yang panjangnya satu karakter mendapat satu nol di depan menjadi `'07'`, sedangkan teks yang sudah mencapai atau melebihi panjang itu dibiarkan apa adanya. Sifat inilah yang membuatnya aman dipakai untuk semua angka jam dari `0` sampai `23` tanpa pengecekan tambahan. Perhatikan juga `String(7)` yang membungkusnya, sebab `padStart` adalah method **string**, jadi angka harus diubah dulu menjadi teks. Contoh format jam di baris terakhir menggabungkan semuanya lewat dua `padStart` di dalam satu template literal, dan hasilnya `'09.05'`, bukan `'9.5'` yang membuat daftar jadwal terlihat melompat-lompat karena lebarnya tidak seragam.",
       ),
 
       h2('Format angka & tanggal berbahasa Indonesia'),
@@ -1058,7 +1058,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Perhatikan tiga cara yang sedikit berbeda di atas: `toLocaleString` langsung dipanggil pada angkanya sendiri dan cocok untuk kebutuhan sekali pakai. `new Intl.NumberFormat(...).format(...)` sedikit lebih panjang untuk ditulis, tapi objek formatter-nya bisa **dipakai berulang kali** untuk banyak angka tanpa mengulang konfigurasi — lebih efisien kalau kamu memformat banyak nilai dengan aturan yang sama, misalnya seluruh baris di sebuah tabel harga. `Intl.DateTimeFormat` bekerja dengan prinsip yang sama, hanya untuk tanggal: `dateStyle: 'long'` menentukan seberapa lengkap tanggalnya ditulis, dan hasilnya otomatis dalam Bahasa Indonesia karena locale `'id-ID'` yang dioper.",
+        "Perhatikan tiga cara yang sedikit berbeda di atas. `toLocaleString` langsung dipanggil pada angkanya sendiri dan cocok untuk kebutuhan sekali pakai. `new Intl.NumberFormat(...).format(...)` sedikit lebih panjang untuk ditulis, tetapi objek formatter-nya bisa **dipakai berulang kali** untuk banyak angka tanpa mengulang konfigurasi, sehingga lebih efisien kalau kamu memformat banyak nilai dengan aturan yang sama, misalnya seluruh baris di sebuah tabel harga. `Intl.DateTimeFormat` bekerja dengan prinsip yang sama tetapi untuk tanggal, dan `dateStyle: 'long'` menentukan seberapa lengkap tanggalnya ditulis, dan hasilnya otomatis dalam Bahasa Indonesia karena locale `'id-ID'` yang dioper.",
       ),
       callout(
         'info',

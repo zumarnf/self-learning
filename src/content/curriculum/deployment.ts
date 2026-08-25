@@ -299,7 +299,7 @@ const setelahRilis = defineChapter({
 
 export const deployment = defineCategory({
   slug: 'deployment',
-  order: 5,
+  order: 6,
   title: 'Deployment',
   tagline: 'Dari laptop ke internet',
   description:

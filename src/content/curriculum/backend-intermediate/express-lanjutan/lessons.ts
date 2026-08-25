@@ -40,12 +40,12 @@ export const lessons: LessonDraft[] = [
         {
           term: 'dependency injection',
           meaning:
-            'Menerima ketergantungan **dari luar** alih-alih mengimpornya sendiri. Bab 3.8 menyusun folder; sub-bab ini menyelesaikan bagian yang tertinggal: bagaimana lapisan itu saling mendapatkan ketergantungannya — dan kenapa itu menentukan apakah kodemu bisa diuji.',
+            'Menerima ketergantungan **dari luar** alih-alih mengimpornya sendiri. Bab 3.8 menyusun folder, sedangkan sub-bab ini menyelesaikan bagian yang tertinggal, yaitu bagaimana lapisan itu saling mendapatkan ketergantungannya, dan kenapa itu menentukan apakah kodemu bisa diuji.',
         },
         {
           term: 'impor langsung mengikat mati',
           meaning:
-            'Service yang menulis `import { pool }` **wajib** punya database berjalan untuk bisa diuji. Tesnya jadi lambat, dan jalur gagal database — timeout, koneksi putus — tidak bisa disimulasikan sama sekali.',
+            'Service yang menulis `import { pool }` **wajib** punya database berjalan untuk bisa diuji. Tesnya jadi lambat, dan unhappy path database seperti timeout atau koneksi putus tidak bisa disimulasikan sama sekali.',
         },
         {
           term: 'factory function',
@@ -101,7 +101,7 @@ export const lessons: LessonDraft[] = [
           // Untuk mengujinya, kamu WAJIB
           // punya database yang berjalan.
           `,
-          notes: ['Tes lambat', 'Tidak bisa menguji jalur gagal database'],
+          notes: ['Tes lambat', 'Tidak bisa menguji unhappy path database'],
         },
         {
           title: 'Ketergantungan dioper',
@@ -118,8 +118,17 @@ export const lessons: LessonDraft[] = [
 
           // Tes cukup mengoper repo palsu.
           `,
-          notes: ['Tes cepat dan deterministik', 'Jalur gagal bisa disimulasikan'],
+          notes: ['Tes cepat dan deterministik', 'Unhappy path bisa disimulasikan'],
         },
+      ),
+      p(
+        'Perbedaannya ada di baris `import` yang **hilang** dari kolom kanan. Pada kolom kiri, `services/catatan.js` menyebut `../lib/db.js` secara langsung, dan itu berarti berkas ini tidak bisa dimuat tanpa ikut memuat modul database beserta koneksinya. Pada kolom kanan, service tidak tahu database itu ada — ia hanya tahu ada sesuatu bernama `repo` yang punya method `cariMilikPengguna`.',
+      ),
+      p(
+        'Perhatikan bentuknya berubah dari fungsi biasa menjadi **fungsi yang mengembalikan objek** (`buatLayananCatatan`). Itulah mekanismenya: ketergantungan diterima sekali saat perakitan, lalu dipakai oleh semua method di dalamnya. Di JavaScript ini sudah cukup — tidak perlu container DI seperti di Laravel, karena closure sudah melakukan pekerjaan yang sama.',
+      ),
+      p(
+        'Catatan "unhappy path bisa disimulasikan" adalah keuntungan yang paling sering diremehkan. Dengan kolom kiri, menguji "apa yang terjadi kalau database timeout" berarti benar-benar membuat database timeout — sulit, lambat, dan tidak konsisten. Dengan kolom kanan, kamu cukup mengoper `repo` yang method-nya melempar, dan unhappy path itu teruji dalam milidetik. Ini penerapan langsung "uji jalur yang tidak bahagia" yang jadi gerbang keras di seluruh kurikulum ini.',
       ),
 
       h2('Composition root'),
@@ -169,6 +178,15 @@ export const lessons: LessonDraft[] = [
         const app = buatApp(container);
         app.listen(env.PORT);
         `,
+      ),
+      p(
+        'Perhatikan **semua** pemanggilan `new` dan semua perakitan berkumpul di `container.js`, tanpa satu pun di service maupun repository. Itulah arti composition root, yaitu satu tempat yang tahu bagaimana bagian-bagiannya disambung, sementara sisa kode hanya menerima apa yang ia butuhkan. Urutan di dalamnya mengikuti arah ketergantungan, yaitu `pool` dulu, lalu repo yang butuh pool, lalu service yang butuh repo.',
+      ),
+      p(
+        'Tiga opsi pada `Pool` adalah pertahanan yang mudah dilupakan sampai ia dibutuhkan. `max: 10` membatasi jumlah koneksi — bukan pembatasan sewenang-wenang, melainkan pengakuan bahwa database punya batas koneksinya sendiri, dan aplikasi yang membuka tanpa batas akan menjatuhkannya. `connectionTimeoutMillis` menentukan berapa lama menunggu giliran; tanpanya, permintaan yang tidak kebagian koneksi menggantung **selamanya**, dan gejalanya muncul sebagai "seluruh API tersendat" yang penyebabnya sulit ditemukan. `idleTimeoutMillis` menutup koneksi menganggur supaya tidak menahan sumber daya di sisi database.',
+      ),
+      p(
+        'Tiga baris di `server.js` memperlihatkan urutan yang menyatukan semuanya: rakit container, bangun app dari container, baru buka port. Karena `buatApp` menerima container sebagai argumen, tes bisa membangun app dengan container **berisi objek palsu** — tanpa database, tanpa jaringan, dan tanpa mengubah satu baris pun kode aplikasi.',
       ),
       callout(
         'tip',
@@ -589,6 +607,12 @@ export const lessons: LessonDraft[] = [
           notes: ['Prisma menggabungkan sendiri'],
         },
       ),
+      p(
+        'Kolom kanan menyelesaikannya dengan `select` **bersarang**: relasi `penulis` diminta di dalam permintaan yang sama, bukan diakses belakangan per baris. Prisma lalu mengumpulkan seluruh `penulisId` dan mengambil semua penulis dalam satu query tambahan — itulah asal angka "2 query, berapa pun jumlah barisnya". Ini prinsip yang sama dengan `with()` di Eloquent, hanya beda tata bahasanya.',
+      ),
+      p(
+        'Perhatikan `select` juga menyebut kolom mana yang diambil, dan itu bonus yang penting: `{ id: true, nama: true }` pada penulis berarti `email` dan `kataSandiHash` **tidak pernah** ikut terbawa. Kalau kamu memakai `include` alih-alih `select`, seluruh kolom penulis ikut — termasuk yang tidak boleh keluar dari server. Untuk data yang menghadap API, `select` selalu pilihan yang lebih aman.',
+      ),
 
       h2('Menghitung tanpa memuat'),
       code(
@@ -605,6 +629,12 @@ export const lessons: LessonDraft[] = [
 
         catatan[0]._count.komentar;   // angka
         `,
+      ),
+      p(
+        '`_count` diterjemahkan Prisma menjadi subquery penghitung, bukan pemuatan baris. Bedanya besar di halaman daftar: untuk menampilkan "42 komentar" di bawah setiap judul, memuat keempat puluh dua komentar itu berarti menarik ribuan baris ke memori hanya untuk dihitung lalu dibuang. Ini padanan `withCount` di Eloquent, dan alasan memakainya sama persis.',
+      ),
+      p(
+        'Perhatikan hasilnya diakses lewat `catatan[0]._count.komentar` — bersarang di dalam objek `_count`, bukan sebagai `komentarCount` di tingkat atas. Perhatikan pula ia hanya bisa dipakai di dalam `select` atau `include`; menuliskannya sebagai kolom biasa akan ditolak, karena `_count` memang bukan kolom melainkan perhitungan.',
       ),
 
       h2('Filter lewat relasi'),
@@ -626,6 +656,12 @@ export const lessons: LessonDraft[] = [
           where: { komentar: { none: {} } },
         });
         `,
+      ),
+      p(
+        'Ketiga kata kunci ini menjawab pertanyaan yang berbeda tentang **kumpulan** relasi, dan menerjemahkannya ke bahasa sehari-hari membuatnya mudah diingat: `some` berarti "ada minimal satu yang cocok", `every` berarti "semuanya cocok", `none` berarti "tidak ada satu pun". Ketiganya padanan `whereHas` dan `doesntHave` di Eloquent, dan sama-sama menjadi subquery `EXISTS` di SQL — jadi penyaringannya dikerjakan database, bukan dengan memuat semua catatan lalu membuangnya di JavaScript.',
+      ),
+      p(
+        'Perhatikan `none: {}` memakai objek **kosong**, dan itu memang benar: syarat kosong berarti "tidak ada komentar apa pun", tanpa kriteria tambahan. Kalau kamu menulis `none: { disetujui: false }`, artinya berubah menjadi "tidak ada komentar yang belum disetujui" — yang juga akan mencakup catatan tanpa komentar sama sekali. Perbedaan sehalus itu yang membuat `every` punya jebakan yang dijelaskan tepat di bawah.',
       ),
       callout(
         'warning',
@@ -655,6 +691,15 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        'Komentar pertama menyebut hal yang paling penting: Prisma membungkus nested write seperti ini dalam **satu transaksi otomatis**. Artinya kalau pembuatan salah satu tag gagal, artikelnya juga tidak jadi dibuat — tidak ada keadaan setengah jadi berupa artikel tanpa tag yang seharusnya melekat. Kamu tidak perlu menulis `BEGIN`/`COMMIT` sendiri untuk kasus ini.',
+      ),
+      p(
+        '`connectOrCreate` menyelesaikan masalah yang biasanya butuh beberapa langkah: untuk setiap nama tag, cari yang cocok dengan `where`, dan **hanya kalau tidak ketemu** buat baru dari `create`. Tanpa itu kamu harus mengambil tag yang sudah ada, membandingkannya di JavaScript, lalu membuat sisanya — tiga perjalanan ke database beserta celah balapan di antaranya, karena dua permintaan bersamaan bisa sama-sama menyimpulkan tag itu belum ada.',
+      ),
+      p(
+        'Perhatikan `select` di akhir menentukan bentuk yang dikembalikan, dan tanpa itu Prisma mengembalikan seluruh kolom artikel — termasuk `isi` yang bisa puluhan ribu karakter, padahal pemanggilnya hanya butuh `id` dan `judul` untuk respons `201`.',
+      ),
 
       h2('Paginasi cursor'),
       code(
@@ -668,6 +713,12 @@ export const lessons: LessonDraft[] = [
           ...(cursor !== undefined && { cursor: { id: cursor }, skip: 1 }),
         });
         `,
+      ),
+      p(
+        '`skip: 1` di baris terakhir sering dikira kekeliruan, padahal ia keharusan. Prisma memperlakukan `cursor` sebagai **item yang ditunjuk**, bukan posisi setelahnya — jadi tanpa `skip: 1`, item terakhir halaman sebelumnya akan muncul lagi sebagai item pertama halaman berikutnya. Ini bug yang tampak seperti "kadang ada yang dobel" dan sangat mudah lolos ke produksi.',
+      ),
+      p(
+        'Penyebaran bersyarat `...(cursor !== undefined && {...})` menangani permintaan **halaman pertama**, yang memang tidak membawa cursor. Menuliskan `cursor: { id: undefined }` akan membuat Prisma mengeluh, jadi keduanya harus benar-benar tidak ada — bukan ada dengan nilai kosong. Perhatikan pula `orderBy` menyebut **dua** kolom: `dibuatPada` sebagai kunci utama dan `id` sebagai pemecah seri, sesuai aturan urutan stabil dari sub-bab 1.5. Tanpa `id` di sana, cursor akan menunjuk posisi yang ambigu begitu ada dua baris dengan waktu yang sama.',
       ),
 
       h2('Agregasi'),
@@ -688,6 +739,12 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        'Kedua bentuk ini adalah SQL agregasi dari sub-bab 2.6 dalam bentuk Prisma. `aggregate` memampatkan seluruh baris yang lolos `where` menjadi **satu** hasil — `_count` dan `_max` di sini setara `COUNT(*)` dan `MAX(dibuat_pada)`. Perhatikan `_count: { _all: true }`: bentuk `_all` menghitung **baris**, sedangkan menyebut nama kolom akan menghitung baris yang kolomnya bukan `null`. Perbedaan `COUNT(*)` versus `COUNT(kolom)` yang sama, hanya dengan nama berbeda.',
+      ),
+      p(
+        "`groupBy` menambahkan pengelompokan, sebab `by: ['penulisId']` menghasilkan satu baris per penulis alih-alih satu baris untuk seluruh tabel. Dan `having` menyaring **kelompok** setelah dihitung, yang di sini berarti hanya penulis dengan lebih dari lima catatan. Perhatikan pembagian tugas antara `where` dan `having` tetap sama seperti di SQL mentah, yaitu `where` membuang baris **sebelum** pengelompokan sedangkan `having` membuang kelompok **sesudahnya**. Saring sebanyak mungkin di `where`, karena baris yang sudah dibuang tidak perlu ikut dikelompokkan.",
+      ),
 
       h2('Menegakkan larangan N+1 dengan tes'),
       code(
@@ -706,6 +763,15 @@ export const lessons: LessonDraft[] = [
           expect(jumlahQuery.n).toBeLessThan(6);
         });
         `,
+      ),
+      p(
+        "Tes ini mengubah N+1 dari masalah performa yang tak terlihat menjadi sesuatu yang bisa **gagal**. `prisma.$on('query', ...)` memasang pendengar pada setiap query yang benar-benar dijalankan, sehingga jumlahnya bisa dihitung — bukan diperkirakan dari membaca kode.",
+      ),
+      p(
+        'Baris `jumlahQuery.n = 0` tepat sebelum permintaan adalah detail yang menentukan. Tanpa pengaturan ulang itu, hitungannya sudah terisi oleh query dari `buatCatatan` yang menyiapkan lima puluh baris data — dan ambangnya akan terlampaui bahkan pada kode yang benar. Yang ingin diukur hanyalah query dari **satu permintaan HTTP**, bukan dari penyiapannya.',
+      ),
+      p(
+        'Angka 50 pada penyiapan dan ambang `toBeLessThan(6)` bekerja berpasangan. Kalau ada N+1, jumlah query akan sekitar 51 — jauh di atas ambang, jadi kegagalannya tegas dan bukan kebetulan. Sebaliknya, menyiapkan hanya lima baris akan membuat tes ini hijau bahkan dengan N+1, karena enam query masih di bawah ambang. Aturannya: jumlah data uji harus **jauh lebih besar** dari ambang yang kamu pasang.',
       ),
       callout(
         'tip',
@@ -806,6 +872,12 @@ export const lessons: LessonDraft[] = [
         ]);
         `,
       ),
+      p(
+        'Bentuk array ini yang paling sederhana: berikan daftar operasi, Prisma menjalankan semuanya dalam satu transaksi secara berurutan, dan mengembalikan hasilnya sebagai array yang bisa langsung dirusak-struktur. Kalau salah satu gagal, semuanya dibatalkan.',
+      ),
+      p(
+        'Batasnya juga jelas dan menentukan kapan kamu harus pindah ke bentuk berikutnya, yaitu **operasi kedua tidak bisa memakai hasil operasi pertama**, karena seluruh array sudah harus tersusun sebelum satu pun dijalankan. Begitu kamu butuh `pesanan.id` yang baru lahir untuk membuat baris berikutnya, atau butuh memeriksa hasil sebelum memutuskan langkah selanjutnya, bentuk interaktif di bawah yang kamu perlukan.',
+      ),
 
       h2('Transaksi interaktif'),
       code(
@@ -844,6 +916,15 @@ export const lessons: LessonDraft[] = [
           timeout: 10_000,   // berapa lama transaksi boleh berjalan
         });
         `,
+      ),
+      p(
+        'Callback ini menerima `tx` — sebuah klien Prisma yang **terikat pada satu koneksi** milik transaksi ini. Setiap operasi di dalamnya harus lewat `tx`, dan itulah yang diperingatkan di bawah: memanggil `prisma.sesuatu()` di sini akan memakai koneksi lain, sehingga operasinya berada **di luar** transaksi dan tidak ikut dibatalkan saat rollback.',
+      ),
+      p(
+        'Perhatikan `updateMany` dipakai alih-alih `update`, dan itu disengaja. `update` mencari baris lalu mengubahnya, sedangkan `updateMany` dengan syarat `stok: { gte: item.jumlah }` menggabungkan **pemeriksaan dan pengurangan dalam satu operasi** yang tidak bisa disela — pola yang sama seperti `SET stok = stok - 1 WHERE stok > 0` di sub-bab 2.6. Karena itu hasilnya dibaca dari `hasil.count`: nilai `0` berarti tidak ada baris yang memenuhi syarat, alias stoknya sudah tidak cukup.',
+      ),
+      p(
+        '`throw` di dalam callback adalah cara membatalkan transaksi di Prisma, sehingga tidak ada `rollback()` yang perlu dipanggil manual. Melempar `KesalahanStokHabis` membatalkan **seluruhnya**, termasuk pesanan dan item yang sudah sempat dibuat pada putaran sebelumnya. Dua opsi terakhir menutup kebocoran sumber daya, di mana `maxWait` membatasi berapa lama menunggu giliran koneksi dan `timeout` memutus transaksi yang berjalan terlalu lama. Tanpa keduanya, satu transaksi yang macet bisa menahan koneksi sampai pool habis.',
       ),
       callout(
         'danger',
@@ -889,6 +970,15 @@ export const lessons: LessonDraft[] = [
           notes: ['Transaksi hanya menyentuh database'],
         },
       ),
+      p(
+        'Aturannya sama seperti di sub-bab 2.9 dan berlaku apa pun ORM-nya, yaitu **jangan pernah menaruh panggilan jaringan di dalam transaksi**. Selama blok itu berjalan, baris yang disentuh terkunci, dan pada kolom kiri kunci itu bertahan selama pemanggilan email dan pembayaran berlangsung, yang berarti beberapa detik pada hari baik dan tak tentu saat pihak ketiganya bermasalah. Pada trafik ramai, antrean yang menunggu kunci itu menumpuk sampai pool koneksi habis.',
+      ),
+      p(
+        'Ada alasan kedua yang sama pentingnya: `kirimEmail` **tidak bisa di-rollback**. Kalau transaksi gagal setelah emailnya terkirim, pelanggan sudah menerima kabar tentang pesanan yang di database tidak pernah ada.',
+      ),
+      p(
+        'Perhatikan kolom kanan tidak sekadar memindahkan pemanggilan ke luar, tetapi menaruhnya di **antrean**. Bedanya penting, sebab kalau `kirimEmail` dipanggil langsung setelah commit lalu gagal, emailnya hilang tanpa jejak padahal pesanannya sudah tersimpan. Dengan antrean, pekerjaan itu punya percobaan ulang, backoff, dan tempat pembuangan akhir bagi yang tetap gagal, mekanisme yang dibahas di sub-bab BullMQ.',
+      ),
 
       h2('Menangani balapan'),
       code(
@@ -930,6 +1020,15 @@ export const lessons: LessonDraft[] = [
           throw err;
         }
         `,
+      ),
+      p(
+        'Prisma memberi kode pada kegagalan yang sudah ia kenali, dan kode itulah yang kamu cabangkan — bukan isi pesannya. `P2002` berarti pelanggaran batasan `UNIQUE`, `P2025` berarti baris yang dicari tidak ada. Mencocokkan teks pesan alih-alih kode adalah kesalahan yang rapuh: pesannya berubah antar versi Prisma, dan cabangmu diam-diam berhenti bekerja tanpa satu pun error.',
+      ),
+      p(
+        'Komentar di dalamnya menandai bagian yang paling mudah tergelincir. `err.message` untuk `P2002` berbunyi seperti *"Unique constraint failed on the fields: (`email`)"* — ia menyebut nama kolommu, dan pada beberapa kasus nama constraint beserta tabelnya. Meneruskannya ke klien berarti membocorkan struktur database, persis yang dilarang di sub-bab 1.4. Karena itu yang dilempar adalah error milikmu sendiri dengan pesan generik.',
+      ),
+      p(
+        'Baris `throw err` di akhir sama pentingnya dengan cabang-cabang di atasnya: error yang **tidak** kamu kenali harus diteruskan apa adanya, bukan ditelan. Blok `catch` yang menangkap segalanya lalu diam mengubah kegagalan yang berisik menjadi kerusakan data yang senyap — dan itu jauh lebih mahal daripada error yang muncul di log.',
       ),
       callout(
         'warning',
@@ -982,7 +1081,7 @@ export const lessons: LessonDraft[] = [
             'Bagian auth yang **paling sering ditinggalkan**. Bab 5 Backend Basic menjelaskan tiap potongan; yang ini merangkainya — dan pencabutan adalah tempat rangkaian itu biasanya putus.',
         },
         {
-          term: 'keluarga token',
+          term: 'token family',
           meaning:
             'Satu rantai refresh token yang berasal dari **satu login**. Semua rotasi berikutnya mewarisi `keluargaId` yang sama — sehingga saat pencurian terdeteksi, seluruh rantai bisa dicabut sekaligus.',
         },
@@ -997,7 +1096,7 @@ export const lessons: LessonDraft[] = [
             'Umur 5–15 menit. Ia yang membatasi kerusakan: token yang dicuri hanya berguna sebentar, dan tidak perlu mekanisme pencabutan sendiri karena ia kedaluwarsa lebih cepat daripada kamu sempat bereaksi.',
         },
         {
-          term: 'rotasi + deteksi pemakaian ulang',
+          term: 'rotasi + reuse detection',
           meaning:
             'Inti keamanan alur ini. Refresh token hanya sah **sekali**; kalau yang sudah dicabut muncul lagi, itu berarti **dicuri dan diputar ulang** — dan seluruh keluarganya dicabut.',
         },
@@ -1014,7 +1113,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'cookie untuk refresh, header untuk access',
           meaning:
-            'Pembagian yang disengaja. Refresh token di cookie `HttpOnly` ber-`path` sempit — tidak bisa dibaca JavaScript dan tidak ikut di setiap permintaan. Access token di header `Authorization` — tidak ikut otomatis, jadi tidak rawan CSRF.',
+            'Pembagian yang disengaja. Refresh token disimpan di cookie `HttpOnly` ber-`path` sempit, sehingga tidak bisa dibaca JavaScript dan tidak ikut di setiap permintaan. Access token dikirim di header `Authorization`, sehingga tidak ikut otomatis dan karena itu tidak rawan CSRF.',
         },
         {
           term: 'logout global',
@@ -1050,6 +1149,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Komentar pada `tokenHash` menyebut keputusan terpenting di seluruh model ini, yaitu yang tersimpan adalah **hash**-nya dan bukan tokennya. Kalau tabel ini bocor, penyerang hanya mendapat hash yang tidak bisa dipakai untuk apa pun, alasan yang sama persis dengan menyimpan hash password. `@unique` di sana bukan sekadar index, sebab ia yang menjamin satu token tidak bisa terdaftar dua kali sekaligus mempercepat pencarian saat verifikasi.',
+      ),
+      p(
+        '`keluargaId` adalah yang membuat deteksi pencurian mungkin. Setiap rotasi menghasilkan baris baru, tetapi seluruh rantai yang berasal dari **satu kali login** membawa `keluargaId` yang sama — jadi begitu ada token lama yang muncul kembali, satu perintah cukup untuk mencabut seluruh rantainya. Perhatikan `onDelete: Cascade` pada relasi ke `Pengguna`: menghapus akun otomatis membuang semua sesinya, tanpa perlu diingat.',
+      ),
+      p(
+        '`userAgent` dan `ip` bersifat opsional (`String?`) dan tidak dipakai untuk keputusan keamanan, sebab keduanya untuk **halaman "perangkat yang aktif"** supaya pengguna bisa mengenali sesi yang bukan miliknya dan mencabutnya. Perhatikan panjang `ip` dibatasi 45 karakter, karena itu panjang maksimum alamat IPv6 dalam bentuk teks dan bukan angka sembarang. Tiga `@@index` di akhir masing-masing melayani satu query nyata, yaitu daftar sesi per pengguna, pencabutan sekeluarga, dan pembersihan terjadwal untuk yang sudah kedaluwarsa.',
+      ),
 
       h2('Menerbitkan pasangan token'),
       code(
@@ -1081,6 +1189,15 @@ export const lessons: LessonDraft[] = [
           return { akses, refresh };
         }
         `,
+      ),
+      p(
+        'Perhatikan kedua token dibuat dengan cara yang **sama sekali berbeda**, dan itu disengaja. Access token adalah JWT bertanda tangan yang bisa diverifikasi tanpa menyentuh database — itulah yang membuatnya murah dipakai di setiap permintaan. Refresh token hanya nilai acak 32 byte tanpa makna apa pun; ia harus dicari di database untuk diverifikasi, dan justru itu yang membuatnya **bisa dicabut** kapan saja.',
+      ),
+      p(
+        'Klaim `ver: pengguna.tokenVersi` di payload adalah kunci pencabutan yang murah. Karena JWT tidak bisa ditarik kembali, satu-satunya cara membatalkannya adalah membandingkannya dengan sesuatu — dan menaikkan `tokenVersi` di baris pengguna membuat **semua** access token lamanya langsung ditolak pada verifikasi berikutnya, tanpa perlu menyimpan daftar token yang dicabut.',
+      ),
+      p(
+        'Parameter `keluargaId = crypto.randomUUID()` memakai nilai bawaan, dan itu trik kecil yang rapi: pemanggilan saat **login** tidak menyebutnya sehingga rantai baru lahir, sedangkan pemanggilan saat **rotasi** meneruskan `keluargaId` lama sehingga rantainya berlanjut. Perhatikan pula `?.slice(0, 255)` pada user agent — string itu datang dari klien dan panjangnya tidak terbatas, jadi memotongnya sesuai lebar kolom mencegah kegagalan `INSERT` yang dipicu header yang sengaja dibuat panjang.',
       ),
 
       h2('Verifikasi dengan pencabutan yang murah'),
@@ -1119,13 +1236,22 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        "Dua pemeriksaan berjalan berurutan di sini, dan keduanya perlu. `jwt.verify` membuktikan tokennya **asli dan belum kedaluwarsa** — dengan `algorithms: ['HS256']` yang wajib ditulis eksplisit, karena tanpanya token sendiri yang menentukan algoritma verifikasinya dan penyerang tinggal mengirim `alg: none`. Pemeriksaan kedua membuktikan tokennya **belum dicabut**, sesuatu yang tidak bisa dijawab tanda tangan.",
+      ),
+      p(
+        'Perbandingan `payload.ver !== versiSekarang` inilah pencabutan itu. Karena versinya diambil dari cache (`cacheVersiToken`), biayanya satu pembacaan Redis, bukan query database — cukup murah untuk dijalankan di setiap permintaan. Menaikkan angka itu sekali membatalkan **seluruh** access token milik pengguna tersebut seketika, tanpa perlu menyimpan daftar token yang dicabut yang akan tumbuh tanpa batas.',
+      ),
+      p(
+        'Perhatikan blok `catch` mengembalikan kode yang **sama persis** dengan penolakan di awal fungsi. Token kedaluwarsa, tanda tangan palsu, format rusak, header hilang — semuanya dijawab `TIDAK_TERAUTENTIKASI`. Membedakannya terdengar membantu, tetapi setiap perbedaan memberi penyerang satu petunjuk tentang seberapa dekat tebakannya. Detail sebenarnya tetap ada di log server.',
+      ),
       callout(
         'tip',
         '`tokenVersi` adalah pencabutan termurah untuk JWT',
         'Deny-list menyimpan setiap token yang dicabut dan tumbuh tanpa batas. Satu integer per pengguna, di-cache di Redis, memberi pencabutan seketika untuk **semua** token pengguna itu dengan satu operasi `increment`. Yang tidak bisa ia lakukan: mencabut satu perangkat saja — untuk itu pakai tabel sesi refresh.',
       ),
 
-      h2('Rotasi dengan deteksi pemakaian ulang'),
+      h2('Rotasi dengan reuse detection'),
       code(
         'ts',
         `
@@ -1170,6 +1296,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Blok bertanda "INTI POLANYA" adalah alasan seluruh mekanisme ini ada. Pikirkan apa artinya token yang **sudah dicabut** muncul kembali. Token hanya dicabut setelah dipakai, jadi kemunculan keduanya berarti ada dua pihak yang memegangnya, yaitu pemilik sah dan pencurinya. Server tidak bisa tahu mana yang mana, jadi ia mengambil sikap paling aman dengan mencabut **seluruh keluarga** lewat `keluargaId`. Korban terpaksa masuk ulang, dan penyerang kehilangan akses sepenuhnya.',
+      ),
+      p(
+        'Perhatikan `updateMany` menyaring `dicabutPada: null` — hanya token yang masih hidup yang perlu disentuh, dan itu menjaga stempel waktu pencabutan sebelumnya tetap utuh untuk penelusuran. `log.warn` di bawahnya mencatat `ip` beserta `keluargaId`, dan ini bukan sekadar catatan: lonjakan peristiwa ini adalah salah satu sinyal pembobolan yang paling jelas, dan ia layak memicu alert.',
+      ),
+      p(
+        'Rotasinya dibungkus `$transaction` supaya pencabutan token lama dan penerbitan yang baru **terjadi bersama atau tidak sama sekali**. Tanpa itu, kegagalan di antara keduanya bisa meninggalkan pengguna tanpa token yang sah sama sekali — ia tercabut tetapi tidak menerima gantinya. Perhatikan pula `terbitkanPasangan` menerima `sesi.keluargaId` yang lama, sehingga rantainya berlanjut alih-alih memulai keluarga baru.',
+      ),
 
       h2('Cookie refresh'),
       code(
@@ -1188,6 +1323,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Refresh token sengaja ditaruh di **cookie**, bukan dikirim ke JavaScript seperti access token — dan `httpOnly: true` adalah alasannya. Dengan itu, skrip apa pun yang berhasil berjalan di halamanmu lewat XSS tidak bisa membacanya. Access token boleh dipegang JavaScript karena umurnya hanya lima belas menit; refresh token berumur tiga puluh hari, jadi kebocorannya jauh lebih mahal.',
+      ),
+      p(
+        "`sameSite: 'strict'` lebih ketat daripada `'lax'` yang biasa dipakai cookie sesi, dan di sini ia tepat: endpoint refresh tidak pernah perlu dipanggil dari navigasi lintas situs. Perhatikan `secure: env.isProduksi` dan bukan `true` mati — `localhost` tanpa HTTPS akan menolak cookie bertanda `Secure`, sehingga menuliskannya mati membuat login gagal di lingkungan pengembangan tanpa pesan yang jelas.",
+      ),
+      p(
+        "`path: '/api/auth/refresh'` adalah pembatasan yang paling sering dilupakan. Tanpa itu, browser menyertakan refresh token pada **setiap** permintaan ke servermu — ratusan kali sehari, di setiap log akses, di setiap proxy yang dilewati. Dengan path sempit, ia hanya berjalan saat benar-benar dibutuhkan, dan permukaan kebocorannya menyusut drastis.",
+      ),
 
       h2('Yang wajib mencabut'),
       table(
@@ -1198,7 +1342,7 @@ export const lessons: LessonDraft[] = [
           ['Ganti password', '**Semua** + naikkan `tokenVersi`'],
           ['Perubahan peran/izin', 'Naikkan `tokenVersi`'],
           ['Akun dinonaktifkan', 'Semua + naikkan `tokenVersi`'],
-          ['Terdeteksi pemakaian ulang', 'Seluruh keluarga token'],
+          ['Terreuse detection', 'Seluruh token family'],
         ],
       ),
       callout(
@@ -1217,6 +1361,12 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        'Tabel sesi bertambah satu baris setiap kali seseorang login **dan** setiap kali token dirotasi — pada aplikasi aktif, itu ribuan baris per hari yang sebagian besar sudah tidak berguna. Tanpa pembersihan, tabelnya tumbuh tanpa henti dan setiap pencarian token ikut melambat.',
+      ),
+      p(
+        'Perhatikan syaratnya bukan "sudah kedaluwarsa", melainkan **kedaluwarsa lebih dari tujuh hari lalu**. Jeda itu disengaja: baris yang baru saja kedaluwarsa masih berguna untuk penelusuran — misalnya saat menyelidiki laporan "akun saya diakses orang lain", di mana kolom `ip` dan `userAgent` dari sesi lama justru yang paling menjelaskan. Jalankan ini sebagai job terjadwal, bukan di dalam permintaan pengguna.',
+      ),
       references(
         {
           label: 'RFC 8725 — JWT Best Current Practices',
@@ -1228,7 +1378,7 @@ export const lessons: LessonDraft[] = [
           label: 'OAuth 2.0 Security BCP — refresh token rotation',
           href: 'https://datatracker.ietf.org/doc/html/draft-ietf-oauth-security-topics',
           source: 'IETF',
-          note: 'Rotasi beserta deteksi pemakaian ulang, langsung dari sumbernya.',
+          note: 'Rotasi beserta reuse detection, langsung dari sumbernya.',
         },
         {
           label: 'Session Management Cheat Sheet',
@@ -1309,12 +1459,21 @@ export const lessons: LessonDraft[] = [
         app.use(helmet());                  // 2. header keamanan
         app.use(cors(opsiCors));            // 3. origin yang diizinkan
         app.use(express.json({ limit: '100kb' }));   // 4. batas ukuran body
-        app.use(pencatatPermintaan);        // 5. id korelasi & log
+        app.use(pencatatPermintaan);        // 5. correlation id & log
         app.use('/api', batasUmum);         // 6. rate limit
         app.use('/api/auth', batasAuth);    // 7. rate limit lebih ketat
         // ... rute ...
         app.use(penanganError);             // terakhir, selalu
         `,
+      ),
+      p(
+        'Komentar di baris pertama benar secara harfiah: urutan ini adalah rantai ketergantungan, bukan preferensi. `trust proxy` harus lebih dulu dari apa pun yang membaca IP klien — rate limiter di baris 6 dan 7 bergantung padanya, dan memasangnya belakangan berarti keduanya membaca IP proxy alih-alih IP asli, sehingga **seluruh trafik dihitung sebagai satu pemanggil**.',
+      ),
+      p(
+        '`helmet` dan `cors` berada di atas parser body karena keduanya bekerja pada header dan permintaan preflight, sehingga keduanya harus menjawab sebelum ada usaha membaca isi permintaan. `express.json({ limit })` menyusul, dan letaknya sebelum rate limit disengaja karena batas ukuran menolak body raksasa **sebelum** servermu menghabiskan memori untuk menguraikannya. Pencatat permintaan di baris 5 harus di atas rate limit supaya permintaan yang **ditolak** limiter pun tetap tercatat, sebab kalau tidak, justru trafik mencurigakan yang hilang dari log.',
+      ),
+      p(
+        'Dua baris rate limit terakhir memperlihatkan pola berjenjang: `/api` mendapat batas umum, lalu `/api/auth` mendapat batas kedua yang lebih ketat **di atasnya**. Karena `/api/auth` juga cocok dengan prefiks `/api`, keduanya berlaku sekaligus — dan yang lebih ketat yang efektif. Penampung error tetap paling akhir, karena ia menangkap kegagalan dari semua yang di atasnya.',
       ),
       callout(
         'danger',
@@ -1343,6 +1502,15 @@ export const lessons: LessonDraft[] = [
         // Jangan umumkan teknologi dan versinya
         app.disable('x-powered-by');
         `,
+      ),
+      p(
+        'Helmet memasang belasan header sekaligus dengan nilai bawaan yang masuk akal; yang ditulis di sini hanyalah tiga yang biasanya perlu disesuaikan. `contentSecurityPolicy` adalah yang paling berdampak sekaligus paling mudah salah — `defaultSrc: ["\'self\'"]` berarti seluruh sumber daya hanya boleh dari domainmu sendiri, dan `objectSrc: ["\'none\'"]` menutup `<object>`/`<embed>` yang merupakan jalur pintas klasik untuk melewati CSP.',
+      ),
+      p(
+        '`hsts` dengan `maxAge` satu tahun memerintahkan browser **selalu** memakai HTTPS untuk domain ini, bahkan kalau penggunanya mengetik `http://`. Opsi `preload` mendaftarkannya ke daftar bawaan browser sehingga perlindungannya berlaku sejak kunjungan pertama — tetapi perhatikan ini keputusan yang sulit dibatalkan: begitu masuk daftar preload, domainmu tidak bisa lagi melayani HTTP sama sekali, dan mengeluarkannya butuh waktu berbulan-bulan.',
+      ),
+      p(
+        '`app.disable(\'x-powered-by\')` ditulis terpisah karena ia bukan pemasangan header melainkan **penghapusan**. Express secara bawaan mengumumkan dirinya lewat header itu, dan menyebutkan teknologi beserta versinya adalah pengintaian gratis bagi penyerang — ia langsung tahu kerentanan mana yang layak dicoba. Ini penerapan langsung aturan "jangan bocorkan versi atau detail implementasi" di `security.md`.',
       ),
       table(
         ['Header', 'Melindungi dari'],
@@ -1378,10 +1546,19 @@ export const lessons: LessonDraft[] = [
         }));
         `,
       ),
+      p(
+        'Fungsi `origin` dipakai alih-alih daftar sederhana karena ia memberi kendali atas **kasus yang tidak punya origin**. Permintaan dari `curl`, dari server lain, atau dari aplikasi mobile tidak mengirim header `Origin` sama sekali — dan baris pertama memutuskan itu diizinkan. Perhatikan komentarnya: "putuskan sadar". Untuk API yang memang hanya melayani browser, menolaknya justru lebih tepat.',
+      ),
+      p(
+        "Baris `ORIGIN_DIIZINKAN.includes(origin)` mencocokkan **persis** — bukan `startsWith`, bukan pencocokan pola. Bedanya menentukan: `startsWith('https://situsku.com')` juga akan meloloskan `https://situsku.com.penyerang.id`, domain yang sepenuhnya milik orang lain. Daftarnya sendiri datang dari environment, sehingga origin pengembangan (`localhost`) tidak pernah ikut ke konfigurasi produksi.",
+      ),
+      p(
+        '`credentials: true` diperlukan agar cookie refresh ikut terkirim pada permintaan lintas origin, dan justru itu yang membuat pencocokan persis di atas jadi wajib — dengan kredensial menyala, origin yang salah lolos berarti situs lain bisa memanggil API-mu memakai sesi penggunamu. `allowedHeaders` menyebut `Idempotency-Key` karena header buatan sendiri **tidak** diizinkan secara bawaan; melewatkannya membuat permintaan gagal di tahap preflight dengan pesan yang membingungkan. Dan `maxAge: 86_400` menyuruh browser menyimpan hasil preflight sehari penuh, menghemat satu perjalanan `OPTIONS` di setiap permintaan.',
+      ),
       callout(
         'danger',
         'Tiga kesalahan CORS yang membatalkan seluruh perlindungannya',
-        '**(1)** `origin: true` memantulkan origin apa pun kembali — sama saja tanpa kebijakan. **(2)** `origin: \'*\'` bersama `credentials: true` ditolak browser, dan sering "diperbaiki" dengan cara pertama. **(3)** `localhost` yang tertinggal di daftar produksi. Ingat juga: **CORS adalah kontrol browser** — ia tidak menghalangi `curl`, jadi otorisasi tetap di server.',
+        '**(1)** `origin: true` memantulkan origin apa pun kembali, yang sama saja dengan tanpa kebijakan. **(2)** `origin: \'*\'` bersama `credentials: true` ditolak browser, dan sering "diperbaiki" dengan cara pertama. **(3)** `localhost` yang tertinggal di daftar produksi. Ingat juga bahwa **CORS adalah kontrol browser**, sehingga ia tidak menghalangi `curl` dan otorisasi tetap di server.',
       ),
 
       h2('Rate limit berjenjang'),
@@ -1415,6 +1592,15 @@ export const lessons: LessonDraft[] = [
         app.use('/api/ekspor', batasMahal);
         `,
       ),
+      p(
+        'Komentar pada `store` menandai keputusan yang paling sering keliru. `express-rate-limit` secara bawaan menyimpan hitungan di **memori proses**, dan itu diam-diam salah begitu aplikasimu berjalan lebih dari satu proses — masing-masing punya hitungannya sendiri, jadi batas 100 dengan empat proses efektif menjadi 400. Redis membuat hitungannya bersama, dan ia juga bertahan saat proses direstart.',
+      ),
+      p(
+        'Tiga tingkat batasnya mencerminkan tiga jenis risiko yang berbeda. `batasUmum` (100 per menit) melindungi kapasitas secara umum. `batasAuth` jauh lebih ketat (10 per 15 menit) karena endpoint login adalah target penebakan password — dan `skipSuccessfulRequests: true` di sana penting: yang dihitung hanya percobaan **gagal**, sehingga pengguna sah yang berkali-kali login dari kantor yang sama tidak ikut terblokir. `batasMahal` (5 per menit) menjaga operasi yang tiap panggilannya memakan banyak sumber daya, seperti ekspor.',
+      ),
+      p(
+        "`standardHeaders: 'draft-7'` mengirim sisa kuota lewat header baku `RateLimit-*`, sehingga klien yang tertib bisa mengatur diri alih-alih menabrak batas lalu bingung. `legacyHeaders: false` mematikan header lama `X-RateLimit-*` yang sudah usang — mengirim keduanya hanya menambah ukuran respons tanpa manfaat.",
+      ),
       callout(
         'warning',
         'Rate limit per IP saja tidak cukup untuk login',
@@ -1429,6 +1615,12 @@ export const lessons: LessonDraft[] = [
         app.use(express.urlencoded({ extended: true, limit: '100kb' }));
         // Unggahan berkas punya batasnya sendiri — lihat sub-bab 2.7.
         `,
+      ),
+      p(
+        'Kedua parser butuh batasnya **masing-masing**, dan itulah alasan baris kedua ada. Memasang `limit` hanya pada `express.json()` menyisakan jalur `urlencoded` terbuka lebar — permintaan berformat form dengan body 500 MB tetap diterima, dan pertahanan yang kamu kira sudah terpasang ternyata hanya menutup separuh pintu.',
+      ),
+      p(
+        'Komentar terakhir menunjuk hal yang sering keliru: batas ini **tidak** berlaku untuk unggahan berkas. Unggahan datang sebagai `multipart/form-data` yang ditangani middleware berbeda (Multer di sub-bab 2.7), dengan batasnya sendiri yang harus diatur terpisah. Jadi setiap jalur masuk data punya batas yang berdiri sendiri, dan satu yang terlewat cukup untuk membatalkan yang lain.',
       ),
 
       h2('Verifikasi, jangan berasumsi'),
@@ -1565,6 +1757,15 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        'Komentar pada `memoryStorage()` menjelaskan keputusan pertama, yaitu berkas ditahan **di memori** supaya bisa diperiksa sebelum menyentuh disk sama sekali. Alternatifnya, `diskStorage`, menulis dulu lalu memeriksa belakangan, dan di antara keduanya ada jendela waktu ketika berkas berbahaya sudah ada di sistem berkasmu. Batas 5 MB membuat penahanan di memori ini aman, sedangkan untuk unggahan berukuran ratusan megabita pola yang tepat adalah mengalirkannya langsung ke object storage.',
+      ),
+      p(
+        'Empat opsi di `limits` menutup empat cara membebani server, dan tiga terakhir sering dilupakan. `fileSize` membatasi tiap berkas, tetapi tanpa `files: 5` seseorang bisa mengirim seribu berkas berukuran 5 MB dalam satu permintaan. `fields` dan `parts` menutup celah yang lebih halus: permintaan multipart berisi puluhan ribu field kosong tidak melanggar batas ukuran mana pun, tetapi tetap menghabiskan CPU untuk menguraikannya.',
+      ),
+      p(
+        'Komentar di dalam `fileFilter` menandai batas kemampuannya, dan ini yang paling penting untuk dipahami, yaitu `file.mimetype` berasal dari header `Content-Type` yang **dikirim klien**. Penyerang cukup menuliskan `image/png` sambil mengirim isi apa pun. Jadi penyaring ini menahan kesalahan pengguna, misalnya orang yang tidak sengaja memilih berkas `.docx`, alih-alih menahan serangan. Pemeriksaan yang sesungguhnya ada di bagian berikutnya.',
+      ),
       callout(
         'danger',
         '`file.mimetype` dan nama berkas keduanya dikirim klien',
@@ -1588,6 +1789,15 @@ export const lessons: LessonDraft[] = [
           return terdeteksi;
         }
         `,
+      ),
+      p(
+        'Ini pemeriksaan yang tidak bisa dipalsukan, karena ia membaca **isi berkasnya sendiri**. Setiap format punya beberapa byte pertama yang khas — disebut *magic byte*: PNG selalu diawali `89 50 4E 47`, JPEG `FF D8 FF`, PDF teks `%PDF-`. `fileTypeFromBuffer` membaca byte itu dan menyimpulkan tipe sebenarnya, terlepas dari apa yang diklaim header maupun nama berkasnya.',
+      ),
+      p(
+        'Perhatikan `terdeteksi === undefined` juga ditolak, bukan hanya tipe yang tidak diizinkan. Nilai `undefined` berarti library-nya **tidak mengenali** formatnya sama sekali — dan berkas yang tidak dikenali persis seperti apa isinya adalah hal terakhir yang layak kamu simpan. Menerima yang tak dikenal karena "mungkin format baru" membalik prinsip allow-list menjadi blocklist.',
+      ),
+      p(
+        'Return valuenya bukan sekadar penanda lolos: `terdeteksi.mime` yang dipakai untuk menentukan ekstensi simpan di bagian berikutnya. Dengan begitu ekstensinya berasal dari **isi yang terbukti**, bukan dari nama yang dikirim klien — dan berkas yang isinya PNG tidak akan pernah tersimpan dengan akhiran `.php`.',
       ),
 
       h2('Nama berkas dibuat server'),
@@ -1624,6 +1834,15 @@ export const lessons: LessonDraft[] = [
           notes: ['Tidak bisa ditebak', 'Tidak bisa menimpa', 'Ekstensi terkendali'],
         },
       ),
+      p(
+        'Tiga komentar di kolom kiri adalah tiga serangan yang berbeda dari satu sumber yang sama: `file.originalname` datang dari klien. `../../.env` keluar dari folder tujuan lewat path traversal — dan `path.join` tidak menghalanginya, karena ia memang bertugas menggabungkan jalur, bukan memvalidasinya. `shell.php` menanam berkas yang bisa **dieksekusi** kalau foldernya kebetulan dilayani server web. Dan nama yang kebetulan sama menimpa berkas milik orang lain tanpa satu pun peringatan.',
+      ),
+      p(
+        'Kolom kanan menutup ketiganya dengan satu keputusan, yaitu **nama tidak pernah berasal dari klien**. `crypto.randomUUID()` menghasilkan nama yang tidak bisa ditebak sekaligus mustahil bertabrakan, jadi penimpaan tidak mungkin terjadi. Perhatikan ekstensinya diambil dari `TIPE_DIIZINKAN.get(terdeteksi.mime)`, yang berasal dari hasil **deteksi isi** alih-alih dari nama kiriman. Rangkaiannya utuh, sebab isi diperiksa lewat magic byte, hasilnya menentukan ekstensi, dan tidak ada satu karakter pun dari klien yang sampai ke sistem berkas.',
+      ),
+      p(
+        'Nama asli dari klien tetap boleh **disimpan sebagai data** di database, untuk ditampilkan kembali ke pengguna dan dipakai di header `Content-Disposition` saat mengunduh. Yang tidak boleh adalah memakainya sebagai nama di sistem berkas.',
+      ),
 
       h2('Simpan di luar webroot'),
       callout(
@@ -1652,6 +1871,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Menyimpan berkas dengan aman belum cukup — **menyajikannya kembali** punya bahayanya sendiri, dan empat header di sini yang menutupnya. `Content-Type` diambil dari hasil deteksi yang tersimpan, bukan dari apa pun yang dikirim klien saat mengunduh. `Content-Disposition: attachment` memaksa browser **mengunduh** alih-alih merender; tanpa itu, berkas HTML atau SVG yang lolos akan dieksekusi **di origin situsmu**, dan itu XSS dengan akses penuh ke sesi penggunamu.',
+      ),
+      p(
+        '`X-Content-Type-Options: nosniff` menutup celah turunannya: tanpa header itu, sebagian browser mengabaikan `Content-Type` yang kamu kirim dan menebak sendiri dari isi berkas — sehingga berkas yang kamu tandai `application/octet-stream` bisa tetap diperlakukan sebagai HTML. `Cache-Control: private, no-store` mencegah berkas pribadi tersimpan di CDN atau proxy bersama.',
+      ),
+      p(
+        'Perhatikan baris pertama fungsinya: `repo.cariBerkas(req.params.id, req.pengguna.id)` menyertakan **id pemilik**. Ini pemeriksaan IDOR di lapisan data, dan tanpanya seluruh header keamanan di atas tidak ada gunanya — penyerang cukup menaikkan angka di URL untuk mengunduh berkas orang lain, dengan rapi dan sesuai standar.',
+      ),
 
       h2('Re-encode gambar'),
       code(
@@ -1660,13 +1888,19 @@ export const lessons: LessonDraft[] = [
         import sharp from 'sharp';
 
         // Membangun ulang gambar dari piksel akan membuang metadata,
-        // muatan yang disisipkan, dan struktur berkas yang cacat.
+        // payload yang disisipkan, dan struktur berkas yang cacat.
         const bersih = await sharp(buffer)
           .rotate()                            // hormati EXIF orientation
           .resize(2000, 2000, { fit: 'inside', withoutEnlargement: true })
           .jpeg({ quality: 85 })
           .toBuffer();
         `,
+      ),
+      p(
+        'Komentar di atasnya menyebut inti pertahanannya: gambarnya **dibangun ulang dari piksel**. Berkas gambar bukan hanya piksel — ia juga punya metadata, blok komentar, dan struktur yang bisa disalahgunakan. Berkas yang isinya JPEG sah tetapi menyisipkan payload di blok komentarnya akan kehilangan payload itu setelah di-encode ulang, karena yang disalin hanyalah gambarnya. Ini menutup seluruh kelas serangan tanpa perlu tahu satu per satu bentuknya.',
+      ),
+      p(
+        '`.rotate()` tanpa argumen membaca tag orientasi EXIF dan memutar gambarnya secara nyata. Itu perlu justru karena langkah ini membuang EXIF — tanpa `rotate()` lebih dulu, foto dari ponsel yang bergantung pada tag orientasi akan tersimpan miring. `.resize(..., { withoutEnlargement: true })` membatasi ukuran maksimum tanpa memperbesar gambar kecil, dan sekaligus menutup *decompression bomb*: berkas beberapa kilobita yang mengembang menjadi gambar 50.000 × 50.000 piksel dan menghabiskan memori server.',
       ),
       callout(
         'tip',
@@ -1747,7 +1981,7 @@ export const lessons: LessonDraft[] = [
 
       terms(
         {
-          term: 'antrean (queue)',
+          term: 'message queue (antrean)',
           meaning:
             'Daftar pekerjaan yang menunggu dikerjakan proses lain. Ia memindahkan pekerjaan lambat keluar dari jalur permintaan — **dengan konsekuensi** yang harus kamu tangani sendiri: eksekusi ganda, kegagalan, dan urutan.',
         },
@@ -1813,6 +2047,12 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        "`defaultJobOptions` menetapkan aturan yang berlaku untuk **setiap** job di antrean ini, sehingga tidak ada yang bisa lupa memasangnya satu per satu. `attempts: 5` memberi lima kesempatan sebelum job dianggap gagal permanen, dan `backoff: { type: 'exponential', delay: 2000 }` menaikkan jedanya berlipat — 2 detik, 4, 8, 16. Jeda yang naik itu bukan sekadar kesabaran: ia memberi layanan yang sedang bermasalah waktu untuk pulih, alih-alih membanjirinya dengan percobaan ulang tepat saat ia sedang kewalahan.",
+      ),
+      p(
+        'Dua baris `removeOn*` menutup masalah yang baru terasa berbulan-bulan kemudian. BullMQ menyimpan riwayat job di Redis, dan tanpa pembersihan otomatis, Redis penuh oleh catatan job yang sudah lama selesai. Perhatikan **umur simpannya berbeda**: job sukses dibuang setelah 24 jam, job gagal disimpan tujuh hari. Itu disengaja — yang gagal justru yang perlu kamu periksa, dan membuangnya secepat yang sukses berarti membuang bukti sebelum sempat dilihat.',
+      ),
 
       h2('Menambah dan memproses'),
       code(
@@ -1830,6 +2070,15 @@ export const lessons: LessonDraft[] = [
 
         res.status(202).json({ data: { pesan: 'Email verifikasi sedang dikirim' } });
         `,
+      ),
+      p(
+        'Perhatikan payload-nya hanya berisi `penggunaId` — satu string, bukan objek pengguna lengkap. Ada dua alasan, dan yang kedua lebih penting. Pertama, payload tersimpan di Redis dan **terlihat di dashboard**, jadi menaruh email atau nama di sana berarti menyebarkan data pribadi ke tempat yang aksesnya lebih longgar. Kedua, data di payload sudah **basi** saat job akhirnya berjalan: pengguna bisa saja mengganti emailnya dalam jeda beberapa detik itu, dan job akan mengirim ke alamat lama.',
+      ),
+      p(
+        '`jobId` yang deterministik adalah idempotensi versi antrean. Karena id-nya disusun dari `pengguna.id` dan `tokenId`, menambahkan job yang sama dua kali, entah karena pengguna menekan tombol dua kali atau handler dipanggil ulang, tidak menghasilkan dua job. BullMQ mengenali id yang sudah ada dan mengabaikan yang kedua. Ini pola yang sama dengan `Idempotency-Key` di sub-bab 1.7, hanya di lapisan yang berbeda.',
+      ),
+      p(
+        'Respons `202` dikirim **segera**, tanpa menunggu emailnya benar-benar terkirim. Itulah inti memakai antrean, sebab permintaan pengguna selesai dalam milidetik sementara pekerjaan yang lambat serta bisa gagal dipindahkan keluar dari jalur permintaan. Kode `202` juga jujur secara semantik dengan arti "diterima, belum selesai", sesuai kontraknya di sub-bab 1.9.',
       ),
       code(
         'js',
@@ -1860,6 +2109,18 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        'Handler-nya mengambil data **segar dari database** memakai `penggunaId` dari payload — inilah konsekuensi dari menyimpan id, bukan objek. Perhatikan `select` membatasi kolom yang diambil, kebiasaan yang sama seperti di lapisan API: job pun tidak perlu menarik kolom yang tidak ia pakai.',
+      ),
+      p(
+        'Blok `pengguna === null` menangani keadaan yang pasti terjadi cepat atau lambat: pengguna sudah dihapus dalam jeda antara job dibuat dan dijalankan. Perhatikan ia `return` biasa, bukan melempar — melempar akan memicu lima kali percobaan ulang untuk sesuatu yang **tidak akan pernah berubah**. Membedakan "gagal" dari "tidak perlu dikerjakan" adalah bagian dari menulis handler yang sehat.',
+      ),
+      p(
+        'Dua opsi pekerja mengatur beban dari arah berbeda. `concurrency: 5` membatasi berapa job berjalan bersamaan di **proses ini**. `limiter: { max: 100, duration: 60_000 }` membatasi laju keseluruhan menjadi seratus job per menit, dan itu untuk menghormati batas rate penyedia email alih-alih melindungi servermu. Tanpanya, antrean yang menumpuk akan dilepas sekaligus dan akunmu di penyedia email bisa diblokir.',
+      ),
+      p(
+        'Pendengar `failed` di akhir adalah satu-satunya cara kegagalan job terlihat. Berbeda dari error di jalur HTTP yang langsung dirasakan pengguna, job yang gagal berjalan di latar dan **tidak ada yang tahu** kecuali dicatat. Perhatikan `job?.attemptsMade` ikut dicatat: angka itu membedakan "gagal sekali lalu berhasil pada percobaan kedua" dari "gagal lima kali dan menyerah" — dua peristiwa yang sangat berbeda tingkat kegentingannya.',
+      ),
 
       h2('Job harus idempoten'),
       callout(
@@ -1887,6 +2148,15 @@ export const lessons: LessonDraft[] = [
           await prosesPembayaran(pembayaranId);
         });
         `,
+      ),
+      p(
+        "Pola ini menutup celah at-least-once dengan cara yang sama seperti pengurangan stok di sub-bab 2.3: `updateMany` dengan syarat `status: 'menunggu'` menggabungkan **pemeriksaan dan perubahan dalam satu operasi** yang tidak bisa disela. Dua eksekusi job yang berjalan bersamaan sama-sama mencoba mengubah status, tetapi hanya satu yang menemukan barisnya masih `menunggu` — yang kalah mendapat `count === 0` dan berhenti.",
+      ),
+      p(
+        'Perhatikan yang dipakai bukan pola "baca dulu, lalu tulis". Menulis `const p = await findUnique(...); if (p.status === \'menunggu\') { update(...) }` terlihat setara tetapi punya jendela di antara keduanya — dan di jendela itulah eksekusi kedua bisa menyelinap, sehingga pembayarannya diproses dua kali.',
+      ),
+      p(
+        'Perhatikan pula fungsi ini `return` biasa, bukan melempar, saat job dilewati. Melempar akan menandainya **gagal** dan memicu percobaan ulang, padahal keadaannya justru sudah benar — pembayarannya memang sudah diproses. Membedakan "gagal" dari "tidak perlu dikerjakan" adalah bagian dari membuat handler idempoten.',
       ),
 
       h2('Percobaan ulang dan dead letter'),
@@ -1916,6 +2186,12 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        'Tidak semua kegagalan layak diulang, dan `UnrecoverableError` adalah cara BullMQ menyatakan itu: ia menggagalkan job **seketika**, melewati sisa percobaan. Pembagiannya mengikuti arti status HTTP yang sudah kamu kenal — `4xx` berarti permintaan kita yang salah bentuk atau ditolak, dan mengirim permintaan yang sama persis empat kali lagi akan menghasilkan penolakan yang sama persis. `5xx` dan timeout berarti sisi sana yang sedang bermasalah, dan itu justru kasus yang backoff dirancang untuknya.',
+      ),
+      p(
+        'Perhatikan `throw err` di baris terakhir meneruskan error aslinya apa adanya. Bedanya dengan `UnrecoverableError` bukan sekadar jenis: yang satu berkata "berhenti, ini tidak akan pernah berhasil", yang lain berkata "coba lagi nanti". Salah memilih membuat dua kegagalan yang berbeda: menandai semuanya bisa diulang berarti job rusak berputar sampai lima kali percobaan habis, dan menandai semuanya tidak bisa diulang berarti gangguan jaringan sedetik membuang pekerjaan yang sebenarnya masih bisa selesai.',
+      ),
       callout(
         'warning',
         'Job yang mengulang selamanya adalah gangguan yang berjalan lambat',
@@ -1936,6 +2212,12 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        '`delay` menunda sebuah job satu kali — berguna untuk pengingat, percobaan ulang terjadwal, atau tindak lanjut yang harus terjadi besok. Perhatikan satuannya milidetik, dan job yang tertunda tetap tersimpan di Redis sehingga ia **bertahan melewati restart** aplikasi; ini bedanya dengan `setTimeout`, yang hilang begitu prosesnya mati.',
+      ),
+      p(
+        "`repeat` dengan pola cron menggantikan crontab sistem, dan `jobId` tetap di sana bukan kebetulan. Tanpa id tetap, setiap kali aplikasimu start ia akan mendaftarkan jadwal baru — jalankan tiga proses, dan pembersihan tokenmu berjalan tiga kali setiap pukul 03:00. Dengan `jobId: 'bersihkan-token'`, pendaftaran kedua dan seterusnya dikenali sebagai jadwal yang sama.",
+      ),
 
       h2('Matikan pekerja dengan rapi'),
       code(
@@ -1950,6 +2232,12 @@ export const lessons: LessonDraft[] = [
           });
         }
         `,
+      ),
+      p(
+        'Tanpa blok ini, setiap deploy berpotensi merusak pekerjaan yang sedang berjalan. Platform mengirim `SIGTERM` untuk meminta proses berhenti; kalau tidak ditangani, prosesnya mati **seketika** — dan job yang sedang setengah jalan berhenti di tengah, misalnya setelah kartu ditagih tetapi sebelum pesanannya ditandai lunas.',
+      ),
+      p(
+        '`pekerja.close()` menunggu job yang sedang berjalan **selesai** lalu berhenti mengambil yang baru. Karena sifat at-least-once, job yang belum sempat selesai akan diambil kembali oleh pekerja lain — jadi tidak ada yang hilang; yang dihindari adalah kerusakan setengah jalan. Perhatikan `SIGINT` ikut ditangani supaya perilakunya sama saat kamu menekan Ctrl+C di terminal, dan `process.exit(0)` menyatakan berhenti secara normal, bukan karena gagal.',
       ),
 
       h2('Kapan kamu BELUM butuh antrean'),
@@ -2065,6 +2353,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Ini pola **cache-aside**, dan urutannya selalu tiga langkah: coba cache, kalau kosong ambil dari sumber, lalu simpan untuk pemanggilan berikutnya. Perhatikan `redis.get` mengembalikan `null` untuk kunci yang tidak ada — itu sebabnya perbandingannya `!== null` dan bukan pemeriksaan kebenaran biasa. Menulis `if (tersimpan)` akan salah untuk nilai yang tersimpan sebagai string `"0"` atau `""`, yang keduanya sah tetapi bernilai falsy.',
+      ),
+      p(
+        'Perhatikan pula kasus `artikel === null` dikembalikan **tanpa** disimpan ke cache. Itu keputusan sadar dengan konsekuensi: id yang tidak ada tidak akan pernah tersimpan, sehingga setiap permintaan untuknya selalu menembus ke database. Kalau seseorang membanjiri API-mu dengan id acak, seluruhnya sampai ke database — namanya *cache penetration*, dan obatnya adalah menyimpan penanda "tidak ada" dengan TTL pendek.',
+      ),
+      p(
+        "Argumen `'EX', 300` menetapkan masa berlaku 300 detik, dan komentar di atasnya menyebutnya **wajib**. Alasannya di peringatan berikut, tetapi ada alasan kedua yang sama pentingnya: TTL adalah jaring pengaman untuk invalidasi yang terlewat. Sepintar apa pun kamu menghapus entri saat data berubah, cepat atau lambat ada jalur yang lupa — dan TTL memastikan data basi itu paling lama hidup lima menit, bukan selamanya.",
+      ),
       callout(
         'danger',
         'Cache tanpa TTL adalah kebocoran memori yang tertunda',
@@ -2084,6 +2381,12 @@ export const lessons: LessonDraft[] = [
         // WAJIB sertakan id pengguna untuk data privat
         \`dasbor:v1:pengguna:\${penggunaId}\`
         `,
+      ),
+      p(
+        'Titik dua sebagai pemisah adalah konvensi Redis yang membuat kunci bisa dibaca sebagai hierarki: jenis, versi, lalu pengenal. Bagian `v1` yang disisipkan di tengah adalah trik yang menghemat banyak kesulitan — saat bentuk data yang kamu simpan berubah, kamu **tidak perlu menghapus apa pun**. Naikkan menjadi `v2`, dan seluruh entri lama otomatis tidak pernah dicari lagi lalu kedaluwarsa sendiri lewat TTL-nya. Membandingkannya dengan berusaha menemukan dan menghapus ribuan kunci lama, ini jauh lebih andal.',
+      ),
+      p(
+        'Baris terakhir menandai aturan keamanan yang tidak bisa ditawar. Kunci untuk data privat **wajib** memuat identitas pemiliknya. Kunci seperti `dasbor:ringkasan` yang dipakai bersama akan menyajikan dasbor Ana kepada Budi — dan bug ini sangat sulit ditemukan karena hasilnya bergantung pada siapa yang kebetulan mengisi cache lebih dulu. Ia bisa lolos seluruh pengujian dan baru muncul di produksi sebagai laporan "saya melihat data orang lain".',
       ),
       callout(
         'danger',
@@ -2115,6 +2418,15 @@ export const lessons: LessonDraft[] = [
           }
         }
         `,
+      ),
+      p(
+        'Perhatikan urutannya, di mana database diperbarui **lebih dulu** dan cache dihapus **setelahnya**. Membalik urutan itu membuka celah, sebab antara penghapusan cache dan penulisan database, permintaan lain bisa membaca nilai lama dari database dan mengisi cache kembali dengan data yang sudah usang. Perhatikan pula `updateMany` dengan `penulisId` di `where`, sehingga pemeriksaan kepemilikan tetap di lapisan data dan `count === 0` yang menjadi penanda gagal.',
+      ),
+      p(
+        'Dua jenis penghapusan dipakai di sini karena dua bentuk kunci. Entri tunggal cukup `redis.del` dengan kunci yang persis. Entri daftar berpaginasi jumlahnya tak tentu, misalnya `...:daftar:42:1`, `...:42:2`, dan seterusnya, sehingga butuh pencarian berpola. Komentar di dalamnya memberi peringatan tegas, yaitu **jangan pakai `KEYS`**. Redis satu utas, dan `KEYS` memindai seluruh keyspace sambil memblokir setiap perintah lain, sehingga pada database besar itu berarti seluruh aplikasimu berhenti beberapa detik.',
+      ),
+      p(
+        '`scanStream` melakukan pekerjaan yang sama secara bertahap, mengembalikan sedikit demi sedikit (`count: 100`) sehingga Redis tetap melayani perintah lain di antaranya. Tetapi baca kalimat terakhir komentarnya baik-baik: **lebih baik merancang kunci supaya penghapusan massal tidak diperlukan sama sekali**. Menaikkan versi pada prefiks, atau menaruh TTL pendek pada entri daftar, menghilangkan kebutuhan menyisir keyspace.',
       ),
       callout(
         'danger',
@@ -2153,6 +2465,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Komentar di atas menjelaskan masalahnya dengan angka: satu kunci populer kedaluwarsa, dan seribu permintaan yang tiba pada detik yang sama **semuanya** mendapati cache kosong lalu menembus ke database serentak. Itulah *cache stampede* — dan ironisnya ia paling sering terjadi tepat saat trafik sedang tinggi, karena di situlah kunci populer paling sering diminta.',
+      ),
+      p(
+        "Kuncinya ada pada `redis.set(kunciGembok, '1', 'NX', 'EX', 10)`. Opsi `NX` berarti *set if not exists*, sehingga perintahnya hanya berhasil kalau kuncinya belum ada, dan Redis menjaminnya **atomik**. Jadi dari seribu permintaan itu, tepat satu mendapat `dapat !== null` dan berhak memuat ulang, sedangkan sembilan ratus sembilan puluh sembilan sisanya mendapat `null`. `EX 10` di sana bukan TTL cache melainkan **umur gemboknya**, sehingga kalau proses pemegang gembok mati sebelum sempat melepasnya, gembok itu hilang sendiri setelah sepuluh detik alih-alih memblokir selamanya.",
+      ),
+      p(
+        'Yang tidak mendapat gembok menunggu 100 milidetik lalu mencoba membaca cache lagi, yang biasanya sudah terisi oleh pemegang gembok. Perhatikan kalau ternyata **masih** kosong, mereka jatuh ke `muat()` juga alih-alih menunggu tanpa batas. Itu keputusan sadar, sebab lebih baik beberapa query berlebih daripada permintaan yang menggantung. Dan `redis.del(kunciGembok)` diletakkan di `finally` supaya gemboknya dilepas **di kedua jalur**, baik sukses maupun gagal, sebab melewatkannya berarti setiap kegagalan memuat menahan gembok sampai sepuluh detik penuh.',
+      ),
 
       h2('Apa yang layak di-cache'),
       table(
@@ -2167,7 +2488,7 @@ export const lessons: LessonDraft[] = [
       callout(
         'warning',
         'Jangan pakai cache untuk menutupi query yang lambat',
-        'Kalau sebuah query lambat karena kekurangan index, cache hanya menyembunyikannya — dan kelambatannya kembali setiap kali cache dingin, biasanya justru saat trafik sedang tinggi setelah deploy. Perbaiki query-nya dulu; cache untuk yang memang mahal secara inheren.',
+        'Kalau sebuah query lambat karena kekurangan index, cache hanya menyembunyikannya — dan kelambatannya kembali setiap kali cache-nya cold, biasanya justru saat trafik sedang tinggi setelah deploy. Perbaiki query-nya dulu; cache untuk yang memang mahal secara inheren.',
       ),
 
       h2('Redis mati — aplikasi harus tetap hidup'),
@@ -2179,7 +2500,7 @@ export const lessons: LessonDraft[] = [
             const tersimpan = await redis.get(kunci);
             if (tersimpan !== null) return JSON.parse(tersimpan);
           } catch (err) {
-            // Cache adalah optimasi, bukan sumber kebenaran.
+            // Cache adalah optimasi, bukan source of truth.
             log.warn({ err }, 'redis tidak terjangkau, lanjut ke sumber data');
           }
 
@@ -2285,7 +2606,7 @@ export const lessons: LessonDraft[] = [
       table(
         ['Jenis', 'Menguji', 'Porsi'],
         [
-          ['Unit', 'Fungsi murni, aturan bisnis', 'Banyak — cepat'],
+          ['Unit', 'Pure function, aturan bisnis', 'Banyak — cepat'],
           ['**Integrasi**', 'Rute lengkap + database sungguhan', '**Paling berharga di backend**'],
           ['End-to-end', 'Seluruh sistem berjalan', 'Sedikit — lambat dan rapuh'],
         ],
@@ -2335,6 +2656,15 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        'Tiga baris pemeriksaan di `beforeAll` adalah penjagaan yang paling murah di seluruh berkas ini. `TRUNCATE` di `beforeEach` menghapus tabel **tanpa konfirmasi dan tanpa pembatalan** — dan `DATABASE_URL` yang salah, entah karena `.env` tertukar atau variabel yang terbawa dari terminal lain, akan menghapus seluruh data kerjamu. Menuntut nama database mengandung `_test` menutup kelas kecelakaan yang tidak bisa dibatalkan.',
+      ),
+      p(
+        'Pembersihan diletakkan di `beforeEach`, **bukan** `afterEach`, dan itu disengaja. Membersihkan sebelum tes berarti setiap tes mulai dari keadaan yang pasti bersih, bahkan ketika tes sebelumnya gagal di tengah jalan dan tidak sempat merapikan dirinya. Kalau dibersihkan sesudahnya, satu tes yang gagal meninggalkan data yang membuat tes berikutnya ikut gagal — dan kamu berakhir menelusuri kegagalan palsu.',
+      ),
+      p(
+        'Dua opsi pada `TRUNCATE` menyelesaikan hal berbeda. `RESTART IDENTITY` mengulang penomoran `id` dari satu, sehingga tes yang kebetulan bergantung pada id tertentu tetap dapat hasil yang sama. `CASCADE` memungkinkan penghapusan tabel yang saling terhubung foreign key tanpa harus mengurutkannya manual — tanpa itu, `TRUNCATE pengguna` ditolak karena masih ada catatan yang merujuknya.',
+      ),
       callout(
         'danger',
         'Penjagaan nama database itu wajib',
@@ -2381,6 +2711,15 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        'Supertest mengirim permintaan HTTP sungguhan ke objek `app` **tanpa membuka port** — inilah yang membuat pemisahan `app`/`server` di sub-bab 3.4 terbayar. Tesnya melewati seluruh rantai yang sesungguhnya: middleware auth, validasi, controller, sampai database. Berbeda dari unit test yang menguji satu fungsi terisolasi, di sini yang diuji adalah **kontrak yang dilihat klien**.',
+      ),
+      p(
+        'Tes pertama memakai **dua** pengguna dengan jumlah catatan yang sengaja dibedakan, yaitu tiga dan lima. Angka yang berbeda itu bukan kebetulan, sebab kalau keduanya tiga, tes akan tetap hijau meskipun scope pemiliknya bocor karena jumlahnya kebetulan sama. Perhatikan yang diperiksa adalah `toHaveLength(3)` dan bukan sekadar "ada isinya", sebab assertion yang longgar adalah cara paling umum sebuah tes berhenti membuktikan apa pun.',
+      ),
+      p(
+        'Dua tes berikutnya menguji hal yang **tidak** boleh terjadi, dan keduanya jenis yang paling sering tidak ditulis. "Menolak tanpa token" hanya butuh dua baris tetapi ia satu-satunya yang menangkap middleware auth yang terpasang di urutan yang salah. Dan tes `per_hal=999999` membuktikan batas atas benar-benar ditegakkan server — perhatikan 150 catatan sengaja dibuat, lebih banyak dari batas 100, karena dengan data lebih sedikit dari batasnya tes itu akan hijau bahkan tanpa batas apa pun.',
+      ),
 
       h2('Tes yang paling penting: jalur yang tidak bahagia'),
       code(
@@ -2424,6 +2763,15 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        'Tes pertama menguji **tiga method sekaligus** lewat perulangan, dan itu bukan sekadar penghematan baris. Sangat sering `GET` sudah diperbaiki sementara `PATCH` dan `DELETE` masih memakai query lama tanpa scope pemilik — karena keduanya jarang diuji dengan token orang lain. Perhatikan pesan kedua pada `expect(res.status, \`${method} ${jalur}\`)`: tanpa label itu, kegagalan hanya berbunyi "expected 200 to be 404" dan kamu tidak tahu method mana yang bocor.',
+      ),
+      p(
+        'Dua baris terakhir tes itu yang menutup celah paling halus. Status `404` saja **belum membuktikan apa-apa** kalau ternyata datanya sempat berubah sebelum ditolak — `PATCH` yang menulis dulu baru memeriksa izin akan tetap menghasilkan `404` sambil sudah merusak data. Membaca ulang dari database dan memastikan judulnya tidak berubah adalah bukti yang sesungguhnya.',
+      ),
+      p(
+        'Tes kedua menembakkan `penulisId` milik Budi ke endpoint pembuatan, dan perhatikan yang diharapkan adalah `201` — permintaannya memang **berhasil**, hanya field asingnya yang diabaikan. Inilah yang membuktikan rangkaian validasi dan pembuatan lewat relasi pengguna bekerja. Hapus `.strict()` dari skema atau ganti pembuatannya menjadi `prisma.catatan.create({ data: req.body })`, dan tes ini langsung merah.',
+      ),
       callout(
         'tip',
         'Dua tes itu yang paling sering tidak ditulis',
@@ -2441,6 +2789,12 @@ export const lessons: LessonDraft[] = [
         // JANGAN tiru: database milikmu sendiri.
         // Repository tiruan akan tetap hijau saat query-nya salah.
         `,
+      ),
+      p(
+        'Garis pemisahnya ada pada **apa yang kamu kendalikan**. Layanan email, gerbang pembayaran, jam sistem, dan pengacakan semuanya di luar kendali: memanggilnya sungguhan membuat tes lambat, mahal, atau tidak deterministik. `vi.setSystemTime` khususnya penting untuk apa pun yang menyangkut kedaluwarsa — tanpanya, menguji "token kedaluwarsa setelah 15 menit" berarti benar-benar menunggu lima belas menit.',
+      ),
+      p(
+        'Komentar terakhir menyebut batas yang paling sering dilanggar, yaitu **jangan meniru databasemu sendiri**. Repository tiruan menghapus justru bagian yang paling mungkin salah, misalnya query yang lupa `WHERE penulis_id`, migration yang belum jalan, dan foreign key yang tidak sesuai. Tesnya akan tetap hijau sementara aplikasinya rusak di produksi, dan itu lebih berbahaya daripada tidak punya tes sama sekali karena ia memberi rasa aman yang keliru. Database di tes memang membuatnya lebih lambat, tapi itu harga yang sepadan.',
       ),
 
       h2('Cakupan bukan tujuan'),
@@ -2550,6 +2904,12 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        'Socket.IO menumpang pada `httpServer` yang sama dengan Express — bukan port terpisah. Itu berarti CORS harus dikonfigurasi **lagi** di sini: konfigurasi `cors()` milik Express tidak berlaku untuk koneksi WebSocket, dan melewatkannya membuat koneksi dari frontend ditolak dengan pesan yang tidak menyebut CORS sama sekali.',
+      ),
+      p(
+        'Komentar pada `maxHttpBufferSize` menandai hal yang mudah terlupa: koneksi terbuka **juga jalur masuk data**. Batas `express.json({ limit })` yang kamu pasang di sub-bab 2.6 tidak menyentuh WebSocket sama sekali, jadi tanpa baris ini satu klien bisa mengirim pesan berukuran ratusan megabita. `1e6` berarti satu megabita per pesan. `pingTimeout` menentukan berapa lama server menunggu balasan ping sebelum menganggap koneksinya mati — tanpanya, koneksi dari perangkat yang kehilangan sinyal akan menggantung dan terus memakan memori.',
+      ),
 
       h2('Autentikasi saat koneksi'),
       code(
@@ -2571,6 +2931,15 @@ export const lessons: LessonDraft[] = [
           }
         });
         `,
+      ),
+      p(
+        '`io.use` adalah middleware versi Socket.IO — ia berjalan sekali saat **handshake**, sebelum koneksinya diterima. Perhatikan tokennya dibaca dari `socket.handshake.auth`, bukan dari header `Authorization`: WebSocket tidak menyediakan cara memasang header sembarang dari browser, jadi klien mengirimkannya lewat objek `auth` saat menyambung.',
+      ),
+      p(
+        '`socket.data.penggunaId` adalah tempat menitipkan identitas — padanan `req.pengguna` di dunia HTTP. Nilainya bertahan selama koneksi hidup, dan setiap handler peristiwa membacanya dari sana alih-alih mempercayai apa pun yang dikirim klien.',
+      ),
+      p(
+        'Peringatan di bawah perlu dibaca serius karena ia membalik naluri yang terbentuk dari HTTP. Permintaan HTTP berumur milidetik, jadi memverifikasi token sekali di depan sudah memadai. Koneksi WebSocket bisa terbuka **berjam-jam** — token yang sah saat handshake bisa sudah dicabut lima menit kemudian karena logout, ganti password, atau akun dinonaktifkan, dan koneksinya tetap hidup seolah tidak terjadi apa-apa. Itulah alasan otorisasi harus diperiksa lagi **per peristiwa**, seperti pada bagian berikutnya.',
       ),
       callout(
         'danger',
@@ -2616,6 +2985,18 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        '**Room** adalah cara Socket.IO mengelompokkan koneksi. `socket.join(\`pengguna:${penggunaId}\`)` di baris awal membuat room pribadi berisi satu orang — itulah yang nanti dipakai mengirim notifikasi ke pengguna tertentu, tanpa perlu melacak socket id-nya sendiri. Perhatikan namanya berprefiks (`pengguna:`, `ruang:`) supaya dua jenis room tidak pernah bertabrakan.',
+      ),
+      p(
+        'Komentar pada `gabung-ruang` menyebut hal yang paling mudah tergelincir: **klien bisa mengirim `ruangId` apa pun**. Tidak ada yang menghalangi seseorang memanggil peristiwa itu dengan id ruang milik orang lain, jadi `bolehAksesRuang` bukan formalitas — ia satu-satunya yang berdiri antara penyerang dan percakapan pribadi orang lain. Ini IDOR dalam bentuk WebSocket.',
+      ),
+      p(
+        'Handler `pesan` melakukan **dua** pemeriksaan berurutan, dan keduanya perlu. `SkemaPesan.safeParse` memvalidasi bentuknya, sebab payload socket tidak melewati satu pun middleware validasi HTTP sehingga ia harus divalidasi di sini. Lalu `bolehAksesRuang` diperiksa **lagi** walaupun sudah diperiksa saat bergabung, dan alasannya ada di komentarnya, yaitu keanggotaan bisa dicabut setelah socket bergabung sementara socket-nya tidak otomatis dikeluarkan.',
+      ),
+      p(
+        'Perhatikan pola `balas` di setiap handler. Argumen terakhir itu adalah callback acknowledgement, yaitu cara klien tahu permintaannya berhasil atau ditolak, dan ia padanan status code di HTTP. Tanpa itu, penolakan otorisasi hilang tanpa jejak dan klien menampilkan pesan yang seolah terkirim. Dan `io.to(...).emit(...)` memancarkan hanya ke room yang disebut alih-alih ke seluruh klien terhubung, sebab kekeliruan memakai `io.emit()` di sini akan menyiarkan pesan pribadi ke semua orang.',
+      ),
       callout(
         'danger',
         'Payload socket adalah masukan tidak tepercaya, sama seperti body HTTP',
@@ -2632,6 +3013,12 @@ export const lessons: LessonDraft[] = [
         // menerima pesan yang dipancarkan dari proses B.
         io.adapter(createAdapter(redisPub, redisSub));
         `,
+      ),
+      p(
+        "Ini kegagalan yang paling membingungkan saat aplikasimu naik dari satu proses ke banyak, karena semuanya **bekerja sempurna di laptop**. Socket.IO menyimpan daftar koneksi di memori prosesnya sendiri, jadi `io.to('ruang:7').emit(...)` yang dijalankan di proses A hanya menjangkau klien yang kebetulan terhubung ke proses A. Gejalanya: sebagian orang di ruang yang sama menerima pesan, sebagian tidak — dan siapa yang menerima berubah-ubah setiap kali mereka menyambung ulang.",
+      ),
+      p(
+        'Adapter Redis menjadi jembatannya, sebab setiap pancaran diterbitkan ke Redis lalu semua proses lain menyalurkannya ke klien mereka masing-masing. Perhatikan ia butuh **dua** koneksi Redis (`redisPub` dan `redisSub`), dan itu bukan kelalaian melainkan syarat protokol pub/sub Redis, sebab koneksi yang sedang berlangganan tidak bisa dipakai menerbitkan.',
       ),
 
       h2('Rate limit juga berlaku di sini'),
@@ -2651,6 +3038,15 @@ export const lessons: LessonDraft[] = [
           next();
         });
         `,
+      ),
+      p(
+        '`socket.use` adalah middleware **per peristiwa** — ia berjalan setiap kali klien memancarkan sesuatu, berbeda dari `io.use` yang hanya berjalan sekali saat handshake. Kuncinya menggabungkan id pengguna dan nama peristiwa, sehingga seseorang yang membanjiri peristiwa `pesan` tidak ikut memblokir dirinya dari peristiwa lain.',
+      ),
+      p(
+        'Rate limit di sini sering dilupakan justru karena rate limiter HTTP di sub-bab 2.6 terasa sudah menutup semuanya. Ia tidak: koneksi WebSocket dibuka **sekali**, dan setelah itu ribuan peristiwa bisa mengalir lewat koneksi yang sama tanpa menyentuh middleware Express sama sekali.',
+      ),
+      p(
+        'Perhatikan `hitung` di sini sebuah `Map` di **memori proses**, dan itu sengaja: batas per-koneksi memang hanya bermakna di proses yang memegang koneksi itu. Ini beda dari rate limit HTTP yang wajib memakai Redis. Perhatikan juga `setTimeout` yang mengurangi hitungan setelah satu detik — itu sliding window sederhana, cukup untuk menahan banjir peristiwa, meski implementasi produksi biasanya memakai algoritma token bucket yang lebih rapi.',
       ),
 
       h2('Kapan WebSocket, kapan yang lebih sederhana'),
@@ -2724,7 +3120,7 @@ export const lessons: LessonDraft[] = [
             'API Node yang menyimpan nilai **per rantai eksekusi asinkron** — sehingga id permintaan bisa dibaca dari fungsi mana pun tanpa dioper sebagai argumen ke setiap lapisan.',
         },
         {
-          term: 'id korelasi dari hulu',
+          term: 'correlation id dari hulu',
           meaning:
             'Memakai ulang `x-request-id` dari header **kalau sudah ada**, bukan selalu membuat baru. Ia yang membuat jejak tersambung lintas layanan — dan tanpa itu, satu perjalanan terpecah jadi beberapa jejak terpisah.',
         },
@@ -2741,7 +3137,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'liveness vs readiness',
           meaning:
-            '**Liveness** menjawab "apakah proses ini masih hidup" — gagal berarti restart. **Readiness** menjawab "apakah ia siap menerima trafik" — gagal berarti dikeluarkan dari rotasi sementara. Menyamakan keduanya menyebabkan restart yang tidak perlu.',
+            '**Liveness** menjawab "apakah proses ini masih hidup", dan gagal berarti restart. **Readiness** menjawab "apakah ia siap menerima trafik", dan gagal berarti dikeluarkan dari rotasi sementara. Menyamakan keduanya menyebabkan restart yang tidak perlu.',
         },
         {
           term: 'health check tidak boleh berat',
@@ -2765,7 +3161,7 @@ export const lessons: LessonDraft[] = [
         ],
       ),
 
-      h2('Id korelasi'),
+      h2('Correlation id'),
       code(
         'js',
         `
@@ -2801,6 +3197,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Komentar di baris pertama menyebut hal yang membedakan sistem satu layanan dari sistem banyak layanan: id **dipakai ulang** dari header `x-request-id` kalau ada. Dengan begitu satu permintaan pengguna bisa ditelusuri melintasi API gateway, layanan A, dan layanan B dengan id yang sama — dan `res.setHeader` mengirimkannya kembali ke klien sehingga id itu juga ada di tangan pengguna saat ia melapor.',
+      ),
+      p(
+        'Baris terakhir adalah yang paling penting sekaligus paling mudah dilewatkan. `konteks.run(...)` menjalankan sisa rantai permintaan **di dalam** sebuah penyimpanan yang mengikuti alur async — sehingga repository di lapisan terdalam bisa memanggil `konteks.getStore().log` dan mendapat logger yang sudah membawa `reqId`, tanpa `req` pernah dioper ke sana. Tanpa itu, satu-satunya cara `reqId` sampai ke bawah adalah mengoper `req` melewati controller dan service, yang langsung merusak batas lapisan dari sub-bab 2.1.',
+      ),
+      p(
+        "Perhatikan pemilihan level ditulis `res.statusCode >= 500 ? 'error' : 'info'`. Pembagian yang sama seperti pada penangan error: `5xx` adalah bugmu dan layak memicu perhatian, `4xx` adalah bagian normal melayani klien. Mencatat keduanya sebagai `error` akan menenggelamkan masalah sungguhan di antara ribuan baris \"seseorang salah ketik alamat\".",
+      ),
       callout(
         'tip',
         '`AsyncLocalStorage` menyelesaikan masalah yang nyata',
@@ -2826,10 +3231,19 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        "`redact` mengganti nilai **sebelum** ditulis, jadi rahasianya tidak pernah menyentuh disk maupun layanan pengumpul log. Perhatikan dua bentuk jalur yang dipakai. `'password'` mencocokkan field di tingkat teratas, sedangkan `'*.password'` mencocokkan field bernama sama satu tingkat lebih dalam, misalnya di dalam objek `body`, `pengguna`, atau apa pun. Keduanya harus ditulis, sebab menyebut salah satu saja menyisakan jalur yang lain terbuka.",
+      ),
+      p(
+        'Dua baris pertama menyensor header `authorization` dan `cookie`, dan itu wajib: keduanya membawa token atau sesi yang, kalau tercatat, sama nilainya dengan menyimpan kunci akun pengguna di dalam log. Perhatikan `*.refreshToken` dan `*.kartuKredit` ikut disebut — daftar ini harus tumbuh seiring aplikasimu tumbuh, dan meninjaunya adalah bagian dari review setiap fitur yang menyentuh data sensitif.',
+      ),
+      p(
+        'Tetapi `redact` adalah **jaring pengaman, bukan izin untuk ceroboh**. Ia hanya menutup nama yang kamu sebutkan, sehingga `secret`, `apiKey`, `pin`, atau `nik` tetap lolos. Aturan utamanya tidak berubah, yaitu jangan pernah mencatat seluruh request body melainkan catat field yang kamu pilih sadar. Ingat log biasanya diakses lebih banyak orang daripada database, disimpan bertahun-tahun, dan sering dikirim ke layanan pihak ketiga.',
+      ),
       callout(
         'danger',
         '`redact` hanya menutup jalur yang kamu sebutkan',
-        'Field bernama lain — `secret`, `apiKey`, `pin`, `nik` — tetap lolos. Aturan utamanya tidak berubah: **jangan pernah mencatat seluruh request body**. Catat field yang kamu pilih sadar. Log diakses lebih banyak orang daripada database dan disimpan bertahun-tahun.',
+        'Field bernama lain seperti `secret`, `apiKey`, `pin`, dan `nik` tetap lolos. Aturan utamanya tidak berubah, yaitu **jangan pernah mencatat seluruh request body**. Catat field yang kamu pilih sadar. Log diakses lebih banyak orang daripada database dan disimpan bertahun-tahun.',
       ),
 
       h2('Health check yang jujur'),
@@ -2860,6 +3274,18 @@ export const lessons: LessonDraft[] = [
           res.status(siap ? 200 : 503).json({ status: siap ? 'siap' : 'belum siap', cek });
         });
         `,
+      ),
+      p(
+        'Dua endpoint ini menjawab pertanyaan yang berbeda, dan menyatukannya adalah kesalahan yang mahal. **Liveness** menjawab "apakah proses ini masih waras", dan komentarnya menyebut akibatnya bahwa kalau gagal, orchestrator **me-restart** prosesnya. Karena itu ia harus sangat ringan dan tidak boleh memeriksa dependensi apa pun, sebab database yang sedang down akan membuat seluruh instance-mu di-restart berulang padahal me-restart tidak memperbaiki database.',
+      ),
+      p(
+        '**Readiness** menjawab "apakah siap menerima trafik". Kalau gagal, orchestrator berhenti mengirim permintaan ke instance ini tetapi **tidak** membunuhnya — jadi ia bisa pulih sendiri saat dependensinya kembali. Di sinilah pemeriksaan dependensi memang tepat.',
+      ),
+      p(
+        'Baris `const siap = cek.database` adalah keputusan yang paling penting di seluruh blok ini. Perhatikan Redis **tidak** ikut menentukan kesiapan, sesuai komentarnya: Redis dipakai sebagai cache, dan cache yang mati membuat aplikasi lebih lambat, bukan salah. Menjadikannya syarat berarti gangguan Redis sesaat akan mengeluarkan seluruh instance-mu dari rotasi sekaligus — mengubah penurunan kualitas menjadi pemadaman total. Membedakan dependensi yang **fatal** dari yang hanya **menurunkan kualitas** adalah inti dari health check yang jujur.',
+      ),
+      p(
+        'Perhatikan pula `catch` yang sengaja kosong dengan komentar `/* biarkan false */`. Ini salah satu dari sedikit tempat menelan error dibenarkan — kegagalannya memang sudah terwakili oleh nilai `false` yang lalu dikirim di field `cek`, sehingga tidak ada informasi yang hilang.',
       ),
       callout(
         'danger',
@@ -2898,6 +3324,15 @@ export const lessons: LessonDraft[] = [
           res.end(await register.metrics());
         });
         `,
+      ),
+      p(
+        'Dua jenis metrik menjawab pertanyaan yang berbeda. **Counter** hanya bisa naik, sehingga ia menjawab "berapa banyak", dan dari kenaikannya per satuan waktu kamu mendapat laju permintaan serta tingkat error. **Histogram** mengelompokkan nilai ke dalam kotak-kotak (`buckets`), dan itulah yang memungkinkan pertanyaan "berapa p95 latensinya" dijawab. Perhatikan bucket-nya dipilih rapat di angka kecil (0.01–0.1) lalu melebar, karena selisih antara 10 ms dan 50 ms jauh lebih berarti daripada antara 2 detik dan 5 detik.',
+      ),
+      p(
+        'Komentar "Label harus berkardinalitas RENDAH" adalah peringatan yang biayanya nyata. Setiap kombinasi nilai label menghasilkan satu seri waktu tersendiri; `method` (5 nilai) × `route` (30 nilai) × `status` (8 nilai) menghasilkan 1.200 seri, dan itu wajar. Menukar `route` dengan URL sebenarnya akan mengubah 30 menjadi jumlah id yang pernah diminta — dan sistem metrikmu tumbang. Selalu pakai **pola rute** (`/api/catatan/:id`), bukan alamat yang benar-benar dipanggil.',
+      ),
+      p(
+        'Komentar terakhir menandai kesalahan konfigurasi yang sering ditemukan di server sungguhan, yaitu endpoint `/metrics` yang **tidak boleh publik**. Isinya adalah peta operasional lengkap, mulai dari nama setiap rute, volume trafik, pola latensi, sampai jam sibukmu. Menaruh `autentikasiInternal` di sana adalah penerapan langsung prinsip zero trust, sebab "tidak ada yang tahu alamatnya" bukan kontrol akses.',
       ),
       callout(
         'danger',
@@ -3022,6 +3457,15 @@ export const lessons: LessonDraft[] = [
         `,
         { filename: 'tsconfig.json' },
       ),
+      p(
+        '`strict: true` adalah satu sakelar yang menyalakan sekumpulan pemeriksaan sekaligus — yang terpenting `strictNullChecks`, yang memaksa `null` dan `undefined` ditangani secara eksplisit alih-alih menyelinap ke mana-mana. Untuk project baru, menyalakannya sejak awal jauh lebih murah daripada menyalakannya nanti di atas ribuan baris yang belum siap.',
+      ),
+      p(
+        '`noUncheckedIndexedAccess` **tidak** termasuk dalam `strict` dan harus ditulis sendiri, padahal ia menutup salah satu kelas bug paling umum. Tanpa itu, `arr[0]` bertipe `T` — TypeScript berpura-pura elemennya pasti ada, padahal arraynya bisa kosong. Dengan itu, tipenya menjadi `T | undefined`, dan compiler memaksamu menanganinya. Inilah yang di produksi muncul sebagai `Cannot read property of undefined`.',
+      ),
+      p(
+        'Tiga opsi modul menentukan bagaimana kodenya dijalankan. `module`/`moduleResolution: "NodeNext"` membuat TypeScript mengikuti aturan ESM Node yang sesungguhnya — termasuk kewajiban menulis ekstensi `.js` pada impor relatif, sesuai yang dibahas di sub-bab 3.2. `verbatimModuleSyntax` menuntut impor tipe ditulis `import type`, sehingga tidak ada impor yang secara tak sengaja tetap ada saat runtime dan menarik modul yang seharusnya tidak ikut.',
+      ),
       callout(
         'tip',
         '`noUncheckedIndexedAccess` menutup kelas bug yang nyata',
@@ -3048,6 +3492,15 @@ export const lessons: LessonDraft[] = [
 
         export {};
         `,
+      ),
+      p(
+        'Berkas `.d.ts` ini hanya berisi **deklarasi tipe**, tidak menghasilkan kode apa pun saat dijalankan. `declare global` dengan `namespace Express` memakai fitur TypeScript bernama *declaration merging*: properti yang kamu sebut di sini **ditambahkan** ke tipe `Request` bawaan Express, bukan menggantikannya. Itulah cara `req.id` dan `req.log` yang dititipkan middleware menjadi terlihat oleh compiler.',
+      ),
+      p(
+        'Baris `export {}` di akhir terlihat tidak berguna tetapi wajib — ia yang membuat berkas ini diperlakukan sebagai **modul**, dan `declare global` hanya sah di dalam modul. Tanpanya, TypeScript menganggapnya skrip global dan deklarasinya tidak bekerja seperti yang kamu harapkan.',
+      ),
+      p(
+        'Tanda tanya pada `pengguna?` adalah keputusan desain yang paling penting di blok ini, dan peringatan di bawah menjelaskan kenapa. Menandainya wajib memang membuat kode lebih nyaman ditulis karena tidak perlu memeriksa apa-apa, tetapi TypeScript lalu **diam** pada rute yang lupa dipasangi middleware auth, dan di situlah bug keamanan bersembunyi. Dengan opsional, setiap pembacaan `req.pengguna` memaksamu membuktikan autentikasinya memang berjalan. Bagian berikutnya menunjukkan cara membuktikannya sekali saja alih-alih berulang di setiap handler.',
       ),
       callout(
         'warning',
@@ -3087,6 +3540,15 @@ export const lessons: LessonDraft[] = [
         }));
         `,
       ),
+      p(
+        'Pola ini menukar kenyamanan dengan jaminan. `RequestTerautentikasi` adalah tipe `Request` biasa dengan `pengguna` yang **dipastikan ada** lewat `NonNullable`, dan `wajibAuth` adalah satu-satunya pintu masuk ke tipe itu. Karena pemeriksaan `req.pengguna === undefined` terjadi di dalam pembungkus, handler di dalamnya boleh menulis `req.pengguna.id` langsung — tanpa `!` dan tanpa `if` yang diulang di setiap fungsi.',
+      ),
+      p(
+        'Perhatikan `req as RequestTerautentikasi` adalah satu-satunya *type assertion* di seluruh pola ini, dan letaknya **tepat setelah** pemeriksaan yang membuktikannya. Itulah bentuk assertion yang sah: bukan memaksa compiler diam, melainkan menyampaikan sesuatu yang baru saja kamu buktikan dan tidak bisa disimpulkan compiler sendiri. Bandingkan dengan menaburkan `req.pengguna!` di setiap handler — sama-sama membungkam compiler, tetapi tanpa satu pun bukti.',
+      ),
+      p(
+        'Blok `try/catch` dengan `next(err)` di dalamnya menangani hal terpisah: handler-nya `async`, dan pembungkus ini memastikan error dari dalamnya sampai ke penangan error terpusat. Di Express 5 hal itu sudah otomatis, tetapi menuliskannya membuat pola yang sama tetap aman dipakai di Express 4.',
+      ),
 
       h2('Tipe dari skema validasi'),
       code(
@@ -3124,6 +3586,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Generic `<T extends z.ZodTypeAny>` inilah yang membawa tipe skema **menembus** middleware. Tanpanya, parameter `skema` harus diberi tipe umum, dan `hasil.data` yang keluar berakhir sebagai `any` — sehingga seluruh manfaat validasi hilang begitu melewati lapisan tipe, dan `req.body.judl` yang salah ketik tidak akan tertangkap compiler.',
+      ),
+      p(
+        'Perhatikan komentar "Setelah baris ini, req.body sesuai skema": penugasan `req.body = hasil.data` bukan sekadar kerapian. Ia mengganti body mentah dengan **hasil validasi** — field asing sudah dibuang, tipe sudah dikonversi, nilai bawaan sudah terisi. Menghapus baris itu membuat validasinya tetap menolak yang salah, tetapi handler kembali membaca data mentah.',
+      ),
+      p(
+        'Satu batas yang harus disadari, dan daftar istilah di atas menyebutnya, adalah **tipe bukan pengganti validasi**. TypeScript hilang sepenuhnya saat runtime, jadi menulis `req.body as BuatCatatanInput` tanpa skema tidak memeriksa apa pun, melainkan hanya membuat compiler diam sementara data sembarang tetap mengalir masuk. Yang memeriksa isinya tetap `safeParse`, sedangkan tipe hanya menjaga kodemu konsisten dengan hasilnya.',
+      ),
 
       h2('Jangan pakai `any` untuk error'),
       code(
@@ -3145,6 +3616,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Komentar pertama menjelaskan sesuatu yang sering dianggap merepotkan padahal benar: TypeScript memberi tipe `unknown` pada variabel `catch`, bukan `Error`. Alasannya jujur — di JavaScript, **apa pun** bisa dilempar, termasuk string, angka, atau `undefined`. Tergoda menuliskan `catch (err: any)` berarti membuang satu-satunya hal yang mengingatkanmu untuk memeriksa dulu.',
+      ),
+      p(
+        'Dua `instanceof` di dalamnya adalah cara mempersempit `unknown` menjadi sesuatu yang aman dipakai. Urutannya juga masuk akal, yaitu yang **paling spesifik lebih dulu**. `PrismaClientKnownRequestError` dengan kode `P2002` diterjemahkan menjadi error domain milikmu, lalu `Error` biasa dicatat, lalu sisanya diteruskan. Perhatikan `err.message` baru boleh dibaca **setelah** `err instanceof Error` terbukti, sebab membacanya lebih awal akan menghasilkan `undefined` untuk sesuatu yang dilempar sebagai string.',
+      ),
+      p(
+        '`throw err` di akhir sama pentingnya dengan cabang-cabang di atasnya. Error yang tidak kamu kenali harus diteruskan apa adanya ke penangan terpusat, bukan ditelan — `catch` yang menangkap segalanya lalu diam mengubah kegagalan yang berisik menjadi kerusakan data yang senyap.',
+      ),
 
       h2('Membangun'),
       code(
@@ -3160,6 +3640,12 @@ export const lessons: LessonDraft[] = [
           }
         }
         `,
+      ),
+      p(
+        'Perhatikan `dev` dan `start` menjalankan berkas yang **berbeda**: `tsx` menjalankan `src/server.ts` apa adanya saat pengembangan, sedangkan produksi menjalankan `dist/server.js` hasil kompilasi. Itu disengaja — `tsx` menambah lapisan transformasi yang tidak perlu ada di produksi, dan menjalankan hasil `tsc` berarti yang berjalan di server adalah persis artefak yang sudah diperiksa.',
+      ),
+      p(
+        'Baris `type-check` berdiri terpisah dari `build`, dan peringatan di bawah menjelaskan kenapa itu bukan pengulangan. Alat seperti `tsx` dan `esbuild` **menghapus** anotasi tipe tanpa memeriksanya — sengaja, karena itulah yang membuatnya cepat. Akibatnya kode yang tidak lolos type-check tetap berjalan mulus di `npm run dev`, dan errornya baru muncul saat build produksi. Menjalankan `tsc --noEmit` sebagai langkah tersendiri di CI menutup jarak itu.',
       ),
       callout(
         'tip',
@@ -3219,7 +3705,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'pemilik atau admin',
           meaning:
-            'Aturan otorisasi yang menggabungkan dua lapisan: **kepemilikan** (baris ini milikmu) dan **peran** (kamu admin). Keduanya diperiksa di service, dan kepemilikannya ikut lagi di query — pertahanan berlapis.',
+            'Aturan otorisasi yang menggabungkan dua lapisan: **kepemilikan** (baris ini milikmu) dan **peran** (kamu admin). Keduanya diperiksa di service, dan kepemilikannya ikut lagi di query — defense in depth.',
         },
         {
           term: 'izin per aksi',
@@ -3272,6 +3758,15 @@ export const lessons: LessonDraft[] = [
         GET    /api/ekspor/:jobId           status, di-scope ke pemilik
         `,
       ),
+      p(
+        'Baca kolom kanan sebagai **daftar hal yang harus dibuktikan kodenya**, bukan sekadar catatan. Setiap keterangan di sana menunjuk satu sub-bab bab ini: "cache 60s" adalah 2.9, "ETag" adalah 1.8, "202 + job id" adalah 1.9, dan "di-scope ke pemilik" adalah 5.7 yang muncul lagi. Latihan ini sengaja menggabungkan semuanya karena di aplikasi nyata memang tidak pernah datang satu per satu.',
+      ),
+      p(
+        'Perhatikan pembagian akses pada endpoint artikel, di mana `GET` publik, `POST` butuh peran penulis, `PATCH` dan `DELETE` butuh **pemilik atau admin**, sedangkan `terbitkan` butuh izin tersendiri. Empat tingkat berbeda pada satu sumber daya, dan itu tepat menggambarkan kenapa otorisasi tidak bisa diselesaikan satu middleware di depan pintu. Perhatikan pula `GET /api/artikel` publik hanya menampilkan yang **terbit**, sebab draf yang bocor ke daftar publik adalah kebocoran alih-alih sekadar bug tampilan.',
+      ),
+      p(
+        'Dua endpoint komentar memakai `:id` artikel di jalurnya, dan `POST`-nya diberi "rate limit ketat" — endpoint yang memungkinkan siapa pun menulis ke database adalah target spam paling umum. Sementara dua endpoint ekspor memakai pola `202` dari sub-bab 1.9, dengan pengingat penting di ujungnya: status job **wajib** di-scope ke pemiliknya, karena job id sering bisa ditebak dan hasilnya berisi data lengkap.',
+      ),
 
       h2('Struktur'),
       code(
@@ -3296,12 +3791,18 @@ export const lessons: LessonDraft[] = [
             └── *.test.ts
         `,
       ),
+      p(
+        'Susunan ini adalah struktur berlapis dari sub-bab 2.1 dengan tiga tambahan yang khas project berukuran ini. `container.ts` adalah composition root, yaitu satu-satunya tempat yang merakit objek dan menyambungkan ketergantungannya. `queue/` berdiri sendiri karena pekerja adalah **proses terpisah** dari API, sehingga ia diluncurkan sendiri, diskalakan sendiri, dan dimatikan sendiri. Dan `schemas/` dipisah karena skema Zod dipakai dari dua arah, yaitu memvalidasi masukan dan menurunkan tipe lewat `z.infer`.',
+      ),
+      p(
+        'Perhatikan `test/bantuan.ts` diberi tempat tersendiri. Berkas itu berisi factory data uji (`buatPengguna`, `buatArtikel`) yang dipakai lintas berkas tes — dan tanpa tempat yang jelas, kode penyiapan seperti itu cenderung disalin ke setiap berkas tes lalu menyimpang satu sama lain. Perhatikan pula `server.ts` disebut "listen + graceful shutdown", terpisah dari `app.ts`: pemisahan yang membuat seluruh aplikasi bisa diuji dengan Supertest tanpa membuka satu port pun.',
+      ),
 
       h2('Langkah pengerjaan'),
       steps(
         {
           title: '1. Fondasi sebelum fitur',
-          body: 'Skema Prisma, `config/env.ts` yang gagal keras, `lib/log.ts` dengan redact, dan `lib/errors.ts`. Uji dengan menghapus satu variabel environment — aplikasi harus menolak menyala dengan pesan yang menyebut variabelnya.',
+          body: 'Skema Prisma, `config/env.ts` yang fail loudly, `lib/log.ts` dengan redact, dan `lib/errors.ts`. Uji dengan menghapus satu variabel environment — aplikasi harus menolak menyala dengan pesan yang menyebut variabelnya.',
         },
         {
           title: '2. Kerangka keamanan',
@@ -3309,7 +3810,7 @@ export const lessons: LessonDraft[] = [
         },
         {
           title: '3. Auth lengkap dengan pencabutan',
-          body: 'Pasangan token, rotasi refresh dengan deteksi pemakaian ulang, `tokenVersi` untuk pencabutan massal. Uji: pakai refresh token yang sudah dirotasi — seluruh keluarga harus tercabut.',
+          body: 'Pasangan token, rotasi refresh dengan reuse detection, `tokenVersi` untuk pencabutan massal. Uji: pakai refresh token yang sudah dirotasi — seluruh keluarga harus tercabut.',
         },
         {
           title: '4. Sumber daya artikel',
@@ -3325,7 +3826,7 @@ export const lessons: LessonDraft[] = [
         },
         {
           title: '7. Observability',
-          body: 'Id korelasi di setiap log dan respons, `/health/live` dan `/health/ready` yang jujur, metrik dengan label berpola rute.',
+          body: 'Correlation id di setiap log dan respons, `/health/live` dan `/health/ready` yang jujur, metrik dengan label berpola rute.',
         },
         {
           title: '8. Tes yang menangkap bug',
@@ -3344,7 +3845,7 @@ export const lessons: LessonDraft[] = [
         it('menyembunyikan artikel draf dari endpoint publik');
 
         // Auth
-        it('mencabut seluruh keluarga token saat refresh token dipakai ulang');
+        it('mencabut seluruh token family saat refresh token dipakai ulang');
         it('menolak token setelah keluar-semua');
         it('menolak token setelah ganti password');
         it('memberi pesan yang sama untuk email tidak ada dan password salah');
@@ -3362,6 +3863,15 @@ export const lessons: LessonDraft[] = [
         it('tidak memproses job ekspor dua kali');
         it('menolak membaca status job milik pengguna lain');
         `,
+      ),
+      p(
+        'Perhatikan hampir setiap judul di sini diawali kata **"menolak"**, **"mengabaikan"**, atau **"menyembunyikan"** — semuanya menguji sesuatu yang seharusnya **tidak** terjadi. Itulah yang membedakan daftar ini dari tes yang biasa ditulis lebih dulu. Jalur sukses adalah bagian yang paling jarang rusak di produksi, dan ia juga bagian yang sudah kamu coba puluhan kali secara manual selama membangun.',
+      ),
+      p(
+        'Perhatikan pula setiap judul menyebut **perilaku yang bisa diamati**, bukan nama fungsi yang diuji. "Menjawab 400 untuk JSON rusak, bukan 500" langsung bisa diverifikasi siapa pun dengan satu `curl`, dan tetap bermakna walau seluruh isi controller-nya ditulis ulang. Judul seperti "menguji penanganError" akan berhenti bermakna begitu fungsinya diganti nama.',
+      ),
+      p(
+        'Tiga kelompok terakhir sering luput dari daftar tes karena tidak terasa seperti "fitur". Batas ukuran dan JSON rusak menguji **jalur error**, yang tidak pernah dilalui saat mencoba manual. Tes performa mengubah N+1 dari masalah yang muncul berbulan-bulan kemudian menjadi kegagalan yang terlihat saat ditambahkan. Dan dua tes job menutup dua hal yang paling mudah bocor di pekerjaan latar: idempotensi handler, dan otorisasi yang mudah terlupa karena "job kan datang dari antrean sendiri".',
       ),
       callout(
         'tip',

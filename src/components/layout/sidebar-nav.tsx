@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils/cn';
 /**
  * Curriculum tree in the sidebar.
  *
- * Only the branch containing the current lesson is expanded. Showing all 31 chapters and 330
+ * Only the branch containing the current lesson is expanded. Showing all 38 chapters and 380
  * lessons at once would be a wall of text that is impossible to scan — the sidebar's job is
  * "where am I and what is next", not "here is everything".
  */
@@ -97,7 +97,15 @@ function CategoryBranch({
 }) {
   const isActive = active.category === categorySlug;
   const [open, setOpen] = useState(isActive);
-  const expanded = open || isActive;
+  // Auto-expand when navigation makes this branch active, without fighting a manual
+  // collapse: adjusted during render (not an effect) so there is no extra frame where
+  // the old `open` value is still visible. See ChapterBranch below for the same pattern.
+  const [wasActive, setWasActive] = useState(isActive);
+  if (isActive !== wasActive) {
+    setWasActive(isActive);
+    if (isActive) setOpen(true);
+  }
+  const expanded = open;
 
   return (
     <li>
@@ -155,7 +163,14 @@ function ChapterBranch({
 }) {
   const isActive = active.category === categorySlug && active.chapter === chapter.slug;
   const [open, setOpen] = useState(isActive);
-  const expanded = open || isActive;
+  // See CategoryBranch above for why this is adjusted during render instead of `open ||
+  // isActive`: that form can never be collapsed by the user once isActive turns true.
+  const [wasActive, setWasActive] = useState(isActive);
+  if (isActive !== wasActive) {
+    setWasActive(isActive);
+    if (isActive) setOpen(true);
+  }
+  const expanded = open;
 
   return (
     <li>

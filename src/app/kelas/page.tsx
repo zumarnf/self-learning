@@ -14,7 +14,7 @@ import { formatDuration } from '@/lib/utils/format';
 export const metadata: Metadata = {
   title: 'Kelas',
   description:
-    'Lima kategori kurikulum Fullstack Developer, dari JavaScript dasar sampai deployment.',
+    'Tujuh kategori kurikulum Fullstack Developer, dari JavaScript dasar sampai desain sistem.',
 };
 
 /**
@@ -30,7 +30,7 @@ export default function KelasPage() {
       <header>
         <Eyebrow>Kurikulum</Eyebrow>
         <h1 className="text-text mt-3 font-sans text-2xl font-semibold tracking-tight md:text-3xl">
-          Lima tahap, dari nol sampai produksi
+          Tujuh tahap, dari nol sampai produksi
         </h1>
         <p className="tabular text-muted mt-3 max-w-prose">
           {totalChapterCount()} bab · {totalLessonCount()} sub-bab. Urutannya bukan acak — tiap

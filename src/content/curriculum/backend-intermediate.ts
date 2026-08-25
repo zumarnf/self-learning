@@ -45,7 +45,7 @@ const desainApi = defineChapter({
         'Menggantikan autentikasi',
       ],
       1,
-      'Klien mengirim kunci unik per operasi. Kalau permintaan dengan kunci yang sama datang lagi — karena timeout lalu retry — server mengembalikan hasil yang pertama alih-alih memproses ulang.',
+      'Klien mengirim kunci unik per operasi. Kalau permintaan dengan kunci yang sama datang lagi, misalnya karena timeout lalu retry, server mengembalikan hasil yang pertama alih-alih memproses ulang.',
     ),
     q(
       'bi1-q3',

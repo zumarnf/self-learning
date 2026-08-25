@@ -151,7 +151,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Kalimat di komentar itu adalah gagasan paling penting dari seluruh sub-bab: **JSX menghasilkan nilai**, bukan pernyataan. Karena ia nilai, ia bisa diperlakukan seperti angka atau string — disimpan di `const`, dikembalikan dari fungsi, dan dioper sebagai argumen. Baris kedua adalah wujud yang paling sering kamu tulis nanti: `items.map(...)` menghasilkan **array berisi JSX**, dan React tahu cara merender array. Baris terakhir memakai ternary dari Bab 1, dan sekarang alasannya jelas — ternary dipakai alih-alih `if` justru karena ia ekspresi yang menghasilkan nilai, sedangkan `if` tidak. Itu pula sebabnya di dalam JSX kamu akan terus bertemu ternary dan `&&`, bukan `if` dan `for`: yang dibutuhkan di sana selalu sesuatu yang menghasilkan nilai.',
+        'Kalimat di komentar itu adalah gagasan paling penting dari seluruh sub-bab, yaitu **JSX menghasilkan nilai** dan bukan pernyataan. Karena ia nilai, ia bisa diperlakukan seperti angka atau string, sehingga bisa disimpan di `const`, dikembalikan dari fungsi, dan dioper sebagai argumen. Baris kedua adalah wujud yang paling sering kamu tulis nanti, karena `items.map(...)` menghasilkan **array berisi JSX** dan React tahu cara merender array. Baris terakhir memakai ternary dari Bab 1, dan sekarang alasannya jelas, sebab ternary dipakai alih-alih `if` justru karena ia ekspresi yang menghasilkan nilai sedangkan `if` tidak. Itu pula sebabnya di dalam JSX kamu akan terus bertemu ternary dan `&&` alih-alih `if` dan `for`, karena yang dibutuhkan di sana selalu sesuatu yang menghasilkan nilai.',
       ),
 
       h2('Yang JSX TIDAK selesaikan'),
@@ -243,7 +243,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'style',
           meaning:
-            'Di JSX, `style` menerima **objek**, bukan teks: `style={{ color: "red" }}`. Kurung kurawal gandanya bukan sintaks khusus — yang luar adalah penanda ekspresi JSX, yang dalam adalah object literal biasa. Nama propertynya juga camelCase: `backgroundColor`, bukan `background-color`.',
+            'Di JSX, `style` menerima **objek** alih-alih teks, misalnya `style={{ color: "red" }}`. Kurung kurawal gandanya bukan sintaks khusus, sebab yang luar adalah penanda ekspresi JSX sedangkan yang dalam adalah object literal biasa. Nama propertynya juga camelCase, yaitu `backgroundColor` dan bukan `background-color`.',
         },
       ),
 
@@ -291,7 +291,7 @@ export const lessons: LessonDraft[] = [
         { caption: 'Bentuk pendek `<>` tidak bisa menerima `key`.' },
       ),
       p(
-        'Fragment ada untuk satu masalah: JSX mengharuskan **satu elemen akar**, tapi kadang kamu perlu mengembalikan beberapa elemen sejajar tanpa pembungkus tambahan. Contoh di atas persis kasusnya — `<dt>` dan `<dd>` harus menjadi anak langsung dari `<dl>`, sehingga membungkusnya dengan `<div>` akan merusak strukturnya. Fragment menyelesaikan itu karena ia **tidak menghasilkan elemen apa pun di DOM**; ia hanya pengelompokan bagi JSX. Keterangan di bawah kode menyebut batasannya: bentuk pendek `<>...</>` lebih enak dibaca, tapi ia tidak bisa menerima atribut apa pun — termasuk `key`. Karena merender daftar mewajibkan `key`, di dalam `map` kamu harus memakai bentuk panjang `<Fragment key={...}>` yang perlu diimpor dari React.',
+        'Fragment ada untuk satu masalah, yaitu JSX mengharuskan **satu elemen akar** padahal kadang kamu perlu mengembalikan beberapa elemen sejajar tanpa pembungkus tambahan. Contoh di atas persis kasusnya, sebab `<dt>` dan `<dd>` harus menjadi anak langsung dari `<dl>` sehingga membungkusnya dengan `<div>` akan merusak strukturnya. Fragment menyelesaikan itu karena ia **tidak menghasilkan elemen apa pun di DOM**, melainkan hanya pengelompokan bagi JSX. Keterangan di bawah kode menyebut batasannya. Bentuk pendek `<>...</>` lebih enak dibaca, tapi ia tidak bisa menerima atribut apa pun termasuk `key`. Karena merender daftar mewajibkan `key`, di dalam `map` kamu harus memakai bentuk panjang `<Fragment key={...}>` yang perlu diimpor dari React.',
       ),
 
       h2('Atribut yang berubah nama'),
@@ -335,7 +335,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Aturan ini terlihat sepele tapi ia **satu-satunya cara** JSX membedakan tag HTML dari komponenmu, dan pembedanya benar-benar hanya huruf pertama. Alasannya masuk akal begitu kamu tahu apa yang dihasilkan JSX: huruf kecil diubah menjadi **string** `'button'` yang diteruskan ke React sebagai nama tag HTML, sedangkan huruf besar diubah menjadi **referensi variabel** `Button` yang menunjuk ke fungsi komponenmu. Karena itulah `<tombol />` tidak pernah menjadi komponen — ia dikirim sebagai string `'tombol'`, dan React dengan patuh membuat tag HTML bernama itu. Gejalanya persis seperti disebut di kotak berikut: tidak ada error, tidak ada peringatan, hanya elemen kosong yang tidak menampilkan apa-apa.",
+        "Aturan ini terlihat sepele tapi ia **satu-satunya cara** JSX membedakan tag HTML dari komponenmu, dan pembedanya benar-benar hanya huruf pertama. Alasannya masuk akal begitu kamu tahu apa yang dihasilkan JSX. Huruf kecil diubah menjadi **string** `'button'` yang diteruskan ke React sebagai nama tag HTML, sedangkan huruf besar diubah menjadi **referensi variabel** `Button` yang menunjuk ke fungsi komponenmu. Karena itulah `<tombol />` tidak pernah menjadi komponen, sebab ia dikirim sebagai string `'tombol'` dan React dengan patuh membuat tag HTML bernama itu. Gejalanya persis seperti disebut di kotak berikut, yaitu tidak ada error, tidak ada peringatan, hanya elemen kosong yang tidak menampilkan apa-apa.",
       ),
       callout(
         'warning',
@@ -357,7 +357,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Komentar terakhir menjawab kebingungan yang hampir semua pemula alami: `{{ ... }}` **bukan sintaks khusus**. Kurung luar adalah kurung JSX yang berarti "mulai ekspresi JavaScript", dan kurung dalam adalah literal objek biasa — persis seperti object yang kamu pelajari di Bab 1. Karena isinya objek JavaScript dan bukan teks CSS, aturannya ikut aturan JavaScript: nama property memakai camelCase (`fontSize`, bukan `font-size`), nilainya dipisah koma alih-alih titik koma, dan teks harus diberi tanda kutip. Satu kemudahan yang layak diingat: **angka polos otomatis diberi satuan `px`**, jadi `fontSize: 14` menghasilkan `14px`. Untuk satuan lain kamu harus menulisnya sebagai string, misalnya `width: \'50%\'`.',
+        'Komentar terakhir menjawab kebingungan yang hampir semua pemula alami, yaitu bahwa `{{ ... }}` **bukan sintaks khusus**. Kurung luar adalah kurung JSX yang berarti "mulai ekspresi JavaScript", sedangkan kurung dalam adalah literal objek biasa, persis seperti object yang kamu pelajari di Bab 1. Karena isinya objek JavaScript dan bukan teks CSS, aturannya ikut aturan JavaScript, sehingga nama property memakai camelCase (`fontSize`, bukan `font-size`), nilainya dipisah koma alih-alih titik koma, dan teks harus diberi tanda kutip. Ada satu kemudahan yang layak diingat, yaitu **angka polos otomatis diberi satuan `px`**, jadi `fontSize: 14` menghasilkan `14px`. Untuk satuan lain kamu harus menulisnya sebagai string, misalnya `width: \'50%\'`.',
       ),
 
       h2('Komentar'),
@@ -505,7 +505,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Ketiga bentuk ini bekerja karena sifat yang sudah kamu pelajari di Bab 1, bukan karena aturan khusus React. `&&` mengembalikan **salah satu operannya**, bukan `true`/`false`: kalau sisi kiri truthy hasilnya sisi kanan — yaitu elemen JSX-nya — dan kalau falsy hasilnya nilai kiri itu sendiri, yang biasanya `false` atau `null` dan **diabaikan React** sesuai tabel di atas. Ternary dipakai saat ada dua kemungkinan tampilan, dan ia sah di sini justru karena ternary adalah ekspresi. Baris ketiga menunjukkan pola yang sangat sering: menampilkan sesuatu **hanya bila datanya ada**, sekaligus memakai nilainya. Semua ini berjalan mulus sampai nilai di sisi kiri berupa angka — dan di situlah jebakan pada kotak berikut muncul.',
+        'Ketiga bentuk ini bekerja karena sifat yang sudah kamu pelajari di Bab 1, bukan karena aturan khusus React. `&&` mengembalikan **salah satu operannya** alih-alih `true` atau `false`. Kalau sisi kiri truthy hasilnya sisi kanan, yaitu elemen JSX-nya, dan kalau falsy hasilnya nilai kiri itu sendiri, yang biasanya `false` atau `null` dan **diabaikan React** sesuai tabel di atas. Ternary dipakai saat ada dua kemungkinan tampilan, dan ia sah di sini justru karena ternary adalah ekspresi. Baris ketiga menunjukkan pola yang sangat sering, yaitu menampilkan sesuatu **hanya bila datanya ada** sekaligus memakai nilainya. Semua ini berjalan mulus sampai nilai di sisi kiri berupa angka, dan di situlah jebakan pada kotak berikut muncul.',
       ),
       callout(
         'danger',
@@ -524,7 +524,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Telusuri versi SALAH pada daftar kosong: `items.length` bernilai `0`, dan `0 && x` menghasilkan `0` — bukan `false`. Menurut tabel di atas, `false` diabaikan React tapi **angka `0` tetap dirender**, jadi yang muncul di layar adalah angka nol yang menggantung tanpa penjelasan. Bugnya sangat sering lolos karena selama pengembangan daftarnya hampir selalu berisi data. Kedua versi BENAR memperbaikinya dengan cara yang sama: memastikan sisi kiri benar-benar **boolean** sebelum bertemu `&&`. `items.length > 0` menghasilkan `true`/`false`, begitu juga `Boolean(items.length)`. Aturan yang bisa dibawa pulang: jangan pernah menaruh angka di sisi kiri `&&` di dalam JSX — ubah dulu menjadi perbandingan.',
+        'Telusuri versi SALAH pada daftar kosong. `items.length` bernilai `0`, dan `0 && x` menghasilkan `0` alih-alih `false`. Menurut tabel di atas, `false` diabaikan React tapi **angka `0` tetap dirender**, jadi yang muncul di layar adalah angka nol yang menggantung tanpa penjelasan. Bugnya sangat sering lolos karena selama pengembangan daftarnya hampir selalu berisi data. Kedua versi BENAR memperbaikinya dengan cara yang sama, yaitu memastikan sisi kiri benar-benar **boolean** sebelum bertemu `&&`. `items.length > 0` menghasilkan `true` atau `false`, begitu juga `Boolean(items.length)`. Aturan yang bisa dibawa pulang, jangan pernah menaruh angka di sisi kiri `&&` di dalam JSX, melainkan ubah dulu menjadi perbandingan.',
       ),
 
       h2('Merender list'),
@@ -539,7 +539,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        '`map` dipakai di sini, bukan `for`, karena aturan yang sama seperti sebelumnya: hanya **ekspresi** yang boleh masuk kurung kurawal, dan `for` adalah pernyataan yang tidak menghasilkan nilai. `map` menghasilkan array berisi elemen JSX, dan React tahu cara merender array secara berurutan. Perhatikan `key` ditaruh pada elemen **terluar** yang dihasilkan tiap putaran — bukan pada `<ul>`, dan bukan pada elemen di dalam `<li>`. Itu ketentuan yang mutlak: React memerlukan penanda identitas tepat di tingkat tempat elemen-elemen bersaudara itu berada. Perhatikan juga tanda kurung setelah `=>` yang membungkus JSX multi-baris; ia diperlukan agar penyisipan titik koma otomatis tidak memotong nilai kembaliannya, dan sekaligus menjaga return implisit tetap berlaku.',
+        '`map` dipakai di sini alih-alih `for` karena aturan yang sama seperti sebelumnya, yaitu hanya **ekspresi** yang boleh masuk kurung kurawal sedangkan `for` adalah pernyataan yang tidak menghasilkan nilai. `map` menghasilkan array berisi elemen JSX, dan React tahu cara merender array secara berurutan. Perhatikan `key` ditaruh pada elemen **terluar** yang dihasilkan tiap putaran, bukan pada `<ul>` dan bukan pada elemen di dalam `<li>`. Itu ketentuan yang mutlak, sebab React memerlukan penanda identitas tepat di tingkat tempat elemen-elemen bersaudara itu berada. Perhatikan juga tanda kurung setelah `=>` yang membungkus JSX multi-baris, karena ia diperlukan agar penyisipan titik koma otomatis tidak memotong return value-nya, sekaligus menjaga return implisit tetap berlaku.',
       ),
       callout(
         'warning',
@@ -554,7 +554,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Kedua baris menghasilkan tampilan awal yang **sama persis**, dan itulah kenapa versi rapuh sering lolos. Perbedaannya baru muncul saat daftarnya berubah urutan. `key={i}` memakai posisi, bukan identitas — sisipkan satu item di awal, dan item yang tadinya `key={0}` kini menjadi `key={1}`, sehingga React menyimpulkan bahwa isi tiap baris berubah alih-alih bahwa ada baris baru di depan. Akibatnya bukan sekadar pemborosan render: keadaan internal yang menempel pada baris — teks yang sedang diketik di sebuah input, checkbox yang sedang tercentang — ikut tertinggal di posisi lamanya dan seolah **berpindah ke baris yang salah**. `key={item.id}` memakai identitas yang melekat pada datanya, sehingga React bisa mengenali baris yang sama meski posisinya bergeser. Indeks hanya aman bila daftarnya tidak pernah diurutkan ulang, disisipi, atau dihapus di tengah.',
+        'Kedua baris menghasilkan tampilan awal yang **sama persis**, dan itulah kenapa versi rapuh sering lolos. Perbedaannya baru muncul saat daftarnya berubah urutan. `key={i}` memakai posisi alih-alih identitas, sehingga menyisipkan satu item di awal membuat item yang tadinya `key={0}` kini menjadi `key={1}`, dan React menyimpulkan bahwa isi tiap baris berubah alih-alih bahwa ada baris baru di depan. Akibatnya bukan sekadar pemborosan render, sebab keadaan internal yang menempel pada baris, misalnya teks yang sedang diketik di sebuah input atau checkbox yang sedang tercentang, ikut tertinggal di posisi lamanya dan seolah **berpindah ke baris yang salah**. `key={item.id}` memakai identitas yang melekat pada datanya, sehingga React bisa mengenali baris yang sama meski posisinya bergeser. Indeks hanya aman bila daftarnya tidak pernah diurutkan ulang, disisipi, atau dihapus di tengah.',
       ),
 
       h2('Logika rumit keluar dari JSX'),
@@ -575,7 +575,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Versi pertama menumpuk tiga ternary dalam satu baris, dan membacanya menuntut kamu melacak pasangan `?` dengan `:` sambil menahan tiga kondisi di kepala — persis keluhan yang sama seperti kode bertingkat di Bab 1, hanya dalam bentuk yang lebih padat. Versi kedua memindahkan seluruh percabangan ke **atas** JSX sebagai rangkaian early return, dan hasilnya tiap baris menutup satu kemungkinan lalu selesai. Ini menjawab pertanyaan yang wajar muncul: kalau `if` tidak boleh dipakai di dalam JSX, bagaimana menangani percabangan rumit? Jawabannya bukan memaksakan ternary bertingkat, melainkan **keluar dari JSX** — di badan fungsi, `if` sepenuhnya sah. Aturan praktisnya: satu ternary di dalam JSX masih terbaca; begitu butuh tingkat kedua, pindahkan ke atas.',
+        'Versi pertama menumpuk tiga ternary dalam satu baris, dan membacanya menuntut kamu melacak pasangan `?` dengan `:` sambil menahan tiga kondisi di kepala, persis keluhan yang sama seperti kode bertingkat di Bab 1 hanya dalam bentuk yang lebih padat. Versi kedua memindahkan seluruh percabangan ke **atas** JSX sebagai rangkaian early return, dan hasilnya tiap baris menutup satu kemungkinan lalu selesai. Ini menjawab pertanyaan yang wajar muncul, yaitu kalau `if` tidak boleh dipakai di dalam JSX, bagaimana menangani percabangan rumit? Jawabannya bukan memaksakan ternary bertingkat melainkan **keluar dari JSX**, sebab di badan fungsi `if` sepenuhnya sah. Aturan praktisnya, satu ternary di dalam JSX masih terbaca, dan begitu butuh tingkat kedua, pindahkan ke atas.',
       ),
 
       divider,
@@ -701,7 +701,7 @@ export const lessons: LessonDraft[] = [
         },
       ),
       p(
-        "Perbandingan ini menjawab pertanyaan yang selama ini digantung: JSX **bukan sihir**, ia hanya penulisan singkat untuk pemanggilan fungsi. Bacalah kolom kanan dan cocokkan bagiannya dengan kolom kiri. Nama tag menjadi **argumen pertama** — berupa string `'h1'` karena huruf kecil. Semua atribut menjadi field di objek argumen kedua, dan `className` di sana tertulis persis seperti yang kamu tulis, bukan `class`. Yang paling menarik, **isi di antara tag menjadi field bernama `children`** — jadi teks dan variabel yang kamu tulis di dalam elemen sebenarnya tidak istimewa; ia hanya prop yang kebetulan punya penulisan khusus. Catatan di bawah kolom kanan menegaskan bagian yang paling sering disalahpahami: yang dihasilkan bukan elemen DOM, melainkan objek JavaScript biasa.",
+        "Perbandingan ini menjawab pertanyaan yang selama ini digantung, yaitu JSX **bukan sihir** melainkan hanya penulisan singkat untuk pemanggilan fungsi. Bacalah kolom kanan dan cocokkan bagiannya dengan kolom kiri. Nama tag menjadi **argumen pertama**, berupa string `'h1'` karena huruf kecil. Semua atribut menjadi field di objek argumen kedua, dan `className` di sana tertulis persis seperti yang kamu tulis alih-alih `class`. Yang paling menarik, **isi di antara tag menjadi field bernama `children`**, jadi teks dan variabel yang kamu tulis di dalam elemen sebenarnya tidak istimewa melainkan hanya prop yang kebetulan punya penulisan khusus. Catatan di bawah kolom kanan menegaskan bagian yang paling sering disalahpahami, bahwa yang dihasilkan bukan elemen DOM melainkan objek JavaScript biasa.",
       ),
       code(
         'js',
@@ -715,12 +715,12 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Inilah wujud sebenarnya sebuah elemen React: **objek biasa dengan tiga field**. Tidak ada satu pun bagian dari DOM di dalamnya — tidak ada `<h1>` sungguhan, tidak ada yang tergambar di layar. Ia hanya **deskripsi** tentang apa yang seharusnya ada. `type` menyimpan jenisnya, `props` menyimpan seluruh atribut beserta `children`, dan `key` berdiri terpisah dari props justru karena ia bukan data untuk komponen melainkan penanda identitas untuk React sendiri — itu sebabnya membaca `props.key` di dalam komponen selalu menghasilkan `undefined`. Karena bentuknya sesederhana ini, React bisa membandingkan objek lama dengan objek baru untuk menyimpulkan apa yang berubah, lalu menyentuh DOM sesedikit mungkin. Empat konsekuensi di bawah semuanya mengalir dari kenyataan ini.',
+        'Inilah wujud sebenarnya sebuah elemen React, yaitu **objek biasa dengan tiga field**. Tidak ada satu pun bagian dari DOM di dalamnya, tidak ada `<h1>` sungguhan, dan tidak ada yang tergambar di layar. Ia hanya **deskripsi** tentang apa yang seharusnya ada. `type` menyimpan jenisnya, `props` menyimpan seluruh atribut beserta `children`, dan `key` berdiri terpisah dari props justru karena ia bukan data untuk komponen melainkan penanda identitas untuk React sendiri, dan itu sebabnya membaca `props.key` di dalam komponen selalu menghasilkan `undefined`. Karena bentuknya sesederhana ini, React bisa membandingkan objek lama dengan objek baru untuk menyimpulkan apa yang berubah, lalu menyentuh DOM sesedikit mungkin. Empat konsekuensi di bawah semuanya mengalir dari kenyataan ini.',
       ),
 
       h2('Empat hal yang langsung jadi masuk akal'),
       ol(
-        '**Kenapa komponen wajib huruf besar.** `<button />` dikompilasi jadi `jsx("button", …)` — string. `<Button />` jadi `jsx(Button, …)` — referensi variabel.',
+        '**Kenapa komponen wajib huruf besar.** `<button />` dikompilasi jadi `jsx("button", …)` yang berupa string, sedangkan `<Button />` jadi `jsx(Button, …)` yang berupa referensi variabel.',
         '**Kenapa `children` adalah prop biasa.** Ia memang hanya field di objek props; `<A>isi</A>` sama dengan `<A children="isi" />`.',
         '**Kenapa JSX bisa disimpan di variabel.** Ia menghasilkan objek — objek bisa disimpan dan dioper seperti nilai lain.',
         '**Kenapa merendernya tidak langsung menyentuh DOM.** Objek itu hanya **deskripsi**; React yang memutuskan apa yang perlu diubah.',
@@ -739,7 +739,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Kedua blok berisi komponen yang **identik**; yang berbeda hanya ada tidaknya baris `import React`. Kalau kamu pernah bingung kenapa sebagian tutorial mengimpor React padahal namanya tidak pernah dipakai di kode, jawabannya ada di transform lama: JSX dulu dikompilasi menjadi `React.createElement(...)`, sehingga variabel `React` **harus** ada di scope meski kamu tidak menyebutnya. Sejak React 17, runtime otomatis menyisipkan impornya sendiri dari `react/jsx-runtime`, jadi barisnya tidak lagi diperlukan. Perlu ditegaskan ini bukan perubahan yang memutus kode lama — berkas yang masih mengimpor `React` tetap bekerja tanpa masalah, hanya menyisakan satu impor yang tidak berguna.',
+        'Kedua blok berisi komponen yang **identik**, dan yang berbeda hanya ada tidaknya baris `import React`. Kalau kamu pernah bingung kenapa sebagian tutorial mengimpor React padahal namanya tidak pernah dipakai di kode, jawabannya ada di transform lama. JSX dulu dikompilasi menjadi `React.createElement(...)`, sehingga variabel `React` **harus** ada di scope meski kamu tidak menyebutnya. Sejak React 17, runtime otomatis menyisipkan impornya sendiri dari `react/jsx-runtime`, jadi barisnya tidak lagi diperlukan. Perlu ditegaskan ini bukan perubahan yang memutus kode lama, sebab berkas yang masih mengimpor `React` tetap bekerja tanpa masalah dan hanya menyisakan satu impor yang tidak berguna.',
       ),
       callout(
         'info',
@@ -756,7 +756,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Saran ini layak benar-benar dicoba, bukan sekadar dibaca. Melihat keluarannya berubah **sambil kamu mengetik** mengubah JSX dari sesuatu yang harus dihafal menjadi sesuatu yang bisa diperiksa: tambahkan satu atribut, dan lihat ia muncul sebagai field baru di objek props; ubah huruf pertama nama tag menjadi besar, dan lihat argumen pertamanya berubah dari string menjadi referensi variabel. Beberapa menit di sana biasanya menyelesaikan lebih banyak kebingungan tentang JSX daripada membaca penjelasan berulang kali — dan kebiasaan memeriksa langsung seperti ini berlaku jauh melampaui JSX.',
+        'Saran ini layak benar-benar dicoba, bukan sekadar dibaca. Melihat keluarannya berubah **sambil kamu mengetik** mengubah JSX dari sesuatu yang harus dihafal menjadi sesuatu yang bisa diperiksa. Tambahkan satu atribut, dan lihat ia muncul sebagai field baru di objek props. Ubah huruf pertama nama tag menjadi besar, dan lihat argumen pertamanya berubah dari string menjadi referensi variabel. Beberapa menit di sana biasanya menyelesaikan lebih banyak kebingungan tentang JSX daripada membaca penjelasan berulang kali, dan kebiasaan memeriksa langsung seperti ini berlaku jauh melampaui JSX.',
       ),
 
       h2('React tanpa JSX'),
@@ -895,12 +895,12 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Kelompok atas menunjukkan **anotasi**: tanda titik dua diikuti nama tipe. Perhatikan `string[]` berarti "array berisi string", sedangkan `[string, number]` — tuple — berarti array dengan **panjang dan urutan tipe yang pasti**: elemen pertama string, kedua angka, tidak lebih. Kelompok bawah menunjukkan hal yang jauh lebih sering kamu andalkan dalam praktik: **inferensi**. TypeScript membaca nilai yang kamu berikan dan menyimpulkan tipenya sendiri, jadi `kota` sudah bertipe `string` tanpa satu anotasi pun, dan menugaskan angka ke sana tetap ditolak. Karena itu saran di kotak berikut layak diikuti sejak awal — menuliskan tipe untuk sesuatu yang nilainya sudah jelas hanya menambah teks tanpa menambah keamanan.',
+        'Kelompok atas menunjukkan **anotasi**, yaitu tanda titik dua diikuti nama tipe. Perhatikan `string[]` berarti "array berisi string", sedangkan `[string, number]` yang disebut tuple berarti array dengan **panjang dan urutan tipe yang pasti**, dengan elemen pertama string dan kedua angka, tidak lebih. Kelompok bawah menunjukkan hal yang jauh lebih sering kamu andalkan dalam praktik, yaitu **inferensi**. TypeScript membaca nilai yang kamu berikan dan menyimpulkan tipenya sendiri, jadi `kota` sudah bertipe `string` tanpa satu anotasi pun, dan menugaskan angka ke sana tetap ditolak. Karena itu saran di kotak berikut layak diikuti sejak awal, sebab menuliskan tipe untuk sesuatu yang nilainya sudah jelas hanya menambah teks tanpa menambah keamanan.',
       ),
       callout(
         'tip',
         'Jangan menganotasi yang sudah jelas',
-        '`const nama: string = "Zum"` adalah kebisingan. Biarkan inferensi bekerja; anotasi berguna di **batas** — parameter fungsi, nilai kembalian publik, dan bentuk data dari luar.',
+        '`const nama: string = "Zum"` adalah kebisingan. Biarkan inferensi bekerja; anotasi berguna di **batas** — parameter fungsi, return value publik, dan bentuk data dari luar.',
       ),
 
       h2('`interface` vs `type`'),
@@ -941,7 +941,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "`type Ukuran = 'sm' | 'md' | 'lg'` adalah **union tipe literal**: nilainya bukan sembarang string, melainkan tepat salah satu dari tiga teks itu. Efeknya terlihat di dua baris pemanggilan — `'md'` diterima, sementara `'besar'` ditolak sebelum program pernah dijalankan. Bandingkan dengan menulis parameternya sebagai `string`: salah ketik nama ukuran baru ketahuan saat tampilannya aneh di layar, dan tidak ada yang memberitahumu bahwa pilihannya cuma tiga. Komentar terakhir menyebut manfaat yang mungkin justru paling sering kamu rasakan sehari-hari: karena editor tahu daftar nilainya, ia bisa menampilkan **ketiga pilihan itu saja** saat kamu mengetik — dokumentasi yang muncul di tempat kamu membutuhkannya, tanpa perlu membuka berkas lain.",
+        "`type Ukuran = 'sm' | 'md' | 'lg'` adalah **union tipe literal**, artinya nilainya bukan sembarang string melainkan tepat salah satu dari tiga teks itu. Efeknya terlihat di dua baris pemanggilan, di mana `'md'` diterima sementara `'besar'` ditolak sebelum program pernah dijalankan. Bandingkan dengan menulis parameternya sebagai `string`, karena salah ketik nama ukuran baru ketahuan saat tampilannya aneh di layar, dan tidak ada yang memberitahumu bahwa pilihannya cuma tiga. Komentar terakhir menyebut manfaat yang mungkin justru paling sering kamu rasakan sehari-hari. Karena editor tahu daftar nilainya, ia bisa menampilkan **ketiga pilihan itu saja** saat kamu mengetik, sehingga dokumentasinya muncul di tempat kamu membutuhkannya tanpa perlu membuka berkas lain.",
       ),
 
       h2('Discriminated union — pola paling berguna'),
@@ -966,12 +966,12 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Yang membuat pola ini bekerja adalah field `status` yang **ada di ketiga varian** dengan nilai literal yang berbeda-beda — itulah \"diskriminan\"-nya. Saat kamu memeriksa `k.status` di dalam `switch`, TypeScript **mempersempit** tipe `k` di tiap cabang: di cabang `'gagal'` ia tahu `k` pasti varian kedua, sehingga `k.pesan` boleh diakses; di cabang `'berhasil'` ia tahu `k.data` ada. Mencoba membaca `k.data` di cabang `'memuat'` akan ditolak, karena varian itu memang tidak memilikinya. Perhatikan yang dicegah bukan hanya salah akses: bentuk seperti `{ status: 'memuat', data: [...] }` **tidak bisa ditulis sama sekali**, karena tidak cocok dengan varian mana pun. Kombinasi keadaan yang mustahil jadi tidak bisa ada, bukan sekadar tidak dianjurkan.",
+        "Yang membuat pola ini bekerja adalah field `status` yang **ada di ketiga varian** dengan nilai literal yang berbeda-beda, dan itulah \"diskriminan\"-nya. Saat kamu memeriksa `k.status` di dalam `switch`, TypeScript **mempersempit** tipe `k` di tiap cabang. Di cabang `'gagal'` ia tahu `k` pasti varian kedua sehingga `k.pesan` boleh diakses, sedangkan di cabang `'berhasil'` ia tahu `k.data` ada. Mencoba membaca `k.data` di cabang `'memuat'` akan ditolak, karena varian itu memang tidak memilikinya. Perhatikan yang dicegah bukan hanya salah akses, sebab bentuk seperti `{ status: 'memuat', data: [...] }` **tidak bisa ditulis sama sekali** karena tidak cocok dengan varian mana pun. Kombinasi keadaan yang mustahil jadi tidak bisa ada, bukan sekadar tidak dianjurkan.",
       ),
       callout(
         'info',
         'Kenapa ini penting untuk UI',
-        'Empat keadaan UI dari Bab 5 bisa dimodelkan persis begini. Kombinasi yang mustahil — "memuat sekaligus punya data error" — menjadi **tidak bisa ditulis**, bukan sekadar tidak dianjurkan.',
+        'Empat keadaan UI dari Bab 5 bisa dimodelkan persis begini. Kombinasi yang mustahil seperti "memuat sekaligus punya data error" menjadi **tidak bisa ditulis**, bukan sekadar tidak dianjurkan.',
       ),
 
       h2('Fungsi'),
@@ -989,7 +989,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perhatikan letak anotasinya: tipe parameter ditulis di dalam kurung, dan **tipe nilai kembalian ditulis setelah kurung tutup**. Menyebut tipe kembalian sebenarnya opsional — TypeScript bisa menyimpulkannya dari isi fungsi — tapi menuliskannya di fungsi yang dipakai berkas lain punya nilai tersendiri: ia mengunci kontraknya, sehingga perubahan tak sengaja di dalam badan fungsi ditolak di tempat, bukan meledak di pemanggil yang jauh. Fungsi ketiga menunjukkan parameter dengan nilai bawaan; tipenya tidak perlu ditulis karena sudah tersimpulkan dari `\'Halo\'`. Dan `void` di fungsi terakhir berarti "memang tidak mengembalikan apa-apa" — berbeda dari `undefined` yang berarti nilainya ada tapi kosong, `void` menyatakan bahwa nilai kembaliannya memang tidak untuk dipakai.',
+        'Perhatikan letak anotasinya, di mana tipe parameter ditulis di dalam kurung dan **tipe return value ditulis setelah kurung tutup**. Menyebut tipe kembalian sebenarnya opsional karena TypeScript bisa menyimpulkannya dari isi fungsi, tapi menuliskannya di fungsi yang dipakai berkas lain punya nilai tersendiri. Ia mengunci kontraknya, sehingga perubahan tak sengaja di dalam badan fungsi ditolak di tempat alih-alih meledak di pemanggil yang jauh. Fungsi ketiga menunjukkan parameter dengan nilai bawaan, dan tipenya tidak perlu ditulis karena sudah tersimpulkan dari `\'Halo\'`. Dan `void` di fungsi terakhir berarti "memang tidak mengembalikan apa-apa", berbeda dari `undefined` yang berarti nilainya ada tapi kosong, sebab `void` menyatakan bahwa return value-nya memang tidak untuk dipakai.',
       ),
 
       h2('Generic, secukupnya'),
@@ -1007,7 +1007,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perhatikan `<T>` di `pertama<T>(a: T[])`: `T` adalah **placeholder tipe** yang diisi otomatis berdasarkan argumen yang benar-benar dioper. Saat dipanggil dengan `[1, 2, 3]`, TypeScript menyimpulkan `T` adalah `number`, sehingga nilai kembaliannya diketahui bertipe `number | undefined` — bukan `unknown` yang tidak berguna seperti pada `pertamaBuruk`. Generic pada dasarnya adalah cara menulis "tipe hasilnya sama dengan tipe masukannya", tanpa harus menulis fungsi terpisah untuk setiap kemungkinan tipe array.',
+        'Perhatikan `<T>` di `pertama<T>(a: T[])`: `T` adalah **placeholder tipe** yang diisi otomatis berdasarkan argumen yang benar-benar dioper. Saat dipanggil dengan `[1, 2, 3]`, TypeScript menyimpulkan `T` adalah `number`, sehingga return value-nya diketahui bertipe `number | undefined` — bukan `unknown` yang tidak berguna seperti pada `pertamaBuruk`. Generic pada dasarnya adalah cara menulis "tipe hasilnya sama dengan tipe masukannya", tanpa harus menulis fungsi terpisah untuk setiap kemungkinan tipe array.',
       ),
 
       h2('`any`, `unknown`, dan larangan'),
@@ -1023,7 +1023,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Keduanya berarti "belum tahu tipenya", tapi menghasilkan perlakuan yang berlawanan. Dengan `any`, baris `a.apaPunBoleh.tanpaDiperiksa()` **lolos tanpa satu keluhan pun** — TypeScript berhenti memeriksa apa pun yang menyentuh nilai itu, dan kesalahan yang seharusnya tertangkap saat menulis berubah menjadi `TypeError` saat program berjalan di depan pengguna. Dengan `unknown`, mengakses apa pun ditolak sampai kamu **membuktikan** bentuknya lebih dulu. Baris terakhir menunjukkan pembuktian itu: `typeof u === \'string\'` mempersempit tipenya, dan di dalam blok `if` barulah `u.toUpperCase()` diizinkan. Jadi `unknown` tidak menghalangi pekerjaanmu — ia hanya menunda izinnya sampai ada pemeriksaan yang membuat pemakaiannya benar-benar aman.',
+        'Keduanya berarti "belum tahu tipenya", tapi menghasilkan perlakuan yang berlawanan. Dengan `any`, baris `a.apaPunBoleh.tanpaDiperiksa()` **lolos tanpa satu keluhan pun**, sebab TypeScript berhenti memeriksa apa pun yang menyentuh nilai itu, dan kesalahan yang seharusnya tertangkap saat menulis berubah menjadi `TypeError` saat program berjalan di depan pengguna. Dengan `unknown`, mengakses apa pun ditolak sampai kamu **membuktikan** bentuknya lebih dulu. Baris terakhir menunjukkan pembuktian itu, di mana `typeof u === \'string\'` mempersempit tipenya sehingga di dalam blok `if` barulah `u.toUpperCase()` diizinkan. Jadi `unknown` tidak menghalangi pekerjaanmu, melainkan hanya menunda izinnya sampai ada pemeriksaan yang membuat pemakaiannya benar-benar aman.',
       ),
       callout(
         'danger',
@@ -1163,7 +1163,7 @@ export const lessons: LessonDraft[] = [
         },
       ),
       p(
-        'Bandingkan keduanya: **badan komponennya sama persis**, baris demi baris. Yang ditambahkan versi `.tsx` hanya empat baris `type Props` dan satu anotasi `: Props` di parameter — dan dari situ seluruh perbedaan di tabel berikut mengalir. Perhatikan destructuring `{ judul, jumlah }` tidak berubah sama sekali; anotasinya ditempelkan pada **polanya**, bukan pada tiap variabel. Efeknya bekerja dua arah. Di dalam komponen, TypeScript tahu `jumlah` adalah angka, sehingga memanggil `jumlah.toUpperCase()` ditolak. Di luar, pemanggil yang menulis `<Kartu judull="A" />` mendapat error saat mengetik, bukan komponen yang diam-diam menampilkan `undefined`. Empat baris itu juga menjadi dokumentasi yang tidak bisa basi: siapa pun yang membuka berkas ini langsung tahu prop apa yang diterima tanpa membaca isinya.',
+        'Bandingkan keduanya, karena **badan komponennya sama persis** baris demi baris. Yang ditambahkan versi `.tsx` hanya empat baris `type Props` dan satu anotasi `: Props` di parameter, dan dari situ seluruh perbedaan di tabel berikut mengalir. Perhatikan destructuring `{ judul, jumlah }` tidak berubah sama sekali, sebab anotasinya ditempelkan pada **polanya** alih-alih pada tiap variabel. Efeknya bekerja dua arah. Di dalam komponen, TypeScript tahu `jumlah` adalah angka sehingga memanggil `jumlah.toUpperCase()` ditolak. Di luar, pemanggil yang menulis `<Kartu judull="A" />` mendapat error saat mengetik alih-alih komponen yang diam-diam menampilkan `undefined`. Empat baris itu juga menjadi dokumentasi yang tidak bisa basi, sebab siapa pun yang membuka berkas ini langsung tahu prop apa yang diterima tanpa membaca isinya.',
       ),
 
       h2('Apa yang benar-benar berubah'),
@@ -1205,7 +1205,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Masalahnya murni soal tanda kurung siku yang punya **dua arti** di berkas `.tsx`: pembuka generic, dan pembuka tag JSX. Di berkas `.ts` tidak ada JSX, jadi `<T>` tidak ambigu. Begitu berkasnya `.tsx`, pengurai melihat `<T>` di posisi awal ekspresi dan menyimpulkan kamu sedang membuka elemen bernama `T` — lalu mengeluh karena tidak ada penutupnya. Koma pada `<T,>` menyelesaikannya dengan cara yang sederhana: tag JSX tidak pernah memuat koma, jadi kehadirannya cukup memberi tahu pengurai bahwa ini generic. Cara kedua sering lebih enak dibaca: **function declaration tidak pernah ambigu**, karena `<T>` di sana muncul setelah nama fungsi, bukan di posisi awal ekspresi. Kalau kamu bertemu error JSX yang aneh pada arrow function generic, penyebabnya hampir selalu ini.',
+        'Masalahnya murni soal tanda kurung siku yang punya **dua arti** di berkas `.tsx`, yaitu pembuka generic dan pembuka tag JSX. Di berkas `.ts` tidak ada JSX, jadi `<T>` tidak ambigu. Begitu berkasnya `.tsx`, pengurai melihat `<T>` di posisi awal ekspresi dan menyimpulkan kamu sedang membuka elemen bernama `T`, lalu mengeluh karena tidak ada penutupnya. Koma pada `<T,>` menyelesaikannya dengan cara yang sederhana, sebab tag JSX tidak pernah memuat koma sehingga kehadirannya cukup memberi tahu pengurai bahwa ini generic. Cara kedua sering lebih enak dibaca, karena **function declaration tidak pernah ambigu** sebab `<T>` di sana muncul setelah nama fungsi alih-alih di posisi awal ekspresi. Kalau kamu bertemu error JSX yang aneh pada arrow function generic, penyebabnya hampir selalu ini.',
       ),
 
       h2('Konfigurasi minimum'),
@@ -1317,7 +1317,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'void',
           meaning:
-            'Tipe kembalian yang berarti **"nilai kembaliannya tidak dipakai"**. Dipakai untuk hampir semua callback prop. Perlu diketahui, ia sedikit longgar: fungsi yang sebenarnya mengembalikan sesuatu tetap boleh dipasang — nilainya saja yang diabaikan.',
+            'Tipe kembalian yang berarti **"return value-nya tidak dipakai"**. Dipakai untuk hampir semua callback prop. Perlu diketahui, ia sedikit longgar: fungsi yang sebenarnya mengembalikan sesuatu tetap boleh dipasang — nilainya saja yang diabaikan.',
         },
         {
           term: 'ComponentProps',
@@ -1348,7 +1348,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Empat baris `Props` itu sekaligus menjadi **dokumentasi komponen ini**. Tanda tanya pada `jumlah?` menandainya opsional, sehingga `<Kartu judul="A" onKlik={...} />` sah tanpa menyebut jumlah — sedangkan `judul` dan `onKlik` yang tanpa tanda tanya wajib diisi, dan melewatkannya menjadi error saat menulis. Dua baris terakhir menunjukkan cara menipekan **fungsi**: `() => void` berarti "fungsi tanpa parameter yang nilainya tidak dipakai", sedangkan `(id: string) => void` mengharuskan pemanggil menyediakan fungsi yang menerima satu string — sehingga mengirim handler dengan bentuk parameter yang salah langsung ditolak. Perhatikan `jumlah = 0` di destructuring adalah nilai bawaan JavaScript biasa, bukan bagian dari tipe; keduanya bekerja berpasangan — tipe menyatakan boleh kosong, nilai bawaan menentukan apa yang dipakai saat memang kosong.',
+        'Empat baris `Props` itu sekaligus menjadi **dokumentasi komponen ini**. Tanda tanya pada `jumlah?` menandainya opsional, sehingga `<Kartu judul="A" onKlik={...} />` sah tanpa menyebut jumlah, sedangkan `judul` dan `onKlik` yang tanpa tanda tanya wajib diisi dan melewatkannya menjadi error saat menulis. Dua baris terakhir menunjukkan cara menipekan **fungsi**. `() => void` berarti "fungsi tanpa parameter yang nilainya tidak dipakai", sedangkan `(id: string) => void` mengharuskan pemanggil menyediakan fungsi yang menerima satu string, sehingga mengirim handler dengan bentuk parameter yang salah langsung ditolak. Perhatikan `jumlah = 0` di destructuring adalah nilai bawaan JavaScript biasa dan bukan bagian dari tipe, sebab keduanya bekerja berpasangan, dengan tipe yang menyatakan boleh kosong dan nilai bawaan yang menentukan apa yang dipakai saat memang kosong.',
       ),
 
       h2('`children`'),
@@ -1373,7 +1373,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Yang baru di sini adalah `children` sebagai **prop biasa yang perlu ditipekan** — dan itu masuk akal setelah sub-bab kompilasi menunjukkan bahwa isi di antara tag memang berakhir sebagai field bernama `children`. Tipenya `ReactNode`, yang sengaja luas karena isi sebuah komponen bisa apa saja: elemen JSX, string, angka, array dari semuanya, bahkan `null` saat pemanggil memilih tidak mengisi apa-apa. Di dalam badan komponen, `{children}` cukup ditaruh di posisi yang kamu inginkan — komponen ini tidak perlu tahu apa isinya. Perhatikan `children` harus ditulis di `Props` seperti prop lain; ia **tidak lagi ditambahkan otomatis** sejak tipe React 18, dan itulah alasan utama `React.FC` di kotak peringatan bawah kehilangan daya tariknya.',
+        'Yang baru di sini adalah `children` sebagai **prop biasa yang perlu ditipekan**, dan itu masuk akal setelah sub-bab kompilasi menunjukkan bahwa isi di antara tag memang berakhir sebagai field bernama `children`. Tipenya `ReactNode` yang sengaja luas, karena isi sebuah komponen bisa apa saja, mulai dari elemen JSX, string, angka, array dari semuanya, bahkan `null` saat pemanggil memilih tidak mengisi apa-apa. Di dalam badan komponen, `{children}` cukup ditaruh di posisi yang kamu inginkan, sebab komponen ini tidak perlu tahu apa isinya. Perhatikan `children` harus ditulis di `Props` seperti prop lain, karena ia **tidak lagi ditambahkan otomatis** sejak tipe React 18, dan itulah alasan utama `React.FC` di kotak peringatan bawah kehilangan daya tariknya.',
       ),
       table(
         ['Tipe', 'Menerima'],
@@ -1408,7 +1408,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Ini versi bertipe dari pola rest+spread yang sudah kamu tulis di Bab 1. Tanda `&` pada `ComponentProps<'button'> & { varian?: ... }` adalah **intersection**: hasilnya tipe yang memuat seluruh atribut `<button>` **ditambah** prop milikmu sendiri. Di parameter, `varian` dan `className` diambil untuk diolah, sedangkan `...sisa` menampung semua atribut tombol lainnya lalu ditumpahkan kembali ke elemennya — sehingga `type`, `disabled`, `onClick`, dan `aria-label` semuanya bekerja tanpa kamu daftarkan satu per satu, **dan semuanya bertipe benar**. `className` sengaja tidak ikut ke `...sisa` karena ia perlu digabung dengan kelas varian; `?? ''` menjaga agar tidak muncul teks `undefined` saat pemanggil tidak mengirimnya.",
+        "Ini versi bertipe dari pola rest+spread yang sudah kamu tulis di Bab 1. Tanda `&` pada `ComponentProps<'button'> & { varian?: ... }` adalah **intersection**, sehingga hasilnya tipe yang memuat seluruh atribut `<button>` **ditambah** prop milikmu sendiri. Di parameter, `varian` dan `className` diambil untuk diolah, sedangkan `...sisa` menampung semua atribut tombol lainnya lalu ditumpahkan kembali ke elemennya, sehingga `type`, `disabled`, `onClick`, dan `aria-label` semuanya bekerja tanpa kamu daftarkan satu per satu **dan semuanya bertipe benar**. `className` sengaja tidak ikut ke `...sisa` karena ia perlu digabung dengan kelas varian, sedangkan `?? ''` menjaga agar tidak muncul teks `undefined` saat pemanggil tidak mengirimnya.",
       ),
       p(
         '`ComponentProps<"button">` mengambil seluruh tipe atribut `<button>` sekaligus — termasuk yang belum ada saat kamu menulisnya.',
@@ -1437,7 +1437,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "`Buruk` di atas tidak ditolak TypeScript — kombinasi `href` dan `onClick` sekaligus tetap lolos kompilasi, karena keduanya sama-sama opsional dan boleh diisi bersamaan. Discriminated union memperbaikinya dengan menambahkan field pembeda `sebagai`: begitu `sebagai: 'tautan'` dipilih, TypeScript tahu satu-satunya bentuk `Props` yang cocok adalah yang punya `href`, sehingga menulis `onClick` di kombinasi itu langsung ditolak sebelum kode sempat dijalankan — pola yang sama persis dengan discriminated union `Keadaan` di sub-bab TypeScript sekilas.",
+        "`Buruk` di atas tidak ditolak TypeScript, sebab kombinasi `href` dan `onClick` sekaligus tetap lolos kompilasi karena keduanya sama-sama opsional dan boleh diisi bersamaan. Discriminated union memperbaikinya dengan menambahkan field pembeda `sebagai`. Begitu `sebagai: 'tautan'` dipilih, TypeScript tahu satu-satunya bentuk `Props` yang cocok adalah yang punya `href`, sehingga menulis `onClick` di kombinasi itu langsung ditolak sebelum kode sempat dijalankan, pola yang sama persis dengan discriminated union `Keadaan` di sub-bab TypeScript sekilas.",
       ),
 
       h2('Yang sering salah'),
@@ -1459,7 +1459,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Dua bentuk pertama sama-sama membuat TypeScript berhenti membantu, meski dengan cara berbeda. `object` memang menolak angka dan string, tapi ia tidak tahu **field apa pun** di dalamnya — sehingga `data.nama` ditolak justru karena TypeScript tidak yakin field itu ada. `any` lebih buruk lagi: ia mengizinkan segalanya, termasuk `data.namaYangSalahKetik`, dan kesalahan yang seharusnya tertangkap saat menulis berpindah ke runtime. Dua bentuk terakhir menuliskan bentuknya dengan jujur. Bedanya, `P3` menulis bentuknya di tempat, sedangkan `P4` mengimpor tipe bersama — dan itu yang sebaiknya kamu pilih begitu bentuk data yang sama muncul di lebih dari satu komponen, karena satu definisi berarti satu tempat untuk diperbarui. Perhatikan `import type` di sana: kata `type` membuat impornya **dihapus seluruhnya** saat build, sehingga tidak menambah apa pun ke bundle.',
+        'Dua bentuk pertama sama-sama membuat TypeScript berhenti membantu, meski dengan cara berbeda. `object` memang menolak angka dan string, tapi ia tidak tahu **field apa pun** di dalamnya, sehingga `data.nama` ditolak justru karena TypeScript tidak yakin field itu ada. `any` lebih buruk lagi, sebab ia mengizinkan segalanya termasuk `data.namaYangSalahKetik`, dan kesalahan yang seharusnya tertangkap saat menulis berpindah ke runtime. Dua bentuk terakhir menuliskan bentuknya dengan jujur. Bedanya, `P3` menulis bentuknya di tempat sedangkan `P4` mengimpor tipe bersama, dan itu yang sebaiknya kamu pilih begitu bentuk data yang sama muncul di lebih dari satu komponen, karena satu definisi berarti satu tempat untuk diperbarui. Perhatikan `import type` di sana, sebab kata `type` membuat impornya **dihapus seluruhnya** saat build sehingga tidak menambah apa pun ke bundle.',
       ),
 
       divider,
@@ -1571,7 +1571,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Ketiga baris ini tidak punya satu pun anotasi, dan itu memang yang dianjurkan. TypeScript tahu bahwa `onChange` pada `<input>` menerima fungsi dengan parameter bertipe tertentu, jadi tipe `e` **mengalir masuk** dari posisi tempat fungsinya ditulis — mekanisme yang disebut *contextual typing*. Hasilnya bukan sekadar hemat mengetik: karena tipenya diketahui, `e.target.value` langsung dikenali sebagai string, sedangkan `e.target.valuee` yang salah ketik ditolak. Perhatikan juga `e.currentTarget` pada baris ketiga — ia bertipe `HTMLButtonElement` yang tepat, bukan `HTMLElement` yang terlalu umum. Anotasi baru diperlukan ketika handler dipindah ke luar JSX, seperti di bagian berikutnya, karena di sana tidak ada lagi konteks yang bisa dibaca TypeScript.',
+        'Ketiga baris ini tidak punya satu pun anotasi, dan itu memang yang dianjurkan. TypeScript tahu bahwa `onChange` pada `<input>` menerima fungsi dengan parameter bertipe tertentu, jadi tipe `e` **mengalir masuk** dari posisi tempat fungsinya ditulis lewat mekanisme yang disebut *contextual typing*. Hasilnya bukan sekadar hemat mengetik, sebab karena tipenya diketahui, `e.target.value` langsung dikenali sebagai string sedangkan `e.target.valuee` yang salah ketik ditolak. Perhatikan juga `e.currentTarget` pada baris ketiga, yang bertipe `HTMLButtonElement` yang tepat alih-alih `HTMLElement` yang terlalu umum. Anotasi baru diperlukan ketika handler dipindah ke luar JSX seperti di bagian berikutnya, karena di sana tidak ada lagi konteks yang bisa dibaca TypeScript.',
       ),
       callout(
         'tip',
@@ -1603,7 +1603,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Pola tipenya seragam: **nama event diikuti tipe elemennya di dalam kurung siku** — `ChangeEvent<HTMLInputElement>`, `FormEvent<HTMLFormElement>`, dan seterusnya. Bagian dalam kurung siku itu yang menentukan property apa yang tersedia; menyebut `HTMLElement` yang terlalu umum membuat `e.target.value` ditolak karena tidak semua elemen punya `value`. Perhatikan `import type` di baris pertama — semua ini murni tipe, jadi impornya hilang saat build. Dua contoh terakhir memakai `e.currentTarget`, bukan `e.target`, dan itu disengaja: seperti dibahas di bab DOM, `currentTarget` selalu elemen tempat handler terpasang sehingga tipenya pasti, sedangkan `target` bisa berupa elemen anak mana pun. Untuk `onUbah`, `e.target` aman dipakai karena `<input>` memang tidak punya anak.',
+        'Pola tipenya seragam, yaitu **nama event diikuti tipe elemennya di dalam kurung siku**, seperti `ChangeEvent<HTMLInputElement>` dan `FormEvent<HTMLFormElement>`. Bagian dalam kurung siku itu yang menentukan property apa yang tersedia, sehingga menyebut `HTMLElement` yang terlalu umum membuat `e.target.value` ditolak karena tidak semua elemen punya `value`. Perhatikan `import type` di baris pertama, sebab semua ini murni tipe sehingga impornya hilang saat build. Dua contoh terakhir memakai `e.currentTarget` alih-alih `e.target`, dan itu disengaja. Seperti dibahas di bab DOM, `currentTarget` selalu elemen tempat handler terpasang sehingga tipenya pasti, sedangkan `target` bisa berupa elemen anak mana pun. Untuk `onUbah`, `e.target` aman dipakai karena `<input>` memang tidak punya anak.',
       ),
       table(
         ['Elemen', 'Tipe event'],
@@ -1648,7 +1648,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Tiga bagian di sini bekerja sebagai satu rangkaian. `useRef<HTMLInputElement>(null)` membuat wadah kosong dengan tipe elemen yang **disebutkan eksplisit** — tanpa itu, TypeScript tidak tahu isinya nanti apa. Atribut `ref={inputRef}` pada JSX yang menyuruh React mengisi wadah itu dengan elemen DOM sungguhan setelah render. Dan `useEffect` dengan array dependensi kosong menjalankan `focus()` **satu kali setelah render pertama** — waktu yang tepat, karena sebelum render selesai elemennya belum ada. Baris `inputRef.current?.focus()` memakai optional chaining bukan sebagai formalitas: seperti dijelaskan di kotak berikut, `current` benar-benar `null` sebelum React mengisinya, dan TypeScript memaksamu mengakui kemungkinan itu.',
+        'Tiga bagian di sini bekerja sebagai satu rangkaian. `useRef<HTMLInputElement>(null)` membuat wadah kosong dengan tipe elemen yang **disebutkan eksplisit**, sebab tanpa itu TypeScript tidak tahu isinya nanti apa. Atribut `ref={inputRef}` pada JSX yang menyuruh React mengisi wadah itu dengan elemen DOM sungguhan setelah render. Dan `useEffect` dengan array dependensi kosong menjalankan `focus()` **satu kali setelah render pertama**, yaitu waktu yang tepat karena sebelum render selesai elemennya belum ada. Baris `inputRef.current?.focus()` memakai optional chaining bukan sebagai formalitas, sebab seperti dijelaskan di kotak berikut `current` benar-benar `null` sebelum React mengisinya, dan TypeScript memaksamu mengakui kemungkinan itu.',
       ),
       callout(
         'warning',
@@ -1665,11 +1665,11 @@ export const lessons: LessonDraft[] = [
         const hitungRef = useRef(0);
 
         timerRef.current = setTimeout(fn, 300);
-        hitungRef.current += 1;               // tidak menyebabkan render ulang
+        hitungRef.current += 1;               // tidak menyebabkan re-render
         `,
       ),
       p(
-        'Ini pemakaian `useRef` yang kedua dan sering tidak disangka: **wadah untuk nilai yang bertahan antar-render tapi tidak memicu render ulang**. Bedanya dengan state penting — mengubah state menggambar ulang komponen, mengubah `ref.current` tidak. Karena itu ref cocok untuk hal-hal yang tidak perlu terlihat di layar, seperti id timer atau penghitung untuk keperluan internal. Tipe `ReturnType<typeof setTimeout>` dipakai alih-alih `number` karena `setTimeout` mengembalikan jenis nilai yang berbeda di browser dan di Node; menuliskannya begitu membuat kodenya benar di keduanya tanpa menebak. Untuk `hitungRef`, tipenya tidak perlu disebut sama sekali — nilai awal `0` sudah cukup untuk disimpulkan sebagai `number`.',
+        'Ini pemakaian `useRef` yang kedua dan sering tidak disangka, yaitu **wadah untuk nilai yang bertahan antar-render tapi tidak memicu re-render**. Bedanya dengan state penting, sebab mengubah state menggambar ulang komponen sedangkan mengubah `ref.current` tidak. Karena itu ref cocok untuk hal-hal yang tidak perlu terlihat di layar, seperti id timer atau penghitung untuk keperluan internal. Tipe `ReturnType<typeof setTimeout>` dipakai alih-alih `number` karena `setTimeout` mengembalikan jenis nilai yang berbeda di browser dan di Node, dan menuliskannya begitu membuat kodenya benar di keduanya tanpa menebak. Untuk `hitungRef`, tipenya tidak perlu disebut sama sekali, sebab nilai awal `0` sudah cukup untuk disimpulkan sebagai `number`.',
       ),
 
       h2('React 19: `ref` jadi prop biasa'),
@@ -1690,7 +1690,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Sebelum React 19, `ref` tidak bisa diterima seperti prop biasa — komponen fungsi harus dibungkus `forwardRef` khusus supaya bisa meneruskan ref ke elemen di dalamnya, dan itulah kenapa banyak kode lama terlihat seperti versi pertama di atas. React 19 menyederhanakannya: `ref` sekarang cukup didestrukturisasi dari `props` seperti prop lain mana pun, dan komponennya ditulis sebagai fungsi biasa tanpa pembungkus tambahan — mengurangi satu lapisan yang sebelumnya wajib dipahami hanya untuk meneruskan sebuah ref.',
+        'Sebelum React 19, `ref` tidak bisa diterima seperti prop biasa, karena komponen fungsi harus dibungkus `forwardRef` khusus supaya bisa meneruskan ref ke elemen di dalamnya, dan itulah kenapa banyak kode lama terlihat seperti versi pertama di atas. React 19 menyederhanakannya, sebab `ref` sekarang cukup didestrukturisasi dari `props` seperti prop lain mana pun, dan komponennya ditulis sebagai fungsi biasa tanpa pembungkus tambahan. Itu mengurangi satu lapisan yang sebelumnya wajib dipahami hanya untuk meneruskan sebuah ref.',
       ),
 
       divider,
@@ -1772,7 +1772,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'boolean prop explosion',
           meaning:
-            'Terjemahan bebasnya **ledakan prop boolean**. Keadaan ketika sebuah komponen mengumpulkan banyak prop `true`/`false` — `withHeader`, `isLoading`, `hasError`, `isEmpty` — sampai kombinasinya jadi mustahil ditelusuri. Empat prop boolean berarti **16 kombinasi**, dan sebagian besar di antaranya tidak masuk akal.',
+            'Terjemahan bebasnya **ledakan prop boolean**. Keadaan ketika sebuah komponen mengumpulkan banyak prop `true`/`false` seperti `withHeader`, `isLoading`, `hasError`, dan `isEmpty`, sampai kombinasinya jadi mustahil ditelusuri. Empat prop boolean berarti **16 kombinasi**, dan sebagian besar di antaranya tidak masuk akal.',
         },
         {
           term: 'discriminated union',
@@ -1811,7 +1811,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Masalahnya muncul karena `unknown` **memutus hubungan** antara apa yang masuk dan apa yang keluar. Komponen ini menerima array apa pun, tapi begitu `render` dipanggil, TypeScript tidak lagi punya cara mengetahui bahwa item yang dioper berasal dari array itu — jadi ia hanya bisa menjanjikan `unknown`, dan mengakses `t.judul` ditolak. Perlu ditegaskan `unknown` di sini **bukan kesalahan**; ia justru pilihan yang jujur, karena tanpa generic memang tidak ada informasi yang bisa dipertahankan. Mengganti `unknown` dengan `any` akan menghilangkan errornya, tapi juga menghilangkan seluruh manfaat pemeriksaan — salah ketik `t.judull` akan lolos diam-diam. Yang dibutuhkan adalah cara menyatakan "tipe item di `render` **sama dengan** tipe elemen di `items`", dan itulah tepatnya yang dilakukan generic di bagian berikutnya.',
+        'Masalahnya muncul karena `unknown` **memutus hubungan** antara apa yang masuk dan apa yang keluar. Komponen ini menerima array apa pun, tapi begitu `render` dipanggil, TypeScript tidak lagi punya cara mengetahui bahwa item yang dioper berasal dari array itu, jadi ia hanya bisa menjanjikan `unknown` dan mengakses `t.judul` ditolak. Perlu ditegaskan `unknown` di sini **bukan kesalahan**, melainkan justru pilihan yang jujur karena tanpa generic memang tidak ada informasi yang bisa dipertahankan. Mengganti `unknown` dengan `any` akan menghilangkan errornya, tapi juga menghilangkan seluruh manfaat pemeriksaan, sehingga salah ketik `t.judull` akan lolos diam-diam. Yang dibutuhkan adalah cara menyatakan "tipe item di `render` **sama dengan** tipe elemen di `items`", dan itulah tepatnya yang dilakukan generic di bagian berikutnya.',
       ),
 
       h2('Dengan generic'),
@@ -1849,7 +1849,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Huruf `T` di sini adalah **placeholder** yang nilainya baru ditentukan saat komponen dipakai. `Props<T>` menyatakan bahwa `items` berisi `T`, dan bahwa `render` maupun `kunci` menerima `T` yang sama — hubungan itulah yang tadi hilang saat memakai `unknown`. Karena `items={tugas}` berisi array `Tugas`, TypeScript menyimpulkan `T` adalah `Tugas`, lalu **mengalirkannya** ke kedua fungsi: `t` di `render` dan `kunci` otomatis bertipe `Tugas`, sehingga `t.judul` dikenali dan `t.judull` ditolak. Perhatikan komponen ini juga menangani keadaan kosong lewat prop `kosong` dengan `??` sebagai nilai bawaan — pola empat keadaan UI yang sama seperti di bab AJAX. Dan `kunci` sengaja dibuat sebagai fungsi, bukan nama field berupa string, supaya identitas baris tetap terjamin apa pun bentuk datanya.',
+        'Huruf `T` di sini adalah **placeholder** yang nilainya baru ditentukan saat komponen dipakai. `Props<T>` menyatakan bahwa `items` berisi `T`, dan bahwa `render` maupun `kunci` menerima `T` yang sama, dan hubungan itulah yang tadi hilang saat memakai `unknown`. Karena `items={tugas}` berisi array `Tugas`, TypeScript menyimpulkan `T` adalah `Tugas` lalu **mengalirkannya** ke kedua fungsi, sehingga `t` di `render` dan `kunci` otomatis bertipe `Tugas`, dan `t.judul` dikenali sedangkan `t.judull` ditolak. Perhatikan komponen ini juga menangani empty state lewat prop `kosong` dengan `??` sebagai nilai bawaan, mengikuti pola empat keadaan UI yang sama seperti di bab AJAX. Dan `kunci` sengaja dibuat sebagai fungsi alih-alih nama field berupa string, supaya identitas baris tetap terjamin apa pun bentuk datanya.',
       ),
       callout(
         'info',
@@ -1879,7 +1879,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Perhatikan bedanya dari `Daftar` sebelumnya: karena `T extends { id: string }` memastikan setiap item pasti punya `id`, komponen ini tidak perlu lagi menerima prop `kunci` terpisah — ia bisa langsung memakai `item.id` sebagai `key`. Batasan ini juga bekerja sebagai penjaga di sisi pemakai: mencoba `<DaftarBerId items={[{ nama: 'x' }]} .../>` pada array yang objeknya tidak punya `id` ditolak TypeScript sebelum kode sempat dijalankan, bukan meledak nanti saat `item.id` ternyata `undefined`.",
+        "Perhatikan bedanya dari `Daftar` sebelumnya. Karena `T extends { id: string }` memastikan setiap item pasti punya `id`, komponen ini tidak perlu lagi menerima prop `kunci` terpisah dan bisa langsung memakai `item.id` sebagai `key`. Batasan ini juga bekerja sebagai penjaga di sisi pemakai, sebab mencoba `<DaftarBerId items={[{ nama: 'x' }]} .../>` pada array yang objeknya tidak punya `id` ditolak TypeScript sebelum kode sempat dijalankan, alih-alih meledak nanti saat `item.id` ternyata `undefined`.",
       ),
 
       h2('Menghapus ledakan boolean prop'),
@@ -1898,7 +1898,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Empat prop opsional yang berdiri sendiri-sendiri menghasilkan **enam belas kombinasi**, dan hanya empat di antaranya yang masuk akal. Baris terakhir adalah salah satu yang tidak: sedang memuat, sekaligus gagal, sekaligus punya data. TypeScript tidak protes sama sekali karena semua propnya opsional dan boleh diisi bersamaan — jadi tipe seperti ini **terlihat aman padahal tidak menjaga apa-apa**. Akibatnya beban pindah ke badan komponen, yang harus memeriksa urutan prioritas sendiri dengan rantai `if`, dan pemeriksaan itu mudah tertinggal saat keadaan kelima ditambahkan nanti. Ini bentuk umum dari masalah yang sama: menyimpan satu keadaan sebagai beberapa nilai terpisah selalu membuka kemungkinan kombinasi yang tidak dimaksudkan siapa pun.',
+        'Empat prop opsional yang berdiri sendiri-sendiri menghasilkan **enam belas kombinasi**, dan hanya empat di antaranya yang masuk akal. Baris terakhir adalah salah satu yang tidak, yaitu sedang memuat, sekaligus gagal, sekaligus punya data. TypeScript tidak protes sama sekali karena semua propnya opsional dan boleh diisi bersamaan, jadi tipe seperti ini **terlihat aman padahal tidak menjaga apa-apa**. Akibatnya beban pindah ke badan komponen, yang harus memeriksa urutan prioritas sendiri dengan rantai `if`, dan pemeriksaan itu mudah tertinggal saat keadaan kelima ditambahkan nanti. Ini bentuk umum dari masalah yang sama, sebab menyimpan satu keadaan sebagai beberapa nilai terpisah selalu membuka kemungkinan kombinasi yang tidak dimaksudkan siapa pun.',
       ),
       code(
         'tsx',
@@ -1925,7 +1925,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Enam belas kombinasi tadi menyusut menjadi **tepat empat**, dan tiga baris pemakaian di bawah membuktikannya: yang benar diterima, yang kurang lengkap ditolak, yang bercampur ditolak. Perhatikan `Panel` di sini tidak memakai satu pun `if` untuk memeriksa keadaan yang tidak konsisten — `switch` atas `props.status` sudah cukup, dan di tiap `case` TypeScript **mempersempit** tipe `props` sehingga `props.pesan` dan `props.data` hanya bisa diakses di cabang yang memang memilikinya. Ada bonus yang sangat berharga: kalau nanti kamu menambahkan varian kelima ke `Keadaan`, TypeScript akan menandai `switch` ini karena ada cabang yang belum ditangani — pengingat otomatis yang tidak mungkin didapat dari rangkaian boolean.',
+        'Enam belas kombinasi tadi menyusut menjadi **tepat empat**, dan tiga baris pemakaian di bawah membuktikannya, karena yang benar diterima sedangkan yang kurang lengkap dan yang bercampur sama-sama ditolak. Perhatikan `Panel` di sini tidak memakai satu pun `if` untuk memeriksa keadaan yang tidak konsisten, sebab `switch` atas `props.status` sudah cukup, dan di tiap `case` TypeScript **mempersempit** tipe `props` sehingga `props.pesan` dan `props.data` hanya bisa diakses di cabang yang memang memilikinya. Ada bonus yang sangat berharga. Kalau nanti kamu menambahkan varian kelima ke `Keadaan`, TypeScript akan menandai `switch` ini karena ada cabang yang belum ditangani, sebuah pengingat otomatis yang tidak mungkin didapat dari rangkaian boolean.',
       ),
       callout(
         'tip',
@@ -1953,7 +1953,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Pola ini membuat **tag yang dirender bisa dipilih pemanggil**, dan tipenya ikut menyesuaikan: `<Kotak as="a" href="/x" />` diterima karena `<a>` memang punya `href`, sedangkan `href` pada `as="section"` akan ditolak. Kuncinya `T extends ElementType`, yang membatasi `T` hanya pada hal-hal yang benar-benar bisa dirender, lalu `ComponentProps<T>` mengambil atribut milik tag itu. `Omit<..., \'as\'>` membuang `as` dari daftar atribut supaya tidak bentrok dengan prop kita sendiri, dan `= \'div\'` memberi nilai bawaan sehingga `<Kotak />` polos tetap sah. Perhatikan `const Komponen = as ?? \'div\'` disimpan ke variabel **berhuruf besar** — itu wajib, karena seperti dibahas di sub-bab anatomi, JSX memakai huruf pertama untuk membedakan komponen dari tag HTML. Tapi bacalah peringatan berikutnya dengan serius: kerumitan tipe ini nyata, dan dua komponen terpisah biasanya lebih baik.',
+        'Pola ini membuat **tag yang dirender bisa dipilih pemanggil**, dan tipenya ikut menyesuaikan, sebab `<Kotak as="a" href="/x" />` diterima karena `<a>` memang punya `href`, sedangkan `href` pada `as="section"` akan ditolak. Kuncinya `T extends ElementType`, yang membatasi `T` hanya pada hal-hal yang benar-benar bisa dirender, lalu `ComponentProps<T>` mengambil atribut milik tag itu. `Omit<..., \'as\'>` membuang `as` dari daftar atribut supaya tidak bentrok dengan prop kita sendiri, dan `= \'div\'` memberi nilai bawaan sehingga `<Kotak />` polos tetap sah. Perhatikan `const Komponen = as ?? \'div\'` disimpan ke variabel **berhuruf besar**, dan itu wajib karena seperti dibahas di sub-bab anatomi, JSX memakai huruf pertama untuk membedakan komponen dari tag HTML. Tetapi bacalah peringatan berikutnya dengan serius, sebab kerumitan tipe ini nyata, dan dua komponen terpisah biasanya lebih baik.',
       ),
       callout(
         'warning',
@@ -2040,7 +2040,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'validasi runtime',
           meaning:
-            'Pemeriksaan bentuk data **saat program berjalan**, memakai pustaka seperti Zod. Wajib untuk data dari luar, karena TypeScript sudah dihapus di titik itu. Menulis `data as Tugas[]` hanya **membungkam** pemeriksa, bukan membuktikan apa pun.',
+            'Pemeriksaan bentuk data **saat program berjalan**, memakai library seperti Zod. Wajib untuk data dari luar, karena TypeScript sudah dihapus di titik itu. Menulis `data as Tugas[]` hanya **membungkam** pemeriksa, bukan membuktikan apa pun.',
         },
         {
           term: 'type assertion',
@@ -2060,7 +2060,7 @@ export const lessons: LessonDraft[] = [
         [
           ['Waktu belajar sistem tipe', 'Bug props tertangkap sebelum dijalankan'],
           ['Beberapa baris definisi tipe', 'Autocomplete yang benar-benar akurat'],
-          ['Sesekali bergulat dengan tipe pustaka', 'Rename dan refactor otomatis yang aman'],
+          ['Sesekali bergulat dengan tipe library', 'Rename dan refactor otomatis yang aman'],
           ['Waktu build sedikit lebih lama', 'Bentuk data dari API terdokumentasi di kode'],
         ],
       ),
@@ -2074,7 +2074,7 @@ export const lessons: LessonDraft[] = [
           ['Project yang hidup lebih dari sebulan', '**TSX**'],
           ['Lebih dari satu orang mengerjakannya', '**TSX**'],
           ['Banyak data dari API', '**TSX**'],
-          ['Membangun pustaka/komponen bersama', '**TSX** — pemakainya butuh tipenya'],
+          ['Membangun library/komponen bersama', '**TSX** — pemakainya butuh tipenya'],
         ],
       ),
       callout(
@@ -2098,7 +2098,7 @@ export const lessons: LessonDraft[] = [
         { filename: 'tsconfig.json' },
       ),
       p(
-        'Konfigurasi ini sengaja berbeda dari yang dianjurkan untuk project baru, dan perbedaannya ada pada dua baris. `"allowJs": true` mengizinkan berkas `.js` dan `.jsx` **hidup berdampingan** dengan `.tsx` — tanpa itu, migrasi menuntut mengubah seluruh project sekaligus, yang jarang realistis. `"strict": false` sengaja ditulis sebagai keadaan **sementara**, dan komentarnya menegaskan itu: menyalakan `strict` di hari pertama migrasi berarti menghadapi ratusan error dari berkas yang bahkan belum kamu sentuh, dan itu cara paling cepat membuat migrasinya ditinggalkan. Urutan yang disarankan di bawah mengikuti logika yang sama — mulai dari komponen daun karena ia tidak bergantung pada tipe komponen lain, sehingga tiap langkah selesai tanpa menunggu langkah berikutnya.',
+        'Konfigurasi ini sengaja berbeda dari yang dianjurkan untuk project baru, dan perbedaannya ada pada dua baris. `"allowJs": true` mengizinkan berkas `.js` dan `.jsx` **hidup berdampingan** dengan `.tsx`, sebab tanpa itu migrasi menuntut mengubah seluruh project sekaligus, yang jarang realistis. `"strict": false` sengaja ditulis sebagai keadaan **sementara**, dan komentarnya menegaskan hal itu. Menyalakan `strict` di hari pertama migrasi berarti menghadapi ratusan error dari berkas yang bahkan belum kamu sentuh, dan itu cara paling cepat membuat migrasinya ditinggalkan. Urutan yang disarankan di bawah mengikuti logika yang sama, yaitu mulai dari komponen daun karena ia tidak bergantung pada tipe komponen lain, sehingga tiap langkah selesai tanpa menunggu langkah berikutnya.',
       ),
       ol(
         'Ubah satu berkas dari `.jsx` menjadi `.tsx`.',
@@ -2185,7 +2185,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'strictNullChecks',
           meaning:
-            'Pemeriksaan yang membuat `null` dan `undefined` **tidak bisa masuk diam-diam** ke tempat yang tidak mengharapkannya. Ini yang menangkap bug `Cannot read properties of undefined` — kelas error yang paling sering muncul di produksi — sebelum kodenya sempat dijalankan.',
+            'Pemeriksaan yang membuat `null` dan `undefined` **tidak bisa masuk diam-diam** ke tempat yang tidak mengharapkannya. Ini yang menangkap bug `Cannot read properties of undefined`, kelas error yang paling sering muncul di produksi, sebelum kodenya sempat dijalankan.',
         },
         {
           term: 'union literal',
@@ -2242,7 +2242,7 @@ export const lessons: LessonDraft[] = [
         { filename: 'DaftarTugas.jsx' },
       ),
       p(
-        "Perhatikan komponen ini **sudah bekerja dengan benar** — tidak ada yang perlu diperbaiki dari sisi perilaku. Yang tidak terlihat justru pertanyaannya: apa isi `tugas`? Nilai apa saja yang sah untuk `filter`? `onToggle` menerima apa — id, atau objek tugasnya? Jawaban ketiganya hanya ada di kepala penulisnya, dan pemakai komponen ini harus menebaknya dengan membaca isi fungsi. Rantai ternary di dalam `filter` juga menyimpan risiko: kalau `filter` bernilai `'aktiv'` karena salah ketik, tidak ada cabang yang cocok, `filter` mengembalikan semua item dengan syarat terakhir, dan daftarnya salah **tanpa satu pun error**. Itulah kelas kesalahan yang akan ditangkap begitu ekstensinya diganti di langkah berikutnya.",
+        "Perhatikan komponen ini **sudah bekerja dengan benar**, sehingga tidak ada yang perlu diperbaiki dari sisi perilaku. Yang tidak terlihat justru pertanyaannya. Apa isi `tugas`? Nilai apa saja yang sah untuk `filter`? `onToggle` menerima apa, id atau objek tugasnya? Jawaban ketiganya hanya ada di kepala penulisnya, dan pemakai komponen ini harus menebaknya dengan membaca isi fungsi. Rantai ternary di dalam `filter` juga menyimpan risiko, sebab kalau `filter` bernilai `'aktiv'` karena salah ketik, tidak ada cabang yang cocok, `filter` mengembalikan semua item dengan syarat terakhir, dan daftarnya salah **tanpa satu pun error**. Itulah kelas kesalahan yang akan ditangkap begitu ekstensinya diganti di langkah berikutnya.",
       ),
 
       h2('2. Ganti ekstensi dan baca errornya'),
@@ -2292,7 +2292,7 @@ export const lessons: LessonDraft[] = [
         { filename: 'DaftarTugas.tsx' },
       ),
       p(
-        "Perhatikan komentar `// ... isi sama persis`: **badan komponennya tidak berubah satu baris pun**. Seluruh migrasi ini hanya menambahkan deklarasi tipe di atasnya. `Tugas` dan `Filter` sengaja di-`export` karena keduanya menggambarkan bentuk data yang dipakai bersama — komponen induk yang menyusun daftarnya butuh tipe yang sama, dan mengimpornya jauh lebih baik daripada menulis ulang bentuk yang gampang menyimpang. `Filter` ditulis sebagai union literal, bukan `string`, dan itulah yang nanti menangkap salah ketik `'aktiv'` di langkah berikutnya. Tanda tangan `(id: string) => void` pada kedua handler menjawab pertanyaan yang tadi hanya ada di kepala penulisnya. Dan `sedangMemuat = false` menunjukkan prop opsional beserta nilai bawaannya — tipe menyatakan boleh kosong, nilai bawaan menentukan apa yang dipakai saat kosong.",
+        "Perhatikan komentar `// ... isi sama persis`, sebab **badan komponennya tidak berubah satu baris pun**. Seluruh migrasi ini hanya menambahkan deklarasi tipe di atasnya. `Tugas` dan `Filter` sengaja di-`export` karena keduanya menggambarkan bentuk data yang dipakai bersama, sebab komponen induk yang menyusun daftarnya butuh tipe yang sama, dan mengimpornya jauh lebih baik daripada menulis ulang bentuk yang gampang menyimpang. `Filter` ditulis sebagai union literal alih-alih `string`, dan itulah yang nanti menangkap salah ketik `'aktiv'` di langkah berikutnya. Tanda tangan `(id: string) => void` pada kedua handler menjawab pertanyaan yang tadi hanya ada di kepala penulisnya. Dan `sedangMemuat = false` menunjukkan prop opsional beserta nilai bawaannya, sebab tipe menyatakan boleh kosong sedangkan nilai bawaan menentukan apa yang dipakai saat kosong.",
       ),
 
       h2('4. Bug yang langsung tertangkap'),
@@ -2314,7 +2314,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Ketiga kesalahan ini mewakili tiga cara berbeda sebuah komponen dipakai keliru, dan ketiganya **tidak menghasilkan error apa pun di versi JSX**. Yang pertama adalah salah ketik satu huruf pada nilai literal — persis skenario yang tadi disebut, di mana daftarnya diam-diam salah tanpa gejala. Yang kedua adalah prop wajib yang terlupa; di JSX ia hanya membuat `onHapus` bernilai `undefined`, dan tombol hapusnya diam saat ditekan. Yang ketiga paling halus: handler yang **bentuk parameternya salah** — mengira menerima objek padahal menerima id — yang baru meledak sebagai `TypeError` saat tombolnya benar-benar ditekan, mungkin berhari-hari setelah kodenya ditulis. Perhatikan pola yang sama di ketiganya: kegagalan yang tadinya muncul di browser, pada waktu yang tidak terduga, kini muncul di editor pada baris yang tepat.',
+        'Ketiga kesalahan ini mewakili tiga cara berbeda sebuah komponen dipakai keliru, dan ketiganya **tidak menghasilkan error apa pun di versi JSX**. Yang pertama adalah salah ketik satu huruf pada nilai literal, persis skenario yang tadi disebut, di mana daftarnya diam-diam salah tanpa gejala. Yang kedua adalah prop wajib yang terlupa, dan di JSX ia hanya membuat `onHapus` bernilai `undefined` sehingga tombol hapusnya diam saat ditekan. Yang ketiga paling halus, yaitu handler yang **bentuk parameternya salah** karena mengira menerima objek padahal menerima id, dan itu baru meledak sebagai `TypeError` saat tombolnya benar-benar ditekan, mungkin berhari-hari setelah kodenya ditulis. Perhatikan pola yang sama di ketiganya, bahwa kegagalan yang tadinya muncul di browser pada waktu yang tidak terduga kini muncul di editor pada baris yang tepat.',
       ),
       callout(
         'info',
@@ -2374,7 +2374,7 @@ export const lessons: LessonDraft[] = [
       ul(
         'Error "implicitly has an any type" adalah pertanyaan yang tepat, bukan gangguan.',
         'Konversi ke TSX langsung menangkap salah ketik, prop hilang, dan tanda tangan salah.',
-        'Boolean prop yang terpisah membolehkan keadaan mustahil; discriminated union menutupnya.',
+        'Boolean prop yang terpisah membolehkan impossible state; discriminated union menutupnya.',
         'Nilai TypeScript di UI bukan sekadar mencegah salah ketik — tapi membuat keadaan yang tidak masuk akal tidak bisa diekspresikan.',
       ),
       references(

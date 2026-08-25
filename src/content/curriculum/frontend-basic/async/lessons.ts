@@ -54,7 +54,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'libuv',
           meaning:
-            'Dibaca "lib-yu-vi", singkatan dari *library for unicorn velociraptor* menurut candaan penulisnya, tapi fungsinya serius: pustaka C yang menangani timer, akses berkas, dan jaringan di **Node.js**. Perannya persis sama dengan Web API di browser — mengerjakan hal-hal yang menunggu, di luar jalur utama JavaScript.',
+            'Dibaca "lib-yu-vi", singkatan dari *library for unicorn velociraptor* menurut candaan penulisnya, tapi fungsinya serius: library C yang menangani timer, akses berkas, dan jaringan di **Node.js**. Perannya persis sama dengan Web API di browser — mengerjakan hal-hal yang menunggu, di luar jalur utama JavaScript.',
         },
         {
           term: 'task queue',
@@ -152,7 +152,7 @@ export const lessons: LessonDraft[] = [
 
         // Selama loop ini berjalan, stack TIDAK PERNAH kosong.
         // Event loop tidak bisa memasukkan apa pun: klik, scroll, animasi,
-        // bahkan render ulang — semuanya menunggu. Halaman tampak "hang".
+        // bahkan re-render — semuanya menunggu. Halaman tampak "hang".
         `,
       ),
       p(
@@ -170,7 +170,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perbedaannya murni penamaan, bukan konsep: di browser, kemampuan menunggu (timer, jaringan, event) disediakan oleh Web API; di Node.js, pekerjaan yang sama dikerjakan oleh pustaka bernama libuv yang sudah dijelaskan di kotak istilah. Call stack, task queue, dan event loop bekerja dengan aturan yang identik di keduanya — itulah sebabnya semua yang baru saja kamu pelajari tentang urutan eksekusi `setTimeout` di browser berlaku sama persis saat kode itu dijalankan lewat `node app.js`.',
+        'Perbedaannya murni penamaan dan bukan konsep. Di browser, kemampuan menunggu berupa timer, jaringan, dan event disediakan oleh Web API, sedangkan di Node.js pekerjaan yang sama dikerjakan oleh library bernama libuv yang sudah dijelaskan di kotak istilah. Call stack, task queue, dan event loop bekerja dengan aturan yang identik di keduanya, dan itulah sebabnya semua yang baru saja kamu pelajari tentang urutan eksekusi `setTimeout` di browser berlaku sama persis saat kode itu dijalankan lewat `node app.js`.',
       ),
 
       divider,
@@ -261,7 +261,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'render',
           meaning:
-            'Artinya **menggambar ke layar**. Browser hanya sempat menggambar ulang di antara dua macrotask, **tidak** di tengah penguras antrean microtask. Inilah sebabnya teks "Memuat…" kadang tidak pernah terlihat sama sekali — dan untuk indikator yang sangat singkat, itu justru menguntungkan karena tidak ada kedipan.',
+            'Artinya **menggambar ke layar**. Browser hanya sempat menggambar ulang di antara dua macrotask, **tidak** di tengah penguras antrean microtask. Inilah sebabnya teks "Memuat…" kadang tidak pernah terlihat sama sekali — dan untuk indikator yang sangat singkat, itu justru menguntungkan karena tidak ada flicker.',
         },
         {
           term: 'starvation',
@@ -309,7 +309,7 @@ export const lessons: LessonDraft[] = [
         { caption: 'Dijalankan dengan Node 22 — urutan ini sama di semua browser modern.' },
       ),
       p(
-        'Hal yang paling membingungkan dari contoh ini: `setTimeout` ditulis **sebelum** kedua microtask, dan jedanya `0`, tapi ia tetap dijalankan paling akhir. Angka `0` di sana tidak berarti "sekarang juga" — ia berarti "titipkan ke antrean, jadwalkan secepat mungkin". Sementara `Promise.resolve().then(...)` dan `queueMicrotask(...)` masuk ke antrean yang **berbeda dan lebih diprioritaskan**. Urutan lengkapnya jadi terbaca begini: seluruh baris sinkron dijalankan sampai habis lebih dulu (A dan E, sekali lagi tanpa peduli urutan penulisan yang diselingi baris asinkron), lalu antrean microtask dikuras habis sesuai urutan masuk (C lalu D), dan baru setelah antrean itu benar-benar kosong satu macrotask diambil (B). `queueMicrotask` sengaja dipakai berdampingan dengan `Promise` untuk menunjukkan keduanya masuk ke antrean yang sama persis.',
+        'Hal yang paling membingungkan dari contoh ini adalah `setTimeout` ditulis **sebelum** kedua microtask dan jedanya `0`, tapi ia tetap dijalankan paling akhir. Angka `0` di sana tidak berarti "sekarang juga", melainkan "titipkan ke antrean, jadwalkan secepat mungkin". Sementara itu `Promise.resolve().then(...)` dan `queueMicrotask(...)` masuk ke antrean yang **berbeda dan lebih diprioritaskan**. Urutan lengkapnya jadi terbaca begini. Seluruh baris sinkron dijalankan sampai habis lebih dulu (A dan E, sekali lagi tanpa peduli urutan penulisan yang diselingi baris asinkron), lalu antrean microtask dikuras habis sesuai urutan masuk (C lalu D), dan baru setelah antrean itu benar-benar kosong satu macrotask diambil (B). `queueMicrotask` sengaja dipakai berdampingan dengan `Promise` untuk menunjukkan keduanya masuk ke antrean yang sama persis.',
       ),
       ol(
         'Semua kode sinkron selesai lebih dulu — A dan E.',
@@ -333,7 +333,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Contoh ini menajamkan aturan sebelumnya. `timer` sudah menunggu di antrean macrotask sejak awal, sementara `microtask 2` bahkan **belum ada** — ia baru dibuat di dalam microtask pertama, jauh setelah timer mengantre. Meski begitu ia tetap didahulukan. Sebabnya, aturannya bukan "siapa mengantre lebih dulu", melainkan **"antrean microtask harus benar-benar kosong sebelum macrotask berikutnya diambil"** — dan pemeriksaan kosong itu dilakukan ulang setelah setiap microtask selesai, sehingga microtask yang lahir di tengah jalan pun ikut terangkut di putaran yang sama. Dari situ pula bahaya di kotak peringatan berikut berasal: kalau setiap microtask selalu melahirkan microtask baru, antrean itu tidak pernah kosong, dan macrotask maupun penggambaran layar tidak pernah kebagian giliran.',
+        'Contoh ini menajamkan aturan sebelumnya. `timer` sudah menunggu di antrean macrotask sejak awal, sementara `microtask 2` bahkan **belum ada**, karena ia baru dibuat di dalam microtask pertama, jauh setelah timer mengantre. Meski begitu ia tetap didahulukan. Sebabnya, aturannya bukan "siapa mengantre lebih dulu" melainkan **"antrean microtask harus benar-benar kosong sebelum macrotask berikutnya diambil"**, dan pemeriksaan kosong itu dilakukan ulang setelah setiap microtask selesai, sehingga microtask yang lahir di tengah jalan pun ikut terangkut di putaran yang sama. Dari situ pula bahaya di kotak peringatan berikut berasal. Kalau setiap microtask selalu melahirkan microtask baru, antrean itu tidak pernah kosong, dan macrotask maupun penggambaran layar tidak pernah kebagian giliran.',
       ),
       callout(
         'danger',
@@ -353,11 +353,11 @@ export const lessons: LessonDraft[] = [
         // Pembaca mungkin TIDAK PERNAH melihat 'Memuat…' kalau simpanData()
         // selesai dalam satu microtask — browser belum sempat menggambar
         // di antara keduanya. Untuk indikator singkat, ini justru bagus:
-        // tidak ada kedipan.
+        // tidak ada flicker.
         `,
       ),
       p(
-        "Inilah alasan seluruh sub-bab ini layak dipelajari: penggambaran layar adalah pekerjaan yang **mengantre di belakang microtask**, sama seperti macrotask. Menugaskan `textContent = 'Memuat…'` tidak langsung mengubah piksel di layar — ia hanya menandai bahwa halaman perlu digambar ulang, dan penggambarannya baru terjadi setelah antrean microtask kosong. Jadi kalau `simpanData()` selesai dalam satu microtask, kedua penugasan `textContent` terjadi sebelum browser sempat menggambar sekali pun, dan yang akhirnya terlihat hanya `'Selesai'`. Seperti disebut di komentar, untuk indikator sesingkat ini hasilnya justru diinginkan — teks \"Memuat…\" yang berkedip 3 milidetik lebih mengganggu daripada tidak ada sama sekali. Yang perlu diwaspadai adalah kebalikannya: menganggap sesuatu pasti terlihat di layar hanya karena barisnya sudah dijalankan.",
+        "Inilah alasan seluruh sub-bab ini layak dipelajari, karena penggambaran layar adalah pekerjaan yang **mengantre di belakang microtask**, sama seperti macrotask. Menugaskan `textContent = 'Memuat…'` tidak langsung mengubah piksel di layar, sebab ia hanya menandai bahwa halaman perlu digambar ulang, dan penggambarannya baru terjadi setelah antrean microtask kosong. Jadi kalau `simpanData()` selesai dalam satu microtask, kedua penugasan `textContent` terjadi sebelum browser sempat menggambar sekali pun, dan yang akhirnya terlihat hanya `'Selesai'`. Seperti disebut di komentar, untuk indikator sesingkat ini hasilnya justru diinginkan, sebab teks \"Memuat…\" yang berkedip 3 milidetik lebih mengganggu daripada tidak ada sama sekali. Yang perlu diwaspadai adalah kebalikannya, yaitu menganggap sesuatu pasti terlihat di layar hanya karena barisnya sudah dijalankan.",
       ),
 
       divider,
@@ -397,7 +397,7 @@ export const lessons: LessonDraft[] = [
           label: 'Event loop: microtasks and macrotasks',
           href: 'https://html.spec.whatwg.org/multipage/webappapis.html#event-loop-processing-model',
           source: 'WHATWG HTML',
-          note: 'Spesifikasi aslinya — sumber kebenaran untuk urutan yang dibuktikan di sub-bab ini.',
+          note: 'Spesifikasi aslinya — source of truth untuk urutan yang dibuktikan di sub-bab ini.',
         },
       ),
     ],
@@ -437,7 +437,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'inversion of control',
           meaning:
-            'Terjemahannya **pembalikan kendali**. Keadaan ketika kamu menyerahkan fungsimu ke pihak lain, sehingga **pihak lain itu yang memutuskan** kapan, berapa kali, dan dengan argumen apa fungsimu dipanggil. Kalau pustaka itu memanggilnya dua kali karena bug, kodemu ikut berjalan dua kali — dan kamu tidak punya cara mencegahnya. Promise mengembalikan kendali itu ke tanganmu.',
+            'Terjemahannya **pembalikan kendali**. Keadaan ketika kamu menyerahkan fungsimu ke pihak lain, sehingga **pihak lain itu yang memutuskan** kapan, berapa kali, dan dengan argumen apa fungsimu dipanggil. Kalau library itu memanggilnya dua kali karena bug, kodemu ikut berjalan dua kali — dan kamu tidak punya cara mencegahnya. Promise mengembalikan kendali itu ke tanganmu.',
         },
         {
           term: 'nesting',
@@ -472,7 +472,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        '`ambilData` menerima `id` dan sebuah fungsi bernama `selesai` — inilah callback-nya. Alih-alih `return` nilai secara langsung (mustahil, karena datanya belum ada saat fungsi ini dipanggil), `ambilData` menyerahkan tugas "memberi tahu nanti" kepada `setTimeout`, yang akan memanggil `selesai(...)` begitu 500 milidetik berlalu. Pola ini persis sama dengan callback pada `map` dan `addEventListener` yang sudah biasa kamu pakai — bedanya di sini kamu sendiri yang mendefinisikan fungsi `ambilData`, bukan memakai yang sudah disediakan bahasa atau browser.',
+        '`ambilData` menerima `id` dan sebuah fungsi bernama `selesai`, dan inilah callback-nya. Alih-alih `return` nilai secara langsung (mustahil, karena datanya belum ada saat fungsi ini dipanggil), `ambilData` menyerahkan tugas "memberi tahu nanti" kepada `setTimeout`, yang akan memanggil `selesai(...)` begitu 500 milidetik berlalu. Pola ini persis sama dengan callback pada `map` dan `addEventListener` yang sudah biasa kamu pakai, dan bedanya di sini kamu sendiri yang mendefinisikan fungsi `ambilData`, bukan memakai yang sudah disediakan bahasa atau browser.',
       ),
 
       h2('Error-first callback — konvensi Node.js'),
@@ -491,7 +491,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perhatikan urutan parameter callback-nya: **`err` selalu di posisi pertama**, dan hasilnya menyusul di belakang. Itu konvensi yang dipegang seluruh API asinkron bawaan Node.js, dan alasannya praktis — pada gaya callback tidak ada `try/catch` yang bisa menangkap kegagalan, karena saat error terjadi baris `readFile(...)` sudah lama selesai dijalankan. Satu-satunya jalan menyampaikan kegagalan adalah **mengirimkannya sebagai argumen**. Konsekuensinya, memeriksa `if (err)` bukan kesopanan melainkan kewajiban: kalau pembacaan gagal, `isi` bernilai `undefined`, dan melanjutkan tanpa memeriksa berarti memproses data yang tidak pernah ada. Baris `return` yang diberi huruf besar itu penting justru karena `if (err)` tidak menghentikan apa pun dengan sendirinya — tanpa `return`, `console.log(isi)` tetap dijalankan setelah pesan error tercetak.',
+        'Perhatikan urutan parameter callback-nya, di mana **`err` selalu di posisi pertama** dan hasilnya menyusul di belakang. Itu konvensi yang dipegang seluruh API asinkron bawaan Node.js, dan alasannya praktis. Pada gaya callback tidak ada `try/catch` yang bisa menangkap kegagalan, karena saat error terjadi baris `readFile(...)` sudah lama selesai dijalankan. Satu-satunya jalan menyampaikan kegagalan adalah **mengirimkannya sebagai argumen**. Konsekuensinya, memeriksa `if (err)` bukan kesopanan melainkan kewajiban, sebab kalau pembacaan gagal `isi` bernilai `undefined`, dan melanjutkan tanpa memeriksa berarti memproses data yang tidak pernah ada. Baris `return` yang diberi huruf besar itu penting justru karena `if (err)` tidak menghentikan apa pun dengan sendirinya, sehingga tanpa `return`, `console.log(isi)` tetap dijalankan setelah pesan error tercetak.',
       ),
       callout(
         'warning',
@@ -536,7 +536,7 @@ export const lessons: LessonDraft[] = [
           simpanKeDatabase(hasil);
         });
 
-        // Kamu menyerahkan kendali. Bagaimana kalau pustaka itu:
+        // Kamu menyerahkan kendali. Bagaimana kalau library itu:
         //   - memanggil callback-mu dua kali?  -> data tersimpan dua kali
         //   - tidak pernah memanggilnya?       -> menggantung selamanya
         //   - memanggilnya secara sinkron?     -> urutan tak terduga
@@ -544,7 +544,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Masalah di sini berbeda jenis dari callback hell — bukan soal keterbacaan, melainkan soal **siapa yang memegang kendali**. Begitu kamu menyerahkan fungsi ke `pustakaOrangLain`, kamu tidak lagi menentukan kapan, berapa kali, atau bahkan apakah fungsimu dijalankan; semua itu ditentukan kode yang tidak kamu tulis. Ketiga kemungkinan di komentar bukan hal teoretis: callback yang terpanggil dua kali menyimpan data ganda tanpa satu pun error muncul, dan callback yang tidak pernah terpanggil membuat indikator "memuat" berputar selamanya tanpa jejak apa pun untuk ditelusuri. Yang paling halus adalah kemungkinan ketiga — pustaka yang kadang memanggil callback secara langsung dan kadang setelah jeda membuat urutan eksekusi berubah-ubah, dan bug seperti itu hanya muncul sesekali. Promise menutup ketiganya sekaligus lewat satu jaminan yang dipaksakan bahasa: sebuah Promise hanya bisa berpindah keadaan **satu kali**, dan penanganannya selalu dijalankan secara asinkron.',
+        'Masalah di sini berbeda jenis dari callback hell, karena bukan soal keterbacaan melainkan soal **siapa yang memegang kendali**. Begitu kamu menyerahkan fungsi ke `pustakaOrangLain`, kamu tidak lagi menentukan kapan, berapa kali, atau bahkan apakah fungsimu dijalankan, sebab semua itu ditentukan kode yang tidak kamu tulis. Ketiga kemungkinan di komentar bukan hal teoretis. Callback yang terpanggil dua kali menyimpan data ganda tanpa satu pun error muncul, dan callback yang tidak pernah terpanggil membuat indikator "memuat" berputar selamanya tanpa jejak apa pun untuk ditelusuri. Yang paling halus adalah kemungkinan ketiga, yaitu library yang kadang memanggil callback secara langsung dan kadang setelah jeda, sehingga urutan eksekusi berubah-ubah dan bug seperti itu hanya muncul sesekali. Promise menutup ketiganya sekaligus lewat satu jaminan yang dipaksakan bahasa, yaitu sebuah Promise hanya bisa berpindah keadaan **satu kali**, dan penanganannya selalu dijalankan secara asinkron.',
       ),
 
       divider,
@@ -638,7 +638,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'thenable',
           meaning:
-            'Sebutan untuk objek apa pun yang **punya method `.then()`**, meski bukan Promise sungguhan. JavaScript memperlakukannya seperti Promise saat dirangkai. Berguna untuk kompatibilitas dengan pustaka lama yang punya jenis Promise-nya sendiri sebelum ada versi bawaan.',
+            'Sebutan untuk objek apa pun yang **punya method `.then()`**, meski bukan Promise sungguhan. JavaScript memperlakukannya seperti Promise saat dirangkai. Berguna untuk kompatibilitas dengan library lama yang punya jenis Promise-nya sendiri sebelum ada versi bawaan.',
         },
       ),
 
@@ -680,7 +680,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Telusuri angkanya: mulai dari `1`, tahap pertama menghasilkan `2`, tahap kedua menghasilkan `4`, tahap ketiga mencetaknya. Yang membuat rantai ini bekerja adalah satu aturan yang berlaku di **setiap** `then`: apa pun yang kamu `return` menjadi masukan tahap berikutnya. Aturan itu punya dua cabang, dan keduanya sengaja diperlihatkan berdampingan. Kalau yang dikembalikan **nilai biasa** seperti `n + 1`, JavaScript membungkusnya jadi promise yang langsung selesai. Kalau yang dikembalikan **sebuah promise** seperti `Promise.resolve(n * 2)`, rantai justru **menunggunya selesai** dulu, lalu meneruskan isinya — bukan promise-nya. Cabang kedua inilah yang membuat operasi asinkron bisa dirangkai berurutan tanpa bersarang, dan itu perbedaan mendasar dari callback yang harus ditumpuk ke dalam.',
+        'Telusuri angkanya, mulai dari `1`, lalu tahap pertama menghasilkan `2`, tahap kedua menghasilkan `4`, dan tahap ketiga mencetaknya. Yang membuat rantai ini bekerja adalah satu aturan yang berlaku di **setiap** `then`, yaitu apa pun yang kamu `return` menjadi masukan tahap berikutnya. Aturan itu punya dua cabang, dan keduanya sengaja diperlihatkan berdampingan. Kalau yang dikembalikan **nilai biasa** seperti `n + 1`, JavaScript membungkusnya jadi promise yang langsung selesai. Kalau yang dikembalikan **sebuah promise** seperti `Promise.resolve(n * 2)`, rantai justru **menunggunya selesai** dulu lalu meneruskan isinya dan bukan promise-nya. Cabang kedua inilah yang membuat operasi asinkron bisa dirangkai berurutan tanpa bersarang, dan itu perbedaan mendasar dari callback yang harus ditumpuk ke dalam.',
       ),
       callout(
         'danger',
@@ -702,7 +702,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Kedua versi hanya berbeda pada sepasang kurung kurawal, dan itu cukup untuk mengubah artinya sepenuhnya. Pada versi SALAH, badan arrow function dibungkus `{ }`, sehingga tidak ada nilai yang dikembalikan — `ambilPesanan(u.id)` tetap **dijalankan**, tapi promise-nya tidak diserahkan ke rantai. Akibatnya tahap berikutnya menerima `undefined`, dan yang lebih berbahaya: permintaan pesanan itu berjalan sendirian tanpa ditunggu siapa pun, sehingga kegagalannya tidak akan pernah sampai ke `catch` di rantai ini. Versi BENAR melepas kurung kurawalnya, sehingga hasil `ambilPesanan(u.id)` dikembalikan secara implisit dan rantai menunggunya. Kalau kamu memang butuh beberapa baris di dalam `then`, kurung kurawal boleh dipakai — asal `return` ditulis sendiri.',
+        'Kedua versi hanya berbeda pada sepasang kurung kurawal, dan itu cukup untuk mengubah artinya sepenuhnya. Pada versi SALAH, badan arrow function dibungkus `{ }` sehingga tidak ada nilai yang dikembalikan. `ambilPesanan(u.id)` tetap **dijalankan**, tapi promise-nya tidak diserahkan ke rantai. Akibatnya tahap berikutnya menerima `undefined`, dan yang lebih berbahaya, permintaan pesanan itu berjalan sendirian tanpa ditunggu siapa pun sehingga kegagalannya tidak akan pernah sampai ke `catch` di rantai ini. Versi BENAR melepas kurung kurawalnya, sehingga hasil `ambilPesanan(u.id)` dikembalikan secara implisit dan rantai menunggunya. Kalau kamu memang butuh beberapa baris di dalam `then`, kurung kurawal boleh dipakai asalkan `return` ditulis sendiri.',
       ),
 
       h2('`catch` menangkap dari tahap mana pun'),
@@ -739,7 +739,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perhatikan posisi `finally` di ujung rantai dan pasangannya `tampilkanIndikator()` di baris paling atas — keduanya sengaja mengapit seluruh operasi. Tanpa `finally`, kamu harus memanggil `sembunyikanIndikator()` dua kali: sekali di `then` dan sekali di `catch`, dan lupa salah satunya berarti indikator memuat berputar selamanya pada kasus yang jarang terjadi. `finally` menghapus duplikasi itu karena ia berjalan **apa pun hasilnya**. Komentar di bawahnya menyebut batasan yang membedakannya dari `then`: `finally` tidak menerima nilai apa pun sebagai parameter, dan apa pun yang ia kembalikan diabaikan — nilai maupun error dari rantai diteruskan utuh melewatinya. Itu disengaja, supaya blok pembersihan tidak bisa diam-diam mengubah hasil yang sedang mengalir.',
+        'Perhatikan posisi `finally` di ujung rantai dan pasangannya `tampilkanIndikator()` di baris paling atas, karena keduanya sengaja mengapit seluruh operasi. Tanpa `finally`, kamu harus memanggil `sembunyikanIndikator()` dua kali, sekali di `then` dan sekali di `catch`, dan lupa salah satunya berarti indikator memuat berputar selamanya pada kasus yang jarang terjadi. `finally` menghapus duplikasi itu karena ia berjalan **apa pun hasilnya**. Komentar di bawahnya menyebut batasan yang membedakannya dari `then`, yaitu `finally` tidak menerima nilai apa pun sebagai parameter, dan apa pun yang ia kembalikan diabaikan, sehingga nilai maupun error dari rantai diteruskan utuh melewatinya. Itu disengaja, supaya blok pembersihan tidak bisa diam-diam mengubah hasil yang sedang mengalir.',
       ),
 
       h2('Unhandled rejection'),
@@ -758,7 +758,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perhatikan bedanya dengan sengaja: di Node.js, promise yang gagal tanpa penanganan **menghentikan seluruh proses** — sikap yang jauh lebih keras daripada sekadar mencetak peringatan, justru supaya kegagalan diam-diam tidak pernah lolos ke production tanpa disadari siapa pun. `unhandledrejection` di browser berperan sebagai jaring pengaman terakhir, sama seperti yang dibahas di sub-bab error handling: berguna untuk mengirim laporan ke layanan pemantauan, tapi tidak menggantikan kewajiban menaruh `.catch()` tepat di tempat promise itu dipakai.',
+        'Perhatikan bedanya dengan sengaja, karena di Node.js promise yang gagal tanpa penanganan **menghentikan seluruh proses**. Sikap itu jauh lebih keras daripada sekadar mencetak peringatan, justru supaya kegagalan diam-diam tidak pernah lolos ke production tanpa disadari siapa pun. `unhandledrejection` di browser berperan sebagai jaring pengaman terakhir, sama seperti yang dibahas di sub-bab error handling, sehingga ia berguna untuk mengirim laporan ke layanan pemantauan tapi tidak menggantikan kewajiban menaruh `.catch()` tepat di tempat promise itu dipakai.',
       ),
 
       divider,
@@ -812,7 +812,7 @@ export const lessons: LessonDraft[] = [
     'Membungkus API berbasis callback menjadi Promise.',
     [
       p(
-        'Sebagian besar waktu kamu **mengonsumsi** promise dari `fetch` atau pustaka. Sesekali kamu perlu membuatnya sendiri — biasanya untuk membungkus API lama.',
+        'Sebagian besar waktu kamu **mengonsumsi** promise dari `fetch` atau library. Sesekali kamu perlu membuatnya sendiri — biasanya untuk membungkus API lama.',
       ),
 
       terms(
@@ -824,7 +824,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'resolve',
           meaning:
-            'Fungsi yang memindahkan Promise ke keadaan berhasil sambil membawa sebuah nilai. Kalau kamu memanggilnya tanpa argumen — seperti pada `setTimeout(resolve, ms)` — nilainya `undefined`, dan itu wajar untuk janji yang gunanya cuma "beri tahu aku kalau sudah waktunya".',
+            'Fungsi yang memindahkan Promise ke keadaan berhasil sambil membawa sebuah nilai. Kalau kamu memanggilnya tanpa argumen, seperti pada `setTimeout(resolve, ms)`, nilainya `undefined`, dan itu wajar untuk janji yang gunanya cuma "beri tahu aku kalau sudah waktunya".',
         },
         {
           term: 'reject',
@@ -849,10 +849,10 @@ export const lessons: LessonDraft[] = [
         {
           term: 'Promise.resolve / reject',
           meaning:
-            'Dua **helper statis** untuk membuat Promise yang sudah selesai sejak awal. Berguna untuk menyeragamkan bentuk nilai kembalian — misalnya sebuah fungsi yang kadang punya hasil di cache dan kadang harus mengambil dari jaringan tetap bisa selalu mengembalikan Promise.',
+            'Dua **helper statis** untuk membuat Promise yang sudah selesai sejak awal. Berguna untuk menyeragamkan bentuk return value — misalnya sebuah fungsi yang kadang punya hasil di cache dan kadang harus mengambil dari jaringan tetap bisa selalu mengembalikan Promise.',
         },
         {
-          term: 'anti-pola constructor',
+          term: 'anti-pattern constructor',
           meaning:
             'Terjemahan dari *promise constructor antipattern*. Membungkus sesuatu yang **sudah** berupa Promise ke dalam `new Promise` lagi. Selain berlebihan, ia berbahaya karena error dari Promise dalam mudah tertelan dan tidak pernah sampai ke `.catch()` di luar.',
         },
@@ -883,7 +883,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        '`tunggu(ms)` adalah versi paling minim: `resolve` diserahkan langsung sebagai callback `setTimeout`, sehingga promise-nya selesai (dengan nilai `undefined`) begitu waktunya habis. `muatGambar` menunjukkan pola yang lebih lengkap — membungkus API lama `Image` yang memberi tahu hasilnya lewat `onload`/`onerror`. Perhatikan bahwa fungsi *executor* `(resolve, reject) => { ... }` itu sendiri berjalan **seketika** saat `new Promise(...)` dipanggil, persis seperti dijelaskan di kotak istilah — yang menunggu bukan executor-nya, melainkan `resolve`/`reject` yang baru benar-benar dipanggil belakangan dari dalam `onload`/`onerror`.',
+        '`tunggu(ms)` adalah versi paling minim, sebab `resolve` diserahkan langsung sebagai callback `setTimeout`, sehingga promise-nya selesai (dengan nilai `undefined`) begitu waktunya habis. `muatGambar` menunjukkan pola yang lebih lengkap, yaitu membungkus API lama `Image` yang memberi tahu hasilnya lewat `onload`/`onerror`. Perhatikan bahwa fungsi *executor* `(resolve, reject) => { ... }` itu sendiri berjalan **seketika** saat `new Promise(...)` dipanggil, persis seperti dijelaskan di kotak istilah, sebab yang menunggu bukan executor-nya melainkan `resolve`/`reject` yang baru benar-benar dipanggil belakangan dari dalam `onload`/`onerror`.',
       ),
 
       h2('Tiga kesalahan yang sering terjadi'),
@@ -908,11 +908,11 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Kesalahan pertama yang paling berbahaya, karena **tidak menghasilkan error apa pun**. Baris `if (err) return` menghentikan callback tanpa memanggil `reject`, sehingga promise-nya tidak pernah berpindah keadaan — ia menggantung selamanya. Bagi pemanggil, `await` pada promise seperti itu berarti menunggu tanpa akhir: tidak ada error untuk ditangkap, tidak ada `finally` yang berjalan, dan indikator memuat berputar terus. Aturannya, **setiap jalur keluar** dari executor harus berakhir di `resolve` atau `reject`. Kesalahan kedua mengulang pelajaran dari bab error handling — menolak dengan string membuang `stack`, dan pesan yang sampai ke `catch` jadi tidak bisa ditelusuri asalnya. Kesalahan ketiga adalah anti-pola yang dibahas di kotak berikut: `fetch(url)` sudah mengembalikan promise, jadi membungkusnya lagi hanya menambah lapisan yang justru gampang menelan error.',
+        'Kesalahan pertama yang paling berbahaya, karena **tidak menghasilkan error apa pun**. Baris `if (err) return` menghentikan callback tanpa memanggil `reject`, sehingga promise-nya tidak pernah berpindah keadaan dan menggantung selamanya. Bagi pemanggil, `await` pada promise seperti itu berarti menunggu tanpa akhir, tanpa error untuk ditangkap, tanpa `finally` yang berjalan, dan indikator memuat berputar terus. Aturannya, **setiap jalur keluar** dari executor harus berakhir di `resolve` atau `reject`. Kesalahan kedua mengulang pelajaran dari bab error handling, karena menolak dengan string membuang `stack` sehingga pesan yang sampai ke `catch` tidak bisa ditelusuri asalnya. Kesalahan ketiga adalah anti-pattern yang dibahas di kotak berikut, sebab `fetch(url)` sudah mengembalikan promise, jadi membungkusnya lagi hanya menambah lapisan yang justru gampang menelan error.',
       ),
       callout(
         'warning',
-        'Anti-pola "explicit promise construction"',
+        'Anti-pattern "explicit promise construction"',
         'Kalau di dalam `new Promise` kamu memanggil sesuatu yang sudah mengembalikan promise, kamu hampir pasti tidak membutuhkan `new Promise` sama sekali. Ia hanya untuk membungkus API yang **belum** berbasis promise.',
       ),
 
@@ -934,7 +934,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Fungsi ini menerjemahkan gaya error-first callback dari sub-bab sebelumnya menjadi gaya promise, dan menariknya ia bekerja untuk **fungsi apa pun** yang mengikuti konvensi itu. Kuncinya ada di `fn(...args, (err, hasil) => ...)`: rest parameter `...args` menampung semua argumen yang dikirim pemanggil, lalu spread menyebarkannya kembali ke `fn` dengan callback buatan sendiri **ditempelkan di posisi terakhir** — tepat di tempat konvensi Node meletakkannya. Callback itulah yang menjembatani kedua dunia: kalau `err` terisi ia memanggil `reject`, kalau tidak ia memanggil `resolve`. Perhatikan `promisify` mengembalikan **fungsi**, bukan promise; promise-nya baru lahir saat fungsi hasilnya benar-benar dipanggil. Karena itu `bacaBerkas` bisa dipakai berkali-kali, dan `await` di baris terakhir bekerja seolah `readFile` memang sejak awal berbasis promise.',
+        'Fungsi ini menerjemahkan gaya error-first callback dari sub-bab sebelumnya menjadi gaya promise, dan menariknya ia bekerja untuk **fungsi apa pun** yang mengikuti konvensi itu. Kuncinya ada di `fn(...args, (err, hasil) => ...)`, tempat rest parameter `...args` menampung semua argumen yang dikirim pemanggil, lalu spread menyebarkannya kembali ke `fn` dengan callback buatan sendiri **ditempelkan di posisi terakhir**, tepat di tempat konvensi Node meletakkannya. Callback itulah yang menjembatani kedua dunia, karena kalau `err` terisi ia memanggil `reject`, dan kalau tidak ia memanggil `resolve`. Perhatikan `promisify` mengembalikan **fungsi** dan bukan promise, sebab promise-nya baru lahir saat fungsi hasilnya benar-benar dipanggil. Karena itu `bacaBerkas` bisa dipakai berkali-kali, dan `await` di baris terakhir bekerja seolah `readFile` memang sejak awal berbasis promise.',
       ),
       callout(
         'tip',
@@ -958,7 +958,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Contoh `ambil(id)` menunjukkan kegunaan `Promise.resolve` yang paling sering dipakai: **menyeragamkan bentuk kembalian**. Tanpa pembungkus itu, fungsi ini kadang mengembalikan data langsung dari cache dan kadang mengembalikan promise dari `fetch`, sehingga setiap pemanggil terpaksa memeriksa dulu mana yang ia terima — dan pemeriksaan seperti itu selalu ada yang lupa. Dengan `Promise.resolve(cache)`, kedua cabang mengembalikan promise, sehingga `await ambil(id)` selalu benar tanpa peduli datanya berasal dari mana. Konsistensi ini juga membuat perilakunya bisa ditebak dari sisi waktu: kedua jalur sama-sama menyelesaikan diri secara asinkron, jadi kode setelahnya tidak akan kadang berjalan seketika dan kadang tertunda — persis masalah "urutan tak terduga" yang disebut di sub-bab callback.',
+        'Contoh `ambil(id)` menunjukkan kegunaan `Promise.resolve` yang paling sering dipakai, yaitu **menyeragamkan bentuk kembalian**. Tanpa pembungkus itu, fungsi ini kadang mengembalikan data langsung dari cache dan kadang mengembalikan promise dari `fetch`, sehingga setiap pemanggil terpaksa memeriksa dulu mana yang ia terima, dan pemeriksaan seperti itu selalu ada yang lupa. Dengan `Promise.resolve(cache)`, kedua cabang mengembalikan promise, sehingga `await ambil(id)` selalu benar tanpa peduli datanya berasal dari mana. Konsistensi ini juga membuat perilakunya bisa ditebak dari sisi waktu, sebab kedua jalur sama-sama menyelesaikan diri secara asinkron, jadi kode setelahnya tidak akan kadang berjalan seketika dan kadang tertunda, persis masalah "urutan tak terduga" yang disebut di sub-bab callback.',
       ),
 
       divider,
@@ -1069,7 +1069,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Aturan pertama sering mengejutkan: `async function f() { return 1; }` tidak mengembalikan `1`, melainkan promise yang **berisi** `1`. Kata `async` di depan sebuah fungsi otomatis membungkus apa pun yang ia kembalikan — begitu juga error yang dilemparnya, yang berubah menjadi promise yang ditolak. Konsekuensi praktisnya, memanggil fungsi `async` tanpa `await` atau `.then()` hanya memberimu janjinya, bukan hasilnya, dan itu penyebab umum variabel yang isinya `Promise { <pending> }` alih-alih data. Aturan kedua menjelaskan dua `await` berturut-turut pada `fetch`: yang pertama menunggu **respons tiba** — statusnya dan header-nya, belum isinya — dan yang kedua menunggu badan respons selesai dibaca dan diurai menjadi object. Itu bukan pemborosan; keduanya memang dua tahap yang berbeda, dan pemisahan itu yang memungkinkan kamu memeriksa `res.ok` sebelum repot mengurai isinya.',
+        'Aturan pertama sering mengejutkan, karena `async function f() { return 1; }` tidak mengembalikan `1` melainkan promise yang **berisi** `1`. Kata `async` di depan sebuah fungsi otomatis membungkus apa pun yang ia kembalikan, begitu juga error yang dilemparnya, yang berubah menjadi promise yang ditolak. Konsekuensi praktisnya, memanggil fungsi `async` tanpa `await` atau `.then()` hanya memberimu janjinya dan bukan hasilnya, dan itu penyebab umum variabel yang isinya `Promise { <pending> }` alih-alih data. Aturan kedua menjelaskan dua `await` berturut-turut pada `fetch`. Yang pertama menunggu **respons tiba**, yakni statusnya dan header-nya tapi belum isinya, sedangkan yang kedua menunggu badan respons selesai dibaca dan diurai menjadi object. Itu bukan pemborosan, sebab keduanya memang dua tahap yang berbeda, dan pemisahan itu yang memungkinkan kamu memeriksa `res.ok` sebelum repot mengurai isinya.',
       ),
       callout(
         'info',
@@ -1103,7 +1103,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Kedua versi ini melakukan hal yang identik dan sama-sama memakai Promise di baliknya — `ambilProfil2` bukan cara baru yang lebih cepat, hanya cara menulis yang lebih mudah diikuti. Perbedaan yang paling terasa ada di penanganan error: pada versi `then`, kegagalan ditangkap lewat `.catch()` yang terpisah dari kode utamanya; pada versi `async`/`await`, `try`/`catch` yang sama persis dengan penanganan error kode sinkron biasa bisa langsung dipakai membungkus seluruh alurnya.',
+        'Kedua versi ini melakukan hal yang identik dan sama-sama memakai Promise di baliknya, sebab `ambilProfil2` bukan cara baru yang lebih cepat, hanya cara menulis yang lebih mudah diikuti. Perbedaan yang paling terasa ada di penanganan error. Pada versi `then`, kegagalan ditangkap lewat `.catch()` yang terpisah dari kode utamanya, sedangkan pada versi `async`/`await`, `try`/`catch` yang sama persis dengan penanganan error kode sinkron biasa bisa langsung dipakai membungkus seluruh alurnya.',
       ),
 
       h2('Penanganan error'),
@@ -1129,7 +1129,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Kedua fungsi melakukan hal yang persis sama, jadi bandingkan **cara membacanya**. Versi `then` memaksa matamu melompat dari satu callback ke callback berikutnya, dan nilai antara — pengguna, lalu pesanan — tidak pernah punya nama yang bisa dirujuk di luar tahapnya sendiri. Versi `async`/`await` menuliskan langkah yang sama sebagai baris berurutan dari atas ke bawah, dengan `u` dan `pesanan` sebagai variabel biasa yang bisa dipakai di baris mana pun setelahnya. Perubahan terbesarnya ada di penanganan error: `.catch()` yang menempel di ujung rantai digantikan `try`/`catch` yang **sama persis** dengan yang kamu pakai untuk kode biasa — jadi tidak ada lagi dua cara berbeda untuk menangani kegagalan. Perhatikan keduanya sama-sama melempar ulang errornya setelah mencatat; mencatat lalu diam akan membuat pemanggil mengira semuanya berhasil.',
+        'Kedua fungsi melakukan hal yang persis sama, jadi bandingkan **cara membacanya**. Versi `then` memaksa matamu melompat dari satu callback ke callback berikutnya, dan nilai antaranya, yaitu pengguna lalu pesanan, tidak pernah punya nama yang bisa dirujuk di luar tahapnya sendiri. Versi `async`/`await` menuliskan langkah yang sama sebagai baris berurutan dari atas ke bawah, dengan `u` dan `pesanan` sebagai variabel biasa yang bisa dipakai di baris mana pun setelahnya. Perubahan terbesarnya ada di penanganan error, karena `.catch()` yang menempel di ujung rantai digantikan `try`/`catch` yang **sama persis** dengan yang kamu pakai untuk kode biasa, sehingga tidak ada lagi dua cara berbeda untuk menangani kegagalan. Perhatikan keduanya sama-sama melempar ulang errornya setelah mencatat, sebab mencatat lalu diam akan membuat pemanggil mengira semuanya berhasil.',
       ),
       callout(
         'danger',
@@ -1148,7 +1148,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Sebelum ada kemampuan ini, kode seperti itu harus dibungkus IIFE async — `(async () => { ... })()` — hanya untuk mendapatkan tempat yang sah memakai `await`. Di modul ES kini tidak perlu lagi. Tapi ada harga yang perlu disadari: `await` di tingkat teratas **menunda selesainya modul itu sendiri**, dan setiap modul lain yang mengimpornya ikut menunggu sampai baris itu tuntas. Untuk memuat konfigurasi yang memang wajib ada sebelum apa pun berjalan, itu justru yang diinginkan. Tapi menaruh permintaan jaringan yang lambat di sana berarti memperlambat seluruh rantai impor aplikasimu, dan penyebabnya sulit dilacak karena tidak ada satu pun fungsi yang terlihat menunggu.',
+        'Sebelum ada kemampuan ini, kode seperti itu harus dibungkus IIFE async berbentuk `(async () => { ... })()`, hanya untuk mendapatkan tempat yang sah memakai `await`. Di modul ES kini tidak perlu lagi. Tetapi ada harga yang perlu disadari, sebab `await` di tingkat teratas **menunda selesainya modul itu sendiri**, dan setiap modul lain yang mengimpornya ikut menunggu sampai baris itu tuntas. Untuk memuat konfigurasi yang memang wajib ada sebelum apa pun berjalan, itu justru yang diinginkan. Namun menaruh permintaan jaringan yang lambat di sana berarti memperlambat seluruh rantai impor aplikasimu, dan penyebabnya sulit dilacak karena tidak ada satu pun fungsi yang terlihat menunggu.',
       ),
 
       h2('Kapan `then` masih lebih tepat'),
@@ -1166,7 +1166,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Ketiga contoh ini punya benang merah yang sama: `then` tetap masuk akal ketika kamu tidak butuh membungkus sesuatu dalam fungsi `async` terpisah hanya untuk satu baris. `namaPengguna` cukup satu transformasi, `kirimAnalitik(...).catch(() => {})` sengaja **tidak** ditunggu — mengirim data analitik tidak boleh menahan aksi utama pengguna — sambil tetap punya `.catch()` supaya kegagalannya tidak menjadi unhandled rejection, dan baris terakhir merangkai `.then()` langsung di dalam `map` karena menulisnya sebagai fungsi `async` terpisah justru menambah baris tanpa menambah kejelasan.',
+        'Ketiga contoh ini punya benang merah yang sama, yaitu `then` tetap masuk akal ketika kamu tidak butuh membungkus sesuatu dalam fungsi `async` terpisah hanya untuk satu baris. `namaPengguna` cukup satu transformasi, `kirimAnalitik(...).catch(() => {})` sengaja **tidak** ditunggu karena mengirim data analitik tidak boleh menahan aksi utama pengguna, sambil tetap punya `.catch()` supaya kegagalannya tidak menjadi unhandled rejection, dan baris terakhir merangkai `.then()` langsung di dalam `map` karena menulisnya sebagai fungsi `async` terpisah justru menambah baris tanpa menambah kejelasan.',
       ),
 
       divider,
@@ -1232,12 +1232,12 @@ export const lessons: LessonDraft[] = [
         {
           term: 'paralel',
           meaning:
-            'Semua pekerjaan **dimulai bersamaan**, lalu hasilnya ditunggu sekaligus. Perlu diluruskan sedikit: JavaScript tetap berutas tunggal, jadi yang benar-benar berjalan bersamaan adalah **penantiannya** — jaringan dan berkas dikerjakan runtime di luar. Untuk pekerjaan yang menunggu, efeknya sama saja: total waktu turun dari jumlah semuanya menjadi sepanjang yang paling lambat.',
+            'Semua pekerjaan **dimulai bersamaan**, lalu hasilnya ditunggu sekaligus. Perlu diluruskan sedikit: JavaScript tetap berutas tunggal, jadi yang benar-benar berjalan bersamaan adalah **penantiannya**, sebab jaringan dan berkas dikerjakan runtime di luar. Untuk pekerjaan yang menunggu, efeknya sama saja, karena total waktu turun dari jumlah semuanya menjadi sepanjang yang paling lambat.',
         },
         {
           term: 'Promise.all',
           meaning:
-            'Menunggu **semua** Promise selesai dan mengembalikan array hasilnya dengan urutan yang sama seperti masukannya. Sifat penting: **satu saja gagal, seluruhnya langsung gagal** — perilaku *fail-fast*. Pakai ini ketika semua hasil memang wajib ada; kalau sebagian boleh gagal, pakai `allSettled`.',
+            'Menunggu **semua** Promise selesai dan mengembalikan array hasilnya dengan urutan yang sama seperti masukannya. Sifat pentingnya adalah **satu saja gagal, seluruhnya langsung gagal**, yaitu perilaku *fail-fast*. Pakai ini ketika semua hasil memang wajib ada, sedangkan kalau sebagian boleh gagal, pakai `allSettled`.',
         },
         {
           term: 'Promise.allSettled',
@@ -1295,7 +1295,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perbedaan 900 ms versus 300 ms itu berasal dari **kapan permintaannya dimulai**, bukan dari kecepatan jaringan. Pada versi berurutan, `ambilProduk()` bahkan belum dipanggil ketika `ambilPengguna()` sedang berjalan — `await` menahan seluruh badan fungsi di baris pertama, jadi ketiganya antre satu per satu. Pada versi paralel, ketiga fungsi dipanggil **di dalam array**, artinya ketiganya berangkat pada saat yang hampir bersamaan; `Promise.all` hanya menunggu ketiganya rampung. Karena itu total waktunya kira-kira sama dengan yang paling lambat, bukan jumlah ketiganya. Perhatikan destructuring `[pengguna, produk, berita]` di sisi kiri: hasilnya selalu mengikuti **urutan penulisan di array**, bukan urutan siapa yang selesai lebih dulu, sehingga kamu tidak perlu khawatir data tertukar meski salah satunya jauh lebih lambat.',
+        'Perbedaan 900 ms versus 300 ms itu berasal dari **kapan permintaannya dimulai**, bukan dari kecepatan jaringan. Pada versi berurutan, `ambilProduk()` bahkan belum dipanggil ketika `ambilPengguna()` sedang berjalan, sebab `await` menahan seluruh badan fungsi di baris pertama, jadi ketiganya antre satu per satu. Pada versi paralel, ketiga fungsi dipanggil **di dalam array**, artinya ketiganya berangkat pada saat yang hampir bersamaan, dan `Promise.all` hanya menunggu ketiganya rampung. Karena itu total waktunya kira-kira sama dengan yang paling lambat, bukan jumlah ketiganya. Perhatikan destructuring `[pengguna, produk, berita]` di sisi kiri, sebab hasilnya selalu mengikuti **urutan penulisan di array**, bukan urutan siapa yang selesai lebih dulu, sehingga kamu tidak perlu khawatir data tertukar meski salah satunya jauh lebih lambat.',
       ),
       callout(
         'tip',
@@ -1315,7 +1315,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Dua komentar di blok ini menyimpan hal yang paling sering disalahpahami tentang `Promise.all`. Yang pertama sudah disebut di atas: urutan hasil mengikuti urutan masukan, selalu. Yang kedua jauh lebih penting untuk diingat — ketika satu promise gagal, `Promise.all` **langsung menolak**, tapi promise lainnya tidak dihentikan sama sekali. Permintaan jaringannya tetap berjalan sampai tuntas, penulisan ke database tetap terjadi, hanya hasilnya saja yang tidak pernah kamu terima. Jadi `Promise.all` bukan mekanisme pembatalan; kalau kamu benar-benar perlu menghentikan pekerjaan yang sedang berjalan, itu tugas `AbortController` di sub-bab berikutnya. Sifat "semua atau tidak sama sekali" ini tepat ketika ketiga data memang wajib ada untuk menggambar halaman — dan justru salah ketika sebagian data masih berguna sendirian.',
+        'Dua komentar di blok ini menyimpan hal yang paling sering disalahpahami tentang `Promise.all`. Yang pertama sudah disebut di atas, yaitu urutan hasil selalu mengikuti urutan masukan. Yang kedua jauh lebih penting untuk diingat, karena ketika satu promise gagal, `Promise.all` **langsung menolak** tapi promise lainnya tidak dihentikan sama sekali. Permintaan jaringannya tetap berjalan sampai tuntas, penulisan ke database tetap terjadi, dan hanya hasilnya saja yang tidak pernah kamu terima. Jadi `Promise.all` bukan mekanisme pembatalan, sehingga kalau kamu benar-benar perlu menghentikan pekerjaan yang sedang berjalan, itu tugas `AbortController` di sub-bab berikutnya. Sifat "semua atau tidak sama sekali" ini tepat ketika ketiga data memang wajib ada untuk menggambar halaman, dan justru salah ketika sebagian data masih berguna sendirian.',
       ),
 
       h2('`Promise.allSettled` — sebagian boleh gagal'),
@@ -1360,7 +1360,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Keduanya sama-sama "yang tercepat menang", tapi berbeda pada **apa yang dianggap menang**. `Promise.race` menerima hasil pertama apa pun jenisnya — berhasil maupun gagal — dan justru sifat itulah yang membuat pola timeout di atas bekerja: `tunggu(5000)` yang melempar error diadu dengan `ambilData()`, sehingga siapa pun yang lebih dulu tiba menentukan hasilnya. Kalau datanya tiba dalam 5 detik, ia menang; kalau tidak, error timeout yang menang. `Promise.any` sebaliknya mengabaikan kegagalan dan menunggu **keberhasilan** pertama, jadi ia cocok untuk beberapa server cadangan yang sama-sama bisa melayani. Ia baru menyerah kalau semuanya gagal, dan errornya berupa `AggregateError` — satu error khusus yang menampung seluruh kegagalan di property `errors`, sehingga kamu bisa memeriksa alasan tiap server, bukan hanya salah satunya.',
+        'Keduanya sama-sama "yang tercepat menang", tapi berbeda pada **apa yang dianggap menang**. `Promise.race` menerima hasil pertama apa pun jenisnya, baik berhasil maupun gagal, dan justru sifat itulah yang membuat pola timeout di atas bekerja. `tunggu(5000)` yang melempar error diadu dengan `ambilData()`, sehingga siapa pun yang lebih dulu tiba menentukan hasilnya. Kalau datanya tiba dalam 5 detik ia menang, dan kalau tidak, error timeout yang menang. `Promise.any` sebaliknya mengabaikan kegagalan dan menunggu **keberhasilan** pertama, jadi ia cocok untuk beberapa server cadangan yang sama-sama bisa melayani. Ia baru menyerah kalau semuanya gagal, dan errornya berupa `AggregateError`, yaitu satu error khusus yang menampung seluruh kegagalan di property `errors` sehingga kamu bisa memeriksa alasan tiap server dan bukan hanya salah satunya.',
       ),
 
       h2('Ringkasan memilih'),
@@ -1393,12 +1393,12 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        '`forEach` tidak pernah memeriksa apa yang dikembalikan callback-nya — ia memanggil callback untuk tiap elemen lalu langsung lanjut ke elemen berikutnya, tanpa peduli apakah hasilnya berupa Promise atau bukan. Karena `async (id) => { await proses(id); }` selalu mengembalikan Promise, `forEach` memanggil semuanya nyaris bersamaan lalu langsung selesai — sementara Promise-Promise yang baru dimulai itu masih berjalan di latar belakang, tak tertunggu oleh siapa pun. `Promise.all(daftar.map(...))` bekerja karena `map` **mengumpulkan** seluruh Promise ke dalam satu array, yang kemudian benar-benar ditunggu oleh `Promise.all`.',
+        '`forEach` tidak pernah memeriksa apa yang dikembalikan callback-nya, sebab ia memanggil callback untuk tiap elemen lalu langsung lanjut ke elemen berikutnya, tanpa peduli apakah hasilnya berupa Promise atau bukan. Karena `async (id) => { await proses(id); }` selalu mengembalikan Promise, `forEach` memanggil semuanya nyaris bersamaan lalu langsung selesai, sementara Promise-Promise yang baru dimulai itu masih berjalan di latar belakang, tak tertunggu oleh siapa pun. `Promise.all(daftar.map(...))` bekerja karena `map` **mengumpulkan** seluruh Promise ke dalam satu array, yang kemudian benar-benar ditunggu oleh `Promise.all`.',
       ),
       callout(
         'warning',
         'Paralel tidak selalu benar',
-        'Seribu permintaan sekaligus akan ditolak server atau kena rate limit. Untuk daftar besar, batasi jumlah yang berjalan bersamaan — proses per kelompok, atau pakai pustaka pembatas konkurensi.',
+        'Seribu permintaan sekaligus akan ditolak server atau kena rate limit. Untuk daftar besar, batasi jumlah yang berjalan bersamaan — proses per kelompok, atau pakai library pembatas konkurensi.',
       ),
 
       divider,
@@ -1474,7 +1474,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'AbortError',
           meaning:
-            'Error yang dilempar operasi ketika ia dibatalkan. Yang wajib diingat: **ini bukan kegagalan** — ini akibat dari perintahmu sendiri. Karena itu jangan pernah menampilkannya sebagai pesan error ke pengguna; periksa `e.name === "AbortError"` lebih dulu lalu keluar diam-diam.',
+            'Error yang dilempar operasi ketika ia dibatalkan. Yang wajib diingat, **ini bukan kegagalan** melainkan akibat dari perintahmu sendiri. Karena itu jangan pernah menampilkannya sebagai pesan error ke pengguna, dan periksa `e.name === "AbortError"` lebih dulu lalu keluar diam-diam.',
         },
         {
           term: 'timeout',
@@ -1515,7 +1515,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Mekanismenya terbagi dua benda yang sengaja dipisah. `controller` adalah **kendalinya** — hanya ia yang punya method `abort()`. `controller.signal` adalah **penerimanya** — objek pasif yang diserahkan ke `fetch`, dan yang bisa dibagikan ke banyak permintaan sekaligus tanpa memberi mereka kemampuan membatalkan apa pun. Pemisahan itu membuat kode yang menjalankan permintaan tidak bisa membatalkan dirinya sendiri; keputusan itu tetap di tangan pemanggil. Ketika `abort()` dipanggil, promise dari `fetch` **ditolak**, bukan diselesaikan — jadi jalur yang dilewati adalah `.catch()`, sama seperti kegagalan jaringan sungguhan. Karena itu pemeriksaan `e.name === 'AbortError'` wajib ada di baris pertama: tanpa itu, pembatalan yang kamu lakukan sendiri akan muncul di layar pengguna sebagai pesan kesalahan.",
+        "Mekanismenya terbagi dua benda yang sengaja dipisah. `controller` adalah **kendalinya**, dan hanya ia yang punya method `abort()`. `controller.signal` adalah **penerimanya**, yaitu objek pasif yang diserahkan ke `fetch` dan bisa dibagikan ke banyak permintaan sekaligus tanpa memberi mereka kemampuan membatalkan apa pun. Pemisahan itu membuat kode yang menjalankan permintaan tidak bisa membatalkan dirinya sendiri, karena keputusan itu tetap di tangan pemanggil. Ketika `abort()` dipanggil, promise dari `fetch` **ditolak** dan bukan diselesaikan, jadi jalur yang dilewati adalah `.catch()`, sama seperti kegagalan jaringan sungguhan. Karena itu pemeriksaan `e.name === 'AbortError'` wajib ada di baris pertama, sebab tanpa itu pembatalan yang kamu lakukan sendiri akan muncul di layar pengguna sebagai pesan kesalahan.",
       ),
       callout(
         'info',
@@ -1538,7 +1538,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        '`AbortSignal.timeout(5000)` adalah pintasan yang membuat sinyal siap pakai tanpa perlu membuat `AbortController` dan `setTimeout` sendiri — sinyalnya membatalkan dirinya otomatis setelah 5 detik. `AbortSignal.any([...])` menggabungkan beberapa sinyal menjadi satu, dan gabungan itu ikut membatalkan begitu **salah satu** anggotanya membatalkan. Kombinasi keduanya menyelesaikan kebutuhan yang sangat umum: permintaan harus berhenti kalau server terlalu lambat **atau** kalau pengguna berpindah halaman lebih dulu — dan kamu tidak perlu menulis logika mana yang lebih dulu terjadi. Perlu dicatat kedua API ini relatif baru; pada lingkungan lama, cara setaranya adalah membuat `AbortController` sendiri lalu memanggil `abort()` dari dalam `setTimeout`.',
+        '`AbortSignal.timeout(5000)` adalah pintasan yang membuat sinyal siap pakai tanpa perlu membuat `AbortController` dan `setTimeout` sendiri, karena sinyalnya membatalkan dirinya otomatis setelah 5 detik. `AbortSignal.any([...])` menggabungkan beberapa sinyal menjadi satu, dan gabungan itu ikut membatalkan begitu **salah satu** anggotanya membatalkan. Kombinasi keduanya menyelesaikan kebutuhan yang sangat umum, yaitu permintaan harus berhenti kalau server terlalu lambat **atau** kalau pengguna berpindah halaman lebih dulu, dan kamu tidak perlu menulis logika mana yang lebih dulu terjadi. Perlu dicatat kedua API ini relatif baru, sehingga pada lingkungan lama cara setaranya adalah membuat `AbortController` sendiri lalu memanggil `abort()` dari dalam `setTimeout`.',
       ),
       callout(
         'danger',
@@ -1590,7 +1590,7 @@ export const lessons: LessonDraft[] = [
         { caption: 'Tanpa ini, `setData` dipanggil pada komponen yang sudah tidak ada.' },
       ),
       p(
-        'Baris `return () => controller.abort()` adalah **fungsi pembersihan** — React menjalankannya saat komponen dilepas dari layar, atau sebelum efek yang sama dijalankan ulang. Tanpa itu, permintaan yang sudah terlanjur berangkat akan tetap tiba dan memanggil `setData` pada komponen yang sudah tidak ada lagi; pekerjaannya sia-sia, dan pada pola tertentu ia menahan data komponen lama tetap di memori. Perhatikan `controller` dibuat **di dalam** efek, bukan di luar: tiap kali efek berjalan ia butuh controller barunya sendiri, karena controller yang sudah dibatalkan tidak bisa dipakai ulang. Dan seperti pada contoh dasar tadi, `catch`-nya menyaring `AbortError` lebih dulu — pembatalan yang kita sengaja lakukan tidak boleh berakhir sebagai pesan error di layar.',
+        'Baris `return () => controller.abort()` adalah **fungsi pembersihan**, dan React menjalankannya saat komponen dilepas dari layar atau sebelum efek yang sama dijalankan ulang. Tanpa itu, permintaan yang sudah terlanjur berangkat akan tetap tiba dan memanggil `setData` pada komponen yang sudah tidak ada lagi. Pekerjaannya sia-sia, dan pada pola tertentu ia menahan data komponen lama tetap di memori. Perhatikan `controller` dibuat **di dalam** efek dan bukan di luar, sebab tiap kali efek berjalan ia butuh controller barunya sendiri karena controller yang sudah dibatalkan tidak bisa dipakai ulang. Dan seperti pada contoh dasar tadi, `catch`-nya menyaring `AbortError` lebih dulu, karena pembatalan yang kita sengaja lakukan tidak boleh berakhir sebagai pesan error di layar.',
       ),
 
       h2('Membatalkan pekerjaanmu sendiri'),
@@ -1737,7 +1737,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Blok ini sengaja tidak berisi kode, karena masalahnya bukan pada satu klien melainkan pada **perilaku kolektif ribuan klien sekaligus**. Bayangkan server tersendat sesaat. Semua klien gagal pada waktu yang hampir sama, lalu semuanya mencoba lagi 100 milidetik kemudian — juga pada waktu yang hampir sama. Server yang tadinya hanya tersendat kini menerima gelombang permintaan berulang yang jauh lebih besar daripada beban normalnya, dan gangguan kecil berubah menjadi mati total. Dua obatnya bekerja pada dua sumbu berbeda: **backoff eksponensial** memperpanjang jeda tiap kali gagal, sehingga jumlah permintaan menurun seiring waktu; **jitter** mengacak jedanya, sehingga klien-klien yang gagal bersamaan tidak lagi kembali bersamaan. Keduanya harus dipakai bersama — backoff tanpa jitter tetap menghasilkan gelombang, hanya gelombang yang lebih jarang.',
+        'Blok ini sengaja tidak berisi kode, karena masalahnya bukan pada satu klien melainkan pada **perilaku kolektif ribuan klien sekaligus**. Bayangkan server tersendat sesaat. Semua klien gagal pada waktu yang hampir sama, lalu semuanya mencoba lagi 100 milidetik kemudian, juga pada waktu yang hampir sama. Server yang tadinya hanya tersendat kini menerima gelombang permintaan berulang yang jauh lebih besar daripada beban normalnya, dan gangguan kecil berubah menjadi mati total. Dua obatnya bekerja pada dua sumbu berbeda. **Backoff eksponensial** memperpanjang jeda tiap kali gagal sehingga jumlah permintaan menurun seiring waktu, sedangkan **jitter** mengacak jedanya sehingga klien-klien yang gagal bersamaan tidak lagi kembali bersamaan. Keduanya harus dipakai bersama, sebab backoff tanpa jitter tetap menghasilkan gelombang, hanya gelombang yang lebih jarang.',
       ),
 
       h2('Implementasi'),
@@ -1777,7 +1777,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perhatikan formula jedanya: `Math.random() * dasarMs * 2 ** percobaan` — bagian `2 ** percobaan` yang membuatnya *eksponensial* (1, 2, 4, 8 — berlipat dua tiap percobaan), dan `Math.random()` di depannya yang menjadi *jitter*: alih-alih menunggu tepat sekian detik, jedanya diacak antara 0 sampai batas maksimum itu. Kombinasi keduanya mencegah retry storm dengan dua lapis sekaligus — jedanya makin panjang tiap kali gagal, dan klien-klien yang gagal bersamaan tidak akan mencoba lagi di detik yang sama persis. `layakDiulang` dipanggil **sebelum** menghitung jeda apa pun, supaya kegagalan yang memang tidak akan pernah berubah hasilnya (seperti input salah) langsung dilempar ulang tanpa membuang waktu menunggu.',
+        'Perhatikan formula jedanya, yaitu `Math.random() * dasarMs * 2 ** percobaan`. Bagian `2 ** percobaan` yang membuatnya *eksponensial*, karena angkanya berlipat dua tiap percobaan menjadi 1, 2, 4, 8, sedangkan `Math.random()` di depannya menjadi *jitter*. Alih-alih menunggu tepat sekian detik, jedanya diacak antara 0 sampai batas maksimum itu. Kombinasi keduanya mencegah retry storm dengan dua lapis sekaligus, karena jedanya makin panjang tiap kali gagal, dan klien-klien yang gagal bersamaan tidak akan mencoba lagi di detik yang sama persis. `layakDiulang` dipanggil **sebelum** menghitung jeda apa pun, supaya kegagalan yang memang tidak akan pernah berubah hasilnya, seperti input salah, langsung dilempar ulang tanpa membuang waktu menunggu.',
       ),
       callout(
         'tip',
@@ -1797,7 +1797,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Seluruh perhitungan backoff di atas pada dasarnya adalah **tebakan** tentang kapan server siap menerima lagi. `Retry-After` menghapus tebakan itu: ia jawaban langsung dari server tentang berapa lama harus menunggu, dan lazim dikirim bersama status `429` (terlalu banyak permintaan) atau `503` (layanan sedang tidak tersedia). Kalau header itu ada, mengikutinya selalu lebih baik daripada rumus apa pun yang kamu susun sendiri. Perhatikan `Number(retryAfter) * 1000` — nilainya dikirim dalam **detik**, sedangkan `setTimeout` bekerja dalam milidetik, jadi lupa mengalikannya membuat jedanya seribu kali lebih pendek dari yang diminta. Satu catatan: `Retry-After` juga boleh berisi tanggal HTTP alih-alih angka detik, jadi kode yang tangguh sebaiknya memeriksa kedua bentuk itu.',
+        'Seluruh perhitungan backoff di atas pada dasarnya adalah **tebakan** tentang kapan server siap menerima lagi. `Retry-After` menghapus tebakan itu, sebab ia jawaban langsung dari server tentang berapa lama harus menunggu, dan lazim dikirim bersama status `429` (terlalu banyak permintaan) atau `503` (layanan sedang tidak tersedia). Kalau header itu ada, mengikutinya selalu lebih baik daripada rumus apa pun yang kamu susun sendiri. Perhatikan `Number(retryAfter) * 1000`, sebab nilainya dikirim dalam **detik** sedangkan `setTimeout` bekerja dalam milidetik, jadi lupa mengalikannya membuat jedanya seribu kali lebih pendek dari yang diminta. Satu catatan, `Retry-After` juga boleh berisi tanggal HTTP alih-alih angka detik, jadi kode yang tangguh sebaiknya memeriksa kedua bentuk itu.',
       ),
       callout(
         'warning',
@@ -1923,7 +1923,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        '`async function*` menggabungkan dua hal sekaligus: `async` (boleh memakai `await` di dalamnya) dan `function*` (bisa berhenti-lalu-lanjut lewat `yield`). Setiap kali `for await...of` meminta nilai berikutnya, fungsi `angkaBertahap` melanjutkan dari tempat ia terakhir berhenti — bukan mengulang dari awal — sampai `yield` berikutnya ditemukan atau fungsinya benar-benar selesai. Itulah yang membuat ketiga `console.log` di atas tercetak satu per satu "saat masing-masing siap", bukan sekaligus setelah semuanya terkumpul lebih dulu.',
+        '`async function*` menggabungkan dua hal sekaligus, yaitu `async` yang boleh memakai `await` di dalamnya dan `function*` yang bisa berhenti-lalu-lanjut lewat `yield`. Setiap kali `for await...of` meminta nilai berikutnya, fungsi `angkaBertahap` melanjutkan dari tempat ia terakhir berhenti alih-alih mengulang dari awal, sampai `yield` berikutnya ditemukan atau fungsinya benar-benar selesai. Itulah yang membuat ketiga `console.log` di atas tercetak satu per satu "saat masing-masing siap", bukan sekaligus setelah semuanya terkumpul lebih dulu.',
       ),
 
       h2('Kasus nyata: paginasi'),
@@ -1951,7 +1951,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Yang membuat pola ini bekerja adalah sifat `yield`: fungsi generator **berhenti** di baris itu dan menyerahkan nilainya ke pemanggil, lalu baru dilanjutkan ketika pemanggil meminta item berikutnya. Jadi `while (true)` di dalamnya tidak berbahaya — ia tidak berputar sendiri, melainkan maju satu langkah setiap kali `for await` meminta. Bentuk `yield*` dengan tanda bintang berarti "hasilkan setiap elemen dari `data` satu per satu", bukan mengembalikan arraynya sekaligus, dan itulah yang membuat pemanggil menerima pengguna satu demi satu tanpa pernah melihat batas halaman. Baris `break` di bawah menunjukkan keuntungan terbesarnya: begitu pemanggil berhenti meminta, generatornya tidak pernah dilanjutkan — halaman 3, 4, dan seterusnya **tidak pernah diminta ke server sama sekali**. Bandingkan dengan mengambil semua halaman lebih dulu ke dalam satu array, di mana seluruh permintaan tetap terjadi meski kamu hanya butuh item pertama.',
+        'Yang membuat pola ini bekerja adalah sifat `yield`, karena fungsi generator **berhenti** di baris itu dan menyerahkan nilainya ke pemanggil, lalu baru dilanjutkan ketika pemanggil meminta item berikutnya. Jadi `while (true)` di dalamnya tidak berbahaya, sebab ia tidak berputar sendiri melainkan maju satu langkah setiap kali `for await` meminta. Bentuk `yield*` dengan tanda bintang berarti "hasilkan setiap elemen dari `data` satu per satu" dan bukan mengembalikan arraynya sekaligus, dan itulah yang membuat pemanggil menerima pengguna satu demi satu tanpa pernah melihat batas halaman. Baris `break` di bawah menunjukkan keuntungan terbesarnya, karena begitu pemanggil berhenti meminta, generatornya tidak pernah dilanjutkan sehingga halaman 3, 4, dan seterusnya **tidak pernah diminta ke server sama sekali**. Bandingkan dengan mengambil semua halaman lebih dulu ke dalam satu array, di mana seluruh permintaan tetap terjadi meski kamu hanya butuh item pertama.',
       ),
       callout(
         'tip',
@@ -1973,7 +1973,7 @@ export const lessons: LessonDraft[] = [
         { caption: 'Pola yang dipakai antarmuka yang menampilkan jawaban sambil diketik.' },
       ),
       p(
-        'Perhatikan tidak ada `await res.json()` di sini — dan itu memang inti perbedaannya. `res.json()` menunggu **seluruh** badan respons tiba sebelum mengembalikan apa pun, sementara `res.body` adalah aliran yang bisa dibaca potongan demi potongan begitu tiba. `for await` menelusuri aliran itu, dan tiap `potongan` yang diterima masih berupa data biner mentah, sehingga `TextDecoder` diperlukan untuk mengubahnya kembali menjadi teks. Hasilnya, teks bisa mulai ditampilkan setelah potongan pertama tiba, bukan setelah semuanya selesai — persis yang membuat antarmuka semacam chat AI terasa menjawab sambil mengetik. Satu hal yang perlu diwaspadai: pemotongan aliran tidak menghormati batas karakter, sehingga satu karakter multi-byte bisa terbelah di antara dua potongan; untuk teks non-ASCII, `new TextDecoder()` sebaiknya dibuat **sekali di luar loop** dan dipakai dengan opsi `{ stream: true }`.',
+        'Perhatikan tidak ada `await res.json()` di sini, dan itu memang inti perbedaannya. `res.json()` menunggu **seluruh** badan respons tiba sebelum mengembalikan apa pun, sementara `res.body` adalah aliran yang bisa dibaca potongan demi potongan begitu tiba. `for await` menelusuri aliran itu, dan tiap `potongan` yang diterima masih berupa data biner mentah, sehingga `TextDecoder` diperlukan untuk mengubahnya kembali menjadi teks. Hasilnya, teks bisa mulai ditampilkan setelah potongan pertama tiba dan bukan setelah semuanya selesai, persis yang membuat antarmuka semacam chat AI terasa menjawab sambil mengetik. Ada satu hal yang perlu diwaspadai. Pemotongan aliran tidak menghormati batas karakter, sehingga satu karakter multi-byte bisa terbelah di antara dua potongan, dan untuk teks non-ASCII `new TextDecoder()` sebaiknya dibuat **sekali di luar loop** lalu dipakai dengan opsi `{ stream: true }`.',
       ),
 
       h2('Bedakan dari `Promise.all`'),
@@ -2097,7 +2097,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Bedanya terletak pada **kapan tiap permintaan berangkat**. Pada versi loop, `await` menahan seluruh badan fungsi, sehingga permintaan kedua baru dikirim setelah yang pertama kembali — sepuluh item berarti sepuluh perjalanan bolak-balik yang antre rapi. Pada versi `map`, `ids.map(ambil)` memanggil `ambil` untuk **semua** id lebih dulu dan menghasilkan array berisi sepuluh promise yang sudah berjalan bersamaan; `Promise.all` tinggal menunggu semuanya rampung. Perhatikan `map(ambil)` menuliskan nama fungsinya tanpa kurung — ia mengoper fungsinya, bukan memanggilnya di situ. Satu peringatan penting: paralel bukan selalu benar. Kalau daftarnya berisi ribuan item, menembakkan ribuan permintaan sekaligus bisa membuat browser maupun server kewalahan — untuk kasus itu kamu perlu membatasi jumlah yang berjalan bersamaan, bukan melepas semuanya.',
+        'Bedanya terletak pada **kapan tiap permintaan berangkat**. Pada versi loop, `await` menahan seluruh badan fungsi, sehingga permintaan kedua baru dikirim setelah yang pertama kembali, dan sepuluh item berarti sepuluh perjalanan bolak-balik yang antre rapi. Pada versi `map`, `ids.map(ambil)` memanggil `ambil` untuk **semua** id lebih dulu dan menghasilkan array berisi sepuluh promise yang sudah berjalan bersamaan, lalu `Promise.all` tinggal menunggu semuanya rampung. Perhatikan `map(ambil)` menuliskan nama fungsinya tanpa kurung, karena ia mengoper fungsinya dan bukan memanggilnya di situ. Ada satu peringatan penting, yaitu paralel bukan selalu benar. Kalau daftarnya berisi ribuan item, menembakkan ribuan permintaan sekaligus bisa membuat browser maupun server kewalahan, dan untuk kasus itu kamu perlu membatasi jumlah yang berjalan bersamaan alih-alih melepas semuanya.',
       ),
 
       h2('2. Floating promise'),
@@ -2115,7 +2115,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Disebut *floating* karena promise-nya mengambang — tidak ada satu pun kode yang memegangnya. Baris pertama tetap **menjalankan** `simpanData`, jadi bugnya bukan "tidak jalan"; bugnya adalah kegagalannya tidak punya tujuan. Kalau penyimpanan gagal, tidak ada `catch` yang menerima, tidak ada `await` yang melempar, dan yang tersisa hanya peringatan unhandled rejection di console yang mudah terlewat — pengguna tetap melihat aplikasi seolah semuanya berhasil. Ketiga versi BENAR menutup celah itu dengan cara berbeda, dan pilihannya bergantung pada niatmu: `await` kalau hasilnya memang perlu ditunggu; `.catch(laporkan)` kalau operasinya boleh berjalan di latar tapi kegagalannya tetap perlu dicatat; dan `void ... .catch(() => {})` kalau kamu benar-benar tidak peduli hasilnya. Kata `void` di depan tidak mengubah apa pun secara teknis — ia penanda bagi pembaca dan linter bahwa promise ini **sengaja** dibiarkan, bukan terlupakan.',
+        'Disebut *floating* karena promise-nya mengambang, tanpa satu pun kode yang memegangnya. Baris pertama tetap **menjalankan** `simpanData`, jadi bugnya bukan "tidak jalan" melainkan kegagalannya tidak punya tujuan. Kalau penyimpanan gagal, tidak ada `catch` yang menerima, tidak ada `await` yang melempar, dan yang tersisa hanya peringatan unhandled rejection di console yang mudah terlewat, sementara pengguna tetap melihat aplikasi seolah semuanya berhasil. Ketiga versi BENAR menutup celah itu dengan cara berbeda, dan pilihannya bergantung pada niatmu. Pakai `await` kalau hasilnya memang perlu ditunggu, `.catch(laporkan)` kalau operasinya boleh berjalan di latar tapi kegagalannya tetap perlu dicatat, dan `void ... .catch(() => {})` kalau kamu benar-benar tidak peduli hasilnya. Kata `void` di depan tidak mengubah apa pun secara teknis, karena ia penanda bagi pembaca dan linter bahwa promise ini **sengaja** dibiarkan dan bukan terlupakan.',
       ),
 
       h2('3. `forEach` dengan `async`'),
@@ -2125,12 +2125,12 @@ export const lessons: LessonDraft[] = [
         daftar.forEach(async (item) => { await proses(item); });
         console.log('selesai');   // BOHONG — tercetak sebelum apa pun selesai
 
-        // forEach mengabaikan nilai kembalian callback, termasuk promise.
+        // forEach mengabaikan return value callback, termasuk promise.
         await Promise.all(daftar.map(proses));   // benar
         `,
       ),
       p(
-        "Jebakan ini sangat mudah terlewat karena kodenya **terlihat** benar — ada `async`, ada `await`, dan tidak ada satu pun error yang muncul. Masalahnya ada pada `forEach` itu sendiri: ia memanggil callback untuk tiap elemen lalu **membuang nilai kembaliannya**, dan nilai kembalian callback `async` adalah promise. Jadi semua promise itu mengambang persis seperti kasus nomor 2, dan `forEach` selesai seketika tanpa menunggu apa pun — itulah kenapa `console.log('selesai')` berbohong. `map` memperbaikinya justru karena ia **mengembalikan** array hasil callback, yang di sini berarti array promise, dan `Promise.all` bisa menunggunya. Sebagai aturan yang mudah diingat: `forEach` tidak pernah cocok dengan `async`. Kalau kamu butuh berurutan, pakai `for...of` dengan `await` di dalamnya; kalau butuh bersamaan, pakai `map` dengan `Promise.all`.",
+        "Jebakan ini sangat mudah terlewat karena kodenya **terlihat** benar, sebab ada `async`, ada `await`, dan tidak ada satu pun error yang muncul. Masalahnya ada pada `forEach` itu sendiri. Ia memanggil callback untuk tiap elemen lalu **membuang return value-nya**, padahal return value callback `async` adalah promise. Jadi semua promise itu mengambang persis seperti kasus nomor 2, dan `forEach` selesai seketika tanpa menunggu apa pun, dan itulah kenapa `console.log('selesai')` berbohong. `map` memperbaikinya justru karena ia **mengembalikan** array hasil callback, yang di sini berarti array promise, sehingga `Promise.all` bisa menunggunya. Aturan yang mudah diingat, `forEach` tidak pernah cocok dengan `async`. Kalau kamu butuh berurutan, pakai `for...of` dengan `await` di dalamnya, dan kalau butuh bersamaan, pakai `map` dengan `Promise.all`.",
       ),
 
       h2('4. Race condition pada respons yang saling menimpa'),
@@ -2156,7 +2156,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Bug ini muncul karena **urutan permintaan berangkat tidak menjamin urutan jawaban tiba**. Pengguna mengetik "ab", permintaannya berangkat; sepersekian detik kemudian ia mengetik "abc" dan permintaan kedua berangkat. Kalau kebetulan permintaan "ab" tersendat sedikit lebih lama, jawabannya tiba **belakangan** dan menimpa hasil "abc" yang sudah tampil — pengguna melihat hasil pencarian yang tidak sesuai dengan yang tertulis di kotak pencariannya. Perbaikan B bekerja dengan menomori tiap permintaan: `++terakhir` menaikkan penghitung dan menyimpan nomornya ke variabel lokal `nomor` sebelum `await`. Setelah jawaban tiba, `nomor !== terakhir` menjawab pertanyaan "apakah masih ada permintaan yang lebih baru setelah saya?" — kalau ya, jawaban ini sudah usang dan dibuang tanpa ditampilkan. Perhatikan `nomor` harus variabel lokal di dalam fungsi; kalau ia dibaca ulang dari `terakhir` setelah `await`, perbandingannya selalu benar dan penjagaannya tidak berguna.',
+        'Bug ini muncul karena **urutan permintaan berangkat tidak menjamin urutan jawaban tiba**. Pengguna mengetik "ab" dan permintaannya berangkat, lalu sepersekian detik kemudian ia mengetik "abc" dan permintaan kedua berangkat. Kalau kebetulan permintaan "ab" tersendat sedikit lebih lama, jawabannya tiba **belakangan** dan menimpa hasil "abc" yang sudah tampil, sehingga pengguna melihat hasil pencarian yang tidak sesuai dengan yang tertulis di kotak pencariannya. Perbaikan B bekerja dengan menomori tiap permintaan, karena `++terakhir` menaikkan penghitung dan menyimpan nomornya ke variabel lokal `nomor` sebelum `await`. Setelah jawaban tiba, `nomor !== terakhir` menjawab pertanyaan "apakah masih ada permintaan yang lebih baru setelah saya?", dan kalau ya, jawaban ini sudah usang dan dibuang tanpa ditampilkan. Perhatikan `nomor` harus variabel lokal di dalam fungsi, sebab kalau ia dibaca ulang dari `terakhir` setelah `await`, perbandingannya selalu benar dan penjagaannya tidak berguna.',
       ),
 
       h2('5. `try`/`catch` yang tidak menangkap apa-apa'),
@@ -2200,7 +2200,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Telusuri apa yang sebenarnya terjadi. Ketiga pemanggilan `tambah()` dimulai hampir bersamaan, dan ketiganya membaca `jumlah` yang masih bernilai `0` **sebelum** `await` menghentikan mereka. Setelah jeda berakhir, ketiganya melanjutkan dan masing-masing menulis `0 + 1`, sehingga hasil akhirnya `1`, bukan `3` — dua kenaikan hilang tanpa jejak. Pola ini dikenal sebagai *read-modify-write* yang tidak aman, dan penting disadari bahwa **JavaScript yang single-threaded tidak melindungimu darinya**. Yang dijamin single-thread hanyalah tidak ada dua baris berjalan pada detik yang sama persis; tapi setiap `await` adalah titik di mana fungsimu dijeda dan fungsi lain boleh berjalan sampai jauh. Aturan praktisnya: jangan pernah menganggap nilai yang kamu baca sebelum `await` masih sama sesudahnya — baca ulang setelah jeda, atau susun operasinya agar tidak butuh nilai lama sama sekali.',
+        'Telusuri apa yang sebenarnya terjadi. Ketiga pemanggilan `tambah()` dimulai hampir bersamaan, dan ketiganya membaca `jumlah` yang masih bernilai `0` **sebelum** `await` menghentikan mereka. Setelah jeda berakhir, ketiganya melanjutkan dan masing-masing menulis `0 + 1`, sehingga hasil akhirnya `1` dan bukan `3`, dengan dua kenaikan hilang tanpa jejak. Pola ini dikenal sebagai *read-modify-write* yang tidak aman, dan penting disadari bahwa **JavaScript yang single-threaded tidak melindungimu darinya**. Yang dijamin single-thread hanyalah tidak ada dua baris berjalan pada detik yang sama persis, tetapi setiap `await` adalah titik di mana fungsimu dijeda dan fungsi lain boleh berjalan sampai jauh. Aturan praktisnya, jangan pernah menganggap nilai yang kamu baca sebelum `await` masih sama sesudahnya. Baca ulang setelah jeda, atau susun operasinya agar tidak butuh nilai lama sama sekali.',
       ),
       callout(
         'warning',
@@ -2315,7 +2315,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        '`ambilPalsu` sengaja dibuat supaya latihan ini bisa dijalankan tanpa internet sekalipun, dan supaya waktunya **bisa ditebak** — sebuah permintaan jaringan sungguhan bervariasi antara 80 dan 800 milidetik, dan variasi itu akan menutupi perbedaan yang justru ingin kamu ukur. Perhatikan `await tunggu(ms)` di dalamnya: jeda ini memakai `setTimeout`, jadi ia benar-benar asinkron — fungsinya melepaskan giliran selama satu detik, bukan menyibukkan prosesor. Itu penting, karena kalau jedanya dibuat dengan loop yang berputar sampai waktu habis, versi paralel di langkah 3 tidak akan lebih cepat sama sekali: satu-satunya thread akan tersita penuh oleh loop pertama.',
+        '`ambilPalsu` sengaja dibuat supaya latihan ini bisa dijalankan tanpa internet sekalipun, dan supaya waktunya **bisa ditebak**. Sebuah permintaan jaringan sungguhan bervariasi antara 80 dan 800 milidetik, dan variasi itu akan menutupi perbedaan yang justru ingin kamu ukur. Perhatikan `await tunggu(ms)` di dalamnya, karena jeda ini memakai `setTimeout` sehingga ia benar-benar asinkron. Fungsinya melepaskan giliran selama satu detik alih-alih menyibukkan prosesor. Itu penting, sebab kalau jedanya dibuat dengan loop yang berputar sampai waktu habis, versi paralel di langkah 3 tidak akan lebih cepat sama sekali karena satu-satunya thread akan tersita penuh oleh loop pertama.',
       ),
 
       h2('2. Ukur berurutan'),
@@ -2332,7 +2332,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Angka ±3000 ms itu adalah penjumlahan sederhana: tiga jeda satu detik yang antre satu per satu. Yang perlu diperhatikan, tidak ada satu pun baris di sini yang **menyuruh** ketiganya berurutan — keberurutan itu efek samping dari menulis `await` di depan masing-masing. Setiap `await` menahan seluruh badan fungsi sampai promise-nya selesai, jadi `ambilPalsu('b')` bahkan belum dipanggil ketika `a` masih menunggu. Pasangan `console.time('berurutan')` dan `console.timeEnd('berurutan')` mengapit blok yang diukur, dan seperti disebut di sub-bab debugging, **labelnya harus sama persis** — itulah yang memasangkan keduanya, sehingga pengukuran \"berurutan\" dan \"paralel\" di langkah berikutnya tidak tertukar.",
+        "Angka ±3000 ms itu adalah penjumlahan sederhana dari tiga jeda satu detik yang antre satu per satu. Yang perlu diperhatikan, tidak ada satu pun baris di sini yang **menyuruh** ketiganya berurutan, sebab keberurutan itu efek samping dari menulis `await` di depan masing-masing. Setiap `await` menahan seluruh badan fungsi sampai promise-nya selesai, jadi `ambilPalsu('b')` bahkan belum dipanggil ketika `a` masih menunggu. Pasangan `console.time('berurutan')` dan `console.timeEnd('berurutan')` mengapit blok yang diukur, dan seperti disebut di sub-bab debugging, **labelnya harus sama persis**, sebab itulah yang memasangkan keduanya, sehingga pengukuran \"berurutan\" dan \"paralel\" di langkah berikutnya tidak tertukar.",
       ),
 
       h2('3. Ukur paralel'),
@@ -2351,7 +2351,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Blok ini menjalankan pekerjaan yang **sama persis** dengan langkah 2 — tiga pemanggilan `ambilPalsu` dengan jeda satu detik masing-masing — dan selesai dalam sepertiga waktunya. Satu-satunya yang berubah adalah letak `await`: di sini hanya ada **satu** `await`, dan ia berada di depan `Promise.all`, bukan di depan tiap pemanggilan. Ketiga fungsi dipanggil di dalam array sebelum `await` sempat menahan apa pun, sehingga ketiga jeda satu detik berjalan menumpang waktu yang sama. Inilah bukti terukur dari aturan yang sudah dibahas: total waktunya mendekati **yang paling lambat**, bukan jumlah ketiganya. Jalankan sendiri kedua langkah ini berurutan di console, dan bandingkan dua angka yang tercetak — itu jauh lebih meyakinkan daripada membaca penjelasannya.',
+        'Blok ini menjalankan pekerjaan yang **sama persis** dengan langkah 2, yaitu tiga pemanggilan `ambilPalsu` dengan jeda satu detik masing-masing, dan selesai dalam sepertiga waktunya. Satu-satunya yang berubah adalah letak `await`. Di sini hanya ada **satu** `await`, dan ia berada di depan `Promise.all` alih-alih di depan tiap pemanggilan. Ketiga fungsi dipanggil di dalam array sebelum `await` sempat menahan apa pun, sehingga ketiga jeda satu detik berjalan menumpang waktu yang sama. Inilah bukti terukur dari aturan yang sudah dibahas, bahwa total waktunya mendekati **yang paling lambat** dan bukan jumlah ketiganya. Jalankan sendiri kedua langkah ini berurutan di console lalu bandingkan dua angka yang tercetak, karena itu jauh lebih meyakinkan daripada membaca penjelasannya.',
       ),
       callout(
         'info',
@@ -2377,7 +2377,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Perhatikan bahwa `Promise.reject(new Error('b gagal'))` sengaja disisipkan di antara dua permintaan yang berhasil — dan `Promise.allSettled` tidak pernah melempar karena kegagalan ini, berbeda dari `Promise.all` yang akan langsung menolak seluruhnya begitu satu saja gagal. `berhasil` dan `gagal` di atas dipisahkan dengan memeriksa `r.status`, persis pola yang sudah dipelajari di sub-bab paralel vs berurutan — bedanya sekarang kamu melihat sendiri bahwa kegagalan satu permintaan tidak menghilangkan dua hasil lain yang sukses.",
+        "Perhatikan bahwa `Promise.reject(new Error('b gagal'))` sengaja disisipkan di antara dua permintaan yang berhasil, dan `Promise.allSettled` tidak pernah melempar karena kegagalan ini, berbeda dari `Promise.all` yang akan langsung menolak seluruhnya begitu satu saja gagal. `berhasil` dan `gagal` di atas dipisahkan dengan memeriksa `r.status`, persis seperti pola yang sudah dipelajari di sub-bab paralel vs berurutan, dan bedanya sekarang kamu melihat sendiri bahwa kegagalan satu permintaan tidak menghilangkan dua hasil lain yang sukses.",
       ),
 
       h2('5. Tambahkan timeout'),
@@ -2398,7 +2398,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Fungsi ini menggabungkan dua penjagaan yang keduanya wajib ada pada permintaan sungguhan, dan keduanya menangani masalah yang berbeda. `AbortSignal.timeout(ms)` menjaga terhadap server yang **tidak menjawab** — tanpa itu, promise-nya menunggu selamanya karena `fetch` tidak punya batas waktu bawaan. Pemeriksaan `if (!res.ok)` menjaga terhadap server yang **menjawab dengan kegagalan**; ini perlu ditulis sendiri karena `fetch` menganggap status `404` maupun `500` sebagai permintaan yang berhasil sampai tujuan, dan tanpa baris itu `res.json()` akan mencoba mengurai halaman error sebagai data. Perhatikan nama error yang tercetak: `TimeoutError`, bukan `AbortError`. Keduanya datang dari mekanisme abort yang sama, tapi artinya berbeda bagi pengguna — yang satu berarti "server terlalu lambat, coba lagi", yang lain berarti "kamu sendiri yang membatalkan, jangan tampilkan apa-apa".',
+        'Fungsi ini menggabungkan dua penjagaan yang keduanya wajib ada pada permintaan sungguhan, dan keduanya menangani masalah yang berbeda. `AbortSignal.timeout(ms)` menjaga terhadap server yang **tidak menjawab**, sebab tanpa itu promise-nya menunggu selamanya karena `fetch` tidak punya batas waktu bawaan. Pemeriksaan `if (!res.ok)` menjaga terhadap server yang **menjawab dengan kegagalan**, dan ini perlu ditulis sendiri karena `fetch` menganggap status `404` maupun `500` sebagai permintaan yang berhasil sampai tujuan, sehingga tanpa baris itu `res.json()` akan mencoba mengurai halaman error sebagai data. Perhatikan nama error yang tercetak adalah `TimeoutError`, bukan `AbortError`. Keduanya datang dari mekanisme abort yang sama tapi artinya berbeda bagi pengguna, karena yang satu berarti "server terlalu lambat, coba lagi" sedangkan yang lain berarti "kamu sendiri yang membatalkan, jangan tampilkan apa-apa".',
       ),
 
       h2('6. Yang harus kamu catat sendiri'),

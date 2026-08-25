@@ -176,7 +176,7 @@ const express = defineChapter({
     items: [
       'Bangun lima endpoint CRUD dengan lapisan router/controller/service',
       'Validasi setiap body dan param dengan Zod',
-      'Uji jalur gagal: body kosong, id tidak ada, tipe salah',
+      'Uji unhappy path: body kosong, id tidak ada, tipe salah',
       'Pasang error handler terpusat dan pastikan tidak ada stack trace bocor ke klien',
     ],
   },

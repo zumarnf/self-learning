@@ -119,6 +119,12 @@ export const lessons: LessonDraft[] = [
         if (catatan === null) return res.status(404).json({ error: { pesan: 'Tidak ditemukan' } });
         `,
       ),
+      p(
+        'Dua argumen pada baris pertama itulah perbaikannya, dan keduanya punya asal yang berbeda. `req.params.id` menyebut **benda mana** yang diminta dan datang dari klien, sedangkan `req.pengguna.id` menyebut **siapa yang meminta** dan datang dari sesi atau token yang sudah diverifikasi server. Karena keduanya dipakai bersama di dalam query, catatan milik orang lain tidak akan pernah terambil — pemeriksaannya terjadi di lapisan data, bukan sebagai `if` di atasnya yang bisa terlupa di endpoint berikutnya.',
+      ),
+      p(
+        'Perhatikan jawabannya `404`, bukan `403`. Catatan yang ada tapi bukan milik peminta dan catatan yang memang tidak ada menghasilkan respons yang **sama persis**, sehingga tidak ada yang bisa memetakan id mana yang terpakai hanya dengan mencoba angka berurutan. Ini pilihan yang tepat untuk data yang keberadaannya sendiri bersifat privat.',
+      ),
 
       h2('Tiga lapisan yang harus ada'),
       ol(
@@ -159,6 +165,12 @@ export const lessons: LessonDraft[] = [
           `,
           notes: ['Rute baru otomatis TERLINDUNGI', 'Membuka akses harus disengaja'],
         },
+      ),
+      p(
+        'Kedua kolom memakai struktur yang hampir sama, yaitu sebuah daftar dan sebuah `if`, dan hari ini keduanya berperilaku identik. Yang berbeda adalah **apa yang terjadi ketika seseorang lupa**. Pada kolom kiri, endpoint baru yang tidak didaftarkan ke `RUTE_TERLINDUNGI` langsung terbuka untuk siapa saja. Pada kolom kanan, endpoint baru yang tidak didaftarkan ke `RUTE_PUBLIK` justru ikut terlindungi.',
+      ),
+      p(
+        'Perhatikan tanda `!` pada kolom kanan, sebab satu karakter itu yang membalik arah kelalaian. Kelupaan tetap akan terjadi, bukan karena orangnya ceroboh melainkan karena daftar seperti ini hidup jauh dari berkas tempat rute baru ditulis. Karena itu rancangannya harus membuat kelalaian **berujung pada penolakan** alih-alih pada keterbukaan. Kelalaian di kolom kanan menghasilkan keluhan "kenapa endpoint saya 401" yang ketahuan dalam hitungan menit, sedangkan kelalaian di kolom kiri menghasilkan kebocoran yang bisa tidak ketahuan berbulan-bulan.',
       ),
       callout(
         'danger',
@@ -228,12 +240,12 @@ export const lessons: LessonDraft[] = [
         {
           term: 'argon2id',
           meaning:
-            'Pilihan terbaik saat ini. Varian `id` menggabungkan ketahanan terhadap serangan GPU (banyak memori) dan terhadap serangan side-channel. Parameternya — `memoryCost`, `timeCost`, `parallelism` — yang menentukan biayanya.',
+            'Pilihan terbaik saat ini. Varian `id` menggabungkan ketahanan terhadap serangan GPU (banyak memori) dan terhadap serangan side-channel. Parameternya, yaitu `memoryCost`, `timeCost`, dan `parallelism`, yang menentukan biayanya.',
         },
         {
           term: 'bcrypt',
           meaning:
-            'Sangat matang dan tersedia di mana-mana; default Laravel. Satu batasan yang harus diketahui: ia hanya membaca **72 byte pertama** password — jadi passphrase yang sangat panjang tidak menambah keamanan.',
+            'Sangat matang dan tersedia di mana-mana, dan menjadi default Laravel. Satu batasan yang harus diketahui, ia hanya membaca **72 byte pertama** password, jadi passphrase yang sangat panjang tidak menambah keamanan.',
         },
         {
           term: 'salt',
@@ -310,6 +322,12 @@ export const lessons: LessonDraft[] = [
         const cocok = await argon2.verify(pengguna.kata_sandi_hash, kataSandiDikirim);
         `,
       ),
+      p(
+        'Tiga opsi pada `argon2.hash` adalah biaya yang sengaja kamu bayar. `memoryCost: 19456` memaksa setiap perhitungan hash memakai 19 MiB memori — angka kecil bagi servermu yang menghitung satu hash per login, tetapi mematikan bagi penyerang yang ingin menghitung jutaan tebakan sekaligus di kartu grafis, karena memori jauh lebih sulit diperbanyak daripada inti pemroses. `timeCost: 2` menentukan berapa kali perhitungan diulang, dan `type: argon2id` memilih varian yang tahan terhadap dua jenis serangan sekaligus. Angka-angka itu mengikuti anjuran OWASP dan boleh dinaikkan seiring perangkat kerasmu makin cepat.',
+      ),
+      p(
+        'Perhatikan pada bagian "Masuk" tidak ada perbandingan `===` sama sekali. Hash tidak bisa dibalik menjadi password aslinya, jadi yang dilakukan `argon2.verify` adalah membaca parameter yang tersimpan di dalam string hash, menghitung ulang dengan password yang baru dikirim, lalu membandingkan hasilnya secara waktu-konstan. Karena itu pula kamu tidak perlu menyimpan salt atau cost factor di kolom terpisah — semuanya sudah ada di dalam satu string hash, seperti yang dibedah beberapa bagian di bawah.',
+      ),
 
       h2('Laravel'),
       code(
@@ -334,6 +352,12 @@ export const lessons: LessonDraft[] = [
             $user->update(['password' => Hash::make($request->input('password'))]);
         }
         `,
+      ),
+      p(
+        'Laravel membungkus hal yang sama di balik dua pemanggilan. `Hash::make` menghasilkan hash beserta salt-nya, dan `Hash::check` memverifikasi tanpa pernah mengembalikan password aslinya — algoritmanya sendiri ditentukan di `config/hashing.php`, sehingga berpindah dari bcrypt ke argon2id tidak menyentuh satu baris pun kode ini. Perhatikan `$request->validated(...)` dipakai, bukan `$request->input(...)`: yang masuk ke database hanyalah field yang lolos aturan validasi, sehingga tidak ada kolom asing yang bisa menyelinap lewat body permintaan.',
+      ),
+      p(
+        'Blok `needsRehash` menyelesaikan masalah yang muncul justru karena algoritmanya adaptif. Ketika kamu menaikkan cost factor, password lama tetap tersimpan dengan biaya lama, dan tidak ada cara menghitung ulangnya — servermu tidak menyimpan password aslinya. Satu-satunya saat password asli tersedia adalah **detik pengguna berhasil masuk**, dan di situlah blok ini bekerja. Perhatikan letaknya setelah `Hash::check` berhasil: perlahan seluruh basis penggunamu terangkat ke biaya baru tanpa seorang pun diminta mengganti passwordnya.',
       ),
       callout(
         'tip',
@@ -385,6 +409,9 @@ export const lessons: LessonDraft[] = [
           // Batas atas mencegah DoS: hashing string 10 MB memakan CPU sangat lama.
           .max(200, 'maksimal 200 karakter');
         `,
+      ),
+      p(
+        'Perhatikan skema ini hanya berisi dua aturan, dan tidak satu pun menuntut huruf besar, angka, atau simbol. Itu disengaja dan sesuai anjuran OWASP terkini, sebab `.min(12)` mengejar **panjang** yang menaikkan jumlah kemungkinan jauh lebih cepat daripada aturan kerumitan. Aturan seperti "wajib ada simbol" justru mendorong orang menulis `P@ssw0rd!` yang sudah ada di setiap daftar tebakan. Batas atas `.max(200)` punya alasan yang sama sekali berbeda. Karena hashing sengaja dibuat mahal, string 10 MB yang dikirim berulang kali akan menghabiskan CPU servermu, jadi batas itu adalah pertahanan ketersediaan alih-alih pembatas kekuatan password.',
       ),
       ul(
         '**Panjang lebih penting daripada kerumitan.** Frasa 16 karakter lebih kuat daripada `P@ssw0rd!`.',
@@ -481,7 +508,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'saveUninitialized: false',
           meaning:
-            'Setelan yang mencegah sesi dibuat untuk pengunjung yang belum melakukan apa pun. Tanpa itu, setiap perayap dan setiap kunjungan sekali lewat meninggalkan baris sesi yang tidak pernah dipakai.',
+            'Setelan yang mencegah sesi dibuat untuk pengunjung yang belum melakukan apa pun. Tanpa itu, setiap crawler dan setiap kunjungan sekali lewat meninggalkan baris sesi yang tidak pernah dipakai.',
         },
       ),
 
@@ -496,6 +523,12 @@ export const lessons: LessonDraft[] = [
         5. Server mencari id itu -> dapat penggunanya
         `,
       ),
+      p(
+        'Perhatikan apa yang **tidak** ada di cookie pada langkah 3: tidak ada nama, tidak ada peran, tidak ada apa pun tentang penggunanya — hanya sebuah id acak. Itu inti model sesi. Semua data sesungguhnya tinggal di server (langkah 2), dan cookie hanyalah tiket bernomor untuk mengambilnya kembali. Karena isinya tidak bermakna apa-apa, mengubah isi cookie tidak memberi keuntungan apa pun bagi penyerang, dan mencabut sesi cukup dilakukan dengan menghapus barisnya di server.',
+      ),
+      p(
+        'Langkah 4 adalah yang paling menentukan sifat model ini: browser mengirim cookie itu **otomatis**, tanpa kodemu perlu mengaturnya. Di satu sisi itu memudahkan — frontend tidak perlu menyimpan atau menyertakan token apa pun. Di sisi lain, "otomatis" berarti browser juga mengirimnya ketika permintaannya dipicu dari situs lain, dan dari situlah lahir kebutuhan perlindungan CSRF yang dibahas di bagian akhir sub-bab ini.',
+      ),
 
       h2('Cookie yang benar'),
       code(
@@ -509,6 +542,12 @@ export const lessons: LessonDraft[] = [
           maxAge: 7 * 24 * 60 * 60 * 1000,
         });
         `,
+      ),
+      p(
+        "Keempat atribut itu bukan setelan opsional, sebab tanpa salah satunya cookie sesi berubah menjadi kerentanan. `httpOnly` menyembunyikan cookie dari JavaScript sepenuhnya, sehingga skrip penyerang yang berhasil masuk lewat XSS tidak bisa membacanya lewat `document.cookie`. `secure` menolak mengirimnya lewat koneksi HTTP biasa, menutup penyadapan di jaringan publik. `sameSite: 'lax'` membuat cookie tidak ikut terkirim pada permintaan yang dipicu dari situs lain, yaitu pertahanan CSRF dasar meski bukan satu-satunya lapisan.",
+      ),
+      p(
+        '`maxAge` ditulis sebagai perkalian `7 * 24 * 60 * 60 * 1000` alih-alih angka `604800000` supaya bisa dibaca sebagai "tujuh hari" tanpa menghitung, dan satuannya milidetik di Express. Nilai ini juga keputusan keamanan alih-alih sekadar kenyamanan, sebab sesi yang tidak pernah kedaluwarsa berarti perangkat yang hilang tetap masuk selamanya. Perhatikan `secure: true` di sini ditulis mati, sedangkan pada kode nyata ia biasanya `env.isProduksi`, karena `localhost` tanpa HTTPS tidak akan menerima cookie yang bertanda `Secure`.',
       ),
       table(
         ['Atribut', 'Melindungi dari'],
@@ -536,6 +575,12 @@ export const lessons: LessonDraft[] = [
           res.json({ data: { id: pengguna.id, nama: pengguna.nama } });
         });
         `,
+      ),
+      p(
+        'Urutan tiga baris di dalamnya adalah keseluruhan pelajaran di sini. `regenerate` dipanggil **lebih dulu**, dan `req.session.penggunaId` baru diisi setelah id sesinya berganti. Kalau dibalik, yaitu mengisi identitas ke sesi lama lalu meregenerasi, id yang sudah terautentikasi sempat ada sesaat, dan itulah yang ingin dicegah. Yang dilakukan `regenerate` adalah membuang id sesi lama sepenuhnya dan menerbitkan id baru yang belum pernah dilihat siapa pun.',
+      ),
+      p(
+        'Perhatikan pula respons yang dikirim hanya berisi `id` dan `nama`. Baris ini adalah tempat yang sangat mudah tergelincir: menuliskan `res.json({ data: pengguna })` akan ikut mengirim `kata_sandi_hash` dan setiap kolom lain di tabel itu, persis kebocoran `SELECT *` yang dibahas di Bab 3. Sebutkan field yang keluar satu per satu, terutama pada endpoint autentikasi.',
       ),
       callout(
         'warning',
@@ -581,6 +626,12 @@ export const lessons: LessonDraft[] = [
         $request->session()->regenerateToken();
         `,
       ),
+      p(
+        '`Auth::attempt` mengerjakan beberapa hal sekaligus, yaitu mencari pengguna dengan email tersebut, memverifikasi password lewat `Hash::check`, dan menandai sesinya sebagai terautentikasi. Perhatikan syaratnya ditulis sebagai satu array, sehingga password **tidak** dibandingkan manual di mana pun, sehingga tidak ada peluang seseorang keliru memakai `==` biasa. Baris `regenerate()` tepat setelahnya adalah pencegahan session fixation yang sama seperti pada contoh Node, dan Laravel tidak memanggilnya untukmu di jalur ini.',
+      ),
+      p(
+        'Blok logout memperlihatkan tiga hal yang harus dilakukan bersama, dan inilah yang paling sering hanya dikerjakan separuh. `Auth::logout()` melepaskan penggunanya, `invalidate()` **menghapus sesinya di server** sehingga id lama tidak lagi bisa dipakai, dan `regenerateToken()` menerbitkan token CSRF baru. Logout yang hanya menghapus cookie di sisi klien tidak mencabut apa pun: siapa pun yang sempat menyalin id sesi itu tetap bisa memakainya.',
+      ),
 
       h2('CSRF: konsekuensi memakai cookie'),
       p(
@@ -596,6 +647,12 @@ export const lessons: LessonDraft[] = [
         </form>
         <script>document.forms[0].submit()</script>
         `,
+      ),
+      p(
+        'Perhatikan tidak ada yang dicuri di sini — penyerang tidak pernah membaca cookie korban, dan memang tidak bisa karena `HttpOnly`. Yang ia lakukan hanya **memicu permintaan** ke `bank.com`, dan browser korbanlah yang dengan patuh menyertakan cookie sesinya. Dari sudut pandang server bank, permintaan itu tampak sah sepenuhnya: cookie benar, sesi aktif, pengguna terautentikasi.',
+      ),
+      p(
+        'Perhatikan pula `<script>` di baris terakhir mengirim formulir itu sendiri, sehingga korban tidak perlu mengklik apa pun dan cukup membuka halaman jahatnya. Inilah alasan `HttpOnly` dan `Secure` tidak cukup, sebab keduanya melindungi **isi** cookie dan bukan pemakaiannya. Yang menutup celah ini adalah sesuatu yang tidak dikirim browser secara otomatis, yaitu token anti-CSRF yang harus dibaca dari halaman aslinya, dan situs penyerang tidak punya cara mendapatkannya.',
       ),
       ul(
         '**Token anti-CSRF** — pola synchronizer atau double-submit. Laravel melakukannya otomatis untuk rute `web`.',
@@ -706,6 +763,12 @@ export const lessons: LessonDraft[] = [
         { "sub": "42", "peran": "penulis", "iat": 1754146400, "exp": 1754150000 }
         `,
       ),
+      p(
+        'Sebuah JWT adalah tiga bagian yang dipisahkan titik, dan dua baris di bawah menunjukkan isi dua bagian pertama setelah di-base64-decode. Yang paling penting untuk dipahami: **base64 bukan enkripsi**, ia hanya cara menuliskan data agar aman dilewatkan URL. Siapa pun yang memegang token bisa membaca `sub` dan `peran` di dalamnya dengan satu perintah, tanpa kunci apa pun.',
+      ),
+      p(
+        'Lalu apa yang dilindungi? Bagian ketiga, yaitu tanda tangannya. Ia dihitung dari header dan payload memakai kunci rahasia yang hanya dimiliki servermu, jadi mengubah `"peran": "penulis"` menjadi `"admin"` akan membuat tanda tangannya tidak lagi cocok dan token itu ditolak. Jadi JWT menjamin isinya **tidak bisa diubah**, bukan **tidak bisa dibaca**. Perhatikan `iat` dan `exp` berupa angka detik sejak 1970, dan selisih keduanya di contoh ini 3.600 detik alias masa berlaku satu jam.',
+      ),
       callout(
         'danger',
         'Payload JWT itu base64, BUKAN enkripsi',
@@ -740,12 +803,21 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        "Perhatikan isi payload pada `sign` hanya `sub` dan `peran` — tidak ada email, nama, apalagi apa pun yang sensitif, sesuai sifat base64 tadi. `expiresIn: '15m'` menetapkan masa berlaku pendek karena JWT sulit dicabut: token yang bocor tetap sah sampai kedaluwarsa, jadi lima belas menit adalah batas kerugiannya. `issuer` dan `audience` menandai siapa yang menerbitkan dan untuk siapa token ini dimaksudkan, sehingga token dari sistem lain yang kebetulan memakai kunci sama tidak bisa dipakai lintas tempat.",
+      ),
+      p(
+        "Baris `algorithms: ['HS256']` adalah satu-satunya baris yang kalau dihilangkan membuat seluruh perlindungan ini runtuh. Tanpa allow-list eksplisit, **token sendiri yang menentukan** algoritma verifikasinya lewat field `alg` di header — dan penyerang tinggal menuliskan `alg: none` untuk mengirim token tanpa tanda tangan sama sekali. Verifikasi juga memeriksa `issuer` dan `audience`, memakai nilai yang sama seperti saat penerbitan; kalau tidak diperiksa di sini, menuliskannya di `sign` tadi tidak ada gunanya.",
+      ),
+      p(
+        'Blok `catch` sengaja menangkap **semua** kegagalan dan menjawab dengan satu pesan yang sama. Membedakan "token kedaluwarsa" dari "tanda tangan salah" terdengar membantu, tetapi keduanya memberi petunjuk berbeda kepada penyerang: yang pertama memberitahunya bahwa tebakannya pernah sah, yang kedua memberitahunya bahwa formatnya sudah benar dan tinggal kuncinya yang keliru. Simpan detailnya di log server, kirim yang generik ke klien.',
+      ),
 
       h2('Tiga kesalahan yang membatalkan seluruh perlindungannya'),
       steps(
         {
           title: '1. Tidak membatasi algoritma',
-          body: 'Tanpa opsi `algorithms`, token bisa menyatakan `alg: none` dan diterima tanpa tanda tangan sama sekali. Atau — pada sistem RS256 — penyerang mengubahnya jadi `HS256` dan menandatangani dengan kunci publikmu, yang memang terbuka. Itu **algorithm confusion**. Selalu tulis allow-list-nya.',
+          body: 'Tanpa opsi `algorithms`, token bisa menyatakan `alg: none` dan diterima tanpa tanda tangan sama sekali. Atau pada sistem RS256, penyerang mengubahnya jadi `HS256` lalu menandatangani dengan kunci publikmu, yang memang terbuka. Itu **algorithm confusion**. Selalu tulis allow-list-nya.',
         },
         {
           title: '2. Memakai `decode`, bukan `verify`',
@@ -791,7 +863,7 @@ export const lessons: LessonDraft[] = [
       callout(
         'warning',
         '`localStorage` untuk token adalah pilihan yang sering disesali',
-        'Satu celah XSS — satu dependency yang dibajak, satu HTML tak tersanitasi — dan seluruh token pengguna bisa dicuri. Cookie `HttpOnly` menutup jalur itu sepenuhnya, dengan konsekuensi kamu harus menangani CSRF. Untuk aplikasi web, itu pertukaran yang hampir selalu lebih baik.',
+        'Satu celah XSS saja, entah dependency yang dibajak atau HTML tak tersanitasi, sudah cukup untuk membuat seluruh token pengguna dicuri. Cookie `HttpOnly` menutup jalur itu sepenuhnya, dengan konsekuensi kamu harus menangani CSRF. Untuk aplikasi web, itu pertukaran yang hampir selalu lebih baik.',
       ),
 
       h2('Kapan JWT, kapan sesi'),
@@ -865,12 +937,12 @@ export const lessons: LessonDraft[] = [
             'Setiap kali refresh token dipakai, yang lama **dicabut** dan yang baru diterbitkan. Konsekuensinya: sebuah refresh token hanya sah **sekali**. Ini yang membuat deteksi pencurian jadi mungkin.',
         },
         {
-          term: 'deteksi pemakaian ulang',
+          term: 'reuse detection',
           meaning:
             'Inti seluruh pola ini. Kalau refresh token dicuri, **dua pihak** memakainya. Begitu salah satu memakai token yang sudah dirotasi, server tahu ada penyalahgunaan. Tanpa deteksi ini, rotasi hanya menambah langkah tanpa menambah keamanan.',
         },
         {
-          term: 'keluarga token (token family)',
+          term: 'token family',
           meaning:
             'Rantai refresh token yang berasal dari satu login. Saat pemakaian ulang terdeteksi, **seluruh keluarga** dicabut sekaligus — korban terpaksa masuk lagi, penyerang kehilangan akses.',
         },
@@ -923,8 +995,14 @@ export const lessons: LessonDraft[] = [
           -> ulangi permintaan tadi
         `,
       ),
+      p(
+        'Pola ini memisahkan dua token dengan sifat yang berlawanan, dan justru itu yang membuatnya bekerja. **Access token** berumur 15 menit dan dipakai di setiap permintaan. Karena sering berkeliaran, peluangnya bocor lebih besar, tetapi umur pendeknya membatasi kerugian. **Refresh token** berumur 30 hari dan hanya dipakai sesekali ke satu endpoint saja. Ia jarang berkeliaran, dan **disimpan di database** sehingga bisa dicabut kapan pun, tidak seperti JWT.',
+      ),
+      p(
+        'Perhatikan langkah keempat: server tidak sekadar menerbitkan access token baru, tetapi juga **mencabut refresh token lama dan menerbitkan pasangan baru**. Itulah yang disebut rotasi, dan tanpa langkah pencabutan itu, refresh token yang pernah bocor akan terus berguna selama tiga puluh hari. Bagian "ulangi permintaan tadi" biasanya dikerjakan otomatis oleh interseptor di sisi klien, sehingga penggunanya tidak pernah melihat `401` yang sempat terjadi.',
+      ),
 
-      h2('Rotasi dan deteksi pemakaian ulang'),
+      h2('Rotasi dan reuse detection'),
       code(
         'js',
         `
@@ -973,9 +1051,18 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Baris `sha256(tokenLama)` di awal menerapkan prinsip yang sama seperti password: yang tersimpan di database adalah **hash**-nya, bukan tokennya. Kalau tabel itu bocor, penyerang hanya mendapat hash yang tidak bisa dipakai untuk apa pun. Perhatikan di sini SHA-256 cukup dan argon2 justru tidak tepat — token ini nilai acak 32 byte yang mustahil ditebak, jadi tidak butuh algoritma lambat yang dirancang melawan tebakan kamus.',
+      ),
+      p(
+        'Blok bertanda "INI BAGIAN TERPENTING" adalah jantung pola ini. Pikirkan apa artinya sebuah token yang **sudah dicabut** muncul kembali. Token itu hanya dicabut setelah dipakai, jadi kemunculannya yang kedua berarti ada dua pihak yang memegangnya, yaitu pemiliknya dan pencurinya. Server tidak bisa tahu mana yang mana, jadi ia mengambil sikap paling aman dengan mencabut **seluruh keluarga** token itu lewat `keluargaId`. Korban terpaksa masuk ulang, penyerang kehilangan akses sepenuhnya. Tanpa langkah ini, rotasi hanya menambah kerumitan tanpa menambah keamanan.',
+      ),
+      p(
+        "`keluargaId` yang diteruskan apa adanya ke token baru adalah yang membuat pencabutan itu mungkin: seluruh rantai rotasi sejak satu kali login membawa penanda yang sama, sehingga satu perintah cukup untuk memutus semuanya. Perhatikan pula cookie-nya memakai `sameSite: 'strict'` yang lebih ketat daripada `lax` pada cookie sesi biasa, dan `path: '/api/refresh'` yang membuat browser **hanya** mengirimkannya ke endpoint ini — bukan ke ratusan permintaan API lain tempat ia bisa tercatat di log atau proxy.",
+      ),
       callout(
         'danger',
-        'Deteksi pemakaian ulang adalah inti dari pola ini',
+        'Reuse detection adalah inti dari pola ini',
         'Kalau refresh token dicuri, ada dua pihak yang memakainya. Begitu salah satu memakai token yang sudah dirotasi, server tahu ada penyalahgunaan — dan mencabut **seluruh keluarga** token itu. Korban terpaksa masuk lagi, penyerang kehilangan akses. Tanpa deteksi ini, rotasi hanya menambah langkah tanpa menambah keamanan.',
       ),
 
@@ -990,7 +1077,7 @@ export const lessons: LessonDraft[] = [
         '**Ganti password** — cabut **semua** sesi pengguna itu.',
         '**Perubahan peran atau izin** — token lama masih membawa peran lama.',
         '**Akun dinonaktifkan atau dihapus.**',
-        '**Terdeteksi pemakaian ulang** — cabut seluruh keluarga.',
+        '**Terreuse detection** — cabut seluruh keluarga.',
       ),
       code(
         'php',
@@ -1000,6 +1087,9 @@ export const lessons: LessonDraft[] = [
         $request->user()->currentAccessToken()->delete();  // perangkat ini saja
         `,
       ),
+      p(
+        'Dua baris ini adalah dua tombol yang berbeda, dan memilih yang salah terasa langsung oleh penggunanya. Baris pertama menghapus **semua** token milik pengguna itu, sehingga ia keluar dari setiap perangkat sekaligus, dan itulah yang harus dijalankan saat password diganti atau akun dicurigai dibajak. Baris kedua hanya menghapus token yang dipakai permintaan ini, yaitu tombol "keluar" biasa yang tidak mengganggu sesi di perangkat lain. Perhatikan keduanya menghapus baris **di database** alih-alih sekadar menyuruh klien membuang tokennya, dan itulah yang membedakan logout sungguhan dari logout yang hanya tampak.',
+      ),
 
       h2('Kesalahan yang sering'),
       table(
@@ -1008,7 +1098,7 @@ export const lessons: LessonDraft[] = [
           ['Refresh token tidak pernah berubah', 'Sekali bocor, berlaku sampai kedaluwarsa'],
           ['Token disimpan apa adanya, bukan hash-nya', 'Database bocor = semua sesi terbuka'],
           ['Logout hanya menghapus token di klien', 'Token masih sah di server'],
-          ['Tidak ada deteksi pemakaian ulang', 'Pencurian tidak pernah ketahuan'],
+          ['Tidak ada reuse detection', 'Pencurian tidak pernah ketahuan'],
           ['Refresh token di `localStorage`', 'Bisa dicuri lewat XSS'],
         ],
       ),
@@ -1028,7 +1118,7 @@ export const lessons: LessonDraft[] = [
           label: 'OAuth 2.0 Security Best Current Practice — token rotation',
           href: 'https://datatracker.ietf.org/doc/html/draft-ietf-oauth-security-topics',
           source: 'IETF',
-          note: 'Anjuran rotasi beserta deteksi pemakaian ulang, langsung dari sumbernya.',
+          note: 'Anjuran rotasi beserta reuse detection, langsung dari sumbernya.',
         },
         {
           label: 'crypto.randomBytes()',
@@ -1142,6 +1232,12 @@ export const lessons: LessonDraft[] = [
         router.post('/:id/terbitkan', autentikasi, wajibIzin('catatan.terbitkan'), controller.terbitkan);
         `,
       ),
+      p(
+        "Perhatikan `wajibIzin` menerima **nama izin**, bukan nama peran, dan pemetaan peran-ke-izin tinggal di satu tabel di atasnya. Bedanya terasa ketika ada peran baru: menambahkan `supervisor` dengan sebagian hak admin cukup menambah satu baris di `IZIN_PER_PERAN`, tanpa menyentuh satu pun berkas rute. Sebaliknya, kode yang menyebar `if (peran === 'admin')` ke puluhan tempat menuntut kamu menemukan dan mengubah semuanya — dan satu yang terlewat adalah celah atau bug.",
+      ),
+      p(
+        'Dua detail kecilnya penting. `?? []` menangani peran yang tidak dikenal dengan **daftar izin kosong**, sehingga nilai peran yang aneh berujung penolakan alih-alih error, dan sekali lagi kelalaian harus mengarah ke penolakan. Dan `log.warn` mencatat setiap penolakan berikut siapa serta izin apa yang diminta. Satu penolakan itu wajar, tetapi puluhan dari satu akun dalam semenit adalah seseorang yang sedang memetakan apa yang bisa ia sentuh. Perhatikan pula status yang dipakai `403` dan bukan `401`, sebab penggunanya sudah terbukti siapa dan hanya memang tidak berwenang.',
+      ),
       callout(
         'tip',
         'Periksa izin, bukan peran',
@@ -1160,6 +1256,9 @@ export const lessons: LessonDraft[] = [
           return false;
         }
         `,
+      ),
+      p(
+        'Dua komentar di atas fungsi ini menjelaskan perbedaan yang sering kabur. Izin menjawab pertanyaan **umum** seperti "peran ini boleh menerbitkan artikel?", sedangkan policy menjawab pertanyaan **tentang satu objek tertentu** seperti "boleh menerbitkan artikel ini?". Keduanya diperlukan bersama, sebab seorang editor punya izin `catatan.terbitkan`, tetapi itu tidak berarti ia boleh menerbitkan draf milik orang lain. Perhatikan fungsinya menerima **dua** argumen, pengguna dan catatannya, dan justru argumen kedua itulah yang membedakannya dari pemeriksaan izin biasa.',
       ),
       code(
         'php',
@@ -1185,6 +1284,12 @@ export const lessons: LessonDraft[] = [
             }
         }
         `,
+      ),
+      p(
+        'Laravel membungkus pola yang sama dalam sebuah kelas, satu method per aksi. Bagian yang paling mudah salah adalah `before()`, dan tipe kembaliannya `?bool` sudah memberi petunjuk bahwa ia punya **tiga** kemungkinan alih-alih dua. `true` meloloskan semuanya, `false` **menolak** semuanya termasuk yang seharusnya lolos, sedangkan `null` berarti "saya tidak memutuskan, lanjutkan ke method biasa". Kode di atas mengembalikan `null` untuk non-admin, sehingga pemeriksaan kepemilikan di bawahnya tetap berjalan. Menuliskan `return $user->peran === \'admin\';` di situ akan menghasilkan `false` untuk semua orang lain dan mematikan seluruh policy-nya.',
+      ),
+      p(
+        'Perhatikan pula `terbitkan()` menggabungkan **dua** syarat dengan `&&`: kepemilikan objek dan izin peran. Ini bentuk paling jujur dari aturan bisnisnya — penulis boleh menerbitkan tulisannya sendiri, tetapi hanya kalau perannya memang berwenang menerbitkan. Bandingkan dengan `view()` yang cukup memeriksa kepemilikan saja, karena membaca tulisan sendiri tidak memerlukan izin tambahan.',
       ),
       callout(
         'warning',
@@ -1230,6 +1335,9 @@ export const lessons: LessonDraft[] = [
           hasil: 'ditolak',
         }, 'otorisasi ditolak');
         `,
+      ),
+      p(
+        'Empat field itu adalah bentuk minimum sebuah catatan audit, yaitu **siapa** (`penggunaId`), **apa** (`aksi`), **atas objek mana** (`objekId`), dan **hasilnya** (`ditolak`), sedangkan waktu ditambahkan pino secara otomatis. Dengan keempatnya sebagai field terpisah, pertanyaan "siapa saja yang mencoba menghapus catatan 42 minggu ini" menjadi penyaringan biasa alih-alih pencarian teks. Perhatikan levelnya `warn` dan bukan `error`, sebab penolakan otorisasi bukan bug di kodemu tetapi tetap layak diperhatikan. Yang membuatnya berguna adalah alert atas **polanya**, bukan atas satu barisnya.',
       ),
       callout(
         'tip',
@@ -1348,6 +1456,12 @@ export const lessons: LessonDraft[] = [
         for i in $(seq 1 100000); do curl -s /api/catatan/$i -H "Authorization: Bearer $TOKEN"; done
         `,
       ),
+      p(
+        'Perhatikan `autentikasi` sudah terpasang pada rute itu, dan tetap saja rentan. Kesalahannya ada di baris query, sebab `WHERE id = $1` menjadikan angka dari klien sebagai **satu-satunya penentu** baris mana yang diambil. Servernya tahu persis siapa yang meminta karena nilainya ada di `req.pengguna`, tetapi tidak pernah memakainya. Inilah beda autentikasi dan otorisasi dalam satu baris kode, sebab pintunya terkunci tetapi begitu masuk semua laci bisa dibuka.',
+      ),
+      p(
+        'Bagian `curl` menunjukkan mengapa ini kelas kerentanan tersendiri, bukan sekadar bug kecil. Tiga baris pertama identik kecuali angkanya, dan **semuanya memakai token yang sama dan sah**. Tidak ada yang diretas, tidak ada tanda tangan yang dipalsukan. Perulangan di baris terakhir memperlihatkan konsekuensinya: karena id-nya berurutan, satu perintah `for` sudah cukup untuk mengunduh seluruh isi tabel — dan dari sisi server, semuanya tampak sebagai pengguna sah yang sedang rajin membaca.',
+      ),
       callout(
         'danger',
         'Kenapa ini begitu sering lolos',
@@ -1386,6 +1500,12 @@ export const lessons: LessonDraft[] = [
           notes: ['Kepemilikan jadi bagian dari query', 'Milik orang lain = tidak ditemukan'],
         },
       ),
+      p(
+        'Perbaikannya hanya menambah satu syarat dan satu parameter: `AND penulis_id = $2` dengan `req.pengguna.id`. Yang berubah secara mendasar adalah **siapa yang menentukan hasil**. Pada kolom kiri, klien sepenuhnya yang menentukan lewat angka di URL. Pada kolom kanan, klien hanya boleh mengusulkan id, dan servernya menyaring dengan identitas yang ia verifikasi sendiri. Letaknya di dalam query juga disengaja — pemeriksaan di lapisan data tidak bisa dilewati oleh jalur pemanggilan baru yang lupa memeriksa.',
+      ),
+      p(
+        'Blok `if (rows.length === 0)` menyatukan dua keadaan yang berbeda menjadi satu jawaban: catatan yang tidak ada dan catatan yang bukan miliknya sama-sama menghasilkan nol baris, sehingga keduanya dijawab `404` yang identik. Dengan begitu tidak ada informasi yang bocor lewat perbedaan respons. Perhatikan pula kolom kanan mengganti `SELECT *` menjadi daftar kolom eksplisit — memperbaiki IDOR adalah saat yang tepat untuk sekaligus menutup kebocoran kolom.',
+      ),
 
       h2('IDOR tidak hanya soal baris database'),
       table(
@@ -1408,6 +1528,9 @@ export const lessons: LessonDraft[] = [
         `
         /api/catatan/550e8400-e29b-41d4-a716-446655440000
         `,
+      ),
+      p(
+        'Alamat ini memang mematikan serangan `for` di atas, sebab tidak ada "id berikutnya" yang bisa ditebak dari 128 bit acak. Tetapi perhatikan apa yang **tidak** berubah, karena kalau query di belakangnya masih `WHERE id = $1` tanpa `penulis_id`, maka siapa pun yang memegang UUID itu tetap mendapat datanya. Dan UUID bocor dengan cara yang tidak terduga, entah lewat tautan yang dibagikan di grup, dari respons API lain yang menyertakannya, dari log server, atau dari header `Referer` saat pengguna mengklik tautan keluar. Perlakukan UUID sebagai pengurang paparan alih-alih sebagai kontrol akses.',
       ),
       callout(
         'warning',
@@ -1453,6 +1576,12 @@ export const lessons: LessonDraft[] = [
           expect(sesudah).toEqual(catatanBudi);
         });
         `,
+      ),
+      p(
+        'Tes ini berbeda dari tes biasa karena ia membuktikan sesuatu **tidak** terjadi. Perhatikan ada dua pengguna: catatan dibuat atas nama Budi, lalu setiap permintaan dikirim dengan token Ana. Inilah yang tidak akan pernah kamu lakukan saat menguji manual — kamu selalu memakai akunmu sendiri, dan itulah alasan IDOR begitu sering lolos ke produksi.',
+      ),
+      p(
+        'Perulangan atas tiga method juga disengaja. Sangat sering `GET` sudah diperbaiki sementara `PATCH` dan `DELETE` masih memakai query lama, karena keduanya jarang diuji dengan token orang lain. Menuliskannya sebagai daftar membuat penambahan endpoint baru cukup menambah satu baris. Dan dua baris terakhir menutup celah terakhirnya: status `404` saja belum membuktikan apa-apa kalau ternyata datanya **sempat berubah** sebelum ditolak. Perbandingan `toEqual(catatanBudi)` memastikan `PATCH` dan `DELETE` benar-benar tidak menyentuh apa pun.',
       ),
       callout(
         'tip',
@@ -1512,7 +1641,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'pesan error identik',
           meaning:
-            'Jawaban yang **sama persis** untuk "email tidak terdaftar" dan "password salah" — keduanya `401` dengan pesan "Email atau kata sandi salah". Perbedaan yang tampak sepele itulah yang menyediakan daftar untuk enumerasi.',
+            'Jawaban yang **sama persis** untuk "email tidak terdaftar" dan "password salah" — keduanya `401` dengan pesan "Email atau password salah". Perbedaan yang tampak sepele itulah yang menyediakan daftar untuk enumerasi.',
         },
         {
           term: 'timing attack',
@@ -1520,7 +1649,7 @@ export const lessons: LessonDraft[] = [
             'Membaca informasi dari **selisih waktu respons**. Kalau email tidak ada, kode langsung kembali — jauh lebih cepat daripada saat ia harus memverifikasi hash. Selisih itu bisa diukur, dan ia sama saja dengan pesan yang berbeda.',
         },
         {
-          term: 'hash palsu',
+          term: 'dummy hash',
           meaning:
             'Obat untuk timing attack: saat email tidak ditemukan, **tetap jalankan verifikasi** terhadap hash buatan. Waktu responsnya jadi sama untuk email yang ada maupun tidak — dan celah waktunya tertutup.',
         },
@@ -1572,12 +1701,18 @@ export const lessons: LessonDraft[] = [
           code: `
           if (pengguna === null || !cocok) {
             return res.status(401).json({
-              error: { pesan: 'Email atau kata sandi salah' },
+              error: { pesan: 'Email atau password salah' },
             });
           }
           `,
           notes: ['Tidak ada informasi yang bisa dipetakan'],
         },
+      ),
+      p(
+        'Kolom kiri memberi pesan yang lebih membantu — dan justru itu masalahnya, karena yang paling terbantu adalah penyerang. Dengan `404 Email tidak terdaftar` versus `401 Password salah`, siapa pun bisa mengirim daftar sejuta email dan memilah mana yang punya akun di sistemmu, tanpa pernah menebak satu password pun. Perhatikan status kodenya juga ikut membocorkan, jadi menyeragamkan pesannya saja tidak cukup kalau angkanya tetap berbeda.',
+      ),
+      p(
+        'Kolom kanan menyatukan dua keadaan itu dengan `||` menjadi satu cabang, satu status, dan satu pesan. Pengguna sah yang salah ketik memang jadi tidak tahu apakah emailnya keliru atau passwordnya — sedikit merepotkan, tetapi ia bisa memakai alur "lupa password" yang aman. Perhatikan alur lupa password pun harus mengikuti aturan yang sama: balas "kalau email itu terdaftar, kami sudah mengirim tautannya", bukan "email tidak ditemukan".',
       ),
       callout(
         'danger',
@@ -1592,7 +1727,7 @@ export const lessons: LessonDraft[] = [
         // Kalau email tidak ada, kita langsung kembali -> jauh lebih cepat.
         // Selisih waktunya bisa diukur, dan ia sama saja dengan pesan berbeda.
         //
-        // Perbaikannya: tetap jalankan verifikasi terhadap hash palsu.
+        // Perbaikannya: tetap jalankan verifikasi terhadap dummy hash.
         const HASH_PALSU = await argon2.hash(crypto.randomBytes(32).toString('hex'));
 
         const pengguna = await db.cariPenggunaByEmail(email);
@@ -1601,9 +1736,15 @@ export const lessons: LessonDraft[] = [
         const cocok = await argon2.verify(hash, kataSandiDikirim);
 
         if (pengguna === null || !cocok) {
-          return res.status(401).json({ error: { pesan: 'Email atau kata sandi salah' } });
+          return res.status(401).json({ error: { pesan: 'Email atau password salah' } });
         }
         `,
+      ),
+      p(
+        'Kebocoran ini lebih halus daripada perbedaan pesan, dan tidak akan tertangkap dengan membaca respons. Karena argon2 sengaja dibuat lambat, ingat `memoryCost` 19 MiB tadi, email yang **tidak terdaftar** akan dijawab dalam hitungan milidetik, sementara email yang terdaftar butuh puluhan hingga ratusan milidetik untuk memverifikasi hash-nya. Selisih itu cukup konsisten untuk diukur dari luar, dan ia memberi jawaban yang sama seperti pesan "email tidak terdaftar".',
+      ),
+      p(
+        'Perbaikannya ada di baris `?? HASH_PALSU`: ketika penggunanya tidak ditemukan, verifikasi tetap dijalankan terhadap hash tiruan sehingga waktunya sebanding. `argon2.verify` tentu gagal, tetapi kegagalannya sudah ditangani oleh cabang `pengguna === null` di bawah. Perhatikan `HASH_PALSU` dihitung **sekali** di luar handler — menghitungnya di setiap permintaan justru menambah beban tanpa manfaat. Perhatikan pula pemeriksaannya ditulis `pengguna === null || !cocok`, satu cabang untuk kedua keadaan, sesuai pelajaran sebelumnya.',
       ),
 
       h2('Rate limit: per IP DAN per akun'),
@@ -1637,6 +1778,15 @@ export const lessons: LessonDraft[] = [
         router.post('/masuk', batasIp, batasAkun, controller.masuk);
         `,
       ),
+      p(
+        'Kedua pembatas ini menutup dua serangan yang berbeda, dan itulah sebabnya keduanya dipasang berurutan pada rute yang sama. `batasIp` menahan satu mesin yang mencoba ribuan password terhadap satu akun. `batasAkun` menahan kebalikannya: ribuan mesin yang masing-masing hanya mencoba beberapa kali terhadap akun yang sama — pola botnet yang setiap IP-nya berada jauh di bawah ambang per-IP dan karenanya tidak akan pernah tertangkap `batasIp`.',
+      ),
+      p(
+        'Opsi `skipSuccessfulRequests: true` adalah detail yang menentukan kenyamanan penggunanya: yang dihitung hanya percobaan yang **gagal**, sehingga orang yang benar-benar bekerja dan berkali-kali login dari kantor yang sama tidak ikut terblokir. `windowMs: 15 * 60 * 1000` dengan `limit: 20` berarti dua puluh kegagalan per lima belas menit — cukup longgar untuk orang yang pelupa, cukup ketat untuk menghentikan penebakan otomatis.',
+      ),
+      p(
+        'Perhatikan `batasAkun` memakai `req.body?.email` sebagai kunci di Redis dan bukan id pengguna, sebab pada titik ini kita memang belum tahu penggunanya siapa, dan justru itu yang membuatnya bekerja bahkan untuk email yang tidak terdaftar. Redis dipakai, bukan variabel di memori proses, karena hitungannya harus **dibagi antar proses**. Dengan penyimpanan di memori, menjalankan empat proses berarti penyerang mendapat empat kali jatah. Perhatikan pula ambangnya menghasilkan `429`, dan komentarnya menegaskan ini backoff alih-alih penguncian keras, dengan alasan yang dibahas tepat di bawah.',
+      ),
       callout(
         'warning',
         'Rate limit per IP saja tidak cukup',
@@ -1647,7 +1797,7 @@ export const lessons: LessonDraft[] = [
       callout(
         'danger',
         'Penguncian polos adalah celah penolakan layanan',
-        'Kalau akun terkunci setelah lima percobaan gagal, penyerang bisa **mengunci akun siapa pun** hanya dengan sengaja salah password lima kali. Ia tidak perlu masuk — cukup membuat korban tidak bisa masuk. Karena itu aturannya: rate limit **dan** backoff eksponensial, per akun **dan** per IP — bukan penguncian tanpa syarat.',
+        'Kalau akun terkunci setelah lima percobaan gagal, penyerang bisa **mengunci akun siapa pun** hanya dengan sengaja salah password lima kali. Ia tidak perlu masuk, sebab cukup membuat korban tidak bisa masuk. Karena itu aturannya adalah rate limit **dan** backoff eksponensial, per akun **dan** per IP, bukan penguncian tanpa syarat.',
       ),
       code(
         'js',
@@ -1655,6 +1805,12 @@ export const lessons: LessonDraft[] = [
         // Jeda yang naik: 1s, 2s, 4s, 8s, ... dengan batas atas
         const jedaDetik = Math.min(2 ** jumlahGagal, 300);
         `,
+      ),
+      p(
+        'Satu baris ini menjelaskan kenapa backoff mengalahkan penguncian. `2 ** jumlahGagal` tumbuh sangat cepat, yaitu 1, 2, 4, 8, 16, lalu 32 detik, sehingga penebakan otomatis yang butuh ribuan percobaan menjadi mustahil secara waktu, sementara pengguna sah yang salah ketik dua kali hanya menunggu beberapa detik. Perbedaannya dengan penguncian, akun tetap **bisa** diakses pemiliknya dan hanya lebih lambat, jadi penyerang tidak bisa memakai kegagalan yang disengaja untuk mengunci akun orang lain.',
+      ),
+      p(
+        '`Math.min(..., 300)` memasang batas atas lima menit, dan itu bukan kelonggaran melainkan keharusan. Tanpa batas, `2 ** 20` sudah lebih dari dua belas hari — artinya kamu baru saja membuat penguncian permanen dengan cara lain. Batas atas menjaga agar jedanya tetap menyakitkan bagi mesin, tetapi selalu punya ujung bagi manusia.',
       ),
 
       h2('Endpoint lain yang juga butuh rate limit'),
@@ -1677,7 +1833,7 @@ export const lessons: LessonDraft[] = [
 
       h2('Reset password yang aman'),
       ol(
-        'Selalu jawab **sama** — "kalau email terdaftar, kami sudah mengirim tautan" — baik emailnya ada maupun tidak.',
+        'Selalu jawab **sama** dengan kalimat "kalau email terdaftar, kami sudah mengirim tautan", baik emailnya ada maupun tidak.',
         'Token acak berentropi tinggi, disimpan sebagai **hash**.',
         'Berumur pendek: 15–60 menit.',
         '**Sekali pakai** — hapus begitu digunakan.',
@@ -1832,6 +1988,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Perhatikan `.toLowerCase()` pada skema email — tanpanya, `Ana@contoh.com` dan `ana@contoh.com` akan menjadi dua akun berbeda meski merujuk kotak surat yang sama, dan `UNIQUE` di database tidak akan mencegahnya. Normalisasi harus dilakukan **sebelum** validasi dan penyimpanan, bukan sesekali saat mencari. `.strict()` menutup celah mass assignment: tanpa itu, body yang menyertakan `{"peran":"admin"}` bisa ikut terbawa kalau kode di bawahnya menyebarkan `req.body`.',
+      ),
+      p(
+        'Komentar pada `RETURNING id, nama, email` menandai keputusan yang mudah terlewat, yaitu `kata_sandi_hash` sengaja tidak ikut dikembalikan. Kalau ditulis `RETURNING *`, hash password akan langsung terkirim ke klien pada respons pendaftaran, dan itu kebocoran paling telanjang yang bisa terjadi di endpoint ini. Perhatikan pula urutannya, sebab hash dihitung **sebelum** `INSERT` karena yang masuk ke database memang harus sudah berupa hash, bukan password mentah.',
+      ),
+      p(
+        'Blok `catch` menangani kode error PostgreSQL `23505`, yaitu pelanggaran batasan `UNIQUE` yang terjadi ketika emailnya sudah terdaftar. Jawaban yang mudah adalah "email sudah dipakai", dan itulah jebakannya, sebab pesan tersebut memberi penyerang daftar akun yang sama persis seperti pesan login yang berbeda. Karena itu jawabannya `202` dengan kalimat yang **sama** seperti pendaftaran yang berhasil. Yang membedakan hanyalah isi email yang diterima pemilik alamat itu, karena pemilik lama mendapat pemberitahuan sedangkan pemilik baru mendapat tautan verifikasi. Perhatikan error lain tetap dilempar ulang lewat `throw err`, sehingga masalah database sungguhan tidak tersamar sebagai pendaftaran yang berhasil.',
+      ),
       callout(
         'tip',
         'Pendaftaran juga bisa membocorkan akun',
@@ -1856,7 +2021,7 @@ export const lessons: LessonDraft[] = [
           if (pengguna === null || !cocok) {
             await catatGagal(email, req.ip);
             // Satu pesan untuk kedua kemungkinan.
-            return res.status(401).json({ error: { pesan: 'Email atau kata sandi salah' } });
+            return res.status(401).json({ error: { pesan: 'Email atau password salah' } });
           }
 
           await bersihkanHitunganGagal(email);
@@ -1875,6 +2040,15 @@ export const lessons: LessonDraft[] = [
           });
         }
         `,
+      ),
+      p(
+        'Fungsi ini menggabungkan hampir setiap pelajaran sub-bab sebelumnya, dan setiap barisnya punya alasan. `HASH_PALSU` di luar handler menyeragamkan waktu respons agar email yang tidak terdaftar tidak terjawab lebih cepat. Cabang `pengguna === null || !cocok` menyatukan dua kegagalan menjadi satu pesan. `catatGagal(email, req.ip)` mengisi hitungan untuk pembatas per-akun **dan** per-IP, dan `bersihkanHitunganGagal` di jalur sukses memastikan pengguna sah tidak terus membawa beban kegagalan lamanya.',
+      ),
+      p(
+        'Blok `needsRehash` adalah penerapan hal yang tadi dibahas pada Laravel: inilah satu-satunya momen password asli tersedia, jadi di sinilah hash lama diangkat ke parameter biaya yang baru. Perhatikan ia diletakkan setelah verifikasi berhasil — menjalankannya lebih dulu berarti menghitung ulang hash untuk password yang mungkin salah.',
+      ),
+      p(
+        'Dua hal terakhir menutup fungsinya. `req.session.regenerate` mengganti id sesi sebelum identitas dititipkan, mencegah session fixation. Dan respons suksesnya menyebut `id`, `nama`, serta `email` satu per satu, bukan mengirim objek `pengguna` apa adanya — objek itu membawa `kataSandiHash`, dan mengirimnya utuh akan membocorkan hash password ke setiap orang yang berhasil login.',
       ),
 
       h2('Laravel'),
@@ -1901,7 +2075,7 @@ export const lessons: LessonDraft[] = [
 
                     // Pesan yang SAMA untuk email tidak ada dan password salah.
                     return response()->json([
-                        'error' => ['pesan' => 'Email atau kata sandi salah'],
+                        'error' => ['pesan' => 'Email atau password salah'],
                     ], 401);
                 }
 
@@ -1928,6 +2102,12 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Versi Laravel-nya mengerjakan hal yang sama dengan alat bawaan. Perhatikan kunci rate limiter-nya menggabungkan email **dan** IP dalam satu string, yaitu satu kunci yang menutup kedua sisi sekaligus sebagai alternatif ringkas dari dua middleware terpisah pada contoh Node. `Str::lower` di sana memastikan `Ana@` dan `ana@` dihitung sebagai akun yang sama. `RateLimiter::hit` hanya dipanggil di unhappy path dan `RateLimiter::clear` di jalur sukses, mengikuti pola `skipSuccessfulRequests` tadi. Perhatikan pula responsnya menyebutkan sisa detik lewat `availableIn`, dan ini aman diberitahukan karena tidak mengungkap apa pun tentang akunnya.',
+      ),
+      p(
+        "Blok kedua adalah dua baris yang menyelamatkan banyak aplikasi Laravel. `$hidden` mencegah `password` dan `remember_token` ikut terserialisasi ke JSON — jadi bahkan `return response()->json($user)` yang ceroboh tidak akan membocorkan hash. Dan cast `'password' => 'hashed'` membuat setiap penugasan ke kolom itu di-hash otomatis, sehingga `$user->update(['password' => $plain])` pada contoh ganti password di bawah tidak menyimpan teks mentah. Keduanya bekerja sebagai jaring pengaman: mereka menutup celah yang lahir dari kelalaian, bukan dari niat.",
+      ),
 
       h2('Ganti password — cabut sesi lain'),
       code(
@@ -1939,7 +2119,7 @@ export const lessons: LessonDraft[] = [
 
             // Verifikasi password LAMA — jangan izinkan ganti hanya karena sesi aktif.
             if (! Hash::check($request->validated('kata_sandi_lama'), $user->password)) {
-                return response()->json(['error' => ['pesan' => 'Kata sandi lama salah']], 422);
+                return response()->json(['error' => ['pesan' => 'Password lama salah']], 422);
             }
 
             $user->update(['password' => $request->validated('kata_sandi_baru')]);
@@ -1949,9 +2129,15 @@ export const lessons: LessonDraft[] = [
             $user->tokens()->delete();
             Auth::logoutOtherDevices($request->validated('kata_sandi_baru'));
 
-            return response()->json(['data' => ['pesan' => 'Kata sandi diperbarui']]);
+            return response()->json(['data' => ['pesan' => 'Password diperbarui']]);
         }
         `,
+      ),
+      p(
+        'Pemeriksaan `Hash::check` terhadap password **lama** di awal sering dianggap formalitas, padahal ia yang menutup satu skenario nyata: laptop yang ditinggal terbuka, atau sesi yang dicuri lewat XSS. Tanpa langkah itu, siapa pun yang memegang sesi aktif bisa mengganti password dan mengunci pemilik aslinya keluar dari akunnya sendiri. Sesi yang aktif membuktikan seseorang pernah masuk; ia tidak membuktikan orang itu masih pemiliknya.',
+      ),
+      p(
+        'Dua baris pencabutan di bawahnya menyelesaikan alasan orang mengganti password. `$user->tokens()->delete()` mencabut token API di semua perangkat, dan `Auth::logoutOtherDevices` mengeluarkan sesi browser lain sambil **mempertahankan** sesi yang sedang dipakai — sehingga penggunanya tidak ikut terlempar keluar setelah berhasil mengganti passwordnya sendiri. Tanpa keduanya, sesi penyerang tetap hidup dan tindakan ganti password hanya memberi rasa aman yang keliru.',
       ),
       callout(
         'danger',
@@ -1959,7 +2145,7 @@ export const lessons: LessonDraft[] = [
         'Alasan utama seseorang mengganti password adalah kecurigaan akun dibajak. Kalau sesi penyerang tetap aktif setelahnya, tindakan itu tidak mengubah apa pun bagi penyerang — dan korban mengira dirinya sudah aman.',
       ),
 
-      h2('Uji seluruh jalur gagalnya'),
+      h2('Uji seluruh unhappy path-nya'),
       code(
         'bash',
         `
@@ -2003,7 +2189,7 @@ export const lessons: LessonDraft[] = [
         },
         {
           title: '3. Login',
-          body: 'Terapkan verifikasi terhadap hash palsu, satu pesan error, regenerasi sesi, dan rehash saat parameter dinaikkan.',
+          body: 'Terapkan verifikasi terhadap dummy hash, satu pesan error, regenerasi sesi, dan rehash saat parameter dinaikkan.',
         },
         {
           title: '4. Rate limit',

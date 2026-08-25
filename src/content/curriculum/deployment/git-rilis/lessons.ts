@@ -30,6 +30,15 @@ export const lessons: LessonDraft[] = [
         git log -p src/fitur.ts          # riwayat satu berkas
         `,
       ),
+      p(
+        'Komentar pada baris pertama menyatakan kebiasaan yang paling menghemat penyesalan: `git status` **sebelum melakukan apa pun**. Beberapa perintah git membuang pekerjaan yang belum di-commit secara permanen, dan satu-satunya yang berdiri di antaranya adalah kebiasaan melihat dulu apa yang ada.',
+      ),
+      p(
+        'Dua bentuk `git diff` menunjukkan **tahap yang berbeda**. Tanpa argumen, ia memperlihatkan perubahan yang belum di-stage; dengan `--staged`, yang **akan ikut commit**. Keduanya perlu karena keduanya bisa berbeda — dan yang menentukan isi commit adalah yang kedua.',
+      ),
+      p(
+        'Komentar `per berkas, BUKAN git add .` menandai aturan yang alasannya ada di peringatan berikut: `git add .` menyapu apa pun yang kebetulan ada di direktori, termasuk `.env` yang baru dibuat, dump database, atau berkas percobaan. Menyebut berkasnya satu per satu memaksamu melihat apa yang masuk — dan itu satu-satunya penjagaan yang bekerja sebelum rahasianya terlanjur masuk riwayat.',
+      ),
       callout(
         'warning',
         'Hindari `git add .` dan `git add -A`',
@@ -46,6 +55,12 @@ export const lessons: LessonDraft[] = [
         # Cari yang tidak seharusnya ada
         git diff --staged --name-only | grep -iE "\\.env|\\.pem$|\\.key$|dump\\.sql"
         `,
+      ),
+      p(
+        'Baris `grep` di akhir adalah pemeriksaan sepuluh detik yang menutup kelas kesalahan yang tidak bisa dibatalkan. `--name-only` mencetak **daftar nama berkas** yang akan ikut commit, dan pola di belakangnya menangkap empat jenis yang paling sering tidak sengaja masuk: berkas environment, sertifikat, kunci pribadi, dan dump database.',
+      ),
+      p(
+        'Perhatikan ini pemeriksaan yang **berhasil kalau tidak menemukan apa pun** — keluaran kosong berarti aman. Dan ingat konsekuensi kalau ia menemukan sesuatu setelah terlanjur di-push: rahasia yang pernah masuk git ada di setiap clone dan fork, jadi menghapus commit-nya tidak menutup kebocoran. Yang tersisa hanya rotasi.',
       ),
 
       h2('Membatalkan — dari yang paling aman'),
@@ -84,10 +99,19 @@ export const lessons: LessonDraft[] = [
         git push --force
         `,
       ),
+      p(
+        'Perbedaan mendasarnya: `revert` **menambah** commit baru yang membatalkan efek commit lama, sedangkan `reset --hard` **menghapus** commit itu dari riwayat. Untuk commit yang sudah di-push, hanya yang pertama yang benar — karena riwayat yang sudah dimiliki orang lain tidak bisa kamu tarik kembali.',
+      ),
+      p(
+        'Apa yang sebenarnya terjadi setelah force-push layak dibayangkan. Setiap orang yang sudah menarik commit itu kini punya riwayat yang bercabang dari remote. Cara "memperbaikinya" yang paling umum dicari orang, yaitu reset ke remote, justru **membuang pekerjaan lokal mereka** yang belum di-push. Satu force-push bisa menghapus pekerjaan setengah hari milik beberapa orang sekaligus.',
+      ),
+      p(
+        'Kalau force-push benar-benar terpaksa, pakai `--force-with-lease` alih-alih `--force`. Bedanya: ia **menolak** kalau ada orang lain yang mendorong sesudah kamu terakhir menarik — sehingga kamu tidak menimpa pekerjaan yang belum sempat kamu lihat. Itu tetap berbahaya, hanya tidak buta.',
+      ),
       callout(
         'danger',
         'Jangan pernah force-push ke branch bersama',
-        'Setiap orang yang sudah menarik commit itu akan mengalami riwayat yang bercabang, dan cara "memperbaikinya" yang paling umum — reset ke remote — justru membuang pekerjaan lokal mereka. Kalau benar-benar terpaksa, pakai `--force-with-lease`, yang menolak kalau ada yang mendorong sesudahmu.',
+        'Setiap orang yang sudah menarik commit itu akan mengalami riwayat yang bercabang, dan cara "memperbaikinya" yang paling umum, yaitu reset ke remote, justru membuang pekerjaan lokal mereka. Kalau benar-benar terpaksa, pakai `--force-with-lease`, yang menolak kalau ada yang mendorong sesudahmu.',
       ),
 
       h2('`stash`'),
@@ -101,6 +125,15 @@ export const lessons: LessonDraft[] = [
 
         git stash -u                     # sertakan berkas baru yang belum dilacak
         `,
+      ),
+      p(
+        '`stash` **menyimpan** alih-alih membuang, dan itulah yang membuatnya jawaban yang tepat saat kamu ragu. Alih-alih `git restore` yang menghapus permanen, simpan dulu, sebab kalau ternyata perubahan itu masih dibutuhkan ia masih ada. Pesan lewat `-m` membuatnya bisa dikenali nanti, karena tanpa itu daftar stash berisi baris-baris yang semuanya terlihat sama.',
+      ),
+      p(
+        'Beda `pop` dan `apply` adalah apakah stash-nya ikut terhapus. `pop` mengambil lalu **membuang** entrinya — praktis, tetapi kalau penerapannya bentrok dan kamu salah menyelesaikannya, tidak ada salinan yang tersisa. `apply` menyimpan entrinya, jadi ia lebih aman untuk perubahan yang penting.',
+      ),
+      p(
+        'Opsi `-u` menutup jebakan yang sering mengejutkan: secara bawaan `stash` **tidak menyertakan berkas baru yang belum dilacak** git. Berkas yang baru kamu buat akan tetap tertinggal di direktori kerja — dan kalau kamu lalu berpindah branch dan menjalankan perintah yang membersihkan, berkas itu hilang tanpa pernah tersimpan di mana pun.',
       ),
 
       h2('Menemukan penyebab'),
@@ -121,6 +154,15 @@ export const lessons: LessonDraft[] = [
         git bisect good   # atau  git bisect bad
         git bisect reset
         `,
+      ),
+      p(
+        'Ketiga perintah menjawab pertanyaan yang berbeda. `git blame -L 40,60` menjawab **siapa dan kapan** untuk baris tertentu — berguna saat kamu menemukan kode yang tidak jelas maksudnya dan ingin membaca pesan commit-nya. `git log -S "hitungTotal"` menjawab **di commit mana** sebuah string muncul atau hilang; ia menyisir isi diff, bukan pesan commit, jadi ia menemukan perubahan yang pesannya tidak menyebutnya.',
+      ),
+      p(
+        '`git bisect` menjawab pertanyaan yang paling sulit: **commit mana yang memperkenalkan bug ini**, ketika kamu tidak punya petunjuk sama sekali. Cara kerjanya pencarian biner — kamu menandai satu commit rusak dan satu yang masih baik, git menawarkan commit di tengah, kamu mengujinya dan menjawab `good` atau `bad`. Untuk seribu commit, itu hanya sekitar sepuluh pengujian.',
+      ),
+      p(
+        '`git bisect reset` di baris terakhir wajib dijalankan setelah selesai, sebab tanpanya kamu tertinggal di commit tengah dengan HEAD yang terlepas. Dan perhatikan syarat yang membuat bisect berguna, yaitu setiap commit harus **bisa dijalankan**. Itu alasan praktis di balik aturan "satu commit satu perubahan logis", sebab commit raksasa yang menggabungkan sepuluh hal membuat bisect hanya bisa menunjuk ke gumpalan itu, bukan ke penyebabnya.',
       ),
       callout(
         'tip',
@@ -147,6 +189,15 @@ export const lessons: LessonDraft[] = [
         .DS_Store
         `,
       ),
+      p(
+        'Ketiga kelompok di dalamnya diabaikan karena alasan yang berbeda. Kelompok pertama, yaitu `node_modules/`, `vendor/`, `.next/`, dan `dist/`, adalah hal yang **bisa dibangun ulang** dari lockfile dan kode sumber, sehingga menyimpannya di git hanya membengkakkan repo tanpa menambah informasi. Kelompok kedua adalah **rahasia**, dan itu yang paling penting. Kelompok ketiga sekadar sampah lokal.',
+      ),
+      p(
+        'Perhatikan pola `.env.*.local` menangkap varian seperti `.env.production.local` yang mudah terlewat kalau kamu hanya menulis `.env`. Perhatikan pula `.env.example` **tidak** ada di daftar — berkas itu memang harus ikut di-commit, berisi nama variabel dengan nilai kosong, supaya orang baru tahu apa yang harus diisi.',
+      ),
+      p(
+        'Peringatan berikutnya menyebut batas yang sering mengejutkan, yaitu **`.gitignore` tidak berlaku surut**. Berkas yang sudah terlanjur terlacak tetap terlacak meski kemudian ditambahkan ke daftar, dan mengeluarkannya butuh `git rm --cached <berkas>`. Dan kalau berkas itu memuat rahasia, mengeluarkannya sekarang **tidak cukup**, sebab rahasianya sudah ada di riwayat dan harus dirotasi.',
+      ),
       callout(
         'warning',
         '`.gitignore` tidak berlaku surut',
@@ -169,6 +220,9 @@ export const lessons: LessonDraft[] = [
                  \\    /  \\    /
                   ●──●    ●──●        branch pendek, 1-2 hari
         `,
+      ),
+      p(
+        'Bacalah diagram itu dari bentuk cabangnya, sebab setiap cabang **pendek dan cepat kembali** ke `main`. Itulah inti trunk-based, yang bukan berarti "tidak pakai branch" melainkan branch yang umurnya diukur dalam jam atau hari. Perhatikan `main` tetap lurus dan tidak pernah putus, sebab ia selalu dalam keadaan bisa di-deploy, dan itulah yang membuat rilis kapan saja menjadi mungkin.',
       ),
       ul(
         'Satu branch utama yang selalu bisa di-deploy.',
@@ -232,6 +286,15 @@ export const lessons: LessonDraft[] = [
         return <EditorLama />;
         `,
       ),
+      p(
+        'Komentar di atasnya menyelesaikan pertanyaan yang wajar muncul dari bagian sebelumnya: **bagaimana fitur besar bisa dikerjakan dengan branch pendek?** Jawabannya, kodenya tetap digabung ke `main` setiap hari — hanya belum aktif untuk pengguna. Fitur yang butuh tiga minggu tidak lagi berarti branch tiga minggu.',
+      ),
+      p(
+        "Perhatikan `fitur.aktif('editor-baru', pengguna)` menerima **penggunanya**, bukan hanya nama flag. Itu yang memungkinkan peluncuran bertahap: nyalakan dulu untuk tim internal, lalu satu persen pengguna, lalu semuanya — dan matikan seketika kalau ada masalah, **tanpa deploy**. Kemampuan mematikan tanpa rilis itu sering lebih berharga daripada kemampuan menyalakannya bertahap.",
+      ),
+      p(
+        'Harganya disebut di peringatan berikut, dan ia nyata: setiap flag **melipatgandakan jalur kode** yang harus diuji dan dipahami. Tiga flag berarti delapan kombinasi. Beri tanggal kedaluwarsa saat membuatnya, dan hapus flag beserta cabang matinya begitu fiturnya permanen — flag yang tertinggal setahun adalah kode mati yang menyamar sebagai konfigurasi.',
+      ),
       callout(
         'warning',
         'Flag yang tidak pernah dibersihkan menjadi utang',
@@ -249,6 +312,12 @@ export const lessons: LessonDraft[] = [
           - Larang force push
           - Larang penghapusan branch
         `,
+      ),
+      p(
+        'Lima aturan itu menutup lima cara `main` bisa rusak. "Wajib lewat pull request" mematikan `git push` langsung ke `main`, sehingga setiap perubahan punya tempat untuk dibaca sebelum masuk. "Wajib CI hijau" adalah yang paling berharga: ia mengubah tes dari sesuatu yang **boleh** dijalankan menjadi sesuatu yang **harus** lulus.',
+      ),
+      p(
+        'Dua larangan terakhir menjaga **riwayat**. `force push` menulis ulang commit yang sudah ada — kalau ia mengenai `main`, salinan orang lain (dan salinan server deploy) tiba-tiba tidak cocok lagi, dan commit yang tertimpa hilang tanpa jejak. Larangan penghapusan branch mencegah `main` lenyap karena satu klik yang salah. Keduanya melarang hal yang jarang dilakukan, tapi ketika terjadi, akibatnya paling sulit dipulihkan.',
       ),
       callout(
         'tip',
@@ -310,6 +379,15 @@ export const lessons: LessonDraft[] = [
           notes: ['Menjelaskan sebab, dampak, dan alasan pilihannya'],
         },
       ),
+      p(
+        'Enam baris di kolom kiri punya satu kesamaan, yaitu **semuanya bisa disimpulkan dari diff**. "Ubah controller.ts" mengulang informasi yang sudah ada di daftar berkas, sedangkan "fix bug" tidak menyebut bug yang mana. Pesan seperti itu bukan sekadar malas, sebab ia membuat `git log` tidak berguna sebagai alat penelusuran, dan `git bisect` yang tadi menemukan commit penyebab jadi berhenti di pesan yang tidak menjelaskan apa-apa.',
+      ),
+      p(
+        'Kolom kanan menjawab tiga hal yang **tidak terlihat di diff**. Paragraf pertama menyebut **sebabnya**: apa yang rusak dan bagaimana ditemukan. Paragraf kedua menyebut **alasan pilihannya** — batas ditegakkan di skema, bukan di controller, supaya berlaku untuk semua endpoint. Itu keputusan yang enam bulan lagi akan dipertanyakan orang lain, dan pesan inilah yang menjawabnya.',
+      ),
+      p(
+        'Perhatikan struktur tiga bagiannya: baris pertama ringkas, baris kosong, lalu penjelasan. Baris kosong itu bukan kosmetik — git memperlakukan baris pertama sebagai **judul** dan sisanya sebagai badan, dan banyak perkakas hanya menampilkan judulnya. Menulis paragraf panjang tanpa baris kosong membuat seluruhnya menjadi satu judul raksasa yang terpotong di mana-mana.',
+      ),
 
       h2('Conventional Commits'),
       code(
@@ -321,6 +399,12 @@ export const lessons: LessonDraft[] = [
 
         <catatan kaki>
         `,
+      ),
+      p(
+        'Conventional Commits menambahkan **awalan bertipe** pada judul, dan nilainya bukan kerapian melainkan bahwa ia **bisa dibaca mesin**. Dari awalan itu, perkakas bisa menghasilkan changelog otomatis dan menentukan kenaikan versi semver — `fix` menaikkan patch, `feat` menaikkan minor, dan catatan kaki `BREAKING CHANGE` menaikkan mayor. Itu yang dibahas di sub-bab terakhir bab ini.',
+      ),
+      p(
+        'Bagian `(<cakupan>)` bersifat opsional tetapi sangat menolong saat repo-mu punya beberapa area. `fix(api)` dan `fix(ui)` langsung memberi tahu pembaca bagian mana yang tersentuh, tanpa perlu membuka diff-nya. Dan `<isi>` diberi keterangan **kenapa, bukan apa** — mengulang kembali aturan dari bagian sebelumnya, di tempat yang paling mudah dilupakan.',
       ),
       table(
         ['Tipe', 'Untuk'],
@@ -390,6 +474,15 @@ export const lessons: LessonDraft[] = [
           notes: ['Tiap commit bisa di-revert sendiri', 'Review per potongan'],
         },
       ),
+      p(
+        'Kolom kiri terlihat rapi karena isinya berupa daftar berpoin, tetapi keempat butir itu adalah **empat perubahan logis yang berbeda** dalam satu commit. Akibat terbesarnya disebut di catatan: ia **tidak bisa di-revert sebagian**. Kalau endpoint ekspornya bermasalah dan harus ditarik, `git revert` akan ikut membatalkan perbaikan paginasi dan upgrade Prisma.',
+      ),
+      p(
+        'Catatan kedua sama nyatanya: "review jadi sangat sulit". Reviewer yang membuka diff itu melihat empat puluh berkas berubah karena formatter, dan perubahan yang benar-benar penting tenggelam di antaranya. Ini persis alasan aturan "jangan campur perubahan nyata dengan reformat" ada.',
+      ),
+      p(
+        'Kolom kanan memecahnya menjadi empat commit dengan urutan yang juga masuk akal, yaitu dependency dulu, lalu format, lalu perbaikan, baru fitur. Perhatikan urutan itu membuat setiap commit **bisa dijalankan sendiri**, dan itulah syarat yang membuat `git bisect` dari sub-bab 2.1 berguna. Saat bisect menunjuk `feat(ekspor)` sebagai penyebab, kamu tahu persis bagian mana yang bersalah, sedangkan dengan commit gabungan ia hanya menunjuk ke gumpalan.',
+      ),
       callout(
         'tip',
         'Ini yang membuat `git bisect` dan `git revert` benar-benar berguna',
@@ -405,6 +498,15 @@ export const lessons: LessonDraft[] = [
 
         npx husky add .husky/commit-msg 'npx commitlint --edit $1'
         `,
+      ),
+      p(
+        'Konvensi yang hanya tertulis di dokumen akan luntur dalam beberapa minggu; yang **ditegakkan mesin** bertahan. `commitlint` memeriksa format pesan, dan hook `commit-msg` menjalankannya tepat sebelum commit dibuat — sehingga pesan yang tidak sesuai ditolak saat itu juga, bukan ditemukan saat review.',
+      ),
+      p(
+        'Perhatikan hook yang dipakai adalah `commit-msg`, bukan `pre-commit`. Keduanya berjalan di waktu yang berbeda: `pre-commit` sebelum pesan ditulis (tempat linter dan secret scanner), `commit-msg` sesudahnya, saat pesannya sudah ada untuk diperiksa. Argumen `$1` yang dioper adalah jalur berkas sementara berisi pesan itu.',
+      ),
+      p(
+        'Batasnya sama seperti hook lain: ia bisa dilewati dengan `--no-verify`, dan tidak ada di mesin yang belum menjalankan `npm install`. Untuk penegakan yang sungguh-sungguh, pasangkan dengan pemeriksaan yang sama di CI — di sana tidak ada yang bisa melewatinya.',
       ),
       callout(
         'warning',
@@ -466,6 +568,15 @@ export const lessons: LessonDraft[] = [
         Ekspor format Excel — menunggu kebutuhan nyata.
         `,
       ),
+      p(
+        'Bagian **Kenapa** dan **Bagaimana** menjawab dua hal berbeda, dan yang kedua sering lebih berharga. "Ekspor berjalan sebagai job antrean karena pengguna dengan >10.000 artikel membuat permintaan sinkron timeout di 30 detik" menjelaskan sebuah keputusan desain beserta **angka yang mendasarinya** — dan itu menghindarkan reviewer bertanya "kenapa tidak sinkron saja", sekaligus menjawab orang yang membacanya setahun lagi.',
+      ),
+      p(
+        'Bagian **Yang diuji** mencantumkan angka nyata (50.000 baris, 12 detik) dan **dua tes larangan**: pengguna lain tidak bisa membaca job orang lain, dan klik dua kali tidak membuat dua job. Keduanya adalah jenis pemeriksaan yang paling sering tidak dilakukan, dan menuliskannya di sini berarti reviewer tidak perlu menebak apakah ia sudah dipikirkan.',
+      ),
+      p(
+        'Bagian **Risiko** menyatakan terus terang bahwa berkas ekspor memuat email pengguna, **beserta mitigasinya**. Menyembunyikan hal seperti itu tidak membuatnya hilang; menuliskannya membuat reviewer bisa menilai apakah mitigasinya memadai. Dan **Yang TIDAK termasuk** menutup pertanyaan yang pasti muncul — tanpa bagian itu, review sering melebar menjadi diskusi tentang fitur yang memang sengaja ditunda.',
+      ),
 
       h2('Yang dicari saat review'),
       ol(
@@ -509,6 +620,15 @@ export const lessons: LessonDraft[] = [
           notes: ['Menyebut masalahnya, dampaknya, dan usulannya', 'Menandai mana yang memblokir'],
         },
       ),
+      p(
+        'Empat komentar di kolom kiri punya masalah yang sama, yaitu **tidak bisa ditindaklanjuti**. "Seharusnya pakai X" tidak menyebutkan kenapa, sehingga penulisnya harus menebak, dan kalau ia tidak setuju tidak ada yang bisa didiskusikan selain selera. "Ini jelek" menambahkan masalah kedua, sebab ia menilai orangnya alih-alih kodenya.',
+      ),
+      p(
+        'Komentar pertama di kolom kanan punya tiga bagian yang membuatnya berguna: **masalahnya** (query tidak di-scope), **dampaknya** (pengguna lain bisa membaca artikel ini), dan **usulan konkret** berupa kode yang bisa langsung dipakai. Perhatikan ia diakhiri tanda tanya — bentuk usulan, bukan perintah, yang menyisakan ruang kalau ternyata ada alasan yang belum kamu ketahui.',
+      ),
+      p(
+        'Komentar kedua memakai awalan `Nit:` dan ditutup "tidak memblokir". Dua kata itu menghemat banyak waktu: tanpanya, penulis harus menebak apakah pendapat soal penamaan variabel menghalangi merge. Biasakan menandainya — `nit:` untuk yang kecil, `pertanyaan:` untuk yang butuh penjelasan, `blocking:` untuk yang harus diperbaiki sebelum merge.',
+      ),
       callout(
         'tip',
         'Tandai mana yang memblokir dan mana yang tidak',
@@ -534,11 +654,17 @@ export const lessons: LessonDraft[] = [
         # .github/pull_request_template.md
         ## Sebelum minta review
         - [ ] \`npm run check\` hijau
-        - [ ] Ada tes untuk jalur gagal, bukan hanya sukses
+        - [ ] Ada tes untuk unhappy path, bukan hanya sukses
         - [ ] Endpoint baru punya pemeriksaan otorisasi
         - [ ] Tidak ada rahasia, \`console.log\`, atau berkas yang tidak sengaja ikut
         - [ ] Dokumentasi diperbarui kalau perilakunya berubah
         `,
+      ),
+      p(
+        'Berkas `.github/pull_request_template.md` diisikan otomatis ke setiap PR baru di GitHub, sehingga checklist ini muncul tanpa perlu diingat. Nilainya bukan pada kotak centangnya, sebab tidak ada yang memaksamu mencentang jujur, melainkan pada **daftar pertanyaan yang selalu terlihat**. Lima baris itu adalah lima hal yang paling sering terlupa, dan membacanya sekali sebelum minta review sudah menyaring sebagian besar temuan sepele.',
+      ),
+      p(
+        'Perhatikan baris pertama dan kedua bekerja berpasangan: `npm run check` hijau membuktikan tes yang **ada** lulus, sedangkan "ada tes untuk unhappy path" menanyakan apakah tesnya memeriksa hal yang benar. Suite yang hanya menguji jalur sukses tetap hijau meskipun otorisasinya bocor — itulah sebabnya baris ketiga tentang pemeriksaan otorisasi berdiri sendiri, bukan dianggap tercakup oleh CI.',
       ),
     ],
   ),
@@ -558,6 +684,12 @@ export const lessons: LessonDraft[] = [
           │       └────────── fitur baru, kompatibel
           └────────────────── perubahan yang MEMUTUS
         `,
+      ),
+      p(
+        'Tiga angka itu bukan penomoran berurutan biasa — masing-masing adalah **janji kepada pemakai**. `PATCH` berjanji "perbaruilah, tidak ada yang berubah selain bug hilang". `MINOR` berjanji "ada tambahan, kode lamamu tetap jalan". `MAJOR` justru sebaliknya: ia adalah peringatan bahwa **kode yang tadinya bekerja bisa berhenti bekerja**, sehingga pembaca tahu harus membaca changelog sebelum memperbarui.',
+      ),
+      p(
+        'Karena itu penentuan angkanya tidak diukur dari seberapa besar usaha yang kamu keluarkan, melainkan dari **dampaknya ke pemakai**. Menulis ulang seluruh isi modul selama perilakunya persis sama tetap `PATCH`; mengganti satu nama field dalam respons adalah `MAJOR` meski hanya sebaris. Tabel berikut menerjemahkan aturan itu ke kasus yang sering muncul.',
       ),
       table(
         ['Perubahan', 'Naikkan'],
@@ -618,6 +750,12 @@ export const lessons: LessonDraft[] = [
           pengguna lain. Diperbaiki dengan scope kepemilikan di query.
         `,
       ),
+      p(
+        'Perhatikan entri pertama tidak berhenti pada "field `nama` diganti menjadi `namaLengkap`" — ia menyertakan **baris migrasi**: ganti pembacaan `user.nama` menjadi `user.namaLengkap`. Itu perbedaan antara changelog yang memberi tahu ada masalah dan changelog yang ikut menyelesaikannya. Untuk setiap perubahan yang memutus, tulis apa yang harus dilakukan pembaca, bukan hanya apa yang kamu ubah.',
+      ),
+      p(
+        'Judul bagian juga ditulis dari sudut pandang pembaca, bukan dari sudut pandang commit. `Ditambahkan`, `Diperbaiki`, `Berubah (MEMUTUS)`, dan `Keamanan` menjawab pertanyaan "apa artinya ini bagiku": bisa kulewati, perlu kubaca, atau harus segera kupasang. Perhatikan entri `POST /api/artikel` menyebut kode statusnya (`422`) — angka konkret seperti itu membuat pembaca bisa mencocokkan dengan error yang mereka lihat di log.',
+      ),
       callout(
         'tip',
         'Bagian "Keamanan" perlu ditulis terpisah',
@@ -648,6 +786,12 @@ export const lessons: LessonDraft[] = [
         git checkout v2.0.0
         `,
       ),
+      p(
+        'Flag `-a` membuat **annotated tag** — objek tersendiri di Git yang menyimpan pembuat, waktu, dan pesan. Tanpa `-a`, yang dibuat adalah tag ringan: sekadar penunjuk ke commit, tanpa keterangan siapa merilis dan kapan. Untuk rilis, selalu pakai `-a`. Baris `git push origin v2.0.0` perlu ditulis terpisah karena `git push` biasa **tidak** ikut mengirim tag.',
+      ),
+      p(
+        'Alasan `git checkout v2.0.0` dipakai saat deploy ada di komentarnya: tag menunjuk ke satu commit yang tidak bergerak, sedangkan branch bergerak setiap kali ada yang di-merge. Deploy dari branch `main` berarti yang terpasang adalah "apa pun isi `main` saat perintah itu berjalan" — yang bisa saja beberapa commit lebih maju dari yang kamu uji sepuluh menit lalu.',
+      ),
       callout(
         'warning',
         'Tag bisa dipindahkan; itu sebabnya deploy sebaiknya menyebut SHA',
@@ -656,7 +800,7 @@ export const lessons: LessonDraft[] = [
 
       h2('Aplikasi web tidak selalu butuh versi formal'),
       p(
-        'Untuk aplikasi yang di-deploy terus-menerus dan tidak punya klien eksternal, SemVer sering berlebihan. Yang tetap berguna: **changelog** yang bisa dibaca, dan **catatan SHA** yang sedang berjalan di produksi. Yang tidak boleh dilewati: API publik dan library — keduanya punya klien yang tidak bisa kamu deploy ulang.',
+        'Untuk aplikasi yang di-deploy terus-menerus dan tidak punya klien eksternal, SemVer sering berlebihan. Yang tetap berguna adalah **changelog** yang bisa dibaca dan **catatan SHA** yang sedang berjalan di produksi. Yang tidak boleh dilewati adalah API publik dan library, sebab keduanya punya klien yang tidak bisa kamu deploy ulang.',
       ),
     ],
   ),

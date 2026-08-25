@@ -32,7 +32,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'operator',
           meaning:
-            'Simbol yang **melakukan sesuatu** pada satu atau dua nilai — `+`, `-`, `===`, `&&`, `!`. Cara paling mudah mengingatnya: kalau nilai adalah kata benda, operator adalah kata kerjanya. Kebanyakan operator bekerja pada dua nilai (disebut *biner*), sebagian hanya pada satu (*uner*, seperti `!` dan `typeof`), dan tepat satu operator bekerja pada tiga nilai sekaligus — ternary `? :` yang dibahas di sub-bab berikutnya.',
+            'Simbol yang **melakukan sesuatu** pada satu atau dua nilai, misalnya `+`, `-`, `===`, `&&`, dan `!`. Cara paling mudah mengingatnya, kalau nilai adalah kata benda, operator adalah kata kerjanya. Kebanyakan operator bekerja pada dua nilai (disebut *biner*), sebagian hanya pada satu (*uner*, seperti `!` dan `typeof`), dan tepat satu operator bekerja pada tiga nilai sekaligus, yaitu ternary `? :` yang dibahas di sub-bab berikutnya.',
         },
         {
           term: 'operan',
@@ -52,7 +52,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'truthy / falsy',
           meaning:
-            'Dibaca "tru-thi" dan "fol-si", dari kata *true* dan *false* dengan akhiran yang berarti "cenderung" atau "berasa seperti". Keduanya menggambarkan **sifat sebuah nilai saat dipakai sebagai kondisi**, misalnya di dalam `if`. Falsy berarti diperlakukan seperti `false`; truthy berarti diperlakukan seperti `true`. Kabar baiknya, daftar falsy hanya berisi delapan nilai dan bisa dihafal; segala sesuatu di luar delapan itu bersifat truthy — termasuk array kosong dan object kosong, yang sering mengejutkan.',
+            'Dibaca "tru-thi" dan "fol-si", dari kata *true* dan *false* dengan akhiran yang berarti "cenderung" atau "berasa seperti". Keduanya menggambarkan **sifat sebuah nilai saat dipakai sebagai kondisi**, misalnya di dalam `if`. Falsy berarti diperlakukan seperti `false`, sedangkan truthy berarti diperlakukan seperti `true`. Kabar baiknya, daftar falsy hanya berisi delapan nilai dan bisa dihafal, sebab segala sesuatu di luar delapan itu bersifat truthy, termasuk array kosong dan object kosong yang sering mengejutkan.',
         },
         {
           term: 'short-circuit',
@@ -98,7 +98,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Empat operator pertama sudah kamu kenal dari matematika sekolah, tapi tiga baris terakhir di kelompok atas layak diperhatikan. Hasil `7 / 3` berupa `2.3333333333333335` — perhatikan angka `5` yang muncul di ujung: itu bukan kesalahan pengetikan melainkan sifat bilangan pecahan di komputer, yang menyimpan angka dalam basis dua sehingga sepertiga tidak pernah bisa disimpan dengan tepat. Konsekuensi praktisnya, jangan pernah membandingkan hasil pembagian dengan `===` dan jangan menyimpan uang sebagai pecahan. `%` adalah **sisa bagi**, bukan persen — `7 % 3` bernilai `1` karena 3 muat dua kali di dalam 7 dan menyisakan 1. `**` adalah pangkat. Dua baris terakhir memperlihatkan penulisan singkat: `n += 2` adalah bentuk pendek dari `n = n + 2`, sedangkan `n++` menambah satu. Keduanya **mengubah** isi `n`, jadi keduanya hanya bisa dipakai pada variabel `let`, bukan `const`.',
+        'Empat operator pertama sudah kamu kenal dari matematika sekolah, tetapi tiga baris terakhir di kelompok atas layak diperhatikan. Hasil `7 / 3` berupa `2.3333333333333335`, dan perhatikan angka `5` yang muncul di ujung. Itu bukan kesalahan pengetikan melainkan sifat bilangan pecahan di komputer, yang menyimpan angka dalam basis dua sehingga sepertiga tidak pernah bisa disimpan dengan tepat. Konsekuensi praktisnya, jangan pernah membandingkan hasil pembagian dengan `===` dan jangan menyimpan uang sebagai pecahan. Operator `%` adalah **sisa bagi** dan bukan persen, sebab `7 % 3` bernilai `1` karena 3 muat dua kali di dalam 7 dan menyisakan 1. Operator `**` adalah pangkat. Dua baris terakhir memperlihatkan penulisan singkat, dengan `n += 2` sebagai bentuk pendek dari `n = n + 2`, sedangkan `n++` menambah satu. Keduanya **mengubah** isi `n`, jadi keduanya hanya bisa dipakai pada variabel `let` dan bukan `const`.',
       ),
       callout(
         'tip',
@@ -123,7 +123,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Empat baris pertama menunjukkan bahwa `+` benar-benar berdiri sendiri di antara operator aritmetika. Hanya `+` yang punya dua pekerjaan, sehingga hanya ia yang perlu memilih — dan pilihannya selalu **menyambung** begitu ada satu operan berupa string. `-`, `*`, dan `/` tidak punya arti lain selain hitung-hitungan, jadi mereka justru mengubah string menjadi angka; itu sebabnya `'5' - 2` menghasilkan `3` sementara `'5' + 2` menghasilkan `'52'`. Dua baris terakhir memperlihatkan akibat yang lebih halus: `+` dievaluasi dari kiri ke kanan, satu pasang demi satu pasang. Pada `1 + 2 + '3'`, pasangan pertama `1 + 2` masih dua angka sehingga hasilnya `3`, baru kemudian `3 + '3'` bertemu string dan menyambung jadi `'33'`. Sedangkan `'1' + 2 + 3` sudah bertemu string di langkah pertama, dan begitu hasilnya menjadi string, semua penjumlahan setelahnya ikut berubah menjadi penyambungan.",
+        "Empat baris pertama menunjukkan bahwa `+` benar-benar berdiri sendiri di antara operator aritmetika. Hanya `+` yang punya dua pekerjaan, sehingga hanya ia yang perlu memilih, dan pilihannya selalu **menyambung** begitu ada satu operan berupa string. `-`, `*`, dan `/` tidak punya arti lain selain hitung-hitungan, jadi mereka justru mengubah string menjadi angka, dan itu sebabnya `'5' - 2` menghasilkan `3` sementara `'5' + 2` menghasilkan `'52'`. Dua baris terakhir memperlihatkan akibat yang lebih halus, sebab `+` dievaluasi dari kiri ke kanan, satu pasang demi satu pasang. Pada `1 + 2 + '3'`, pasangan pertama `1 + 2` masih dua angka sehingga hasilnya `3`, baru kemudian `3 + '3'` bertemu string dan menyambung jadi `'33'`. Sedangkan `'1' + 2 + 3` sudah bertemu string di langkah pertama, dan begitu hasilnya menjadi string, semua penjumlahan setelahnya ikut berubah menjadi penyambungan.",
       ),
       callout(
         'warning',
@@ -146,7 +146,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Inilah bentuk nyata dari aturan di atas, dan perhatikan bahwa **tidak ada satu pun error yang muncul** — `'1500010000'` adalah hasil yang sah menurut JavaScript, hanya salah menurut maksudmu. Bug jenis ini lolos dari semua pemeriksaan otomatis dan biasanya baru ketahuan saat ada pengguna melaporkan total belanja yang aneh. Tiga baris terakhir memperlihatkan tiga cara mengubah teks jadi angka yang **tidak** setara. `parseInt` dan `parseFloat` bersifat longgar: keduanya membaca dari kiri lalu berhenti di karakter pertama yang bukan angka, sehingga `'15000px'` tetap menghasilkan `15000` — berguna untuk membaca nilai CSS, berbahaya untuk memvalidasi masukan pengguna karena `'12abc'` diam-diam lolos sebagai `12`. `Number()` bersifat ketat: seluruh teks harus berupa angka, kalau tidak hasilnya `NaN`. Ketatnya itu justru keunggulan, karena `NaN` memberimu kesempatan menolak masukan yang tidak masuk akal alih-alih menghitungnya diam-diam.",
+        "Inilah bentuk nyata dari aturan di atas, dan perhatikan bahwa **tidak ada satu pun error yang muncul**. Nilai `'1500010000'` adalah hasil yang sah menurut JavaScript, hanya salah menurut maksudmu. Bug jenis ini lolos dari semua pemeriksaan otomatis dan biasanya baru ketahuan saat ada pengguna melaporkan total belanja yang aneh. Tiga baris terakhir memperlihatkan tiga cara mengubah teks jadi angka yang **tidak** setara. `parseInt` dan `parseFloat` bersifat longgar, karena keduanya membaca dari kiri lalu berhenti di karakter pertama yang bukan angka sehingga `'15000px'` tetap menghasilkan `15000`. Sifat itu berguna untuk membaca nilai CSS tetapi berbahaya untuk memvalidasi masukan pengguna, karena `'12abc'` diam-diam lolos sebagai `12`. `Number()` bersifat ketat, sebab seluruh teks harus berupa angka dan kalau tidak hasilnya `NaN`. Ketatnya itu justru keunggulan, karena `NaN` memberimu kesempatan menolak masukan yang tidak masuk akal alih-alih menghitungnya diam-diam.",
       ),
 
       h2('`==` vs `===`'),
@@ -209,7 +209,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Ketiganya tercetak, dan itu mengejutkan hampir semua pemula. Penyebabnya satu aturan sederhana: **hanya delapan nilai di tabel itu yang falsy, dan array maupun object tidak termasuk di dalamnya** — sekosong apa pun isinya. Akibat praktisnya sering menyakitkan: `if (daftar)` bernilai `true` bahkan ketika `daftar` adalah `[]`, sehingga kode yang mengandalkannya akan menampilkan bagian \"ada data\" pada daftar yang sebenarnya kosong. Untuk memeriksa array kosong, tanyakan panjangnya dengan `if (daftar.length > 0)`. Baris ketiga menunjukkan jebakan yang serupa untuk teks: `'0'` adalah string berisi satu karakter, dan setiap string yang bukan string kosong bernilai truthy — jadi nilai `'0'` dari sebuah `<input>` akan lolos pemeriksaan `if`, sementara angka `0` tidak.",
+        "Ketiganya tercetak, dan itu mengejutkan hampir semua pemula. Penyebabnya satu aturan sederhana, yaitu **hanya delapan nilai di tabel itu yang falsy, dan array maupun object tidak termasuk di dalamnya**, sekosong apa pun isinya. Akibat praktisnya sering menyakitkan, sebab `if (daftar)` bernilai `true` bahkan ketika `daftar` adalah `[]`, sehingga kode yang mengandalkannya akan menampilkan bagian \"ada data\" pada daftar yang sebenarnya kosong. Untuk memeriksa array kosong, tanyakan panjangnya dengan `if (daftar.length > 0)`. Baris ketiga menunjukkan jebakan yang serupa untuk teks. Nilai `'0'` adalah string berisi satu karakter, dan setiap string yang bukan string kosong bernilai truthy, jadi nilai `'0'` dari sebuah `<input>` akan lolos pemeriksaan `if` sementara angka `0` tidak.",
       ),
       callout(
         'danger',
@@ -246,7 +246,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Kedua baris di atas memanfaatkan sifat short-circuit yang baru saja dijelaskan: `pengguna && kirimEmail(pengguna)` hanya menjalankan `kirimEmail(pengguna)` kalau `pengguna` truthy — kalau `pengguna` bernilai `null` misalnya, `kirimEmail` tidak pernah dipanggil sama sekali, bukan dipanggil dengan `null`. `namaDariForm || 'Tanpa Nama'` bekerja mirip: begitu `namaDariForm` truthy, ekspresi berhenti dan mengembalikan nilai itu; kalau falsy (termasuk string kosong), ia lanjut ke `'Tanpa Nama'`.",
+        "Kedua baris di atas memanfaatkan sifat short-circuit yang baru saja dijelaskan. `pengguna && kirimEmail(pengguna)` hanya menjalankan `kirimEmail(pengguna)` kalau `pengguna` truthy, sehingga kalau `pengguna` bernilai `null` misalnya, `kirimEmail` tidak pernah dipanggil sama sekali dan bukan dipanggil dengan `null`. `namaDariForm || 'Tanpa Nama'` bekerja mirip, sebab begitu `namaDariForm` truthy ekspresi berhenti dan mengembalikan nilai itu, sedangkan kalau falsy termasuk string kosong, ia lanjut ke `'Tanpa Nama'`.",
       ),
 
       h2('`??` — dan kenapa ia berbeda dari `||`'),
@@ -267,12 +267,12 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Dua contoh itu memakai nilai yang bukan buatan — keduanya kasus yang benar-benar sering muncul. Angka `0` adalah jawaban yang sah untuk "berapa banyak", dan string kosong adalah jawaban yang sah untuk "catatan tambahan". Karena `||` menganggap **semua** nilai falsy sebagai "tidak ada", ia diam-diam menimpa keduanya dengan nilai cadangan, dan pengguna melihat "10" padahal stoknya benar-benar nol. `??` jauh lebih sempit cakupannya: ia hanya bereaksi pada `null` dan `undefined`, yaitu dua nilai yang artinya memang "belum ada nilainya". Ringkasnya, pilih berdasarkan pertanyaan yang ingin kamu ajukan — kalau pertanyaanmu "apakah nilainya belum diisi?", pakai `??`; kalau pertanyaanmu benar-benar "apakah nilainya kosong dalam arti apa pun?", barulah `||` yang tepat.',
+        'Dua contoh itu memakai nilai yang bukan buatan, sebab keduanya kasus yang benar-benar sering muncul. Angka `0` adalah jawaban yang sah untuk "berapa banyak", dan string kosong adalah jawaban yang sah untuk "catatan tambahan". Karena `||` menganggap **semua** nilai falsy sebagai "tidak ada", ia diam-diam menimpa keduanya dengan nilai cadangan, dan pengguna melihat "10" padahal stoknya benar-benar nol. `??` jauh lebih sempit cakupannya, karena ia hanya bereaksi pada `null` dan `undefined`, yaitu dua nilai yang artinya memang "belum ada nilainya". Ringkasnya, pilih berdasarkan pertanyaan yang ingin kamu ajukan. Kalau pertanyaanmu "apakah nilainya belum diisi?", pakai `??`, sedangkan kalau pertanyaanmu benar-benar "apakah nilainya kosong dalam arti apa pun?", barulah `||` yang tepat.',
       ),
       callout(
         'tip',
         'Aturan memilih',
-        'Kalau `0` atau `""` adalah nilai yang **sah** untuk data itu — pakai `??`. Kalau keduanya memang dianggap "kosong" — `||` boleh. Saat ragu, `??` lebih jarang salah.',
+        'Kalau `0` atau `""` adalah nilai yang **sah** untuk data itu, pakai `??`. Kalau keduanya memang dianggap "kosong", `||` boleh. Saat ragu, `??` lebih jarang salah.',
       ),
 
       h2('Optional chaining dan operator penugasan logika'),
@@ -298,7 +298,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Empat baris pertama menunjukkan kenapa `?.` disebut *optional* chaining: `data.pengguna.alamat.kota` meledak karena `alamat` bernilai `null`, sementara `data.pengguna?.alamat?.kota` berhenti dengan tenang di titik mana pun rantainya putus dan menghasilkan `undefined`. Tiga baris penugasan logika di bawahnya adalah versi ringkas dari pola "isi hanya kalau kondisi tertentu": `a ??= 5` setara dengan `if (a === null || a === undefined) a = 5`, begitu juga `||=` (falsy) dan `&&=` (truthy) — hanya ditulis dalam satu operator, bukan satu blok `if`. Perhatikan peringatan di komentar `b ||= 9`: karena `||=` memakai aturan falsy yang sama seperti `||`, ia punya jebakan angka nol yang sama seperti yang sudah dibahas di bagian truthy/falsy sebelumnya.',
+        'Empat baris pertama menunjukkan kenapa `?.` disebut *optional* chaining. Ekspresi `data.pengguna.alamat.kota` meledak karena `alamat` bernilai `null`, sementara `data.pengguna?.alamat?.kota` berhenti dengan tenang di titik mana pun rantainya putus dan menghasilkan `undefined`. Tiga baris penugasan logika di bawahnya adalah versi ringkas dari pola "isi hanya kalau kondisi tertentu". Bentuk `a ??= 5` setara dengan `if (a === null || a === undefined) a = 5`, begitu juga `||=` (falsy) dan `&&=` (truthy), yang hanya ditulis dalam satu operator alih-alih satu blok `if`. Perhatikan peringatan di komentar `b ||= 9`. Karena `||=` memakai aturan falsy yang sama seperti `||`, ia punya jebakan angka nol yang sama seperti yang sudah dibahas di bagian truthy/falsy sebelumnya.',
       ),
 
       divider,
@@ -360,7 +360,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'kondisi',
           meaning:
-            'Dari *condition*, artinya **syarat**. Ekspresi di dalam kurung `if (...)` yang hasilnya dinilai truthy atau falsy. Kalau truthy, blok di bawahnya dijalankan; kalau tidak, dilewati. Yang perlu diingat: isinya tidak harus berupa perbandingan — nilai apa pun boleh ditaruh di sana, dan JavaScript akan menilai "rasa boolean"-nya. Justru kelonggaran itulah yang membuat jebakan angka nol di sub-bab sebelumnya bisa terjadi.',
+            'Dari *condition*, artinya **syarat**. Ekspresi di dalam kurung `if (...)` yang hasilnya dinilai truthy atau falsy. Kalau truthy, blok di bawahnya dijalankan, dan kalau tidak, dilewati. Yang perlu diingat, isinya tidak harus berupa perbandingan, sebab nilai apa pun boleh ditaruh di sana, dan JavaScript akan menilai "rasa boolean"-nya. Justru kelonggaran itulah yang membuat jebakan angka nol di sub-bab sebelumnya bisa terjadi.',
         },
         {
           term: 'early return',
@@ -411,7 +411,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Yang perlu dipahami dari contoh ini bukan sintaksnya, melainkan **cara JavaScript menelusurinya**. Kondisi diperiksa satu per satu dari atas, dan begitu ada yang bernilai `true`, blok itu dijalankan lalu seluruh sisa rantainya **dilewati sepenuhnya** — tidak ada pemeriksaan lanjutan. Karena itu nilai `82` berhenti di cabang kedua: `82 >= 85` bernilai `false`, `82 >= 70` bernilai `true`, dan `else` tidak pernah disentuh. Perhatikan juga bahwa cabang kedua ditulis `nilai >= 70` saja, tanpa `nilai < 85` — batas atasnya tidak perlu ditulis justru karena cabang sebelumnya sudah menyaringnya lebih dulu. `else` di ujung berperan sebagai penampung terakhir: ia berjalan bila **tidak satu pun** kondisi di atasnya terpenuhi, dan keberadaannya menjamin fungsi ini selalu punya jawaban.',
+        'Yang perlu dipahami dari contoh ini bukan sintaksnya, melainkan **cara JavaScript menelusurinya**. Kondisi diperiksa satu per satu dari atas, dan begitu ada yang bernilai `true`, blok itu dijalankan lalu seluruh sisa rantainya **dilewati sepenuhnya** tanpa pemeriksaan lanjutan. Karena itu nilai `82` berhenti di cabang kedua, sebab `82 >= 85` bernilai `false`, `82 >= 70` bernilai `true`, dan `else` tidak pernah disentuh. Perhatikan juga bahwa cabang kedua ditulis `nilai >= 70` saja tanpa `nilai < 85`, karena batas atasnya tidak perlu ditulis justru sebab cabang sebelumnya sudah menyaringnya lebih dulu. `else` di ujung berperan sebagai penampung terakhir, sebab ia berjalan bila **tidak satu pun** kondisi di atasnya terpenuhi, dan keberadaannya menjamin fungsi ini selalu punya jawaban.',
       ),
       callout(
         'warning',
@@ -446,7 +446,7 @@ export const lessons: LessonDraft[] = [
         { filename: 'sebelum.js' },
       ),
       p(
-        'Bacalah versi ini dan perhatikan di mana matamu harus berhenti. Baris `return kirim(pesanan)` — satu-satunya hal yang benar-benar dikerjakan fungsi ini — terkubur di tingkat keempat, dan untuk sampai ke sana pembaca harus menahan tiga kondisi sekaligus di kepala: pesanan ada, itemnya tidak kosong, **dan** sudah dibayar. Lebih buruk lagi, setiap `else` letaknya jauh dari `if` pasangannya, sehingga menjawab "kapan pesan `Keranjang kosong` muncul?" menuntut penelusuran mundur melewati beberapa kurung kurawal. Bentuk seperti ini disebut *arrow code* karena kurungnya membentuk anak panah menjorok ke kanan, dan ia menjadi berlipat-lipat lebih sulit tiap kali satu syarat baru ditambahkan.',
+        'Bacalah versi ini dan perhatikan di mana matamu harus berhenti. Baris `return kirim(pesanan)`, satu-satunya hal yang benar-benar dikerjakan fungsi ini, terkubur di tingkat keempat. Untuk sampai ke sana pembaca harus menahan tiga kondisi sekaligus di kepala, yaitu pesanan ada, itemnya tidak kosong, **dan** sudah dibayar. Lebih buruk lagi, setiap `else` letaknya jauh dari `if` pasangannya, sehingga menjawab "kapan pesan `Keranjang kosong` muncul?" menuntut penelusuran mundur melewati beberapa kurung kurawal. Bentuk seperti ini disebut *arrow code* karena kurungnya membentuk anak panah menjorok ke kanan, dan ia menjadi berlipat-lipat lebih sulit tiap kali satu syarat baru ditambahkan.',
       ),
       code(
         'js',
@@ -466,7 +466,7 @@ export const lessons: LessonDraft[] = [
         },
       ),
       p(
-        'Perhatikan bahwa tidak ada satu pun `else` di versi ini, dan justru itulah kuncinya. Setiap baris `if` menangani **satu** kemungkinan gagal lalu langsung `return` — begitu fungsi mengembalikan nilai, eksekusi berhenti total, sehingga baris di bawahnya sudah pasti hanya berjalan bila syarat di atasnya terlewati. `else` menjadi mubazir karena keluarnya fungsi sudah melakukan pemisahan yang sama. Hasilnya dua keuntungan sekaligus: seluruh kode tetap rata di satu tingkat, dan jalur sukses `return kirim(pesanan)` berdiri sendirian di baris terakhir sebagai kesimpulan. Perhatikan juga urutan pemeriksaannya tidak boleh ditukar — `pesanan.item.length` akan melempar `TypeError` bila `pesanan` ternyata `null`, jadi penjagaan `if (!pesanan)` wajib berada paling atas. Pola ini dikenal sebagai **guard clause**, dan ia salah satu perubahan kecil dengan dampak keterbacaan terbesar yang bisa kamu terapkan.',
+        'Perhatikan bahwa tidak ada satu pun `else` di versi ini, dan justru itulah kuncinya. Setiap baris `if` menangani **satu** kemungkinan gagal lalu langsung `return`. Begitu fungsi mengembalikan nilai, eksekusi berhenti total, sehingga baris di bawahnya sudah pasti hanya berjalan bila syarat di atasnya terlewati. `else` menjadi mubazir karena keluarnya fungsi sudah melakukan pemisahan yang sama. Hasilnya dua keuntungan sekaligus, yaitu seluruh kode tetap rata di satu tingkat, dan jalur sukses `return kirim(pesanan)` berdiri sendirian di baris terakhir sebagai kesimpulan. Perhatikan juga urutan pemeriksaannya tidak boleh ditukar, sebab `pesanan.item.length` akan melempar `TypeError` bila `pesanan` ternyata `null`, jadi penjagaan `if (!pesanan)` wajib berada paling atas. Pola ini dikenal sebagai **guard clause**, dan ia salah satu perubahan kecil dengan dampak keterbacaan terbesar yang bisa kamu terapkan.',
       ),
 
       h2('`switch`'),
@@ -508,7 +508,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Perhatikan `case 'sabtu':` yang badannya benar-benar **kosong** — tidak ada kode apa pun di bawahnya sebelum `case 'minggu'`. Itu bukan kelalaian, melainkan pemanfaatan sengaja dari sifat \"jatuh\" yang baru saja disebut: karena tidak ada `return` maupun `break` yang menghentikannya, `'sabtu'` meluncur turun dan menjalankan badan `case 'minggu'`. Hasilnya dua nilai berbagi satu jawaban tanpa penulisan ganda. Bedanya dengan bug fall-through terletak pada niat: di sini `case`-nya sengaja dikosongkan dan ditumpuk berurutan, sedangkan bug terjadi ketika sebuah `case` **punya isi** lalu lupa diakhiri, sehingga kode `case` berikutnya ikut berjalan tanpa ada yang menyadari. Kalau kamu memang bermaksud membuatnya jatuh, biasakan menulis komentar penanda supaya pembaca berikutnya tidak mengiranya kelalaian.",
+        "Perhatikan `case 'sabtu':` yang badannya benar-benar **kosong**, tanpa kode apa pun di bawahnya sebelum `case 'minggu'`. Itu bukan kelalaian, melainkan pemanfaatan sengaja dari sifat \"jatuh\" yang baru saja disebut. Karena tidak ada `return` maupun `break` yang menghentikannya, `'sabtu'` meluncur turun dan menjalankan badan `case 'minggu'`. Hasilnya dua nilai berbagi satu jawaban tanpa penulisan ganda. Bedanya dengan bug fall-through terletak pada niatnya. Di sini `case`-nya sengaja dikosongkan dan ditumpuk berurutan, sedangkan bug terjadi ketika sebuah `case` **punya isi** lalu lupa diakhiri, sehingga kode `case` berikutnya ikut berjalan tanpa ada yang menyadari. Kalau kamu memang bermaksud membuatnya jatuh, biasakan menulis komentar penanda supaya pembaca berikutnya tidak mengiranya kelalaian.",
       ),
       callout(
         'tip',
@@ -528,7 +528,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Ternary adalah satu-satunya operator di JavaScript yang memakai **tiga** bagian: kondisi, lalu nilai bila benar setelah `?`, lalu nilai bila salah setelah `:`. Perbedaannya dengan `if` bukan sekadar panjang tulisan — `if` adalah **pernyataan** yang menjalankan sesuatu, sedangkan ternary adalah **ekspresi** yang menghasilkan nilai. Karena menghasilkan nilai, ia bisa ditaruh di tempat yang tidak bisa menampung `if` sama sekali: di kanan tanda `=`, sebagai argumen fungsi, dan seperti baris kedua, di dalam `${ }` sebuah template literal. Perhatikan cabang `:` pada baris kedua yang sengaja diisi string kosong `''` — itu pola yang akan sering kamu tulis di React untuk menambahkan sesuatu **hanya** bila syaratnya terpenuhi, tanpa mengubah bagian kalimat lainnya.",
+        "Ternary adalah satu-satunya operator di JavaScript yang memakai **tiga** bagian, yaitu kondisi, lalu nilai bila benar setelah `?`, lalu nilai bila salah setelah `:`. Perbedaannya dengan `if` bukan sekadar panjang tulisan, sebab `if` adalah **pernyataan** yang menjalankan sesuatu sedangkan ternary adalah **ekspresi** yang menghasilkan nilai. Karena menghasilkan nilai, ia bisa ditaruh di tempat yang tidak bisa menampung `if` sama sekali, misalnya di kanan tanda `=`, sebagai argumen fungsi, dan seperti baris kedua, di dalam `${ }` sebuah template literal. Perhatikan cabang `:` pada baris kedua yang sengaja diisi string kosong `''`. Itu pola yang akan sering kamu tulis di React untuk menambahkan sesuatu **hanya** bila syaratnya terpenuhi, tanpa mengubah bagian kalimat lainnya.",
       ),
       callout(
         'danger',
@@ -610,7 +610,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'iterasi',
           meaning:
-            'Dari *iteration*, artinya **satu kali putaran**. Loop yang berjalan lima kali dikatakan melakukan lima iterasi. Kata kerjanya *meng-iterasi*, yang berarti menelusuri sesuatu satu per satu. Istilah ini akan muncul lagi di luar konteks loop — misalnya "React meng-iterasi daftar" — dengan arti yang persis sama.',
+            'Dari *iteration*, artinya **satu kali putaran**. Loop yang berjalan lima kali dikatakan melakukan lima iterasi. Kata kerjanya *meng-iterasi*, yang berarti menelusuri sesuatu satu per satu. Istilah ini akan muncul lagi di luar konteks loop, misalnya "React meng-iterasi daftar", dengan arti yang persis sama.',
         },
         {
           term: 'i',
@@ -620,7 +620,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'indeks',
           meaning:
-            'Dari *index*, artinya **nomor posisi** sebuah elemen di dalam array. Yang wajib diingat: penomorannya **dimulai dari 0**, bukan 1 — elemen pertama berindeks 0, elemen kelima berindeks 4, dan elemen terakhir selalu berindeks `panjang - 1`. Kekeliruan satu angka di sini sangat umum sampai punya nama sendiri dalam bahasa Inggris: *off-by-one error*.',
+            'Dari *index*, artinya **nomor posisi** sebuah elemen di dalam array. Yang wajib diingat, penomorannya **dimulai dari 0** dan bukan 1, sehingga elemen pertama berindeks 0, elemen kelima berindeks 4, dan elemen terakhir selalu berindeks `panjang - 1`. Kekeliruan satu angka di sini sangat umum sampai punya nama sendiri dalam bahasa Inggris, yaitu *off-by-one error*.',
         },
         {
           term: 'iterable',
@@ -630,7 +630,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'break / continue',
           meaning:
-            '`break` artinya **patahkan** — ia menghentikan seluruh loop saat itu juga dan melanjutkan ke baris setelah loop. `continue` artinya **lanjutkan** — ia hanya melewati sisa iterasi yang sedang berjalan lalu langsung meloncat ke putaran berikutnya. Keduanya hanya bekerja di dalam loop sungguhan; di dalam `forEach` keduanya tidak tersedia, dan itulah batasan utama method tersebut.',
+            '`break` artinya **patahkan**, sebab ia menghentikan seluruh loop saat itu juga dan melanjutkan ke baris setelah loop. `continue` artinya **lanjutkan**, sebab ia hanya melewati sisa iterasi yang sedang berjalan lalu langsung meloncat ke putaran berikutnya. Keduanya hanya bekerja di dalam loop sungguhan, sedangkan di dalam `forEach` keduanya tidak tersedia, dan itulah batasan utama method tersebut.',
         },
         {
           term: 'callback',
@@ -689,7 +689,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Bandingkan dengan `for` klasik di atas: seluruh urusan indeks — memulai dari nol, memeriksa batas, menaikkan satu — lenyap sepenuhnya. Kamu langsung menerima **nilainya**, dan itu menghilangkan sekelas kesalahan yang disebut *off-by-one*, yaitu salah satu angka pada batas yang membuat elemen terakhir terlewat atau terbaca dua kali. Perhatikan juga `const` pada `for (const w of warna)`: itu sah meski nilainya berganti tiap putaran, karena setiap putaran sebenarnya membuat variabel `w` yang benar-benar baru, bukan menugaskan ulang yang lama. Blok kedua memperlihatkan jalan keluar bila indeksnya ternyata tetap dibutuhkan — `warna.entries()` menghasilkan pasangan `[indeks, nilai]` yang langsung dibongkar dengan destructuring array. Blok terakhir menegaskan jangkauannya: `for...of` bekerja pada apa pun yang *iterable*, sehingga string ditelusuri per karakter, dan `Map` maupun `Set` bisa dipakai dengan cara yang sama persis.',
+        'Bandingkan dengan `for` klasik di atas. Seluruh urusan indeks, mulai dari memulai dari nol, memeriksa batas, sampai menaikkan satu, lenyap sepenuhnya. Kamu langsung menerima **nilainya**, dan itu menghilangkan sekelas kesalahan yang disebut *off-by-one*, yaitu salah satu angka pada batas yang membuat elemen terakhir terlewat atau terbaca dua kali. Perhatikan juga `const` pada `for (const w of warna)`. Itu sah meski nilainya berganti tiap putaran, karena setiap putaran sebenarnya membuat variabel `w` yang benar-benar baru dan bukan menugaskan ulang yang lama. Blok kedua memperlihatkan jalan keluar bila indeksnya ternyata tetap dibutuhkan, sebab `warna.entries()` menghasilkan pasangan `[indeks, nilai]` yang langsung dibongkar dengan destructuring array. Blok terakhir menegaskan jangkauannya, karena `for...of` bekerja pada apa pun yang *iterable*, sehingga string ditelusuri per karakter, dan `Map` maupun `Set` bisa dipakai dengan cara yang sama persis.',
       ),
 
       h2('`for...in` — untuk kunci object'),
@@ -704,7 +704,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Perbedaannya dengan `for...of` cuma satu kata — `in` — tapi yang kamu terima sama sekali berbeda. `for...in` memberi **nama kuncinya** (`'nama'`, `'level'`), bukan isinya, sehingga nilainya harus diambil sendiri lewat `pengguna[kunci]`. Perhatikan kurung siku di sana dan bukan titik: `kunci` adalah variabel berisi teks, dan seperti yang sudah dibahas di sub-bab object, menulis `pengguna.kunci` justru akan mencari property yang benar-benar bernama `\"kunci\"`. Ini juga satu-satunya bentuk perulangan pada daftar di JavaScript yang menelusuri **object biasa**, karena object bukan sesuatu yang *iterable* dan karena itu tidak bisa dipakai langsung dengan `for...of`.",
+        "Perbedaannya dengan `for...of` cuma satu kata, yaitu `in`, tetapi yang kamu terima sama sekali berbeda. `for...in` memberi **nama kuncinya** (`'nama'`, `'level'`), bukan isinya, sehingga nilainya harus diambil sendiri lewat `pengguna[kunci]`. Perhatikan kurung siku di sana dan bukan titik, karena `kunci` adalah variabel berisi teks, dan seperti yang sudah dibahas di sub-bab object, menulis `pengguna.kunci` justru akan mencari property yang benar-benar bernama `\"kunci\"`. Ini juga satu-satunya bentuk perulangan pada daftar di JavaScript yang menelusuri **object biasa**, karena object bukan sesuatu yang *iterable* dan karena itu tidak bisa dipakai langsung dengan `for...of`.",
       ),
       callout(
         'warning',
@@ -721,7 +721,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Versi ini menghasilkan keluaran yang sama persis, tapi lebih jujur menyatakan maksudnya. `Object.entries(pengguna)` mengubah object menjadi array pasangan `[kunci, nilai]`, dan begitu berbentuk array ia bisa ditelusuri `for...of` seperti daftar biasa — lalu `[kunci, nilai]` di sisi kiri membongkar tiap pasangan menjadi dua variabel sekaligus. Keuntungannya bukan hanya keterbacaan: `Object.entries` hanya melihat property milik object itu sendiri, sedangkan `for...in` ikut menelusuri property yang diwarisi dari prototype, dan itu sumber bug yang sulit dilacak saat kamu bekerja dengan object dari library pihak ketiga. Sebagai bonus, karena hasilnya array biasa, kamu bisa menyisipkan `.filter(...)` atau `.sort(...)` sebelum menelusurinya — sesuatu yang mustahil dilakukan pada `for...in`.',
+        'Versi ini menghasilkan keluaran yang sama persis, tapi lebih jujur menyatakan maksudnya. `Object.entries(pengguna)` mengubah object menjadi array pasangan `[kunci, nilai]`, dan begitu berbentuk array ia bisa ditelusuri `for...of` seperti daftar biasa, lalu `[kunci, nilai]` di sisi kiri membongkar tiap pasangan menjadi dua variabel sekaligus. Keuntungannya bukan hanya keterbacaan, sebab `Object.entries` hanya melihat property milik object itu sendiri, sedangkan `for...in` ikut menelusuri property yang diwarisi dari prototype, dan itu sumber bug yang sulit dilacak saat kamu bekerja dengan object dari library pihak ketiga. Sebagai bonus, karena hasilnya array biasa, kamu bisa menyisipkan `.filter(...)` atau `.sort(...)` sebelum menelusurinya, sesuatu yang mustahil dilakukan pada `for...in`.',
       ),
 
       h2('`while` dan `do...while`'),
@@ -742,7 +742,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Bedanya dengan `for` terletak pada **siapa yang bertanggung jawab menghentikan loop**. Pada `for`, penghitungnya ditulis di satu baris bersama kondisi dan kenaikannya, sehingga sulit terlupakan. Pada `while`, kondisinya di atas tapi yang mengubahnya ada di dalam badan — dan baris `sisa--` itulah satu-satunya hal yang membuat loop ini berakhir. Hapus, dan `sisa` selamanya bernilai `3`, kondisinya selamanya `true`, dan halaman membeku. Karena itu `while` paling cocok dipakai justru ketika **jumlah putarannya tidak diketahui di awal** — memproses antrean sampai habis, atau mencoba sampai berhasil. Blok kedua menunjukkan varian `do...while`: kondisinya diperiksa **setelah** badan dijalankan, sehingga isinya dijamin berjalan minimal sekali. Contoh itu pas untuk kasusnya — kamu harus bertanya lebih dulu sebelum bisa menilai jawabannya kosong atau tidak.',
+        'Bedanya dengan `for` terletak pada **siapa yang bertanggung jawab menghentikan loop**. Pada `for`, penghitungnya ditulis di satu baris bersama kondisi dan kenaikannya, sehingga sulit terlupakan. Pada `while`, kondisinya di atas tetapi yang mengubahnya ada di dalam badan, dan baris `sisa--` itulah satu-satunya hal yang membuat loop ini berakhir. Hapus baris itu, maka `sisa` selamanya bernilai `3`, kondisinya selamanya `true`, dan halaman membeku. Karena itu `while` paling cocok dipakai justru ketika **jumlah putarannya tidak diketahui di awal**, misalnya memproses antrean sampai habis atau mencoba sampai berhasil. Blok kedua menunjukkan varian `do...while`, yang kondisinya diperiksa **setelah** badan dijalankan sehingga isinya dijamin berjalan minimal sekali. Contoh itu pas untuk kasusnya, sebab kamu harus bertanya lebih dulu sebelum bisa menilai jawabannya kosong atau tidak.',
       ),
       callout(
         'danger',
@@ -762,7 +762,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perhatikan urutan pengecekannya: `continue` untuk `n === 3` dijalankan lebih dulu, sehingga angka `3` dilewati tapi loop tetap lanjut ke `4`. `break` untuk `n === 5` baru dicek berikutnya, dan begitu tercapai seluruh loop berhenti — itulah sebabnya `5` sendiri tidak pernah sempat tercetak. Bandingkan dengan `filter`/`find` di bagian berikutnya: keduanya tidak punya padanan `break` di tengah jalan, jadi kapan pun kamu perlu berhenti sebelum menelusuri seluruh elemen, `for...of` dengan `break` tetap pilihan yang tepat, bukan method array.',
+        'Perhatikan urutan pengecekannya. `continue` untuk `n === 3` dijalankan lebih dulu, sehingga angka `3` dilewati tapi loop tetap lanjut ke `4`. `break` untuk `n === 5` baru dicek berikutnya, dan begitu tercapai seluruh loop berhenti, dan itulah sebabnya `5` sendiri tidak pernah sempat tercetak. Bandingkan dengan `filter`/`find` di bagian berikutnya, karena keduanya tidak punya padanan `break` di tengah jalan, jadi kapan pun kamu perlu berhenti sebelum menelusuri seluruh elemen, `for...of` dengan `break` tetap pilihan yang tepat, bukan method array.',
       ),
 
       h2('Kapan method array lebih baik'),
@@ -785,7 +785,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Kedua versi menghasilkan `[2, 4]` yang sama, jadi perbandingannya bukan soal benar-salah melainkan soal **berapa lama pembaca butuh untuk mengerti maksudnya**. Versi loop menuntut penelusuran empat baris sebelum maksudnya jelas: ada array kosong yang disiapkan, ada penelusuran, ada syarat, ada `push` — dan barulah kamu simpulkan sendiri "oh, ini menyaring". Versi `filter` menyebut maksudnya di nama methodnya, di baris pertama, sebelum kamu sempat membaca syaratnya. Ada keuntungan kedua yang lebih halus: `genapRapi` bisa dideklarasikan `const` karena ia langsung terisi penuh saat dibuat, sementara `genap` pada versi loop terpaksa dimulai kosong lalu diisi bertahap — dan variabel yang isinya berubah-ubah selalu menuntut pembaca menelusuri ke mana saja ia mungkin disentuh.',
+        'Kedua versi menghasilkan `[2, 4]` yang sama, jadi perbandingannya bukan soal benar-salah melainkan soal **berapa lama pembaca butuh untuk mengerti maksudnya**. Versi loop menuntut penelusuran empat baris sebelum maksudnya jelas, karena ada array kosong yang disiapkan, ada penelusuran, ada syarat, dan ada `push`, lalu barulah kamu simpulkan sendiri "oh, ini menyaring". Versi `filter` menyebut maksudnya di nama methodnya, di baris pertama, sebelum kamu sempat membaca syaratnya. Ada keuntungan kedua yang lebih halus. `genapRapi` bisa dideklarasikan `const` karena ia langsung terisi penuh saat dibuat, sementara `genap` pada versi loop terpaksa dimulai kosong lalu diisi bertahap, dan variabel yang isinya berubah-ubah selalu menuntut pembaca menelusuri ke mana saja ia mungkin disentuh.',
       ),
       table(
         ['Yang kamu lakukan', 'Pakai'],
@@ -863,7 +863,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'fn',
           meaning:
-            'Singkatan dari *function*, dibaca "ef-en" atau langsung "function". **Ini bukan kata kunci JavaScript** — ia hanya nama parameter yang sudah jadi kebiasaan bersama saat sebuah fungsi menerima fungsi lain sebagai bahannya. Ketika kamu melihat `debounce(fn, jeda)` di dokumentasi atau `arr.map(fn)` di cheatsheet, yang dimaksud adalah "di posisi ini isikan sebuah **fungsi**, bukan angka atau teks". Kamu bebas menamainya `aksi`, `callback`, atau `apaYangDijalankan` — JavaScript tidak peduli sedikit pun, dan nama yang lebih panjang justru sering lebih baik di kodemu sendiri. Catatan penting untuk nanti: di **PHP**, `fn` justru **benar-benar kata kunci** untuk arrow function, jadi jangan bawa asumsi ini ke bab Laravel.',
+            'Singkatan dari *function*, dibaca "ef-en" atau langsung "function". **Ini bukan kata kunci JavaScript**, sebab ia hanya nama parameter yang sudah jadi kebiasaan bersama saat sebuah fungsi menerima fungsi lain sebagai bahannya. Ketika kamu melihat `debounce(fn, jeda)` di dokumentasi atau `arr.map(fn)` di cheatsheet, yang dimaksud adalah "di posisi ini isikan sebuah **fungsi**, bukan angka atau teks". Kamu bebas menamainya `aksi`, `callback`, atau `apaYangDijalankan`, karena JavaScript tidak peduli sedikit pun, dan nama yang lebih panjang justru sering lebih baik di kodemu sendiri. Catatan penting untuk nanti, di **PHP** `fn` justru **benar-benar kata kunci** untuk arrow function, jadi jangan bawa asumsi ini ke bab Laravel.',
         },
         {
           term: 'parameter',
@@ -916,7 +916,7 @@ export const lessons: LessonDraft[] = [
             'Artinya **mengembalikan**. Kata kunci yang melakukan dua hal sekaligus: **menghentikan fungsi saat itu juga** dan **menyerahkan sebuah nilai kepada yang memanggilnya**. Baris apa pun setelah `return` di dalam blok yang sama tidak akan pernah dijalankan. Fungsi yang tidak punya `return` tetap menghasilkan sesuatu, yaitu `undefined` — dan lupa menuliskannya adalah penyebab nomor satu dari `map` yang menghasilkan array berisi `undefined`.',
         },
         {
-          term: 'fungsi murni',
+          term: 'pure function',
           meaning:
             'Terjemahan dari *pure function*. Fungsi yang memenuhi dua syarat: **hasilnya hanya bergantung pada argumen yang masuk**, dan **ia tidak mengubah apa pun di luar dirinya sendiri** — tidak menyentuh variabel global, tidak menulis ke layar, tidak mengirim data ke server. Akibatnya, memanggilnya sepuluh kali dengan argumen yang sama selalu memberi hasil yang sama. Jenis fungsi ini paling mudah diuji karena tidak butuh persiapan apa pun, dan React mensyaratkan komponennya berperilaku seperti ini.',
         },
@@ -946,7 +946,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Ketiganya menghasilkan fungsi yang berperilaku sama saat dipanggil, jadi yang membedakannya bukan hasil melainkan **cara mereka lahir**. Bentuk pertama adalah pernyataan yang berdiri sendiri, dan namanya melekat pada fungsi itu sejak awal. Bentuk kedua dan ketiga sebenarnya bukan "cara mendeklarasikan fungsi" sama sekali — keduanya membuat sebuah nilai fungsi lalu **menugaskannya ke variabel biasa**, persis seperti menugaskan angka atau string. Perhatikan tanda titik koma di akhir bentuk kedua dan ketiga: ia ada karena keduanya adalah penugasan, sedangkan bentuk pertama tidak membutuhkannya. Perbedaan "sekadar penulisan" ini punya dua akibat nyata yang dibahas tepat di bawah — kapan fungsi itu bisa mulai dipanggil, dan bagaimana `this` di dalamnya berperilaku.',
+        'Ketiganya menghasilkan fungsi yang berperilaku sama saat dipanggil, jadi yang membedakannya bukan hasil melainkan **cara mereka lahir**. Bentuk pertama adalah pernyataan yang berdiri sendiri, dan namanya melekat pada fungsi itu sejak awal. Bentuk kedua dan ketiga sebenarnya bukan "cara mendeklarasikan fungsi" sama sekali, sebab keduanya membuat sebuah nilai fungsi lalu **menugaskannya ke variabel biasa**, persis seperti menugaskan angka atau string. Perhatikan tanda titik koma di akhir bentuk kedua dan ketiga, yang ada karena keduanya adalah penugasan, sedangkan bentuk pertama tidak membutuhkannya. Perbedaan "sekadar penulisan" ini punya dua akibat nyata yang dibahas tepat di bawah, yaitu kapan fungsi itu bisa mulai dipanggil, dan bagaimana `this` di dalamnya berperilaku.',
       ),
       code(
         'js',
@@ -959,7 +959,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Perhatikan bedanya secara konkret di atas: `sapaAwal('Zum')` di baris pertama berhasil meski fungsinya baru dideklarasikan di baris berikutnya — function declaration di-*hoist* penuh, seluruh definisinya diangkat ke atas sebelum kode mulai dijalankan. `sapaAkhir('Zum')` sebaliknya gagal dengan `ReferenceError`, karena `const sapaAkhir = (nama) => ...` mengikuti aturan `const` dari sub-bab sebelumnya: namanya memang ikut di-*hoist*, tapi nilainya baru terisi tepat di baris deklarasi, dan mengaksesnya lebih awal jatuh ke Temporal Dead Zone.",
+        "Perhatikan bedanya secara konkret di atas. `sapaAwal('Zum')` di baris pertama berhasil meski fungsinya baru dideklarasikan di baris berikutnya, karena function declaration di-*hoist* penuh, seluruh definisinya diangkat ke atas sebelum kode mulai dijalankan. `sapaAkhir('Zum')` sebaliknya gagal dengan `ReferenceError`, karena `const sapaAkhir = (nama) => ...` mengikuti aturan `const` dari sub-bab sebelumnya, yaitu namanya memang ikut di-*hoist* tetapi nilainya baru terisi tepat di baris deklarasi, dan mengaksesnya lebih awal jatuh ke Temporal Dead Zone.",
       ),
 
       h2('Bentuk ringkas arrow function'),
@@ -979,7 +979,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Aturan pembeda seluruh contoh di atas cuma satu: **ada tidaknya kurung kurawal setelah tanda panah**. Tanpa kurawal, apa pun yang ditulis setelah `=>` otomatis menjadi nilai kembalian — itulah yang disebut *return implisit*, dan itu sebabnya `(a, b) => a + b` tidak perlu menulis `return`. Begitu kurawal dipasang, kamu sedang membuka **badan fungsi** yang bisa memuat beberapa baris, dan JavaScript berhenti menebak: tanpa `return` yang ditulis sendiri, hasilnya `undefined`. Baris terakhir adalah tempat kedua aturan itu bertabrakan. Karena `{` sudah punya arti \"mulai badan fungsi\", menulis `() => { nama: 'Zum' }` tidak menghasilkan object — JavaScript membacanya sebagai badan fungsi kosong. Membungkusnya dengan kurung biasa, `({ nama: 'Zum' })`, memaksa `{` dibaca sebagai awal object. Inilah penyebab paling umum sebuah `map` mengembalikan array berisi `undefined`.",
+        "Aturan pembeda seluruh contoh di atas cuma satu, yaitu **ada tidaknya kurung kurawal setelah tanda panah**. Tanpa kurawal, apa pun yang ditulis setelah `=>` otomatis menjadi return value, dan itulah yang disebut *return implisit*, sehingga `(a, b) => a + b` tidak perlu menulis `return`. Begitu kurawal dipasang, kamu sedang membuka **badan fungsi** yang bisa memuat beberapa baris, dan JavaScript berhenti menebak, sehingga tanpa `return` yang ditulis sendiri hasilnya `undefined`. Baris terakhir adalah tempat kedua aturan itu bertabrakan. Karena `{` sudah punya arti \"mulai badan fungsi\", menulis `() => { nama: 'Zum' }` tidak menghasilkan object, karena JavaScript membacanya sebagai badan fungsi kosong. Membungkusnya dengan kurung biasa, `({ nama: 'Zum' })`, memaksa `{` dibaca sebagai awal object. Inilah penyebab paling umum sebuah `map` mengembalikan array berisi `undefined`.",
       ),
       callout(
         'info',
@@ -1010,7 +1010,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Dua baris terakhir kelompok pertama adalah yang paling layak diperhatikan, karena keduanya terlihat sama-sama "kosong" tapi hasilnya berbeda. Nilai default **hanya terpicu oleh `undefined`** — dan itu berlaku baik saat argumennya tidak dikirim sama sekali maupun saat `undefined` dikirim secara eksplisit. `null` bukan `undefined`: ia dianggap nilai yang sengaja diberikan, sehingga default dilewati dan `null` benar-benar masuk ke dalam teks menjadi `\'null Zum\'`. Aturan ini persis sama dengan default pada destructuring yang sudah kamu pelajari, jadi cukup diingat sekali untuk keduanya. Kelompok kedua memakai rest parameter, dan perhatikan `jumlahkan()` tanpa argumen menghasilkan `0`, bukan error — `...angka` selalu menghasilkan array, dan array kosong ditambah nilai awal `0` pada `reduce` membuat fungsi ini aman dipanggil dengan berapa pun jumlah argumen, termasuk nol.',
+        'Dua baris terakhir kelompok pertama adalah yang paling layak diperhatikan, karena keduanya terlihat sama-sama "kosong" tapi hasilnya berbeda. Nilai default **hanya terpicu oleh `undefined`**, dan itu berlaku baik saat argumennya tidak dikirim sama sekali maupun saat `undefined` dikirim secara eksplisit. `null` bukan `undefined`, sebab ia dianggap nilai yang sengaja diberikan, sehingga default dilewati dan `null` benar-benar masuk ke dalam teks menjadi `\'null Zum\'`. Aturan ini persis sama dengan default pada destructuring yang sudah kamu pelajari, jadi cukup diingat sekali untuk keduanya. Kelompok kedua memakai rest parameter, dan perhatikan `jumlahkan()` tanpa argumen menghasilkan `0` dan bukan error, karena `...angka` selalu menghasilkan array, dan array kosong ditambah nilai awal `0` pada `reduce` membuat fungsi ini aman dipanggil dengan berapa pun jumlah argumen, termasuk nol.',
       ),
       callout(
         'tip',
@@ -1018,7 +1018,7 @@ export const lessons: LessonDraft[] = [
         'Kode lama memakai objek `arguments`. Ia bukan array sungguhan (tidak punya `map` atau `filter`) dan tidak tersedia di arrow function. Rest parameter menghasilkan array asli dan selalu lebih jelas.',
       ),
 
-      h2('Nilai kembalian'),
+      h2('Return value'),
       code(
         'js',
         `
@@ -1033,7 +1033,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Kedua fungsi itu memperlihatkan hal yang sama dari dua arah: **setiap fungsi di JavaScript selalu mengembalikan sesuatu**, dan bila kamu tidak menyebutkan apa, yang dikembalikan adalah `undefined`. Tidak ada konsep "fungsi tanpa nilai kembalian" seperti di sebagian bahasa lain. Ini penting karena `undefined` tidak menimbulkan error saat itu juga — ia diam saja, ikut mengalir ke variabel berikutnya, dan baru meledak beberapa baris kemudian di tempat yang sama sekali tidak berhubungan dengan sumber masalahnya. Gejala yang paling sering muncul persis seperti yang disebut di bagian `map` tadi: sebuah fungsi yang badannya memakai kurawal tapi lupa `return`, lalu menghasilkan array penuh `undefined` tanpa satu pun pesan kesalahan.',
+        'Kedua fungsi itu memperlihatkan hal yang sama dari dua arah, yaitu **setiap fungsi di JavaScript selalu mengembalikan sesuatu**, dan bila kamu tidak menyebutkan apa, yang dikembalikan adalah `undefined`. Tidak ada konsep "fungsi tanpa return value" seperti di sebagian bahasa lain. Ini penting karena `undefined` tidak menimbulkan error saat itu juga. Ia diam saja, ikut mengalir ke variabel berikutnya, dan baru meledak beberapa baris kemudian di tempat yang sama sekali tidak berhubungan dengan sumber masalahnya. Gejala yang paling sering muncul persis seperti yang disebut di bagian `map` tadi, yaitu sebuah fungsi yang badannya memakai kurawal tapi lupa `return`, lalu menghasilkan array penuh `undefined` tanpa satu pun pesan kesalahan.',
       ),
       callout(
         'danger',
@@ -1060,7 +1060,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Gagasan yang diperagakan di sini disebut *first-class function*: di JavaScript, fungsi adalah **nilai biasa** — ia bisa disimpan di variabel, dioper sebagai argumen, dan dikembalikan dari fungsi lain, persis seperti angka. Kelompok pertama menunjukkan sisi "dioper": `map(kali2)` menyerahkan fungsinya sendiri, dan `map` yang nanti memanggilnya untuk tiap elemen — perhatikan **tidak ada kurung** setelah `kali2`, karena menambahkan kurung berarti memanggilnya sekarang lalu mengoper hasilnya. Kelompok kedua menunjukkan sisi "dikembalikan", dan hasilnya lebih menarik daripada tampaknya: `pengali(3)` sudah selesai berjalan dan berakhir, tapi fungsi yang ia kembalikan **masih mengingat** bahwa `faktor` bernilai `3`. Ingatan yang bertahan setelah fungsi induknya selesai itu bernama **closure**, dan ia dibahas tuntas di sub-bab berikutnya.',
+        'Gagasan yang diperagakan di sini disebut *first-class function*. Di JavaScript, fungsi adalah **nilai biasa** yang bisa disimpan di variabel, dioper sebagai argumen, dan dikembalikan dari fungsi lain, persis seperti angka. Kelompok pertama menunjukkan sisi "dioper": `map(kali2)` menyerahkan fungsinya sendiri, dan `map` yang nanti memanggilnya untuk tiap elemen. Perhatikan **tidak ada kurung** setelah `kali2`, karena menambahkan kurung berarti memanggilnya sekarang lalu mengoper hasilnya. Kelompok kedua menunjukkan sisi "dikembalikan", dan hasilnya lebih menarik daripada tampaknya. `pengali(3)` sudah selesai berjalan dan berakhir, tetapi fungsi yang ia kembalikan **masih mengingat** bahwa `faktor` bernilai `3`. Ingatan yang bertahan setelah fungsi induknya selesai itu bernama **closure**, dan ia dibahas tuntas di sub-bab berikutnya.',
       ),
       callout(
         'warning',
@@ -1079,7 +1079,7 @@ export const lessons: LessonDraft[] = [
           document.querySelector('#total').textContent = teks;
         }
 
-        // BENAR: Dipisah — dua di antaranya jadi fungsi murni yang mudah diuji
+        // BENAR: Dipisah — dua di antaranya jadi pure function yang mudah diuji
         const hitungTotal = (items) => items.reduce((a, i) => a + i.harga, 0);
         const formatRupiah = (n) => 'Rp' + n.toLocaleString('id-ID');
 
@@ -1089,7 +1089,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Versi SALAH mencampur tiga tanggung jawab dalam satu fungsi: menghitung total, memformat jadi teks rupiah, dan menulis ke halaman. Menguji bagian hitungnya saja berarti kamu harus punya elemen `#total` sungguhan di DOM — padahal yang ingin diuji sebenarnya cuma aritmetikanya. Versi BENAR memisahkan `hitungTotal` dan `formatRupiah` sebagai **fungsi murni**, istilah yang sudah dijelaskan di kotak istilah: keduanya bisa diuji hanya dengan memanggil dan memeriksa nilai kembaliannya, tanpa menyentuh halaman sama sekali. `tampilkanTotal` yang tersisa menjadi satu-satunya bagian yang menyentuh DOM, dan tidak perlu diuji sedetail dua fungsi lainnya.',
+        'Versi SALAH mencampur tiga tanggung jawab dalam satu fungsi, yaitu menghitung total, memformat jadi teks rupiah, dan menulis ke halaman. Menguji bagian hitungnya saja berarti kamu harus punya elemen `#total` sungguhan di DOM, padahal yang ingin diuji sebenarnya cuma aritmetikanya. Versi BENAR memisahkan `hitungTotal` dan `formatRupiah` sebagai **pure function**, istilah yang sudah dijelaskan di kotak istilah, karena keduanya bisa diuji hanya dengan memanggil dan memeriksa return value-nya, tanpa menyentuh halaman sama sekali. `tampilkanTotal` yang tersisa menjadi satu-satunya bagian yang menyentuh DOM, dan tidak perlu diuji sedetail dua fungsi lainnya.',
       ),
 
       divider,
@@ -1144,7 +1144,7 @@ export const lessons: LessonDraft[] = [
     'Bagaimana JavaScript menentukan nama mana yang terlihat dari mana — dan closure sebagai konsekuensi alaminya.',
     [
       p(
-        'Scope adalah jawaban atas satu pertanyaan: **dari mana sebuah nama bisa dilihat?** Menguasainya menghapus sekelas bug sekaligus, dan membuat closure — konsep yang sering terdengar menakutkan — terasa jelas dengan sendirinya.',
+        'Scope adalah jawaban atas satu pertanyaan, yaitu **dari mana sebuah nama bisa dilihat?** Menguasainya menghapus sekelas bug sekaligus, sekaligus membuat closure, konsep yang sering terdengar menakutkan itu, terasa jelas dengan sendirinya.',
       ),
 
       terms(
@@ -1247,7 +1247,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Nama `level` sengaja dipakai dua kali supaya pencariannya terlihat. Saat `console.log(level)` di dalam `b` dijalankan, JavaScript melihat scope `b` sendiri lebih dulu — tidak ada `level` di sana. Ia naik ke scope `a`, dan **di sinilah pencarian berhenti**: `level` ketemu bernilai `\'fungsi a\'`, sehingga `level` milik global tidak pernah sempat dilihat. Perilaku "berhenti di temuan pertama" itu disebut *shadowing* — variabel di tingkat dalam menutupi variabel bernama sama di tingkat luar. Perlu ditegaskan bahwa arah pencariannya **hanya ke atas, tidak pernah ke bawah maupun ke samping**: `a` tidak bisa melihat variabel milik `b`, dan dua fungsi yang bersebelahan tidak bisa saling mengintip. Itulah yang membuat variabel di dalam sebuah fungsi aman dari gangguan bagian lain program.',
+        'Nama `level` sengaja dipakai dua kali supaya pencariannya terlihat. Saat `console.log(level)` di dalam `b` dijalankan, JavaScript melihat scope `b` sendiri lebih dulu, dan tidak ada `level` di sana. Ia naik ke scope `a`, dan **di sinilah pencarian berhenti**. Di situ `level` ketemu bernilai `\'fungsi a\'`, sehingga `level` milik global tidak pernah sempat dilihat. Perilaku "berhenti di temuan pertama" itu disebut *shadowing*, yaitu variabel di tingkat dalam menutupi variabel bernama sama di tingkat luar. Perlu ditegaskan bahwa arah pencariannya **hanya ke atas, tidak pernah ke bawah maupun ke samping**, sebab `a` tidak bisa melihat variabel milik `b`, dan dua fungsi yang bersebelahan tidak bisa saling mengintip. Itulah yang membuat variabel di dalam sebuah fungsi aman dari gangguan bagian lain program.',
       ),
       callout(
         'info',
@@ -1338,7 +1338,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perbedaannya dengan `buatPenghitung` sebelumnya cuma satu: yang dikembalikan bukan satu fungsi, melainkan **object berisi dua fungsi** — dan keduanya berbagi `saldo` yang sama persis, karena keduanya lahir di dalam pemanggilan `buatDompet` yang sama. Itulah cara membuat beberapa operasi yang bekerja atas satu data tersembunyi. Perhatikan `throw` di dalam `setor`: karena `saldo` mustahil disentuh dari luar, pemeriksaan itu **tidak bisa dilewati siapa pun** — tidak ada jalan lain masuk selain melewati method ini. Bandingkan dengan menaruh `saldo` sebagai property biasa: siapa pun bisa menulis `dompet.saldo = -999` dan aturan setorannya tidak berarti apa-apa. Baris terakhir membuktikannya: `dompet.saldo` bernilai `undefined` bukan karena disembunyikan, melainkan karena property bernama itu memang tidak pernah ada di object yang dikembalikan.',
+        'Perbedaannya dengan `buatPenghitung` sebelumnya cuma satu, yaitu yang dikembalikan bukan satu fungsi melainkan **object berisi dua fungsi**. Keduanya berbagi `saldo` yang sama persis, karena keduanya lahir di dalam pemanggilan `buatDompet` yang sama. Itulah cara membuat beberapa operasi yang bekerja atas satu data tersembunyi. Perhatikan `throw` di dalam `setor`. Karena `saldo` mustahil disentuh dari luar, pemeriksaan itu **tidak bisa dilewati siapa pun**, sebab tidak ada jalan lain masuk selain melewati method ini. Bandingkan dengan menaruh `saldo` sebagai property biasa, karena siapa pun bisa menulis `dompet.saldo = -999` sehingga aturan setorannya tidak berarti apa-apa. Baris terakhir membuktikannya, sebab `dompet.saldo` bernilai `undefined` bukan karena disembunyikan, melainkan karena property bernama itu memang tidak pernah ada di object yang dikembalikan.',
       ),
       code(
         'js',
@@ -1372,10 +1372,10 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Ini pemakaian closure yang paling sering kamu temui di kode nyata, dan yang disimpan bukan data melainkan **`timer`, sebuah nomor pengenal**. Kuncinya ada pada urutan dua baris di dalam: setiap kali `cariTertunda` dipanggil, `clearTimeout(timer)` membatalkan penundaan yang dipasang pemanggilan **sebelumnya**, baru kemudian `setTimeout` memasang penundaan baru. Karena `timer` hidup di closure, ia bertahan **di antara** pemanggilan yang berbeda — kalau ia dideklarasikan di dalam arrow function-nya, tiap pemanggilan akan memulai dari nol dan tidak ada yang pernah dibatalkan. Hasilnya persis yang diinginkan pada kotak pencarian: mengetik "react" cepat-cepat hanya memicu satu pencarian setelah jeda 300 milidetik, bukan lima. Bagian `(...args)` dan `fn(...args)` adalah pasangan rest dan spread dari sub-bab sebelumnya, dan gunanya membuat `debounce` bekerja untuk fungsi apa pun tanpa peduli berapa argumen yang ia terima.',
+        'Ini pemakaian closure yang paling sering kamu temui di kode nyata, dan yang disimpan bukan data melainkan **`timer`, sebuah nomor pengenal**. Kuncinya ada pada urutan dua baris di dalamnya. Setiap kali `cariTertunda` dipanggil, `clearTimeout(timer)` membatalkan penundaan yang dipasang pemanggilan **sebelumnya**, baru kemudian `setTimeout` memasang penundaan baru. Karena `timer` hidup di closure, ia bertahan **di antara** pemanggilan yang berbeda. Kalau ia dideklarasikan di dalam arrow function-nya, tiap pemanggilan akan memulai dari nol dan tidak ada yang pernah dibatalkan. Hasilnya persis yang diinginkan pada kotak pencarian, sebab mengetik "react" cepat-cepat hanya memicu satu pencarian setelah jeda 300 milidetik, bukan lima. Bagian `(...args)` dan `fn(...args)` adalah pasangan rest dan spread dari sub-bab sebelumnya, dan gunanya membuat `debounce` bekerja untuk fungsi apa pun tanpa peduli berapa argumen yang ia terima.',
       ),
       p(
-        'Ketiga contoh punya bentuk yang sama persis — sebuah fungsi luar yang mendeklarasikan variabel, lalu mengembalikan fungsi dalam yang memakainya — dan menunjukkan bahwa closure bukan fitur eksotis melainkan alat sehari-hari: menyembunyikan data, mengunci konfigurasi, dan menyimpan keadaan antar-pemanggilan.',
+        'Ketiga contoh punya bentuk yang sama persis, yaitu sebuah fungsi luar yang mendeklarasikan variabel lalu mengembalikan fungsi dalam yang memakainya. Ketiganya menunjukkan bahwa closure bukan fitur eksotis melainkan alat sehari-hari untuk menyembunyikan data, mengunci konfigurasi, dan menyimpan keadaan antar-pemanggilan.',
       ),
 
       h2('Jebakan closure di dalam loop'),
@@ -1396,7 +1396,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perbedaan satu kata itu menghasilkan keluaran yang sama sekali berbeda, dan sebabnya bukan `setTimeout` melainkan **berapa banyak variabel yang sebenarnya dibuat**. `var` tidak mengenal scope blok, jadi seluruh loop hanya punya **satu** `i` — ketiga callback menyimpan alamat variabel yang sama, dan karena `setTimeout` menunda eksekusinya sampai loop selesai, ketiganya membaca nilai akhir `i` yang sudah menjadi `3`. `let` berbeda: ia membuat `j` yang benar-benar **baru pada setiap putaran**, sehingga masing-masing callback mengingat variabel miliknya sendiri berisi `0`, `1`, dan `2`. Perhatikan bahwa jeda `0` sekalipun tidak mengubah apa pun — `setTimeout` selalu menjadwalkan fungsinya untuk dijalankan setelah kode yang sedang berjalan selesai, jadi loopnya pasti sudah tuntas lebih dulu betapapun singkat jedanya. Ini alasan paling praktis untuk tidak lagi memakai `var`.',
+        'Perbedaan satu kata itu menghasilkan keluaran yang sama sekali berbeda, dan sebabnya bukan `setTimeout` melainkan **berapa banyak variabel yang sebenarnya dibuat**. `var` tidak mengenal scope blok, jadi seluruh loop hanya punya **satu** `i`, sehingga ketiga callback menyimpan alamat variabel yang sama, dan karena `setTimeout` menunda eksekusinya sampai loop selesai, ketiganya membaca nilai akhir `i` yang sudah menjadi `3`. `let` berbeda, sebab ia membuat `j` yang benar-benar **baru pada setiap putaran**, sehingga masing-masing callback mengingat variabel miliknya sendiri berisi `0`, `1`, dan `2`. Perhatikan bahwa jeda `0` sekalipun tidak mengubah apa pun, karena `setTimeout` selalu menjadwalkan fungsinya untuk dijalankan setelah kode yang sedang berjalan selesai, jadi loopnya pasti sudah tuntas lebih dulu betapapun singkat jedanya. Ini alasan paling praktis untuk tidak lagi memakai `var`.',
       ),
       callout(
         'tip',

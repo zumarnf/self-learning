@@ -103,9 +103,22 @@ export const OFFICIAL_DOC_HOSTS = [
   'vercel.com',
   'nginx.org',
   'httpd.apache.org',
+  // Distributed data stores & streaming platforms — each is the project's own documentation.
+  // Added for the System Design category, which must be able to point at the primary reference
+  // for a storage or messaging model it compares rather than at a summary of one.
+  'kafka.apache.org',
+  'cassandra.apache.org',
+  'www.mongodb.com',
+  // Operations & observability — the projects that define these formats and probes
+  'kubernetes.io',
+  'prometheus.io',
+  'opentelemetry.io',
   // Methodology & specification bodies that ARE the primary source for their concept
   '12factor.net',
   'spec.openapis.org',
+  // Google's SRE books are the primary source for SLO, error budgets, and the four golden
+  // signals. Nothing else defines those terms first-hand.
+  'sre.google',
   // Security & specifications
   'owasp.org',
   'cheatsheetseries.owasp.org',
@@ -171,7 +184,7 @@ export type Block =
     }
   | { kind: 'callout'; tone: CalloutTone; title?: string; body: string[] }
   // Both carry no title: the renderer supplies a fixed one, so the reader learns to recognise
-  // these two boxes by shape across all 330 lessons instead of reading a different heading each
+  // these two boxes by shape across all 380 lessons instead of reading a different heading each
   // time.
   | { kind: 'terms'; items: TermEntry[] }
   | { kind: 'references'; items: DocReference[] }

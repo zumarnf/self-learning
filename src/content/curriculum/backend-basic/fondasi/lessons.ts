@@ -76,9 +76,9 @@ export const lessons: LessonDraft[] = [
             'Konsekuensi langsung dari stateless: **setiap** permintaan harus menyertakan identitasnya — cookie sesi atau token di header. Server tidak akan mengingatmu dari permintaan sebelumnya, jadi setiap permintaan berdiri sendiri.',
         },
         {
-          term: 'masukan tak tepercaya (untrusted input)',
+          term: 'untrusted input',
           meaning:
-            'Kalimat terpenting di seluruh kategori Backend: **semua yang datang dari klien adalah masukan tak tepercaya.** Bukan sebagian — semuanya: body, query string, header, cookie, bahkan hal yang "hanya bisa dikirim aplikasi kita sendiri". Siapa pun bisa membuka DevTools, memakai `curl`, atau menulis skrip.',
+            'Kalimat terpenting di seluruh kategori Backend adalah **semua yang datang dari klien adalah untrusted input.** Bukan sebagian melainkan semuanya, mulai dari body, query string, header, cookie, sampai hal yang "hanya bisa dikirim aplikasi kita sendiri". Siapa pun bisa membuka DevTools, memakai `curl`, atau menulis skrip.',
         },
       ),
 
@@ -121,7 +121,7 @@ export const lessons: LessonDraft[] = [
       callout(
         'danger',
         'Kalimat terpenting di seluruh kategori Backend',
-        '**Semua yang datang dari klien adalah masukan yang tidak tepercaya.** Bukan sebagian — semuanya: body, query string, header, cookie, bahkan hal yang "hanya bisa dikirim aplikasi kita sendiri". Siapa pun bisa membuka DevTools, memakai `curl`, atau menulis skrip. Validasi di browser adalah kenyamanan; penjagaan sebenarnya selalu di server.',
+        '**Semua yang datang dari klien adalah masukan yang tidak tepercaya.** Bukan sebagian melainkan semuanya, mulai dari body, query string, header, cookie, sampai hal yang "hanya bisa dikirim aplikasi kita sendiri". Siapa pun bisa membuka DevTools, memakai `curl`, atau menulis skrip. Validasi di browser adalah kenyamanan, sedangkan penjagaan sebenarnya selalu di server.',
       ),
 
       h2('Stateless: server melupakanmu setiap kali'),
@@ -175,7 +175,7 @@ export const lessons: LessonDraft[] = [
           label: 'RFC 9110 — HTTP Semantics',
           href: 'https://www.rfc-editor.org/rfc/rfc9110.html',
           source: 'IETF',
-          note: 'Spesifikasi resmi HTTP — sumber kebenaran saat dokumentasi lain berbeda pendapat.',
+          note: 'Spesifikasi resmi HTTP — source of truth saat dokumentasi lain berbeda pendapat.',
         },
       ),
     ],
@@ -200,12 +200,12 @@ export const lessons: LessonDraft[] = [
         {
           term: 'method',
           meaning:
-            'Kata kerja di baris pertama permintaan — `GET`, `POST`, `PUT`, `PATCH`, `DELETE`. Ia menyatakan **apa yang ingin kamu lakukan**, bukan sekadar formalitas: browser, proxy, dan perayap memperlakukan tiap method dengan cara berbeda.',
+            'Kata kerja di baris pertama permintaan — `GET`, `POST`, `PUT`, `PATCH`, `DELETE`. Ia menyatakan **apa yang ingin kamu lakukan**, bukan sekadar formalitas: browser, proxy, dan crawler memperlakukan tiap method dengan cara berbeda.',
         },
         {
           term: 'aman (safe)',
           meaning:
-            'Method yang **tidak mengubah apa pun** — hanya membaca. `GET` dan `HEAD` termasuk. Karena itulah browser dan perayap merasa bebas mengambil ulang `GET` kapan saja, termasuk melakukan prefetch tanpa pengguna mengklik apa pun.',
+            'Method yang **tidak mengubah apa pun** — hanya membaca. `GET` dan `HEAD` termasuk. Karena itulah browser dan crawler merasa bebas mengambil ulang `GET` kapan saja, termasuk melakukan prefetch tanpa pengguna mengklik apa pun.',
         },
         {
           term: 'idempoten',
@@ -254,7 +254,7 @@ export const lessons: LessonDraft[] = [
         { caption: 'Baris pertama, lalu header, lalu satu baris kosong, lalu body.' },
       ),
       p(
-        'Bacalah contoh itu dari atas ke bawah, karena urutannya bukan kebetulan. **Baris pertama** memuat tiga hal sekaligus: method (`POST`), path yang dituju (`/api/catatan`), dan versi protokol (`HTTP/1.1`). Lima baris berikutnya adalah header, masing-masing dengan tugas yang jelas: `Host` menyebut nama domain yang dituju — wajib ada, karena satu alamat IP lazim melayani puluhan domain sekaligus dan server perlu tahu yang mana; `Content-Type` mengumumkan format body, dan dari baris inilah server memilih parser (tanpa baris ini server tidak menebak, ia menolak); `Authorization` membawa kredensial; `Content-Length` menyebut panjang body dalam byte, sehingga server tahu kapan harus berhenti membaca. Lalu ada **satu baris kosong** — itu bukan hiasan, melainkan pemisah wajib yang menandai "header selesai, mulai dari sini isinya". Baris terakhir adalah body, isi sebenarnya yang ingin disimpan.',
+        'Bacalah contoh itu dari atas ke bawah, karena urutannya bukan kebetulan. **Baris pertama** memuat tiga hal sekaligus, yaitu method (`POST`), path yang dituju (`/api/catatan`), dan versi protokol (`HTTP/1.1`). Lima baris berikutnya adalah header dengan tugas masing-masing yang jelas. `Host` menyebut nama domain yang dituju dan wajib ada, karena satu alamat IP lazim melayani puluhan domain sekaligus sehingga server perlu tahu yang mana. `Content-Type` mengumumkan format body, dan dari baris inilah server memilih parser, sebab tanpa baris ini server tidak menebak melainkan menolak. `Authorization` membawa kredensial. `Content-Length` menyebut panjang body dalam byte, sehingga server tahu kapan harus berhenti membaca. Lalu ada **satu baris kosong** yang bukan hiasan, melainkan pemisah wajib yang menandai "header selesai, mulai dari sini isinya". Baris terakhir adalah body, isi sebenarnya yang ingin disimpan.',
       ),
       code(
         'text',
@@ -267,7 +267,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Jawabannya berbentuk kembar: baris pertama, header, baris kosong, body. Yang berubah hanya baris pertamanya — alih-alih method dan path, ia berisi versi, angka status, dan nama kodenya (`201 Created`). Angkanya `201` dan bukan `200` karena ada sesuatu yang **baru dibuat**, dan header `Location` menyebutkan di mana benda baru itu sekarang bisa ditemukan. Kombinasi itu menghemat satu putaran permintaan: klien langsung tahu alamat catatan barunya tanpa harus menebak `id` dari body atau memanggil ulang daftar catatan.',
+        'Jawabannya berbentuk kembar, yaitu baris pertama, header, baris kosong, lalu body. Yang berubah hanya baris pertamanya, sebab alih-alih method dan path, ia berisi versi, angka status, dan nama kodenya (`201 Created`). Angkanya `201` dan bukan `200` karena ada sesuatu yang **baru dibuat**, dan header `Location` menyebutkan di mana benda baru itu sekarang bisa ditemukan. Kombinasi itu menghemat satu putaran permintaan, sebab klien langsung tahu alamat catatan barunya tanpa harus menebak `id` dari body atau memanggil ulang daftar catatan.',
       ),
 
       h2('Method: apa yang ingin kamu lakukan'),
@@ -289,7 +289,7 @@ export const lessons: LessonDraft[] = [
       callout(
         'danger',
         '`GET` yang mengubah data adalah bug keamanan',
-        'Browser, proxy, dan perayap bebas mengambil ulang `GET` kapan saja — termasuk melakukan prefetch tanpa pengguna mengklik apa pun. Sebuah `GET /hapus?id=42` bisa dijalankan perayap dan menghapus data tanpa ada yang menyentuhnya. Aksi yang mengubah state **wajib** memakai `POST`, `PUT`, `PATCH`, atau `DELETE`.',
+        'Browser, proxy, dan crawler bebas mengambil ulang `GET` kapan saja — termasuk melakukan prefetch tanpa pengguna mengklik apa pun. Sebuah `GET /hapus?id=42` bisa dijalankan crawler dan menghapus data tanpa ada yang menyentuhnya. Aksi yang mengubah state **wajib** memakai `POST`, `PUT`, `PATCH`, atau `DELETE`.',
       ),
 
       h2('Status code: apa yang terjadi'),
@@ -303,7 +303,7 @@ export const lessons: LessonDraft[] = [
         ],
       ),
       p(
-        'Batas antara `4xx` dan `5xx` terlihat sepele, padahal ia yang menentukan siapa yang harus bangun tengah malam. `4xx` berarti **permintaannya yang bermasalah** — pemanggil mengirim data cacat, lupa login, atau meminta sesuatu yang tidak ada; kodemu bekerja dengan benar saat menolaknya. `5xx` berarti **kodemu yang gagal** — permintaannya sah, tapi ada yang meledak di dalam. Karena itu sistem pemantauan hampir selalu memasang alarm pada lonjakan `5xx` dan membiarkan `4xx` lewat: memberi status `500` untuk input yang salah akan membuat alarm berbunyi terus tanpa ada yang perlu diperbaiki, sedangkan memberi `400` untuk bug asli akan menyembunyikan kerusakan sampai ada pengguna yang mengeluh.',
+        'Batas antara `4xx` dan `5xx` terlihat sepele, padahal ia yang menentukan siapa yang harus bangun tengah malam. `4xx` berarti **permintaannya yang bermasalah**, entah pemanggil mengirim data cacat, lupa login, atau meminta sesuatu yang tidak ada, dan kodemu bekerja dengan benar saat menolaknya. `5xx` berarti **kodemu yang gagal**, sebab permintaannya sah tetapi ada yang meledak di dalam. Karena itu sistem pemantauan hampir selalu memasang alarm pada lonjakan `5xx` dan membiarkan `4xx` lewat. Memberi status `500` untuk input yang salah akan membuat alarm berbunyi terus tanpa ada yang perlu diperbaiki, sedangkan memberi `400` untuk bug asli akan menyembunyikan kerusakan sampai ada pengguna yang mengeluh.',
       ),
       p('Empat kode yang paling sering tertukar:'),
       table(
@@ -338,7 +338,7 @@ export const lessons: LessonDraft[] = [
         ],
       ),
       p(
-        'Perhatikan kolom "Arah": itu yang paling sering membingungkan di awal. `Accept` dan `Content-Type` sering dikira sama padahal berlawanan arah — `Accept` dikirim klien untuk berkata *"kirimkan padaku dalam bentuk ini"*, sedangkan `Content-Type` menerangkan bentuk isi yang **sedang dibawa** pesan itu sendiri, dan karena itu bisa muncul di permintaan maupun jawaban. Pasangan `Set-Cookie` dan `Cookie` bekerja sama: server mengirim `Set-Cookie` sekali, lalu browser memantulkannya kembali sebagai `Cookie` di **setiap** permintaan berikutnya secara otomatis — sifat "otomatis" itulah yang nanti melahirkan seluruh persoalan CSRF di bab Autentikasi.',
+        'Perhatikan kolom "Arah", sebab itu yang paling sering membingungkan di awal. `Accept` dan `Content-Type` sering dikira sama padahal berlawanan arah. `Accept` dikirim klien untuk berkata *"kirimkan padaku dalam bentuk ini"*, sedangkan `Content-Type` menerangkan bentuk isi yang **sedang dibawa** pesan itu sendiri, dan karena itu bisa muncul di permintaan maupun jawaban. Pasangan `Set-Cookie` dan `Cookie` bekerja sama, sebab server mengirim `Set-Cookie` sekali, lalu browser memantulkannya kembali sebagai `Cookie` di **setiap** permintaan berikutnya secara otomatis, dan sifat "otomatis" itulah yang nanti melahirkan seluruh persoalan CSRF di bab Autentikasi.',
       ),
       callout(
         'warning',
@@ -445,7 +445,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Enam bagian itu punya pemisah masing-masing, dan mengenali pemisahnya jauh lebih berguna daripada menghafal namanya. **Skema** berakhir di `://`. **Host** berakhir di `:` bila portnya ditulis, atau di `/` bila tidak — `:443` di contoh sebenarnya boleh dihilangkan karena itu memang port bawaan `https`. **Path** membentang dari `/` pertama sampai tanda `?`, dan di dalamnya `42` adalah path param: ia bagian dari alamat, bukan pelengkap. **Query string** dimulai tepat setelah `?`, berisi pasangan `nama=nilai` yang dipisah `&` — di sini ada dua, `urut=baru` dan `hal=2`. **Fragment** dimulai di `#`, dan inilah bagian yang paling sering disalahpahami: browser memotongnya sebelum permintaan dikirim, sehingga server tidak pernah bisa membacanya betapapun kamu mencoba.',
+        'Enam bagian itu punya pemisah masing-masing, dan mengenali pemisahnya jauh lebih berguna daripada menghafal namanya. **Skema** berakhir di `://`. **Host** berakhir di `:` bila portnya ditulis, atau di `/` bila tidak, dan `:443` di contoh sebenarnya boleh dihilangkan karena itu memang port bawaan `https`. **Path** membentang dari `/` pertama sampai tanda `?`, dan di dalamnya `42` adalah path param yang merupakan bagian dari alamat alih-alih pelengkap. **Query string** dimulai tepat setelah `?`, berisi pasangan `nama=nilai` yang dipisah `&`, dan di sini ada dua yaitu `urut=baru` dan `hal=2`. **Fragment** dimulai di `#`, dan inilah bagian yang paling sering disalahpahami, sebab browser memotongnya sebelum permintaan dikirim, sehingga server tidak pernah bisa membacanya betapapun kamu mencoba.',
       ),
 
       h2('Tiga tempat data'),
@@ -469,7 +469,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Bandingkan baris kedua dan ketiga, karena di situlah letak perbedaan yang paling sering keliru. `?arsip=true` **menyaring daftar** — hasilnya tetap sekumpulan catatan, hanya lebih sedikit; hilangkan query-nya dan kamu masih mendapat daftar yang sah. Sedangkan `/42` **menunjuk satu benda tertentu** — hilangkan `42` dan alamatnya berubah arti sepenuhnya. Uji cepatnya: kalau bagian itu dibuang dan permintaannya masih masuk akal, ia milik query string; kalau dibuang lalu maksudnya hilang, ia milik path. Perhatikan juga baris terakhir: `DELETE` tidak butuh body sama sekali, karena path sudah menyebutkan seluruh yang perlu diketahui server.',
+        'Bandingkan baris kedua dan ketiga, karena di situlah letak perbedaan yang paling sering keliru. `?arsip=true` **menyaring daftar**, sehingga hasilnya tetap sekumpulan catatan hanya lebih sedikit, dan menghilangkan query-nya masih memberimu daftar yang sah. Sedangkan `/42` **menunjuk satu benda tertentu**, sehingga menghilangkan `42` mengubah arti alamatnya sepenuhnya. Uji cepatnya, kalau bagian itu dibuang dan permintaannya masih masuk akal maka ia milik query string, sedangkan kalau dibuang lalu maksudnya hilang maka ia milik path. Perhatikan juga baris terakhir, sebab `DELETE` tidak butuh body sama sekali, karena path sudah menyebutkan seluruh yang perlu diketahui server.',
       ),
 
       h2('Aturan memilih'),
@@ -509,7 +509,7 @@ export const lessons: LessonDraft[] = [
         },
       ),
       p(
-        'Kedua permintaan itu sama-sama mengirim password ke server yang sama lewat koneksi terenkripsi yang sama — TLS melindungi keduanya selama di perjalanan. Yang membedakan adalah **apa yang terjadi setelah paketnya tiba**. Format log akses bawaan server web (dan proxy, dan CDN) mencatat baris permintaan secara utuh: method, path, **beserta query string**. Jadi versi "Berbahaya" menuliskan `password=rahasia123` dalam teks polos ke berkas log, ke sistem agregasi log, dan ke riwayat browser pengguna — semuanya tempat yang jauh lebih longgar penjagaannya daripada database password. Versi "Benar" menaruh nilai yang sama di body, dan body tidak pernah masuk ke log akses standar. Perbedaannya bukan enkripsi, melainkan **jejak yang tertinggal**.',
+        'Kedua permintaan itu sama-sama mengirim password ke server yang sama lewat koneksi terenkripsi yang sama, sebab TLS melindungi keduanya selama di perjalanan. Yang membedakan adalah **apa yang terjadi setelah paketnya tiba**. Format log akses bawaan server web (dan proxy, dan CDN) mencatat baris permintaan secara utuh, yaitu method, path, **beserta query string**. Jadi versi "Berbahaya" menuliskan `password=rahasia123` dalam teks polos ke berkas log, ke sistem agregasi log, dan ke riwayat browser pengguna, yang semuanya tempat jauh lebih longgar penjagaannya daripada database password. Versi "Benar" menaruh nilai yang sama di body, dan body tidak pernah masuk ke log akses standar. Perbedaannya bukan enkripsi, melainkan **jejak yang tertinggal**.',
       ),
 
       h2('Encoding'),
@@ -530,7 +530,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perhatikan hasil `toString()` di baris ketiga: `cari=react+%26+next`. Dua karakter berubah bentuk di sana. Spasi menjadi `+`, dan `&` menjadi `%26` — persis karena `&` punya arti khusus sebagai **pemisah antar parameter**. Kalau URL itu dirangkai sendiri dengan penggabungan string, server akan membaca `cari=react `, lalu menganggap ` next` sebagai parameter ketiga yang tidak pernah kamu kirim, dan nilai pencarian pengguna diam-diam terpotong. `URLSearchParams` melakukan penyandian itu otomatis untuk setiap nilai, jadi memakainya bukan soal kerapian melainkan soal menghindari bug yang hanya muncul pada input tertentu — jenis bug yang lolos dari semua pengujian manual karena tidak ada yang mengetik tanda `&` saat mencoba.',
+        'Perhatikan hasil `toString()` di baris ketiga yang berbunyi `cari=react+%26+next`. Dua karakter berubah bentuk di sana. Spasi menjadi `+`, dan `&` menjadi `%26`, persis karena `&` punya arti khusus sebagai **pemisah antar parameter**. Kalau URL itu dirangkai sendiri dengan penggabungan string, server akan membaca `cari=react `, lalu menganggap ` next` sebagai parameter ketiga yang tidak pernah kamu kirim, dan nilai pencarian pengguna diam-diam terpotong. `URLSearchParams` melakukan encoding itu otomatis untuk setiap nilai, jadi memakainya bukan soal kerapian melainkan soal menghindari bug yang hanya muncul pada input tertentu, yaitu jenis bug yang lolos dari semua pengujian manual karena tidak ada yang mengetik tanda `&` saat mencoba.',
       ),
       callout(
         'warning',
@@ -620,7 +620,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'breaking change',
           meaning:
-            'Perubahan yang merusak klien yang sudah berjalan: menghapus field, mengganti namanya, mengubah tipenya, atau menambah aturan validasi baru. Aturan praktisnya: **menambah field opsional aman; hampir semua perubahan lain tidak.**',
+            'Perubahan yang merusak klien yang sudah berjalan: menghapus field, mengganti namanya, mengubah tipenya, atau menambah aturan validasi baru. Aturan praktisnya, **menambah field opsional itu aman, sedangkan hampir semua perubahan lain tidak.**',
         },
       ),
 
@@ -659,7 +659,7 @@ export const lessons: LessonDraft[] = [
         },
       ),
       p(
-        'Kolom kiri sebenarnya **berfungsi** — API seperti itu jalan dan banyak dipakai. Ongkosnya muncul belakangan. Karena semuanya `POST`, tidak ada satu pun yang boleh di-cache: browser dan CDN tidak punya cara mengetahui bahwa `/ambilSemuaCatatan` hanya membaca, jadi setiap pemanggilan menempuh perjalanan penuh sampai ke database. Retry juga jadi menakutkan: kalau koneksi putus di tengah `POST /hapusCatatanById`, tidak ada yang tahu apakah aman mengulanginya. Kolom kanan memindahkan informasi itu ke tempat yang **sudah dimengerti seluruh infrastruktur web**: `GET` menyatakan "hanya membaca, silakan cache", `DELETE` menyatakan "diulang sepuluh kali hasilnya tetap satu". Perhatikan baris terakhirnya — "arsipkan" bukan operasi CRUD, jadi ia tetap boleh punya alamat sendiri sebagai `POST /catatan/42/arsip`; yang dihindari REST adalah kata kerja yang **menggantikan** method, bukan kata kerja yang menamai aksi yang memang tidak punya padanan.',
+        'Kolom kiri sebenarnya **berfungsi**, sebab API seperti itu jalan dan banyak dipakai. Ongkosnya muncul belakangan. Karena semuanya `POST`, tidak ada satu pun yang boleh di-cache, sebab browser dan CDN tidak punya cara mengetahui bahwa `/ambilSemuaCatatan` hanya membaca, jadi setiap pemanggilan menempuh perjalanan penuh sampai ke database. Retry juga jadi menakutkan, sebab kalau koneksi putus di tengah `POST /hapusCatatanById`, tidak ada yang tahu apakah aman mengulanginya. Kolom kanan memindahkan informasi itu ke tempat yang **sudah dimengerti seluruh infrastruktur web**, sebab `GET` menyatakan "hanya membaca, silakan cache", `DELETE` menyatakan "diulang sepuluh kali hasilnya tetap satu". Perhatikan baris terakhirnya, sebab "arsipkan" bukan operasi CRUD sehingga ia tetap boleh punya alamat sendiri sebagai `POST /catatan/42/arsip`. Yang dihindari REST adalah kata kerja yang **menggantikan** method, bukan kata kerja yang menamai aksi yang memang tidak punya padanan.',
       ),
 
       h2('Pola URL yang baku'),
@@ -679,7 +679,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Enam baris pertama adalah pola yang sama persis untuk **setiap** resource di API mana pun: ganti `catatan` dengan `pengguna` atau `pesanan`, dan seorang pemakai baru sudah bisa menebak alamatnya tanpa membuka dokumentasi. Yang membedakan `PUT` dari `PATCH` di baris keempat dan kelima adalah cakupannya: `PUT` mengirim **seluruh** bentuk catatan dan menggantinya bulat-bulat — field yang tidak kamu sertakan akan hilang; `PATCH` hanya mengirim bagian yang berubah. Dua baris terakhir menunjukkan penyarangan, dan tanda `/42` di tengah itulah yang menyatakan kepemilikan: komentar di sana tidak berdiri sendiri, ia milik catatan 42, sehingga meminta komentar tanpa menyebut catatannya tidak punya arti.',
+        'Enam baris pertama adalah pola yang sama persis untuk **setiap** resource di API mana pun: ganti `catatan` dengan `pengguna` atau `pesanan`, dan seorang pemakai baru sudah bisa menebak alamatnya tanpa membuka dokumentasi. Yang membedakan `PUT` dari `PATCH` di baris keempat dan kelima adalah cakupannya. `PUT` mengirim **seluruh** bentuk catatan dan menggantinya bulat-bulat, sehingga field yang tidak kamu sertakan akan hilang, sedangkan `PATCH` hanya mengirim bagian yang berubah. Dua baris terakhir menunjukkan penyarangan, dan tanda `/42` di tengah itulah yang menyatakan kepemilikan, sebab komentar di sana tidak berdiri sendiri, ia milik catatan 42, sehingga meminta komentar tanpa menyebut catatannya tidak punya arti.',
       ),
       ul(
         'Pakai **jamak** secara konsisten: `/catatan`, bukan campur `/catatan` dan `/note`.',
@@ -866,6 +866,9 @@ export const lessons: LessonDraft[] = [
         { "harga": 150000 }            // Rp150.000
         `,
       ),
+      p(
+        'Angka `0.30000000000000004` itu bukan kesalahan JSON, melainkan sifat bilangan pecahan di komputer yang sudah kamu temui di Frontend Basic, dan JSON mewarisinya karena angkanya memang disimpan sebagai floating point. Yang berubah di sisi backend adalah **taruhannya**, sebab selisih sepersepuluh triliun tidak terlihat di layar, tapi terakumulasi di ribuan transaksi dan berakhir sebagai laporan keuangan yang tidak balance. Baris terakhir menunjukkan obatnya, yaitu simpan `150000` sebagai bilangan **bulat** dalam satuan terkecil, lalu bagi seribu hanya saat menampilkannya. Dengan begitu tidak ada pecahan yang pernah disimpan maupun dijumlahkan, dan seluruh kelas kesalahan pembulatan hilang di akar.',
+      ),
       code(
         'js',
         `
@@ -875,6 +878,9 @@ export const lessons: LessonDraft[] = [
         // Karena itu ID besar dikirim sebagai string.
         { "id": "9007199254740993" }
         `,
+      ),
+      p(
+        'Perhatikan angka yang masuk dan yang keluar **berbeda satu digit terakhir**, sebab `…993` menjadi `…992`. Penyebabnya adalah batas `Number.MAX_SAFE_INTEGER` (2⁵³ − 1) dari Frontend Basic, karena di atas itu dua bilangan bulat yang berbeda bisa dipetakan ke nilai tersimpan yang sama. Ini masalah nyata di backend karena banyak database mengeluarkan id `BIGINT` yang dengan mudah melewati batas tersebut, terutama pada tabel dengan id berbasis waktu seperti Snowflake. Baris terakhir menunjukkan solusinya, dan ia harus diputuskan **sejak awal**, yaitu kirim id sebagai string. Mengubahnya belakangan berarti memutus setiap klien yang sudah terlanjur memperlakukannya sebagai angka.',
       ),
       callout(
         'danger',
@@ -893,6 +899,9 @@ export const lessons: LessonDraft[] = [
           return balas(400, { pesan: 'Body bukan JSON yang sah' });
         }
         `,
+      ),
+      p(
+        'Berbeda dari kebanyakan fungsi, `JSON.parse` **melempar** untuk masukan yang cacat alih-alih mengembalikan `null`, jadi tanpa `try` satu permintaan berisi teks sembarang cukup untuk menjatuhkan penanganannya. Dan karena body datang dari klien, ia **selalu** untrusted input, sebab siapa pun bisa mengirim apa saja dengan `curl`. Perhatikan `catch` di sini sengaja tanpa parameter dan tidak menampilkan pesan error aslinya ke klien, sebab pesan bawaan `JSON.parse` menyebut posisi karakter dan potongan isi, detail yang tidak berguna bagi pemanggil dan tidak perlu dibocorkan. Status `400` dipilih karena yang salah memang permintaannya dan bukan servermu. Kalau kamu mengembalikan `500` di sini, alarm pemantauan akan berbunyi untuk sesuatu yang berjalan persis seperti seharusnya.',
       ),
       callout(
         'warning',
@@ -1004,7 +1013,7 @@ export const lessons: LessonDraft[] = [
             'Ketika sebuah lapisan menyentuh urusan lapisan lain. Contoh paling sering: service yang mengembalikan `res.status(404)`. Begitu ia tercampur HTTP, ia langsung **mustahil dipakai ulang** dari perintah CLI, job terjadwal, atau tes.',
         },
         {
-          term: 'uji penghapusan (deletion test)',
+          term: 'deletion test',
           meaning:
             'Cara memutuskan apakah sebuah lapisan layak ada: *kalau lapisan ini dihapus, apakah kerumitannya hilang, atau justru pindah ke pemanggilnya?* Kalau hilang, ia memang tidak menanggung apa pun. Lapisan yang layak ada adalah yang **menyerap** kerumitan, bukan yang meneruskannya.',
         },
@@ -1051,6 +1060,9 @@ export const lessons: LessonDraft[] = [
         │ Database        │
         └─────────────────┘
         `,
+      ),
+      p(
+        'Bacalah diagram itu sebagai **satu arah panah**, sebab setiap lapisan hanya memanggil lapisan di bawahnya, tidak pernah ke atas dan tidak pernah melompat. Controller tidak boleh langsung menyentuh Database walau secara teknis bisa, sebab begitu lompatan itu dibuat, aturan bisnis yang seharusnya dijaga Service jadi mudah terlewat. Perhatikan juga keterangan di baris Service: *bagian yang benar-benar milikmu*. Route, Controller, dan Repository sebagian besar berisi pola yang mirip di semua project, sedangkan Service-lah yang berisi keputusan khas produkmu seperti siapa boleh membatalkan pesanan, kapan stok dikurangi, dan berapa lama tautan kedaluwarsa. Itu sebabnya lapisan tengah dijaga paling ketat kebersihannya.',
       ),
       table(
         ['Lapisan', 'Boleh tahu', 'TIDAK boleh tahu'],
@@ -1104,9 +1116,12 @@ export const lessons: LessonDraft[] = [
           notes: ['Setiap lapisan bisa dijelaskan gunanya'],
         },
       ),
+      p(
+        'Kedua kolom menyelesaikan pekerjaan yang sama, yaitu mengambil satu baris data, tetapi kolom kiri melewati tujuh perhentian untuk melakukannya. Biayanya bukan performa melainkan **waktu paham**, sebab untuk mengubah satu perilaku kecil, seseorang harus membuka tujuh berkas dan menahan ketujuhnya di kepala sekaligus. Catatan "Tidak ada yang dilindungi" adalah inti kritiknya, sebab DAO, Mapper, dan Entity di sana hanya meneruskan nilai tanpa menambah aturan apa pun, jadi lapisannya tidak melindungi apa-apa. Kolom kanan bukan berarti "tiga lapisan selamanya", sebab kalimat terakhirnya berbunyi *tambah lapisan hanya saat ada masalah nyata*. Lapisan keempat sah begitu kamu benar-benar punya dua sumber data yang harus disatukan; yang tidak sah adalah menambahkannya lebih dulu untuk masalah yang belum ada.',
+      ),
       callout(
         'tip',
-        'Uji penghapusan',
+        'Deletion test',
         'Untuk setiap lapisan, tanyakan: *kalau lapisan ini dihapus, apakah kerumitannya hilang, atau justru pindah ke pemanggilnya?* Kalau hilang, lapisan itu memang tidak menanggung apa pun. Lapisan yang layak ada adalah yang **menyerap** kerumitan, bukan yang meneruskannya.',
       ),
       references(
@@ -1217,6 +1232,9 @@ export const lessons: LessonDraft[] = [
         NODE_ENV=development
         `,
       ),
+      p(
+        'Dua berkas ini punya nama yang mirip tetapi nasib yang berlawanan, sebab `.env` tidak pernah masuk git sedangkan `.env.example` justru wajib masuk. Bandingkan isinya baris per baris, karena **nama variabelnya identik dan nilainya yang berbeda**. Itulah gunanya, sebab `.env.example` menjawab pertanyaan "apa saja yang harus saya isi" bagi orang baru yang baru meng-clone repo, tanpa membocorkan satu pun rahasia. Perhatikan `PORT` dan `NODE_ENV` tetap terisi di contoh, sebab keduanya bukan rahasia melainkan hanya nilai bawaan yang masuk akal. Yang dikosongkan hanya `DATABASE_URL` dan `JWT_SECRET`, dua baris yang kalau bocor memberi penyerang akses langsung ke data dan kemampuan memalsukan token siapa pun.',
+      ),
       callout(
         'danger',
         'Rahasia asli di `.env.example` adalah kebocoran',
@@ -1272,6 +1290,9 @@ export const lessons: LessonDraft[] = [
         const bolehSemuaOrigin = process.env.CORS_ALL === 'true';
         `,
       ),
+      p(
+        "Perbedaan kedua baris itu cuma satu operator, tapi akibatnya berlawanan. Kuncinya, kalau variabelnya **tidak dipasang sama sekali**, `process.env.CORS_ALL` bernilai `undefined`. Pada baris pertama, `undefined !== 'false'` bernilai `true`, jadi lupa memasang variabel berarti membuka API ke seluruh origin di internet. Pada baris kedua, `undefined === 'true'` bernilai `false`, sehingga kelalaian yang sama justru menghasilkan pilihan paling ketat. Aturannya bisa dipakai di mana saja di luar CORS, yaitu susun perbandinganmu supaya **ketiadaan nilai jatuh ke sisi yang aman**, karena variabel yang lupa dipasang adalah kejadian rutin saat menyiapkan lingkungan baru, bukan pengecualian langka.",
+      ),
 
       h2('Yang benar-benar perlu dari 12-Factor'),
       table(
@@ -1298,6 +1319,9 @@ export const lessons: LessonDraft[] = [
         # biarkan lingkungan yang mengumpulkan dan merotasinya.
         node server.js | tee -a /var/log/app.log
         `,
+      ),
+      p(
+        'Perhatikan siapa yang menulis berkas di baris itu: **bukan `server.js`**, melainkan `tee` di luar aplikasi. Aplikasinya sendiri hanya memanggil `console.log` dan tidak tahu tujuannya ke mana. Justru di situ kekuatannya — proses yang sama bisa dijalankan di laptopmu (log muncul di terminal), di dalam kontainer (Docker yang menangkapnya), atau di penyedia hosting (yang mengirimnya ke layanan pemantauan), semuanya **tanpa satu baris kode pun berubah**. Sebaliknya, aplikasi yang membuka berkas log sendiri harus tahu jalurnya, mengurus rotasi agar disk tidak penuh, dan akan bentrok ketika dua salinan proses menulis ke berkas yang sama.',
       ),
       references(
         {
@@ -1355,7 +1379,7 @@ export const lessons: LessonDraft[] = [
             'Tiga tingkat kedetailan. **`-i`** menampilkan header **beserta** body, **`-I`** hanya header (dan mengirim `HEAD`), **`-v`** menampilkan seluruh percakapan termasuk header yang **dikirim** — yang terakhir ini paling berguna saat menelusuri masalah.',
         },
         {
-          term: 'jalur gagal (unhappy path)',
+          term: 'unhappy path',
           meaning:
             'Skenario yang bukan sukses: JSON rusak, tanpa token, data milik orang lain, body raksasa. Empat perintah menguji ini menemukan lebih banyak bug daripada dua puluh pengujian jalur sukses — karena jalur sukses adalah bagian yang paling jarang gagal di produksi.',
         },
@@ -1372,10 +1396,10 @@ export const lessons: LessonDraft[] = [
         {
           term: 'lima isi log yang berguna',
           meaning:
-            'Setiap baris log yang layak ditulis menjawab: **kapan**, **siapa**, **apa yang diminta**, **apa hasilnya**, dan **id korelasinya**. Kurang dari itu, log jadi arsip yang tidak bisa dipakai menelusuri apa pun.',
+            'Setiap baris log yang layak ditulis menjawab: **kapan**, **siapa**, **apa yang diminta**, **apa hasilnya**, dan **correlation id-nya**. Kurang dari itu, log jadi arsip yang tidak bisa dipakai menelusuri apa pun.',
         },
         {
-          term: 'id korelasi (correlation id)',
+          term: 'correlation id',
           meaning:
             'Satu id acak per permintaan yang muncul di **semua** baris log yang berasal darinya, dan dikembalikan ke klien lewat header. Saat pengguna melapor "tadi error", satu id membuatmu menemukan **persis** permintaan itu di antara jutaan baris — bukan menebak dari perkiraan waktu.',
         },
@@ -1412,13 +1436,16 @@ export const lessons: LessonDraft[] = [
         curl -s -o /dev/null -w "%{http_code}\\n" http://localhost:3000/api/catatan
         `,
       ),
+      p(
+        'Lima varian di atas sebenarnya menjawab lima pertanyaan berbeda, dan memilih yang tepat menghemat banyak waktu menebak. `-I` hanya meminta header, berguna saat yang ingin kamu pastikan adalah status atau `Content-Type` alih-alih isinya. `-X POST` dengan `-H "Content-Type: application/json"` menunjukkan pasangan yang tidak boleh dipisah, sebab tanpa header itu server tidak akan mem-parse `-d` sebagai JSON dan body-mu berakhir kosong. `-v` mencetak **kedua sisi** percakapan, jadi ia yang kamu pakai ketika curiga permintaanmu sendiri yang salah bentuk alih-alih jawabannya. Yang terakhir sengaja membuang seluruh body ke `/dev/null` dan hanya mencetak angka status, dan bentuk inilah yang bisa dipakai di skrip CI, karena keluarannya satu baris yang mudah dibandingkan.',
+      ),
       callout(
         'tip',
         'Kenapa `curl`, padahal ada Postman',
         '`curl` bisa disalin ke mana pun: ke isu, ke pesan tim, ke skrip CI, ke dokumentasi. Ia tidak butuh dipasang, tidak butuh akun, dan tidak menyembunyikan apa pun. Postman lebih nyaman untuk eksplorasi berulang; `curl` lebih baik untuk **membuktikan**.',
       ),
 
-      h2('Menguji jalur gagal, bukan hanya jalur sukses'),
+      h2('Menguji unhappy path, bukan hanya jalur sukses'),
       code(
         'bash',
         `
@@ -1463,7 +1490,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Log yang berguna selalu punya lima hal: **kapan, siapa, apa yang diminta, apa hasilnya, dan id korelasi**.',
+        'Log yang berguna selalu punya lima hal: **kapan, siapa, apa yang diminta, apa hasilnya, dan correlation id**.',
       ),
       callout(
         'danger',
@@ -1471,7 +1498,7 @@ export const lessons: LessonDraft[] = [
         'Password, token, isi `Authorization`, nomor kartu, dan data pribadi mentah. "Log seluruh request body supaya gampang debug" adalah cara paling umum kredensial berakhir di sistem pencatatan yang diakses banyak orang dan disimpan bertahun-tahun.',
       ),
 
-      h2('Id korelasi'),
+      h2('Correlation id'),
       code(
         'ts',
         `
@@ -1515,7 +1542,7 @@ export const lessons: LessonDraft[] = [
           label: 'crypto.randomUUID()',
           href: 'https://nodejs.org/api/crypto.html#cryptorandomuuidoptions',
           source: 'Node.js',
-          note: 'Menghasilkan id korelasi yang aman dipakai per permintaan.',
+          note: 'Menghasilkan correlation id yang aman dipakai per permintaan.',
         },
         {
           label: 'Logging Cheat Sheet',
@@ -1539,7 +1566,7 @@ export const lessons: LessonDraft[] = [
 
       terms(
         {
-          term: 'penelusuran (tracing)',
+          term: 'tracing (penelusuran)',
           meaning:
             'Mengikuti satu permintaan dari awal sampai akhir dan mencatat apa yang benar-benar terjadi di tiap titik. Latihan ini bukan menulis kode melainkan **melihat** — keterampilan yang dipakai setiap kali ada sesuatu yang tidak berjalan.',
         },
@@ -1651,6 +1678,12 @@ export const lessons: LessonDraft[] = [
         `,
         { filename: 'server.js' },
       ),
+      p(
+        "Berkas ini sengaja mentah tanpa Route, Controller, maupun Service seperti sub-bab 1.5, supaya seluruh perjalanan satu permintaan muat dalam satu layar dan bisa kamu telusuri utuh. Bagian yang paling layak diperhatikan adalah middleware pencatat, sebab ia memberi setiap permintaan sebuah `req.id` acak 8 karakter, mencetak baris `-->` saat masuk, lalu mencetak baris `<--` di dalam `res.on('finish')`. Kenapa harus di dalam `finish` dan bukan langsung setelahnya? Karena respons dikirim **belakangan** setelah handler selesai bekerja, dan hanya pada peristiwa itulah `res.statusCode` sudah final dan selisih `Date.now() - mulai` benar-benar mewakili durasi permintaan.",
+      ),
+      p(
+        "Tiga handler-nya memperlihatkan tiga status yang berbeda dan alasannya masing-masing. `GET /api/catatan/:id` menjawab `404` ketika `find` mengembalikan `undefined`, sebab sumber daya yang diminta memang tidak ada. `POST` menjawab `422` ketika `judul` kosong, karena permintaannya sah sebagai JSON tetapi **isinya** tidak lolos aturan. Dan pada pembuatan yang berhasil ia menjawab `201` plus header `Location` berisi alamat catatan yang baru lahir, sehingga klien tahu ke mana harus melihat tanpa perlu menebak. Perhatikan pula `express.json({ limit: '10kb' })` di baris atas, sebab tanpa batas itu siapa pun bisa mengirim body 500 MB dan menghabiskan memori servermu. Batas ukuran adalah pertahanan pertama, bukan detail opsional.",
+      ),
 
       h2('Penelusuran'),
       steps(
@@ -1672,7 +1705,7 @@ export const lessons: LessonDraft[] = [
         },
         {
           title: '5. Cocokkan log dengan permintaannya',
-          body: 'Setiap baris log punya id 8 karakter. Kirim tiga permintaan berturut-turut dan buktikan kamu bisa memisahkan ketiganya di log — inilah gunanya id korelasi saat suatu hari ada satu permintaan bermasalah di antara ribuan.',
+          body: 'Setiap baris log punya id 8 karakter. Kirim tiga permintaan berturut-turut dan buktikan kamu bisa memisahkan ketiganya di log — inilah gunanya correlation id saat suatu hari ada satu permintaan bermasalah di antara ribuan.',
         },
         {
           title: '6. Periksa apa yang sebenarnya lambat',
@@ -1701,7 +1734,7 @@ export const lessons: LessonDraft[] = [
         'Minta sumber daya yang tidak ada; pastikan 404 dengan bentuk error yang konsisten',
         'Kirim body melebihi batas; pastikan server menolak, bukan kehabisan memori',
         'Pastikan tidak ada password atau token yang muncul di keluaran log',
-        'Lacak satu permintaan dari awal sampai akhir memakai id korelasinya',
+        'Lacak satu permintaan dari awal sampai akhir memakai correlation id-nya',
         'Tuliskan lima endpoint REST untuk satu sumber daya pilihanmu, lengkap dengan status code-nya',
       ),
 

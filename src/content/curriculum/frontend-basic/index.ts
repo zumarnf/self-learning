@@ -178,7 +178,7 @@ const chapter4 = defineChapter({
         'Karena tidak berfungsi di semua browser',
       ],
       1,
-      'Konten yang berasal dari pengguna harus diperlakukan sebagai teks, bukan markup. Pakai `textContent`; kalau HTML memang wajib, sanitasi dulu dengan pustaka yang teruji.',
+      'Konten yang berasal dari pengguna harus diperlakukan sebagai teks, bukan markup. Pakai `textContent`; kalau HTML memang wajib, sanitasi dulu dengan library yang teruji.',
     ),
     q(
       'fb4-q2',

@@ -13,7 +13,9 @@ export type CategorySlug =
   | 'frontend-intermediate'
   | 'backend-basic'
   | 'backend-intermediate'
-  | 'deployment';
+  | 'keamanan-fullstack'
+  | 'deployment'
+  | 'system-design';
 
 export type ChapterRef = {
   category: CategorySlug;

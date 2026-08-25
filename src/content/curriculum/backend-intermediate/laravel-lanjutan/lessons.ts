@@ -71,7 +71,7 @@ export const lessons: LessonDraft[] = [
             'Prinsip yang sama seperti di Express. Controller **mengoordinasi**, tidak menghitung. Begitu ia memuat aturan bisnis, aturan itu jadi tidak bisa dipakai dari perintah artisan, job terjadwal, maupun tes.',
         },
         {
-          term: 'uji penghapusan',
+          term: 'deletion test',
           meaning:
             'Cara memutuskan apakah sebuah lapisan layak ada: kalau dihapus, apakah kerumitannya **hilang** atau justru **pindah** ke pemanggilnya? Lapisan yang layak ada adalah yang menyerap kerumitan, bukan meneruskannya.',
         },
@@ -120,6 +120,18 @@ export const lessons: LessonDraft[] = [
           ],
         },
       ),
+      p(
+        'Kolom kiri sengaja dipasang lebih dulu, dan itu penting untuk sub-bab yang membahas lapisan. Untuk operasi satu langkah seperti ini, service hanya akan **meneruskan** — `LayananArtikel::buat()` yang isinya persis satu baris `create()`. Itu lapisan yang tidak menyerap apa pun, hanya menambah satu berkas yang harus dibuka orang berikutnya untuk sampai ke kode yang sesungguhnya.',
+      ),
+      p(
+        'Kolom kanan menjadi layak begitu catatannya berlaku: slug yang harus unik, tag yang mungkin belum ada, notifikasi, pemeriksaan kuota. **Beberapa langkah yang harus terjadi bersama** — dan begitu ada beberapa langkah, ada aturan tentang urutannya dan apa yang terjadi bila salah satunya gagal. Itulah kerumitan yang layak diserap satu lapisan.',
+      ),
+      p(
+        'Catatan kedua di kolom kanan menyebut alasan yang sering lebih menentukan: **dipakai juga dari perintah artisan**. Begitu logika pembuatan artikel dibutuhkan dari impor CSV atau job terjadwal, versi di controller tidak bisa dipakai tanpa memalsukan objek `Request`. Pakai deletion test dari daftar istilah untuk memutuskan: kalau lapisan ini dihapus, kerumitannya **hilang** atau **pindah** ke pemanggilnya?',
+      ),
+      p(
+        'Perhatikan `LayananArtikel` disuntikkan lewat **parameter metode**, bukan konstruktor. Laravel bisa melakukan keduanya, dan bentuk ini lebih tepat untuk ketergantungan yang hanya dipakai satu metode — konstruktor akan membuat setiap pemanggilan controller ini membangun service yang mungkin tidak terpakai.',
+      ),
 
       h2('Service'),
       code(
@@ -166,6 +178,18 @@ export const lessons: LessonDraft[] = [
         `,
         { filename: 'app/Services/LayananArtikel.php' },
       ),
+      p(
+        'Perhatikan tanda tangan `buat(User $penulis, array $data)` — yang masuk adalah **objek `User` dan array**, bukan `Request`. Itulah yang membuat service ini bisa dipanggil dari perintah artisan, job antrean, atau tes tanpa memalsukan objek permintaan. Begitu ia menerima `Request`, ia terikat pada HTTP dan seluruh alasan memisahkannya hilang.',
+      ),
+      p(
+        'Blok `DB::transaction` membungkus dua operasi yang **harus terjadi bersama**: membuat artikel dan menyinkronkan tag-nya. Tanpa itu, kegagalan saat menyimpan tag meninggalkan artikel tanpa tag yang seharusnya melekat — keadaan setengah jadi yang tidak pernah dimaksudkan. Perhatikan pengembalian nilai dari dalam closure ikut diteruskan `DB::transaction`, jadi tidak perlu variabel di luar.',
+      ),
+      p(
+        'Anotasi `@param array{judul: string, isi: string, tag?: list<string>}` bukan komentar biasa — itu **tipe array berbentuk** yang dibaca PHPStan. Karena PHP tidak punya cara menyatakan bentuk isi array di tanda tangan, anotasi inilah yang membuat salah ketik kunci atau tipe nilai tertangkap analisis statis. Tanda tanya pada `tag?` menandainya opsional, cocok dengan pemeriksaan `isset` di bawahnya.',
+      ),
+      p(
+        "Perhatikan `PembuatSlug` disuntikkan lewat **konstruktor**, berbeda dari `LayananArtikel` yang tadi lewat parameter metode. Bedanya tepat: ketergantungan yang dipakai hampir setiap metode masuk ke konstruktor, yang hanya dipakai satu metode masuk ke parameter metode. Dan `'status' => 'draf'` ditulis mati di sini, bukan diambil dari `$data` — status awal adalah keputusan aturan bisnis, bukan sesuatu yang boleh ditentukan klien.",
+      ),
       callout(
         'danger',
         'Service tidak boleh menyentuh `Request` atau `Response`',
@@ -205,9 +229,18 @@ export const lessons: LessonDraft[] = [
         // Artikel::milik($user)->terbit()->paginate(20);
         `,
       ),
+      p(
+        'Query scope memberi **nama** pada query yang berulang tanpa menambah lapisan baru. Perhatikan awalan `scope` pada nama metodenya dihilangkan saat dipanggil — `scopeMilik` menjadi `Artikel::milik($user)`. Baris komentar terakhir memperlihatkan hasilnya: rangkaian yang terbaca seperti kalimat, dan tiap potongannya bisa dipakai ulang secara mandiri.',
+      ),
+      p(
+        "`scopeMilik` khususnya berharga sebagai kontrol keamanan, bukan sekadar kerapian. Ia mengubah pembatasan kepemilikan dari sesuatu yang harus **diingat** di setiap query menjadi sesuatu yang punya nama dan mudah dilihat ada-tidaknya saat review. Bandingkan `Artikel::milik($user)->terbit()` dengan `Artikel::where('penulis_id', $user->id)->where('status', 'terbit')` yang ditulis ulang di sepuluh tempat — satu yang lupa `penulis_id` adalah kebocoran.",
+      ),
+      p(
+        'Inilah alasan repository sering tidak berbayar di Laravel. Kebutuhan yang biasanya mendorongnya, yaitu memberi nama pada query berulang, sudah dijawab scope **tanpa** menambah berkas dan lapisan. Repository baru masuk akal untuk tiga situasi di tabel di atas, terutama saat sumber datanya bisa berganti dari database ke API luar.',
+      ),
       callout(
         'tip',
-        'Uji penghapusan',
+        'Deletion test',
         'Untuk setiap lapisan, tanyakan: *kalau dihapus, apakah kerumitannya hilang atau justru pindah ke pemanggil?* Lapisan yang hanya meneruskan panggilan belum layak ada. Tambahkan saat ada aturan yang benar-benar perlu diserap.',
       ),
 
@@ -337,6 +370,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        "Cast menerjemahkan antara **bentuk penyimpanan** dan **bentuk pemakaian**, dan tiga di antaranya menutup bug yang sudah dibahas di bab sebelumnya. `'boolean'` mengubah `0`/`1` dari MySQL menjadi `true`/`false` sungguhan — tanpanya, `if ($artikel->diarsipkan)` bernilai benar untuk keduanya. `'datetime'` menghasilkan objek `Carbon` yang bisa dibandingkan dan diformat. Dan `StatusArtikel::class` mengubah string menjadi enum, sehingga nilai status yang tidak dikenal langsung melempar alih-alih beredar diam-diam.",
+      ),
+      p(
+        "Tiga baris berikutnya adalah kontrol keamanan yang dipasang di lapisan model. `'hashed'` membuat setiap penugasan ke kolom itu di-hash otomatis, sehingga `$user->update(['password' => $plain])` yang ceroboh tidak menyimpan teks mentah. `'encrypted'` mengenkripsi dengan `APP_KEY` saat menyimpan dan mendekripsi saat membaca — dan ingat konsekuensinya dari sub-bab 5.2: kehilangan `APP_KEY` berarti kehilangan datanya selamanya, jadi ia harus di-backup terpisah dari database.",
+      ),
+      p(
+        "`'decimal:2'` untuk `harga` mengikuti aturan uang dari sub-bab 2.2, sebab nilainya dipertahankan sebagai desimal eksak alih-alih float yang membuat `0.1 + 0.2` tidak sama dengan `0.3`. Perhatikan tempat cast ini bekerja, karena ia mengatur bentuk **di sisi PHP** sedangkan tipe kolom di migration yang mengatur penyimpanannya. Keduanya harus cocok, sebab `decimal:2` di atas kolom `FLOAT` tetap kehilangan presisi di database.",
+      ),
       callout(
         'tip',
         '`encrypted` untuk data sensitif yang perlu dibaca kembali',
@@ -366,6 +408,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Cast kustom dipakai ketika bentuk yang kamu inginkan di PHP bukan tipe primitif. Di sini `Uang` adalah **value object** — objek yang membawa nilainya sekaligus aturannya, sehingga penjumlahan dan pemformatan mata uang punya satu tempat alih-alih tersebar sebagai perhitungan integer di seluruh aplikasi.',
+      ),
+      p(
+        'Dua metodenya bekerja di arah berlawanan. `get` dipanggil saat **membaca** dari database, dan di situ nilai mentah `$value` dibungkus menjadi objek `Uang`. `set` dipanggil saat **menyimpan**, dan di situ objeknya dibongkar kembali menjadi nilai kolom. Perhatikan `set` mengembalikan **array** `[$key => ...]` alih-alih nilai tunggal, sebab bentuk itu memungkinkan satu cast menulis ke beberapa kolom sekaligus, misalnya jumlah dan kode mata uangnya.',
+      ),
+      p(
+        'Pemeriksaan `! $value instanceof Uang` yang melempar adalah bagian yang membuat cast ini benar-benar menjaga. Tanpanya, seseorang bisa menugaskan angka mentah atau string dan cast-nya akan menyimpan sesuatu yang bentuknya tidak terduga. Dan komentar terakhir menegaskan aturan uang dari sub-bab 2.2: yang tersimpan adalah **integer dalam satuan terkecil**, bukan float — pembulatan yang menumpuk diam-diam adalah kelas bug yang paling mahal di sistem keuangan.',
+      ),
 
       h2('Accessor & mutator'),
       code(
@@ -388,6 +439,15 @@ export const lessons: LessonDraft[] = [
             );
         }
         `,
+      ),
+      p(
+        'Keduanya memakai `Attribute::make` tetapi mengisi kunci yang berbeda, dan itu yang menentukan arahnya. `get` adalah **accessor** — properti turunan yang dihitung saat dibaca. `namaLengkap` tidak ada sebagai kolom mana pun; ia dirangkai dari `nama_depan` dan `nama_belakang` setiap kali diakses lewat `$user->nama_lengkap`.',
+      ),
+      p(
+        '`set` adalah **mutator** — ia mengubah nilai **sebelum disimpan**. `trim` pada judul terlihat sepele, tetapi menempatkannya di sini berarti aturan itu berlaku dari **setiap** jalur yang menulis: form web, impor CSV, seeder, dan perintah artisan. Bandingkan dengan menaruh `trim` di controller, yang hanya menjaga satu jalur dan akan terlewat pada jalur berikutnya.',
+      ),
+      p(
+        "Perhatikan `get` menerima **dua** parameter, yaitu `$value` yang berisi nilai kolom senama dan `$attributes` yang berisi seluruh kolom baris itu. Untuk properti yang dirangkai dari kolom lain seperti ini, `$attributes` yang dipakai, sebab `$value` akan `null` karena tidak ada kolom `nama_lengkap`. Konsekuensinya ada di peringatan berikut dan ia penting. Karena perhitungannya terjadi **di PHP setelah baris diambil**, `where('nama_lengkap', ...)` akan gagal sebab kolomnya tidak pernah ada di database.",
       ),
       callout(
         'warning',
@@ -420,6 +480,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        "Baris `if ($kata === null || trim($kata) === '') return $q` menjaga scope tetap aman saat argumennya kosong. Mengembalikan `$q` apa adanya berarti \"tidak menambah syarat apa pun\" — sehingga `Artikel::milik($user)->cari(null)` tetap bekerja dan mengembalikan semua artikel milik pengguna itu. Tanpa penjagaan ini, `ILIKE '%%'` yang dihasilkan memang cocok dengan segalanya, tetapi ia memaksa pemindaian yang tidak perlu.",
+      ),
+      p(
+        'Closure pada `where(fn ($sub) => ...)` adalah bagian yang **wajib** dan paling mudah dilewatkan, karena tanpanya kodenya tetap berjalan tanpa error. SQL mengevaluasi `AND` lebih dulu daripada `OR`, jadi rangkaian `milik($user)` lalu `cari($kata)` **tanpa** pengelompokan akan diterjemahkan menjadi `WHERE penulis_id = 7 AND judul ILIKE ... OR isi ILIKE ...` — dan cabang `OR` terakhir berdiri sendiri, terlepas dari syarat kepemilikan.',
+      ),
+      p(
+        'Akibatnya persis kebocoran: pencarian mengembalikan artikel **milik siapa pun** yang isinya cocok. Tidak ada error, tidak ada peringatan, dan hasilnya tampak masuk akal — hanya kebetulan berisi data orang lain. Closure membungkus kedua syarat pencarian menjadi satu kelompok `(...)`, sehingga syarat kepemilikan tetap berlaku atas keduanya. Ini alasan konkret kenapa scope yang menggabungkan `orWhere` harus selalu ditulis dengan pengelompokan eksplisit.',
+      ),
       callout(
         'danger',
         'Perhatikan closure pada `orWhere`',
@@ -440,6 +509,15 @@ export const lessons: LessonDraft[] = [
             });
         }
         `,
+      ),
+      p(
+        'Berbeda dari scope biasa yang harus dipanggil, **global scope berlaku otomatis** pada setiap query model ini — `Artikel::all()` diam-diam menjadi `WHERE tenant_id = ...`. Untuk pemisahan tenant, daya tariknya jelas: tidak ada satu query pun yang bisa lupa menyaring, karena penyaringannya tidak pernah ditulis di query.',
+      ),
+      p(
+        'Justru "diam-diam" itu yang membuatnya berbahaya, dan peringatan di bawah menyebut tiga batasnya. Ia bisa dilewati sengaja dengan `withoutGlobalScope()`. Ia **tidak berlaku** pada `DB::table(...)` maupun raw SQL, yang melewati model sepenuhnya. Dan ia membuat query berperilaku berbeda dari yang tertulis — orang yang menelusuri masalah akan membaca `Artikel::all()` dan tidak melihat penyebab hasilnya kosong.',
+      ),
+      p(
+        'Perhatikan pemeriksaan `auth()->check()` di dalamnya, dan pikirkan apa artinya kalau bernilai `false`. Scope-nya **tidak menambah syarat apa pun**, sehingga query mengembalikan seluruh tenant. Konteks tanpa pengguna itu nyata, misalnya perintah artisan, job antrean, dan seeder. Untuk konteks seperti itu, syarat tenant harus disebut eksplisit. Perlakukan global scope sebagai **lapisan tambahan** alih-alih penjagaan utama, sebab penjagaan utamanya tetap syarat eksplisit di query, sesuai prinsip defense in depth di sub-bab 5.1.',
       ),
       callout(
         'warning',
@@ -565,6 +643,18 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Ketiga baris ini menutup tiga kelas bug yang punya sifat sama: **tidak menimbulkan error, tidak terlihat saat membaca kode, dan baru terasa jauh kemudian**. `preventLazyLoading` membuat setiap akses relasi yang belum di-`with` melempar, sehingga N+1 tertangkap di detik kamu menulisnya — bukan enam bulan kemudian sebagai keluhan "aplikasinya makin lambat".',
+      ),
+      p(
+        '`preventSilentlyDiscardingAttributes` melempar ketika ada field yang dikirim tetapi tidak ada di `$fillable`. Secara bawaan Laravel membuangnya diam-diam, dan itu menyembunyikan dua hal sekaligus: salah ketik nama kolom yang membuat perubahanmu tidak pernah tersimpan, **dan** percobaan mass assignment yang layak kamu ketahui.',
+      ),
+      p(
+        "`preventAccessingMissingAttributes` menangkap yang paling halus. Setelah `select('id', 'judul')`, mengakses `$artikel->isi` mengembalikan `null` — bukan error, melainkan nilai yang **terlihat sah** dan diperlakukan sebagai \"isinya kosong\" oleh seluruh kode berikutnya. Dengan baris ini, ia menjadi pengecualian yang menyebut atribut mana yang tidak ikut diambil.",
+      ),
+      p(
+        'Perhatikan ketiganya dipagari `! $this->app->isProduction()` — menyala di pengembangan dan pengujian, mati di produksi. Alasannya sama seperti pada Prisma di sub-bab 2.3: kamu ingin masalahnya meledak di depan matamu, tetapi tidak ingin satu N+1 yang terlewat menjatuhkan halaman pengguna sungguhan.',
+      ),
       callout(
         'tip',
         'Tiga baris ini mengubah tiga kelas bug diam menjadi error saat pengembangan',
@@ -595,6 +685,15 @@ export const lessons: LessonDraft[] = [
         $artikel->loadMissing('penulis');
         `,
       ),
+      p(
+        '`when()` menjalankan closure-nya **hanya bila syaratnya benar**, sehingga relasi dimuat sesuai permintaan klien alih-alih selalu. Itu penting untuk endpoint yang dipakai beberapa layar dengan kebutuhan berbeda: halaman daftar mungkin hanya butuh judul, sementara halaman detail butuh penulis beserta jumlah komentar. Memuat semuanya untuk keduanya berarti membayar ongkos yang tidak dipakai.',
+      ),
+      p(
+        'Perhatikan `with(\'penulis:id,name\')` membatasi kolom yang diambil, dan `id` **wajib** ikut — tanpanya Laravel tidak punya cara mencocokkan penulis kembali ke artikelnya, dan relasinya menjadi `null` tanpa error apa pun. Perhatikan pula parameter query dibaca lewat `$request->boolean(...)`, bukan langsung: ia menangani `"true"`, `"1"`, dan `"on"` sebagai benar, sekaligus menutup jebakan string `"false"` yang bernilai benar kalau diuji apa adanya.',
+      ),
+      p(
+        'Blok kedua memakai `load()` — versi `with()` untuk koleksi yang **sudah** diambil. Bentuk ini yang kamu butuhkan ketika keputusan memuat relasi baru bisa diambil setelah query utama, misalnya setelah pemeriksaan otorisasi menentukan peran pemanggilnya. Dan `loadMissing()` melakukan hal sama tetapi melewati relasi yang sudah dimuat, sehingga aman dipanggil berulang tanpa menghasilkan query duplikat.',
+      ),
 
       h2('Relasi bersarang & terbatas'),
       code(
@@ -617,6 +716,15 @@ export const lessons: LessonDraft[] = [
             'komentar as komentar_disetujui_count' => fn ($q) => $q->where('disetujui', true),
         ])->get();
         `,
+      ),
+      p(
+        "Notasi titik pada `'komentar.penulis:id,name'` memuat **relasi dari relasi**. Tanpanya, memuat penulis tiap komentar berubah menjadi N+1 di **lapisan kedua** — dan itu jauh lebih sulit terlihat daripada N+1 lapisan pertama, karena `with('komentar')` sudah ada dan sekilas terasa cukup.",
+      ),
+      p(
+        'Blok kedua menutup kasus yang sering memaksa orang kembali ke lazy loading: butuh relasi, tapi **tidak semuanya**. Closure di dalam `with` memungkinkan penyaringan dan pembatasan — lima komentar terbaru yang sudah disetujui, bukan seluruh dua ribu komentar yang hanya akan dibuang setelah dipotong di PHP.',
+      ),
+      p(
+        "Blok ketiga memperlihatkan bentuk `withCount` yang paling berguna: **dua hitungan sekaligus** dari relasi yang sama. Bagian `'komentar as komentar_disetujui_count' => fn ($q) => ...` memberi alias pada hitungan yang bersyarat, sehingga hasilnya tersedia sebagai `$artikel->komentar_disetujui_count` di samping `$artikel->komentar_count` yang menghitung semuanya. Keduanya dikerjakan lewat subquery tanpa memuat satu baris komentar pun — bandingkan dengan `$artikel->komentar->count()` yang menarik seluruh komentar ke memori hanya untuk menghitungnya.",
       ),
       callout(
         'warning',
@@ -665,6 +773,15 @@ export const lessons: LessonDraft[] = [
         foreach (Artikel::with('penulis')->lazyById(500) as $artikel) { ... }
         `,
       ),
+      p(
+        "`Artikel::all()` menarik **seluruh tabel** ke memori sekaligus. Pada tabel berisi sejuta baris itu bukan sekadar lambat — prosesnya kehabisan memori dan mati, dan gejalanya muncul sebagai job yang gagal tanpa pesan yang jelas. Perhatikan `with('penulis')` tetap ada di kedua bentuk yang benar: memproses batch tidak menghapus kebutuhan eager loading, dan N+1 di dalam perulangan batch justru lebih mahal karena berulang di setiap batch.",
+      ),
+      p(
+        '`chunkById(500, ...)` mengambil lima ratus baris pada satu waktu, memprosesnya, lalu melepaskannya, sehingga pemakaian memori tetap **konstan** berapa pun besar tabelnya. Peringatan di bawah menyebut alasan memilih `chunkById` alih-alih `chunk`. Yang terakhir memakai `OFFSET`, dan kalau baris dihapus atau ditambah selama pemrosesan, posisinya bergeser sehingga sebagian baris terlewat atau diproses dua kali. `chunkById` memakai kolom `id` sebagai penanda sehingga ia aman terhadap perubahan, persis alasan paginasi cursor mengalahkan offset di sub-bab 1.5.',
+      ),
+      p(
+        '`lazyById` menyelesaikan hal yang sama dengan bentuk yang lebih nyaman, sebab ia mengembalikan `LazyCollection` yang bisa di-`foreach` seperti koleksi biasa sementara di balik layar tetap mengambil per lima ratus baris. Pilih `chunkById` kalau kamu butuh bekerja per batch, misalnya satu `INSERT` massal per batch, dan pilih `lazyById` kalau logikanya memang per baris.',
+      ),
       callout(
         'tip',
         'Pakai `chunkById`, bukan `chunk`',
@@ -687,6 +804,15 @@ export const lessons: LessonDraft[] = [
             expect(count(DB::getQueryLog()))->toBeLessThan(6);
         });
         `,
+      ),
+      p(
+        'Tes ini mengubah N+1 dari masalah performa yang tak terlihat menjadi sesuatu yang bisa **gagal**. `DB::enableQueryLog()` merekam setiap query yang benar-benar dijalankan, sehingga jumlahnya bisa dihitung — bukan diperkirakan dari membaca kode.',
+      ),
+      p(
+        'Perhatikan letak `enableQueryLog()`: **setelah** penyiapan data, tepat sebelum permintaan HTTP. Menyalakannya di awal akan ikut menghitung tiga puluh query dari `factory()`, dan ambangnya terlampaui bahkan pada kode yang benar. Yang ingin diukur hanyalah query dari **satu permintaan**, bukan dari persiapannya.',
+      ),
+      p(
+        'Angka 30 pada penyiapan dan ambang `toBeLessThan(6)` bekerja berpasangan. Kalau ada N+1, jumlahnya melonjak ke sekitar 31 — jauh di atas ambang, jadi kegagalannya tegas dan bukan kebetulan. Sebaliknya, menyiapkan hanya tiga baris akan membuat tes ini hijau **walaupun ada N+1**, karena empat query masih di bawah ambang. Aturannya: jumlah data uji harus jauh lebih besar daripada ambang yang kamu pasang.',
       ),
       references(
         {
@@ -826,6 +952,18 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        'Kunci mode SPA ada di daftar `stateful`. Sanctum memeriksa header `Origin`/`Referer` permintaan; kalau domainnya ada di daftar itu, ia **memakai sesi cookie biasa** alih-alih mencari token bearer. Perhatikan nilainya diambil dari environment — domain pengembangan (`localhost:3000`) tidak boleh ikut ke konfigurasi produksi, sama seperti aturan allow-list CORS di sub-bab 4.2.',
+      ),
+      p(
+        'Perhatikan rutenya tetap memakai `auth:sanctum` yang sama persis dengan mode token. Itu memang rancangannya, yaitu satu middleware yang **memilih sendiri** mekanisme mana yang berlaku berdasarkan asal permintaannya. Sisi baiknya, kode rute tidak berubah. Sisi yang perlu diwaspadai, mana yang sedang berlaku tidak terlihat dari berkas rute, dan itulah alasan daftar istilah memperingatkan agar tidak mencampur dua mode di kelompok endpoint yang sama.',
+      ),
+      p(
+        'Panggilan ke `/sanctum/csrf-cookie` dilakukan **sekali** di awal, bukan sebelum setiap permintaan. Ia menyetel cookie `XSRF-TOKEN`, dan library HTTP seperti Axios membacanya lalu mengirimkannya kembali sebagai header `X-XSRF-TOKEN` secara otomatis. Itu pola double-submit dari sub-bab 5.3: perlindungannya bekerja karena situs lain **tidak bisa membaca** cookie-mu, sehingga ia tidak bisa menyusun header yang cocok.',
+      ),
+      p(
+        "Komentar `WAJIB` pada `credentials: 'include'` menandai kesalahan yang paling sering terjadi di mode ini. Secara bawaan `fetch` tidak menyertakan cookie pada permintaan lintas origin — jadi tanpa satu opsi itu, setiap permintaan sampai ke server tanpa sesi dan dijawab `401` walaupun penggunanya jelas sudah login. Opsi yang sama juga dibutuhkan pada panggilan `csrf-cookie` di atasnya; melewatkannya di sana membuat cookie-nya tidak pernah tersimpan.",
+      ),
       callout(
         'danger',
         'Mode SPA butuh domain yang sepupu',
@@ -858,7 +996,7 @@ export const lessons: LessonDraft[] = [
                 RateLimiter::hit($kunciBatas, 900);
                 // Pesan yang SAMA untuk kedua kemungkinan.
                 return response()->json([
-                    'error' => ['pesan' => 'Email atau kata sandi salah'],
+                    'error' => ['pesan' => 'Email atau password salah'],
                 ], 401);
             }
 
@@ -881,6 +1019,20 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Bagian atas fungsi ini menerapkan seluruh pelajaran auth-failures dari sub-bab 5.7 dalam bentuk Laravel. Kunci rate limiter menggabungkan email **dan** IP dalam satu string, menutup penebakan dari satu mesin sekaligus dari botnet. `Hash::check` tetap dijalankan terhadap `HASH_PALSU` saat pengguna tidak ada, sehingga waktu responsnya seragam. Dan kedua kegagalan dijawab pesan yang **sama persis**, supaya email terdaftar tidak bisa dienumerasi.',
+      ),
+      p(
+        'Tiga argumen bernama pada `createToken` masing-masing menutup risiko yang berbeda. `name` mencatat perangkat asalnya — itulah yang nanti ditampilkan di halaman "perangkat aktif" supaya pengguna bisa mengenali sesi yang bukan miliknya. `abilities` membatasi **apa yang bisa dilakukan** token itu, sehingga token yang bocor terbatas kerusakannya. Dan `expiresAt` memberi masa berlaku; token tanpa kedaluwarsa yang pernah bocor berguna bagi penyerang selamanya.',
+      ),
+      p(
+        'Komentar pada `plainTextToken` menandai sesuatu yang wajib dipahami sebelum membangun antarmukanya: nilai itu **hanya tersedia sekali**, di respons ini. Yang tersimpan di database hanyalah hash-nya, jadi tidak ada cara menampilkannya lagi nanti — persis alasan yang sama seperti password. Antarmuka harus menyampaikannya jelas ("salin sekarang, tidak akan ditampilkan lagi"), dan yang hilang hanya bisa diganti dengan menerbitkan token baru.',
+      ),
+      callout(
+        'tip',
+        'Argumen bernama membuat pemanggilan ini terbaca',
+        'Ditulis sebagai `createToken($nama, $abilities, $expires)`, urutan ketiganya harus diingat dan mudah tertukar. Sintaks argumen bernama PHP 8 membuat maksud tiap nilai terbaca di tempat pemanggilan — dan menambah argumen baru di masa depan tidak memutus kode yang sudah ada.',
+      ),
 
       h2('Ability'),
       code(
@@ -895,6 +1047,15 @@ export const lessons: LessonDraft[] = [
             abort(403, 'Token tidak punya izin ini');
         }
         `,
+      ),
+      p(
+        'Dua bentuk pemeriksaan untuk dua kebutuhan. Middleware `ability:artikel:tulis` menjaga **seluruh rute** dan cocok saat satu endpoint memang butuh satu izin tertentu. `tokenCan(...)` di dalam kode dipakai saat izinnya bergantung pada apa yang sedang dikerjakan — misalnya satu endpoint yang boleh menyimpan draf dengan izin biasa tetapi butuh izin tambahan untuk langsung menerbitkan.',
+      ),
+      p(
+        'Peringatan di bawah menyebut kekeliruan yang paling sering terjadi, dan pembedaannya perlu dipegang: **ability membatasi token, Policy membatasi pengguna atas objek**. Token dengan `artikel:tulis` tetap tidak boleh menulis artikel milik orang lain — dan `ability` sama sekali tidak memeriksa itu. Keduanya lapisan yang berbeda, dan lapisan objek dari sub-bab 5.1 tetap wajib ada.',
+      ),
+      p(
+        'Ada satu jebakan lagi yang disebut daftar istilah: pada **mode SPA**, `tokenCan` selalu mengembalikan `true` karena tidak ada token yang membawa ability. Kode yang mengandalkannya sebagai satu-satunya penjagaan akan bekerja seperti diharapkan di mode token, lalu diam-diam meloloskan segalanya begitu endpoint yang sama diakses lewat cookie sesi.',
       ),
       callout(
         'warning',
@@ -917,6 +1078,15 @@ export const lessons: LessonDraft[] = [
         $user->tokens()->delete();
         `,
       ),
+      p(
+        'Ketiganya menghapus baris di database, dan **itulah keunggulan Sanctum atas JWT**. Token Sanctum tidak berdiri sendiri; ia dicari di tabel pada setiap permintaan, jadi menghapus barisnya membuatnya tidak berlaku **seketika**. JWT yang sudah terbit tidak bisa ditarik kembali tanpa mekanisme tambahan seperti `tokenVersi` atau deny-list yang dibahas di sub-bab 2.4.',
+      ),
+      p(
+        'Perbedaan dua baris pertama menentukan pengalaman penggunanya. `currentAccessToken()` hanya mencabut token yang dipakai permintaan ini — tombol "keluar" biasa, yang tidak mengganggu sesi di ponsel. `tokens()->delete()` mencabut **semuanya**, dan itu yang dibutuhkan tombol "keluar dari semua perangkat".',
+      ),
+      p(
+        'Komentar `WAJIB` pada blok ketiga menandai kelalaian yang membuat penggantian password hampir tidak berguna. Alasan utama orang mengganti password adalah kecurigaan akun dibajak — dan kalau token penyerang tetap sah setelahnya, tindakan itu tidak mengubah apa pun baginya, sementara korban mengira dirinya sudah aman. Perhatikan hal yang sama berlaku untuk perubahan peran: token lama masih membawa akses lama sampai dicabut.',
+      ),
 
       h2('Bersihkan token kedaluwarsa'),
       code(
@@ -925,6 +1095,12 @@ export const lessons: LessonDraft[] = [
         // routes/console.php
         Schedule::command('sanctum:prune-expired --hours=24')->daily();
         `,
+      ),
+      p(
+        'Tabel token bertambah satu baris setiap kali seseorang masuk dari perangkat baru, dan yang kedaluwarsa tidak hilang sendiri — ia hanya berhenti berlaku. Tanpa pembersihan, tabelnya tumbuh tanpa henti dan setiap pencarian token pada setiap permintaan ikut melambat.',
+      ),
+      p(
+        'Perhatikan `--hours=24` bukan berarti "hapus yang berumur 24 jam", melainkan **hapus yang sudah kedaluwarsa lebih dari 24 jam lalu**. Jeda itu disengaja: token yang baru saja kedaluwarsa masih berguna untuk penelusuran — saat menyelidiki laporan "akun saya diakses orang lain", kolom nama perangkat dan waktu pemakaian terakhir dari token lama justru yang paling menjelaskan.',
       ),
       callout(
         'danger',
@@ -1008,7 +1184,7 @@ export const lessons: LessonDraft[] = [
             'Batas yang paling sering luput. Policy memeriksa **satu objek**; untuk `index` tidak ada objek yang diperiksa. Daftar wajib di-scope lewat query — dan itu pemeriksaan yang sama sekali terpisah.',
         },
         {
-          term: 'pertahanan berlapis',
+          term: 'defense in depth',
           meaning:
             'Otorisasi ada di Policy **dan** di scope query. Bukan pengulangan sia-sia: kalau satu terlewat pada endpoint baru, yang lain masih menahan — dan endpoint baru itulah yang biasanya bocor.',
         },
@@ -1066,6 +1242,18 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Tipe kembalian `?bool` pada `before()` sudah memberi petunjuk bahwa ia punya **tiga** kemungkinan, bukan dua. `true` meloloskan segalanya, `null` berarti "saya tidak memutuskan, lanjutkan ke method biasa", dan `false` **menolak setiap pemeriksaan** — termasuk yang seharusnya lolos. Menuliskan `return $user->peran === \'admin\';` di situ akan menghasilkan `false` untuk semua non-admin dan mematikan seluruh policy-nya.',
+      ),
+      p(
+        'Method `view` memperlihatkan aturan yang tidak bisa dijawab pemeriksaan kepemilikan saja: artikel **terbit** boleh dilihat siapa pun, artikel **draf** hanya pemiliknya. Perhatikan ini alasan Policy layak ada — aturan seperti ini kalau ditulis sebagai `if` di controller akan tersebar dan cepat menyimpang antar endpoint.',
+      ),
+      p(
+        "`update` mengembalikan `Response`, bukan `bool`, dan itu membuka dua kemampuan yang tidak dimiliki `bool`. `Response::denyAsNotFound()` menjawab **`404` alih-alih `403`** — sesuai aturan sub-bab 5.7, `403` sudah membocorkan bahwa artikel dengan id itu memang ada. Sedangkan `Response::deny('...')` membawa **pesan sendiri**, sehingga penolakan karena artikelnya diarsipkan bisa dijelaskan ke pengguna. Perhatikan keduanya dipakai untuk alasan penolakan yang berbeda: yang pertama menyembunyikan, yang kedua menjelaskan.",
+      ),
+      p(
+        'Method `terbitkan` menggabungkan **dua** lapisan dengan `&&`, yaitu kepemilikan objek dan ability token. Itu bentuk paling jujur dari aturannya, sebab penulis boleh menerbitkan tulisannya sendiri tetapi hanya kalau token yang ia pakai memang berwenang menerbitkan. Perhatikan nama method-nya bukan salah satu dari tujuh nama baku, karena aksi khusus memang butuh method Policy-nya sendiri alih-alih menumpang pada `update`.',
+      ),
       callout(
         'danger',
         '`before()` yang mengembalikan `false` mematikan seluruh policy',
@@ -1092,6 +1280,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Empat tempat pemanggilan, dan perbedaannya bukan selera. `$this->authorize(...)` **melempar** saat ditolak, sehingga baris di bawahnya tidak pernah tercapai — bentuk yang tepat untuk aksi yang memang harus dihentikan. `$user->can(...)` mengembalikan `bool` tanpa melempar, dan itu yang kamu pakai untuk keputusan bersyarat, misalnya menyembunyikan tombol di respons.',
+      ),
+      p(
+        "Bentuk `->can('update', 'artikel')` di rute punya kelebihan yang tidak dimiliki tiga lainnya: penjagaannya **terlihat di `route:list`**. Karena kolom middleware menampilkannya, audit rute dari sub-bab 5.1 bisa menemukan endpoint yang otorisasinya kurang — sesuatu yang mustahil kalau `authorize` hanya ada di dalam badan controller. Perhatikan argumen keduanya `'artikel'` sebagai **string**, yaitu nama parameter rutenya, bukan objeknya.",
+      ),
+      p(
+        'Menaruhnya di `authorize()` milik Form Request menggeser pemeriksaan lebih awal lagi — ia berjalan **sebelum** validasi, sehingga permintaan dari orang yang tidak berhak ditolak tanpa servermu repot memvalidasi isinya. Pilih satu pola dan pakai konsisten; yang berbahaya bukan pilihannya, melainkan endpoint yang tidak memakai satu pun.',
+      ),
 
       h2('Policy tidak berlaku untuk daftar'),
       code(
@@ -1108,6 +1305,15 @@ export const lessons: LessonDraft[] = [
                 ->orWhere('penulis_id', $request->user()->id))
             ->paginate(20);
         `,
+      ),
+      p(
+        'Blok pertama adalah kebocoran yang tetap terjadi **walaupun policy-mu lengkap dan benar**. `Artikel::paginate(20)` tidak memanggil `ArtikelPolicy::view()` untuk satu baris pun — dan memang tidak bisa: Policy memeriksa satu objek, sementara endpoint daftar mengembalikan dua puluh sekaligus. Ini kesalahan otorisasi paling umum di Laravel justru karena kodenya terlihat bersih dan policy-nya sudah ada.',
+      ),
+      p(
+        'Perbaikannya menerjemahkan aturan `view()` menjadi **syarat query**: yang terbit, atau yang penulisnya adalah peminta. Perhatikan closure `where(fn ($q) => ...)` yang membungkus keduanya — tanpa pengelompokan itu, `orWhere` akan berdiri sendiri dan membatalkan syarat lain yang mungkin ditambahkan sebelumnya, persis jebakan yang dibahas di sub-bab 6.2.',
+      ),
+      p(
+        'Ada satu hal yang perlu diterima dari pendekatan ini: aturan yang sama kini ada di **dua tempat** — di `ArtikelPolicy::view()` dan di query ini. Keduanya harus dijaga tetap selaras, dan itu memang biayanya. Alternatif yang mengurangi duplikasi adalah memindahkan syaratnya ke query scope (`scopeTerlihatOleh($user)`) lalu memakainya dari kedua sisi, sehingga aturannya tetap hidup di satu tempat.',
       ),
       callout(
         'danger',
@@ -1133,6 +1339,15 @@ export const lessons: LessonDraft[] = [
         Route::get('/admin', ...)->middleware('can:lihat-dasbor-admin');
         `,
       ),
+      p(
+        'Perhatikan closure Gate hanya menerima `User`, **tanpa objek kedua**. Itulah yang membedakannya dari Policy, sebab Gate menjawab pertanyaan yang tidak menyentuh baris data tertentu, seperti "boleh membuka dasbor admin" atau "boleh mengekspor". Begitu pertanyaannya menyangkut objek, misalnya "boleh mengubah artikel **ini**", Policy yang tepat.',
+      ),
+      p(
+        'Gate kedua memakai `Response` alih-alih `bool`, dan alasannya sama seperti pada Policy, yaitu ia bisa membawa **pesan sendiri**. Untuk penolakan yang perlu dijelaskan ke pengguna, misalnya "hanya admin yang bisa mengekspor", itu jauh lebih berguna daripada `403` polos yang membuat orang menebak apa yang salah.',
+      ),
+      p(
+        'Dua baris terakhir memperlihatkan bahwa Gate dipakai dengan cara yang sama seperti Policy: melempar lewat `Gate::authorize`, atau dipasang sebagai middleware rute. Bentuk middleware tetap lebih disukai untuk penjagaan tingkat rute karena ia **terlihat di `route:list`** — dan itulah yang membuat audit menemukan endpoint admin yang lupa dijaga.',
+      ),
 
       h2('Peran + izin'),
       code(
@@ -1156,6 +1371,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        "Komentar di baris pertama menyatakan aturannya: **periksa izin, bukan peran**. Kode yang menulis `if ($user->peran === 'admin')` tersebar di puluhan tempat akan menyakitkan begitu ada peran baru `supervisor` yang butuh sebagian hak admin — kamu harus menemukan dan mengubah semuanya, dan satu yang terlewat adalah celah atau bug.",
+      ),
+      p(
+        "Dengan `punyaIzin('artikel.terbitkan')`, penambahan peran cukup menambah satu baris di konstanta `IZIN`. Perhatikan pemeriksaannya memakai `in_array($izin, $dimiliki, true)` dengan argumen ketiga `true` — perbandingan **ketat**, sehingga tidak ada konversi tipe yang bisa membuat nilai tak terduga lolos.",
+      ),
+      p(
+        "Baris `'admin' => ['*']` beserta pemeriksaan `in_array('*', ...)` adalah jalan pintas yang perlu diambil sadar, sebab admin lolos **setiap** izin termasuk izin yang ditambahkan tahun depan dan belum pernah ditinjau siapa pun. Untuk kebanyakan aplikasi itu wajar, sedangkan untuk yang menyentuh uang atau data sangat sensitif, menyebutkan izin admin satu per satu lebih aman meski lebih repot. Perhatikan pula `?? []` menangani nilai peran yang tidak dikenal dengan **daftar kosong**, dan sekali lagi ketiadaan nilai jatuh ke sisi yang menolak.",
+      ),
 
       h2('Catat penolakan'),
       code(
@@ -1172,6 +1396,15 @@ export const lessons: LessonDraft[] = [
             }
         });
         `,
+      ),
+      p(
+        '`Gate::after` berjalan **setelah setiap** pemeriksaan otorisasi di seluruh aplikasi — Policy maupun Gate. Itulah kekuatannya: satu blok di service provider mencatat semua penolakan, tanpa perlu menambah `log()` di setiap method Policy dan tanpa ada yang bisa terlupa pada endpoint baru.',
+      ),
+      p(
+        'Perhatikan pemeriksaannya `$hasil === false`, bukan `!$hasil`. Bedanya menentukan: `$hasil` bertipe `?bool`, dan nilai `null` berarti **tidak ada aturan yang memutuskan** — bukan penolakan. Memakai `!$hasil` akan ikut mencatat setiap `null` sebagai penolakan, membanjiri log dengan peristiwa yang bukan apa-apa.',
+      ),
+      p(
+        'Empat field yang dicatat memenuhi bentuk minimum catatan audit dari sub-bab 5.9, yaitu **siapa** (`penggunaId`), **apa** (`ability`), dan **objek mana** (`objek` beserta `objekId`), sementara waktu ditambahkan Laravel otomatis. Perhatikan `class_basename` dipakai alih-alih nama kelas lengkap agar log tetap ringkas, dan `?? null` di kedua tempat menangani Gate yang memang tidak punya objek. Dan seperti disebut di bawah, log tanpa alert bukan deteksi, sehingga lonjakan penolakan dari satu akun layak memicu peringatan.',
       ),
       callout(
         'tip',
@@ -1321,10 +1554,22 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Komentar di konstruktor menandai keputusan yang paling menentukan, yaitu **simpan id, bukan objek**. Payload job diserialisasi ke penyimpanan antrean dan terlihat di dashboard Horizon, jadi objek `User` utuh berarti email dan kolom lain ikut tersimpan di tempat yang aksesnya lebih longgar. Alasan kedua sama pentingnya, sebab data di payload sudah **basi** saat job berjalan. Pengguna bisa mengganti emailnya dalam jeda itu, dan job akan mengirim ke alamat lama.',
+      ),
+      p(
+        'Empat properti di atas konstruktor membatasi kegagalan dari arah berbeda. `$tries = 5` membatasi jumlah percobaan. `$timeout = 30` memutus job yang menggantung, sebab tanpanya satu panggilan email yang tidak pernah dijawab menahan worker selamanya. `$maxExceptions = 3` lebih ketat lagi, karena job boleh dicoba lima kali tetapi kalau **tiga** di antaranya melempar pengecualian ia langsung menyerah. Dan `retryUntil()` memberi batas waktu mutlak, sehingga setelah sepuluh menit tidak ada percobaan lagi berapa pun sisa `$tries`.',
+      ),
+      p(
+        'Blok `if` di dalam `handle()` menangani dua keadaan yang sama-sama berarti "tidak perlu dikerjakan": penggunanya sudah dihapus, atau emailnya sudah terverifikasi. Perhatikan keduanya `return` biasa, **bukan** melempar — melempar akan menandainya gagal dan memicu empat percobaan ulang untuk sesuatu yang tidak akan pernah berubah. Membedakan "gagal" dari "tidak perlu dikerjakan" adalah bagian dari menulis job yang sehat.',
+      ),
+      p(
+        '`backoff()` mengembalikan array, bukan satu angka, sehingga jedanya bisa berbeda per percobaan: 2 detik, lalu 5, 15, 60. Jeda yang naik memberi layanan yang bermasalah waktu untuk pulih alih-alih membanjirinya. Dan `failed()` adalah satu-satunya tempat kegagalan permanen terlihat — job tanpa method ini **gagal diam-diam**, dan tidak ada yang tahu email verifikasi itu tidak pernah terkirim.',
+      ),
       callout(
         'danger',
         'Jangan menaruh objek Eloquent utuh di konstruktor job',
-        'Laravel menyerialisasinya ke penyimpanan antrean. Isinya — termasuk kolom sensitif — tersimpan dalam bentuk yang bisa dibaca, dan terlihat di dashboard Horizon. Oper **ID**, lalu ambil datanya di dalam `handle()`. Ini juga menghindari memakai data yang sudah basi saat job akhirnya berjalan.',
+        'Laravel menyerialisasinya ke penyimpanan antrean. Isinya, termasuk kolom sensitif, tersimpan dalam bentuk yang bisa dibaca dan terlihat di dashboard Horizon. Oper **ID**, lalu ambil datanya di dalam `handle()`. Ini juga menghindari memakai data yang sudah basi saat job akhirnya berjalan.',
       ),
 
       h2('Job harus idempoten'),
@@ -1363,6 +1608,18 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        "Blok pertama menutup celah **at-least-once** dengan cara yang sama seperti pengurangan stok di sub-bab 2.3: `where('status', 'menunggu')->update(...)` menggabungkan pemeriksaan dan perubahan dalam satu operasi yang tidak bisa disela. Dua eksekusi yang berjalan bersamaan sama-sama mencoba, tetapi hanya satu menemukan statusnya masih `menunggu` — yang kalah mendapat `$klaim === 0` dan berhenti. Perhatikan sekali lagi ia `return`, bukan melempar.",
+      ),
+      p(
+        'Blok kedua menyerang masalah yang sama dari arah berbeda, sebab alih-alih menangani kembaran, ia **mencegahnya berjalan bersamaan**. `WithoutOverlapping` dengan kunci `"pembayaran:{$id}"` memastikan hanya satu job untuk pembayaran itu yang aktif, sedangkan yang lain ditunda. Perhatikan kuncinya menyertakan id, sebab memakai kunci tetap seperti `"pembayaran"` akan menyerialkan **seluruh** pembayaran menjadi satu antrean berurutan, dan itu bukan yang kamu mau.',
+      ),
+      p(
+        'Dua opsi di bawahnya menutup kegagalan dari mekanisme kuncinya sendiri. `expireAfter(180)` melepas kunci setelah tiga menit — tanpa itu, job yang mati sebelum sempat melepas kuncinya akan memblokir pembayaran itu **selamanya**. `releaseAfter(10)` menentukan berapa lama job yang tertahan menunggu sebelum dikembalikan ke antrean untuk dicoba lagi.',
+      ),
+      p(
+        'Keduanya bukan pilihan yang saling menggantikan. `WithoutOverlapping` mencegah **tumpang tindih waktu**, tetapi tidak mencegah job yang sama dijalankan lagi setelah yang pertama selesai — dan pengiriman ulang dari antrean justru sering terjadi setelah itu. Klaim atomik di blok pertama yang menutupnya. Untuk pembayaran, pakai keduanya.',
+      ),
 
       h2('Menjalankan'),
       code(
@@ -1375,6 +1632,15 @@ export const lessons: LessonDraft[] = [
         # --max-jobs dan --max-time membatasi kebocoran memori jangka panjang.
         php artisan queue:work redis --queue=tinggi,default --max-jobs=1000 --max-time=3600
         `,
+      ),
+      p(
+        'Perbedaan dua baris itu bukan soal opsi melainkan **cara prosesnya dijaga hidup**. `queue:work` adalah proses yang berjalan terus, dan kalau ia mati karena kehabisan memori atau karena server restart, tidak ada yang mengambil job sampai seseorang menyadarinya. Supervisor atau systemd yang menyalakannya kembali secara otomatis, dan tanpa itu antreanmu diam-diam berhenti bekerja.',
+      ),
+      p(
+        '`--max-jobs=1000` dan `--max-time=3600` terlihat berlawanan dengan tujuan "jangan mati", padahal justru melengkapinya: keduanya membuat worker **sengaja berhenti** setelah seribu job atau satu jam, lalu supervisor menyalakannya lagi dengan proses baru yang bersih. PHP tidak dirancang untuk proses berumur panjang, dan kebocoran memori kecil yang menumpuk selama berhari-hari akhirnya menjatuhkan worker pada saat yang tidak kamu pilih. Restart terjadwal mengubahnya menjadi peristiwa yang terkendali.',
+      ),
+      p(
+        'Peringatan berikutnya adalah konsekuensi langsung dari sifat proses panjang itu: worker **memuat kode sekali** saat dijalankan. Setelah deploy, worker lama masih menjalankan kode lama — sehingga perbaikan yang sudah rilis tetap gagal dengan cara yang persis sama. Ini bug yang sangat membingungkan karena kodenya jelas sudah benar. Setiap deploy wajib menjalankan `php artisan queue:restart`, yang memberi sinyal ke worker untuk berhenti dengan rapi setelah job yang sedang berjalan selesai.',
       ),
       callout(
         'danger',
@@ -1392,6 +1658,17 @@ export const lessons: LessonDraft[] = [
         // Pekerja mengosongkan 'tinggi' lebih dulu
         // php artisan queue:work --queue=tinggi,default,rendah
         `,
+      ),
+      p(
+        'Memisahkan jalur antrean menyelesaikan masalah yang nyata: **job lambat menghambat job cepat**. Tanpa pemisahan, satu laporan bulanan yang memakan lima menit membuat email verifikasi di belakangnya menunggu lima menit juga — dan pengguna yang baru mendaftar menyangka pendaftarannya gagal.',
+      ),
+      p(
+        'Perhatikan urutan pada `--queue=tinggi,default,rendah` **menentukan prioritas**. Worker selalu mengosongkan `tinggi` sampai habis sebelum menyentuh `default`, lalu `rendah`. Konsekuensinya perlu disadari: kalau `tinggi` terus terisi, `rendah` bisa **tidak pernah** dikerjakan. Untuk mencegahnya, jalankan worker terpisah yang khusus melayani `rendah` — itulah gunanya beberapa proses worker dengan konfigurasi berbeda.',
+      ),
+      callout(
+        'tip',
+        'Jangan menaruh terlalu banyak jalur',
+        'Setiap jalur butuh kapasitas worker sendiri agar tidak menganggur. Dua sampai empat jalur, misalnya `tinggi`, `default`, dan `rendah`, cukup untuk hampir semua aplikasi. Sepuluh jalur biasanya berarti sebagian di antaranya jarang tersentuh.',
       ),
 
       h2('Batch & chain'),
@@ -1413,6 +1690,15 @@ export const lessons: LessonDraft[] = [
             ->dispatch();
         `,
       ),
+      p(
+        'Keduanya menjalankan banyak job, tetapi menjawab kebutuhan yang berlawanan. **Chain** menjalankan berurutan dan **berhenti** kalau satu gagal — itu yang kamu mau di contoh ini: tidak ada gunanya mengirim struk untuk pembayaran yang gagal diproses. Urutan dan ketergantungannya nyata.',
+      ),
+      p(
+        '**Batch** menjalankan paralel, cocok untuk pekerjaan yang saling bebas — mengirim seribu email, memproses seribu gambar. Nilainya ada pada **pemantauan bersama**: `then` berjalan sekali setelah semuanya selesai, dan `catch` sekali saat ada yang gagal. Tanpa batch, mengetahui "kapan seribu job ini selesai semua" berarti melacaknya sendiri.',
+      ),
+      p(
+        '`allowFailures()` mengubah perilaku default yang penting untuk dipahami, sebab tanpa itu satu job gagal **membatalkan sisa batch** yang belum dijalankan. Untuk pengiriman email massal itu keliru, karena satu alamat yang tidak valid tidak boleh menghentikan 999 lainnya. Untuk pekerjaan yang saling bergantung, justru pembatalan itu yang benar, tapi kalau begitu chain kemungkinan pilihan yang lebih tepat sejak awal.',
+      ),
 
       h2('Horizon'),
       code(
@@ -1431,6 +1717,15 @@ export const lessons: LessonDraft[] = [
         Gate::define('viewHorizon', fn ($user) => $user->peran === 'admin');
         `,
       ),
+      p(
+        'Horizon dipasang lewat paket dan langsung punya rutenya sendiri — tanpa kamu menulis satu baris pun di berkas rute. Itulah yang membuatnya sering luput dari audit: ia muncul di `route:list`, tetapi tidak ada berkas di project-mu yang menyebutnya, sehingga ia tidak ketemu saat kamu menelusuri kode.',
+      ),
+      p(
+        'Komentar berhuruf besar menyebut alasan gate-nya wajib. Horizon menampilkan **payload job** — dan menurut aturan di atas, payload seharusnya hanya berisi id. Tetapi satu job saja yang membawa data lengkap sudah cukup untuk memampangkannya di sana. Lebih dari itu, Horizon juga mengizinkan **mencoba ulang dan menghapus** job; dibiarkan terbuka, ia bukan hanya membocorkan tetapi memberi kendali.',
+      ),
+      p(
+        'Perhatikan gate-nya bernama `viewHorizon` — nama itu ditentukan paketnya, bukan pilihanmu, dan Horizon memanggilnya sendiri. Hal yang sama berlaku untuk `viewTelescope` dan `viewPulse`. Ketiganya harus dipasang, dan "alamatnya tidak ditautkan di mana pun" bukan kontrol akses, sesuai prinsip zero trust di sub-bab 5.5.',
+      ),
       callout(
         'danger',
         'Dashboard Horizon memperlihatkan isi payload job',
@@ -1448,7 +1743,13 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Tabel job gagal hanya berguna kalau ada yang membukanya. Pasang alert saat jumlahnya melonjak — job yang gagal diam-diam adalah pekerjaan yang hilang tanpa ada yang tahu.',
+        'Keempat perintah ini bekerja pada tabel `failed_jobs` — tempat job yang **habis percobaannya** mendarat. `queue:failed` menampilkan daftarnya beserta pesan errornya, dan itulah yang harus rutin dibuka; antrean gagal yang tidak pernah dilihat sama saja dengan membuang pekerjaannya.',
+      ),
+      p(
+        '`queue:retry <id>` mengembalikan satu job ke antrean, dan `retry all` mengembalikan semuanya. Perhatikan mencoba ulang hanya masuk akal setelah **penyebabnya diperbaiki** — kalau job gagal karena bug di kodenya, `retry all` hanya akan mengulang kegagalan yang sama. Dan di sinilah idempotensi tadi terbayar: job yang aman dijalankan berulang bisa di-`retry` tanpa takut memproses pembayaran dua kali.',
+      ),
+      p(
+        '`queue:flush` **menghapus** seluruh isi tabel tanpa konfirmasi. Jalankan hanya setelah kamu benar-benar memeriksa isinya — yang terhapus di sana adalah bukti tentang pekerjaan yang tidak pernah terjadi, dan tidak ada cara mengembalikannya. Pasang alert saat jumlah job gagal melonjak; itu yang mengubah tabel ini dari arsip menjadi deteksi.',
       ),
       references(
         {
@@ -1574,6 +1875,18 @@ export const lessons: LessonDraft[] = [
         event(new ArtikelDiterbitkan($artikel));
         `,
       ),
+      p(
+        'Kelas event itu sendiri hampir kosong, karena ia hanya **pembawa data** tentang sesuatu yang sudah terjadi. Perhatikan namanya berbentuk lampau, yaitu `ArtikelDiterbitkan` dan bukan `TerbitkanArtikel`. Itu bukan sekadar gaya, sebab ia menandai bahwa event **melaporkan** alih-alih memerintah. Kelas yang memerintah adalah job atau action, dan membedakan keduanya lewat penamaan menghemat banyak kebingungan.',
+      ),
+      p(
+        '`implements ShouldQueue` pada listener adalah satu baris yang memindahkannya **keluar dari jalur permintaan**. Tanpa itu, listener berjalan sinkron — dan mengirim notifikasi ke ribuan pengikut akan membuat permintaan "terbitkan artikel" menggantung sampai selesai. Perhatikan `chunkById(500, ...)` di dalamnya: jumlah pengikut tidak terbatas, jadi memuat semuanya sekaligus bisa menghabiskan memori worker.',
+      ),
+      p(
+        'Sejak Laravel 11, listener **ditemukan otomatis** dari tipe parameter `handle()` — tidak perlu pendaftaran manual di service provider. Nyaman, tetapi ada konsekuensinya: hubungan antara event dan listener-nya tidak lagi terlihat di satu berkas mana pun. Untuk menelusurinya, cari kelas event-nya, atau jalankan `php artisan event:list`.',
+      ),
+      p(
+        'Perhatikan `event(...)` dipanggil setelah artikelnya benar-benar diterbitkan. Dan di sinilah jebakan yang disebut daftar istilah berlaku: kalau pemanggilan ini berada **di dalam** `DB::transaction`, listener antrean bisa berjalan sebelum transaksinya di-commit — sehingga ia mengambil artikel dari database dan tidak menemukannya. Untuk kasus itu, listener perlu ditandai `afterCommit`.',
+      ),
 
       h2('Observer model'),
       code(
@@ -1595,6 +1908,15 @@ export const lessons: LessonDraft[] = [
             }
         }
         `,
+      ),
+      p(
+        'Observer memasang kode pada **peristiwa siklus hidup model**, yaitu `creating`, `created`, `updating`, `deleted`, dan seterusnya. Perhatikan beda bentuk berlangsung dan bentuk lampau. `creating` berjalan **sebelum** baris ditulis, jadi mengubah `$artikel->slug` di sana ikut tersimpan. `deleted` berjalan **sesudah**, jadi ia tepat untuk membersihkan cache karena pada titik itu penghapusannya sudah pasti terjadi.',
+      ),
+      p(
+        'Atribut `#[ObservedBy(...)]` di atas kelas model adalah cara Laravel 11 mendaftarkan observer, menggantikan pendaftaran manual di service provider. Perhatikan `??=` pada pengisian slug: ia hanya mengisi kalau nilainya belum ada, sehingga slug yang sengaja ditentukan pemanggil tidak ditimpa.',
+      ),
+      p(
+        'Peringatan di bawah menyebut batas yang paling sering menjadi bug, yaitu **observer tidak berjalan pada operasi massal**. `Artikel::where(...)->update([...])` dan `delete()` massal bekerja langsung di tingkat SQL tanpa memuat model satu per satu, jadi tidak ada peristiwa yang dipancarkan. Akibatnya slug tidak terisi, cache tidak dibersihkan, audit log tidak tercatat, dan **tidak ada error apa pun**. Kalau kamu butuh peristiwanya, ambil barisnya lalu ubah satu per satu, atau bersihkan cache secara eksplisit setelah operasi massal.',
       ),
       callout(
         'danger',
@@ -1632,10 +1954,19 @@ export const lessons: LessonDraft[] = [
           notes: ['Alurnya terbaca', 'Berlaku untuk semua jalur pembuatan'],
         },
       ),
+      p(
+        'Komentar di kolom kiri menyatakan masalahnya, yaitu **dari kode pemanggil tidak ada petunjuk bahwa ini terjadi**. Orang yang membaca `Pesanan::create($data)` tidak punya alasan menduga total dan pajaknya dihitung di tempat lain. Dan ketika angkanya salah, ia akan menelusuri service, controller, dan request, tiga tempat yang semuanya benar, sebelum akhirnya menemukan observer yang tidak pernah ia cari.',
+      ),
+      p(
+        'Catatan kedua lebih berbahaya lagi: **dilewati operasi massal**. Impor pesanan lewat `insert()` massal akan menghasilkan baris dengan `total` bernilai nol, tanpa satu pun error. Untuk perhitungan uang, itu kerusakan data yang senyap.',
+      ),
+      p(
+        'Batas yang berguna disebut di bawah dan layak dihafal. Observer cocok untuk hal yang **melengkapi**, seperti mengisi slug, membersihkan cache, dan mencatat audit, tetapi ia tidak cocok untuk hal yang **menentukan**, seperti menghitung harga, memvalidasi aturan, dan memutuskan status. Ujinya sederhana. Kalau langkah itu dilewati, apakah datanya sekadar kurang rapi, atau **salah**? Yang bisa salah harus terlihat di jalur utamanya.',
+      ),
       callout(
         'tip',
         'Batas yang berguna',
-        'Observer cocok untuk hal yang **melengkapi** — mengisi slug, membersihkan cache, mencatat audit. Ia tidak cocok untuk hal yang **menentukan** — menghitung harga, memvalidasi aturan, atau memutuskan status. Yang menentukan harus terlihat di jalur utamanya.',
+        'Observer cocok untuk hal yang **melengkapi**, seperti mengisi slug, membersihkan cache, dan mencatat audit. Ia tidak cocok untuk hal yang **menentukan**, seperti menghitung harga, memvalidasi aturan, atau memutuskan status. Yang menentukan harus terlihat di jalur utamanya.',
       ),
 
       h2('Jalankan setelah transaksi commit'),
@@ -1657,6 +1988,15 @@ export const lessons: LessonDraft[] = [
         DB::afterCommit(fn () => event(new ArtikelDiterbitkan($artikel)));
         `,
       ),
+      p(
+        'Masalah yang ditutup keduanya adalah **balapan antara worker dan transaksi**. Ketika `event(...)` dipanggil di dalam `DB::transaction`, job listener-nya langsung masuk antrean — dan worker bisa mengambilnya dalam milidetik, sebelum transaksinya sempat di-commit. Job lalu mencari artikel di database dan **tidak menemukannya**, karena dari sudut pandang koneksi lain, baris itu belum ada.',
+      ),
+      p(
+        'Yang membuatnya sulit dilacak: kegagalannya **tidak konsisten**. Di laptop dengan satu worker dan database lokal, transaksinya hampir selalu menang balapan dan semuanya tampak baik. Di produksi dengan beberapa worker dan latensi jaringan, sebagian job gagal dengan `ModelNotFoundException` yang terlihat mustahil — artikelnya jelas ada saat kamu memeriksanya.',
+      ),
+      p(
+        'Perhatikan bahaya keduanya lebih dari sekadar gagal: transaksi bisa **di-rollback** setelah job berjalan. Kalau job itu sudah mengirim email "artikelmu terbit", email itu tidak bisa ditarik kembali sementara artikelnya tidak pernah ada. Pilih `ShouldHandleEventsAfterCommit` untuk listener yang selalu butuh perilaku ini, dan `DB::afterCommit(...)` saat hanya satu pemanggilan tertentu yang memerlukannya.',
+      ),
 
       h2('Menguji'),
       code(
@@ -1674,6 +2014,15 @@ export const lessons: LessonDraft[] = [
                 fn ($e) => $e->artikel->is($artikel));
         });
         `,
+      ),
+      p(
+        '`Event::fake([...])` **mencegah** event dipancarkan sungguhan lalu mencatat pemanggilannya. Perhatikan ia diberi array berisi satu kelas, bukan dipanggil kosong: memalsukan **semua** event akan ikut mematikan event internal Laravel yang mungkin dibutuhkan alur ini — dan tesnya gagal karena alasan yang tidak ada hubungannya.',
+      ),
+      p(
+        'Yang diuji di sini adalah **kontrak antara controller dan listener**, bukan efek akhirnya. Tes ini membuktikan endpoint memancarkan event yang benar; apakah notifikasinya terkirim adalah tanggung jawab tes listener secara terpisah. Pemisahan itu membuat keduanya cepat dan tidak saling menggagalkan.',
+      ),
+      p(
+        'Closure pada `assertDispatched` yang membuat assertion ini bermakna. Tanpanya, tes hanya membuktikan "ada event `ArtikelDiterbitkan` yang dipancarkan" — dan itu tetap hijau kalau kodenya keliru memancarkan event untuk artikel **yang salah**. `fn ($e) => $e->artikel->is($artikel)` memeriksa artikel di dalam event benar-benar yang dimaksud; perhatikan `->is(...)` dipakai alih-alih `==`, karena ia membandingkan kunci primer dan tabelnya, bukan seluruh atribut yang bisa berbeda setelah disimpan.',
       ),
       callout(
         'warning',
@@ -1788,6 +2137,15 @@ export const lessons: LessonDraft[] = [
         * * * * * cd /var/www/app && php artisan schedule:run >> /dev/null 2>&1
         `,
       ),
+      p(
+        'Tiga bentuk penjadwalan untuk tiga kebutuhan berbeda. `Schedule::command` menjalankan perintah artisan, dan ini bentuk yang paling sering dipakai karena perintahnya juga bisa dijalankan manual saat menyelidiki masalah. `Schedule::job` menaruh pekerjaannya ke **antrean**, sehingga penjadwal tidak menunggu selesai dan pekerjaan berat berjalan di worker. `Schedule::call` menjalankan closure langsung di proses penjadwal, praktis untuk hal ringan, tetapi pekerjaan berat di sana akan menahan `schedule:run` sampai menit berikutnya.',
+      ),
+      p(
+        'Baris cron di blok kedua adalah bagian yang paling sering mengejutkan, sebab **hanya ada satu entri untuk seluruh jadwal** dan ia berjalan setiap menit. Server tidak tahu apa pun tentang isi jadwalmu, karena `schedule:run` yang memeriksa tugas mana yang jatuh tempo menit ini. Konsekuensinya bagus, sebab menambah, mengubah, atau menghapus jadwal cukup lewat commit dan server tidak perlu disentuh sama sekali.',
+      ),
+      p(
+        'Perhatikan `cd /var/www/app` di depan perintahnya. Cron berjalan dari direktori home, bukan dari direktori project, jadi tanpa `cd` perintahnya tidak menemukan `artisan`. Dan `>> /dev/null 2>&1` membuang keluarannya supaya cron tidak mengirim email untuk setiap menit — tetapi perhatikan itu **juga membuang pesan errornya**, dan itulah alasan pemantauan lewat `onFailure`/`pingOnSuccess` di bagian bawah menjadi wajib.',
+      ),
       callout(
         'tip',
         'Kenapa ini lebih baik daripada crontab langsung',
@@ -1817,6 +2175,15 @@ export const lessons: LessonDraft[] = [
             ->onFailure(fn () => Log::error('laporan bulanan gagal'));
         `,
       ),
+      p(
+        '`withoutOverlapping(60)` mencegah eksekusi baru dimulai kalau yang sebelumnya belum selesai — masalah nyata untuk laporan yang kadang memakan lebih lama dari jeda jadwalnya. Angka 60 itu **batas waktu kuncinya dalam menit**, dan komentar di atasnya menyebutnya wajib: tanpa batas, proses yang mati sebelum sempat melepas kunci akan memblokir tugas itu **selamanya**, dan tidak ada yang tahu sampai seseorang menyadari laporan bulanan berhenti datang.',
+      ),
+      p(
+        '`onOneServer()` menutup masalah yang muncul begitu aplikasimu berjalan di lebih dari satu instance. Tanpa itu, **setiap** server menjalankan jadwal yang sama — tiga instance berarti laporan dibuat tiga kali dan email terkirim tiga kali. Perhatikan syaratnya: ia mengandalkan **cache bersama** (Redis atau database) untuk menentukan siapa yang menang. Dengan cache per-proses, ia tidak melakukan apa-apa dan diam-diam tidak menjaga apa pun.',
+      ),
+      p(
+        '`runInBackground()` menjalankan tugasnya sebagai proses terpisah, sehingga `schedule:run` selesai seketika alih-alih menunggu laporan rampung. Tanpa itu, satu tugas yang berjalan tiga menit membuat jadwal menit-menit berikutnya terlewat. Dan `timezone(\'Asia/Jakarta\')` disebut eksplisit karena server hampir selalu berjalan di UTC — "jam 2 pagi" tanpa zona waktu berarti jam 9 pagi waktu Jakarta, tepat saat trafik mulai ramai.',
+      ),
       callout(
         'danger',
         'Tanpa `onOneServer`, setiap server menjalankannya',
@@ -1832,6 +2199,15 @@ export const lessons: LessonDraft[] = [
         php artisan schedule:work        # jalankan penjadwal di foreground
         `,
       ),
+      p(
+        '`schedule:list` adalah perintah yang paling menghemat waktu, dan ia menjawab pertanyaan yang tidak bisa dijawab dengan membaca `routes/console.php`: **apa yang benar-benar terdaftar, dan kapan berjalan berikutnya**. Jadwal bisa lahir dari paket pihak ketiga, dan ekspresi cron yang salah tulis tidak menimbulkan error — ia hanya tidak pernah jatuh tempo. Kolom waktu berikutnya yang menunjukkannya.',
+      ),
+      p(
+        '`schedule:test` menjalankan **satu** tugas seketika tanpa menunggu jadwalnya. Itu bedanya dengan menjalankan perintahnya langsung, sebab ia melewati seluruh pembungkus jadwal seperti `withoutOverlapping`, `onOneServer`, dan `onFailure`, sehingga kamu menguji tugasnya beserta penjagaannya alih-alih hanya isinya.',
+      ),
+      p(
+        '`schedule:work` menjalankan penjadwal di foreground, memeriksa setiap menit seperti cron akan melakukannya. Ini yang kamu pakai di **lingkungan pengembangan** sebagai pengganti entri cron — jalankan di satu terminal, dan jadwalmu hidup selama kamu bekerja tanpa perlu menyentuh crontab laptop.',
+      ),
 
       h2('Tugas berkala yang hampir selalu dibutuhkan'),
       table(
@@ -1841,7 +2217,7 @@ export const lessons: LessonDraft[] = [
           ['Hapus job gagal yang lama', 'Mingguan', 'Sama'],
           ['Bersihkan berkas sementara', 'Setiap jam', 'Disk penuh'],
           ['Hapus data soft-delete lewat retensi', 'Harian', 'Kewajiban privasi'],
-          ['Segarkan cache mahal', 'Sesuai kebutuhan', 'Cegah cache dingin saat trafik tinggi'],
+          ['Segarkan cache mahal', 'Sesuai kebutuhan', 'Cegah cold cache saat trafik tinggi'],
           ['Kirim ringkasan/laporan', 'Sesuai kebutuhan', 'Kebutuhan bisnis'],
         ],
       ),
@@ -1860,6 +2236,15 @@ export const lessons: LessonDraft[] = [
             // mereka yang memberi tahu kamu.
             ->pingOnSuccess(config('layanan.heartbeat_url'));
         `,
+      ),
+      p(
+        'Dua hook ini menutup **dua jenis kegagalan yang berbeda**, dan itulah kenapa keduanya perlu. `onFailure` menangani tugas yang berjalan lalu gagal — ia punya error, dan errornya bisa dicatat. Komentar di dalamnya menyebut syarat yang menentukan: kirim ke saluran yang **benar-benar dibaca orang**. Log yang tidak pernah dibuka bukan pemantauan.',
+      ),
+      p(
+        '`pingOnSuccess` menangani kegagalan yang jauh lebih sulit, yaitu tugas yang **tidak pernah berjalan sama sekali**. Cron mati, `schedule:run` tidak ikut terpasang di server baru, atau kunci `withoutOverlapping` tersangkut, dan tidak ada error yang bisa ditangkap karena tidak ada apa pun yang terjadi. `onFailure` tidak menolong di sini, sebab ia hanya menyala kalau tugasnya sempat berjalan.',
+      ),
+      p(
+        'Komentar terakhir menjelaskan pembalikan yang menyelesaikannya: **yang dipantau adalah ketiadaan sinyal**. Setiap kali tugas berhasil, ia mengirim ping ke layanan pemantau. Kalau ping berhenti datang lebih lama dari yang diharapkan, layanan itu yang memberi tahu kamu. Perhatikan `config(...)` dipakai alih-alih `env(...)` — sesuai aturan di sub-bab 5.10, memanggil `env()` di luar berkas config akan mengembalikan `null` begitu konfigurasinya di-cache di produksi, dan pemantauanmu diam-diam berhenti bekerja.',
       ),
       callout(
         'warning',
@@ -1945,7 +2330,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'cache bukan penutup query lambat',
           meaning:
-            'Kalau query lambat karena kekurangan index, cache hanya **menyembunyikannya** — dan kelambatannya kembali setiap kali cache dingin, biasanya justru setelah deploy saat trafik sedang tinggi.',
+            'Kalau query lambat karena kekurangan index, cache hanya **menyembunyikannya** — dan kelambatannya kembali setiap kali cache-nya cold, biasanya justru setelah deploy saat trafik sedang tinggi.',
         },
       ),
 
@@ -1969,6 +2354,15 @@ export const lessons: LessonDraft[] = [
         $q = Artikel::terbit()->with('penulis');
         dd($q->toRawSql());
         `,
+      ),
+      p(
+        '`whenQueryingForLongerThan(500, ...)` memasang jaring yang menangkap query lambat **saat kamu bekerja**, bukan setelah pengguna mengeluh. Angka 500 itu milidetik, dan nilainya sengaja rendah — di laptop dengan data uji sedikit, query yang menyentuh ambang itu hampir pasti akan jauh lebih buruk di produksi dengan data sungguhan.',
+      ),
+      p(
+        'Perhatikan yang dicatat adalah `$q->sql` **dan** `$q->time`. Tanpa waktunya, kamu tahu query mana yang lambat tetapi tidak tahu seberapa — dan itu menentukan mana yang layak diperbaiki lebih dulu. Pasang ini di service provider dan pagari dengan `! app()->isProduction()`, seperti tiga setelan pencegah N+1 di sub-bab 6.3.',
+      ),
+      p(
+        '`toRawSql()` menutup langkah berikutnya, yaitu melihat SQL yang **benar-benar dihasilkan** lengkap dengan nilainya, sehingga bisa disalin langsung ke `psql` untuk dijalankan `EXPLAIN ANALYZE`. Ini penting karena Eloquent menyembunyikan query di balik rangkaian method yang enak dibaca, sementara scope, global scope, dan eager loading semuanya menambahkan sesuatu yang tidak terlihat dari kodenya. Perhatikan `dd()` berarti *dump and die*, sehingga ia alat penelusuran sementara yang tidak boleh tertinggal di kode yang dikirim.',
       ),
       callout(
         'tip',
@@ -2003,6 +2397,18 @@ export const lessons: LessonDraft[] = [
         );
         `,
       ),
+      p(
+        '`Cache::remember($kunci, $ttl, $closure)` menyatukan tiga langkah pola cache-aside dalam satu pemanggilan: coba cache, kalau kosong jalankan closure-nya, lalu simpan hasilnya. Closure-nya **hanya berjalan saat cache meleset** — itulah yang membuatnya lebih ringkas sekaligus lebih sulit salah daripada menulis `if (Cache::has(...))` sendiri.',
+      ),
+      p(
+        'Bagian `v1` di tengah kunci adalah trik yang menghemat banyak kesulitan. Saat bentuk data yang kamu simpan berubah, misalnya `Kategori` mendapat kolom baru, kamu **tidak perlu menghapus apa pun**. Naikkan menjadi `v2`, dan seluruh entri lama otomatis tidak pernah dicari lagi lalu kedaluwarsa sendiri lewat TTL-nya. Bandingkan dengan berusaha menemukan dan menghapus ribuan kunci lama, yang selalu menyisakan sebagian.',
+      ),
+      p(
+        'Kunci kedua menyertakan `{$user->id}`, dan komentarnya menyebutnya **wajib**. Kunci seperti `dasbor:ringkasan` yang dipakai bersama akan menyajikan dasbor Ana kepada Budi, tergantung siapa yang kebetulan mengisi cache lebih dulu. Yang membuatnya sulit ditemukan, ini IDOR yang **tidak terlihat di kode otorisasi mana pun**, karena Policy dan scope query-mu semuanya benar sementara yang bocor adalah lapisan cache di atasnya.',
+      ),
+      p(
+        'Perhatikan TTL keduanya berbeda, yaitu 3600 detik untuk kategori yang jarang berubah dan 300 detik untuk ringkasan dasbor. Nilainya adalah keputusan produk tentang **seberapa basi data ini masih boleh terlihat**, bukan angka teknis. Dan TTL juga jaring pengaman untuk invalidasi yang terlewat, sebab sepintar apa pun kamu menghapus entri saat data berubah, cepat atau lambat ada jalur yang lupa.',
+      ),
       callout(
         'danger',
         'Kunci cache tanpa identitas menyajikan data orang lain',
@@ -2021,6 +2427,15 @@ export const lessons: LessonDraft[] = [
         Cache::tags(['artikel', "penulis:{$id}"])->put($kunci, $nilai, 600);
         Cache::tags(["penulis:{$id}"])->flush();
         `,
+      ),
+      p(
+        'Komentar pada `Cache::forever` menandai jebakan yang namanya sudah jujur: ia menyimpan **tanpa masa berlaku**. Tanpa jalur invalidasi yang benar-benar dijalankan di setiap tempat yang mengubah datanya, entri itu akan menyajikan data basi selamanya — dan tidak ada TTL yang menyelamatkan. Pakai hanya kalau kamu memang mengelola pembersihannya dengan sadar.',
+      ),
+      p(
+        '`Cache::tags` menyelesaikan masalah yang tidak bisa dijawab `forget` satu per satu, yaitu **membatalkan sekelompok entri sekaligus**. Menandai entri dengan `"penulis:{$id}"` berarti satu `flush()` membersihkan semua cache milik penulis itu, mulai dari daftar artikelnya, ringkasannya, sampai hitungannya, tanpa kamu perlu tahu satu per satu kunci yang pernah dibuat.',
+      ),
+      p(
+        'Perhatikan komentarnya menyebut batas yang penting: **hanya Redis dan Memcached** yang mendukung tag. Dengan driver `file` atau `database`, pemanggilan ini melempar. Itu berarti kode yang memakainya mengikat aplikasimu pada driver tertentu — dan lingkungan pengujian yang memakai driver `array` perlu diperiksa mendukungnya.',
       ),
 
       h2('Cache respons'),
@@ -2043,6 +2458,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Perhatikan `$halaman` masuk ke dalam kunci cache. Itu penerapan aturan dari sub-bab 4.5: **setiap nilai yang memengaruhi hasil wajib ada di kuncinya**. Tanpa itu, halaman 1 dan halaman 2 berbagi satu slot — pengguna berpindah halaman dan melihat isi halaman sebelumnya. Kalau endpoint ini nanti menerima filter kategori atau urutan, keduanya harus ikut ke kunci juga.',
+      ),
+      p(
+        'Yang di-cache adalah **hasil akhir yang sudah diserialisasi** (`->response()->getData(true)`), bukan koleksi model. Itu disengaja: menyimpan objek Eloquent ke cache berarti menyerialisasi seluruh model beserta relasinya, dan mengambilnya kembali tetap butuh pekerjaan. Menyimpan array hasil jadi membuat cache hit hampir tanpa biaya.',
+      ),
+      p(
+        'Baris terakhir menambahkan **lapisan cache kedua** di sisi klien lewat header `Cache-Control`. Keduanya bekerja di tempat berbeda: `Cache::remember` menghemat query di servermu, `max-age=60` menghemat permintaan yang bahkan tidak sampai ke server. Perhatikan `public` di sana hanya sah karena endpoint ini menyajikan **artikel terbit** yang sama untuk semua orang — untuk data privat, ia wajib `private, no-store`, sesuai aturan di sub-bab 1.8.',
+      ),
 
       h2('Cache yang harus dijalankan saat deploy'),
       code(
@@ -2056,6 +2480,15 @@ export const lessons: LessonDraft[] = [
         # Satu perintah untuk semuanya
         php artisan optimize
         `,
+      ),
+      p(
+        'Keempat perintah ini memampatkan hal yang **jarang berubah** menjadi berkas siap pakai, sehingga Laravel tidak perlu membaca dan mengurai puluhan berkas di **setiap** permintaan. Bedanya nyata di produksi, dan itulah kenapa keempatnya masuk ke langkah deploy — `php artisan optimize` menjalankan semuanya sekaligus.',
+      ),
+      p(
+        'Sebaliknya, **jangan** menjalankannya saat mengembangkan. Hasil cache tidak ikut berubah ketika kamu menyunting konfigurasi, rute, atau view — dan kamu akan menghabiskan waktu bingung mengapa perubahanmu tidak berpengaruh. Kalau terlanjur, `php artisan optimize:clear` membersihkan semuanya.',
+      ),
+      p(
+        "Peringatan berikutnya adalah konsekuensi terpenting dari `config:cache`, dan ia menjatuhkan banyak deploy. Setelah cache aktif, berkas `.env` **tidak dibaca lagi** — jadi `env()` yang dipanggil di luar folder `config/` mengembalikan `null`. Yang membuatnya menyakitkan: kodenya bekerja sempurna di lokal karena cache tidak menyala di sana, dan gejalanya baru muncul di produksi sebagai koneksi gagal atau kunci API kosong. Di luar folder config, selalu `config('nama.kunci')`.",
       ),
       callout(
         'danger',
@@ -2213,6 +2646,18 @@ export const lessons: LessonDraft[] = [
         Notification::send($pengikut, new ArtikelDiterbitkanNotif($artikel->id));
         `,
       ),
+      p(
+        'Method `via()` menentukan **saluran mana** yang dipakai, dan bentuk `array_filter` di sana menjadikannya keputusan per pengguna. Elemen yang bernilai `null` dibuang, sehingga pengguna yang mematikan notifikasi database hanya menerima email. Menghormati preferensi bukan sekadar kesopanan — di banyak yurisdiksi ia kewajiban, dan tempat menegakkannya adalah di sini, bukan di setiap pemanggilan.',
+      ),
+      p(
+        'Perhatikan konstruktornya menerima `int $artikelId`, **bukan** objek `Artikel`. Alasannya sama seperti pada job di sub-bab 6.5: notifikasi ini masuk antrean, payload-nya diserialisasi, dan data di dalamnya sudah basi saat akhirnya dikirim. `toMail` mengambil datanya segar lewat `findOrFail` — dan `findOrFail` yang melempar saat artikelnya sudah dihapus adalah perilaku yang benar, karena notifikasi untuk artikel yang tidak ada memang tidak perlu dikirim.',
+      ),
+      p(
+        'Dua method `to*` menghasilkan bentuk berbeda untuk saluran yang berbeda dari satu kelas yang sama. `toMail` menyusun email lengkap dengan tombol lewat `MailMessage`; `toArray` menyimpan data terstruktur ke tabel notifikasi, yang nanti dibaca frontend untuk menampilkan lonceng notifikasi. Perhatikan `toArray` menyimpan **id dan tipe**, bukan teks jadi — dengan begitu tampilannya bisa diubah atau diterjemahkan tanpa menyentuh baris yang sudah tersimpan.',
+      ),
+      p(
+        'Dua bentuk pemanggilan di blok kedua berbeda pada penerimanya. `$user->notify(...)` untuk satu penerima. `Notification::send($pengikut, ...)` untuk koleksi — dan bentuk itu yang menangani pengiriman massal dengan benar. Perhatikan keduanya tidak menunggu apa pun: karena notifikasinya memakai `Queueable`, pemanggilan ini hanya memasukkannya ke antrean dan langsung kembali.',
+      ),
       callout(
         'danger',
         'Notifikasi WAJIB lewat antrean',
@@ -2241,6 +2686,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Mailable dan Notification menjawab kebutuhan yang berbeda, dan memilih keliru membuat kode berlebihan. **Notification** ditujukan ke seorang pengguna dan bisa lewat banyak saluran — email, database, Slack. **Mailable** hanya email, tetapi memberi kendali penuh atas isinya; ia yang kamu pakai untuk email yang tidak menempel pada pengguna, seperti faktur ke alamat penagihan atau laporan ke tim.',
+      ),
+      p(
+        'Perhatikan konstruktornya menerima `string $nama` dan `string $url` — **nilai sederhana**, bukan objek model. Untuk mailable yang masuk antrean, itu pilihan yang lebih aman lagi daripada menyimpan id: tidak ada query saat pengiriman, dan tidak ada risiko baris yang sudah berubah. Perhatikan pula properti dideklarasikan `public`, karena view Blade-nya membaca langsung dari sana.',
+      ),
+      p(
+        "`markdown: 'mail.verifikasi'` memakai template markdown bawaan Laravel alih-alih HTML mentah. Nilainya nyata: email HTML yang tampil benar di Gmail, Outlook, dan klien ponsel adalah pekerjaan yang jauh lebih rumit daripada halaman web, dan template bawaan itu sudah diuji lintas klien. Perhatikan `implements ShouldQueue` tetap ada di sini, dengan alasan yang sama seperti notifikasi — SMTP yang lambat tidak boleh menahan permintaan pengguna.",
+      ),
 
       h2('Menguji tanpa mengirim'),
       code(
@@ -2260,6 +2714,15 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        '`Notification::fake()` **mencegah** pengiriman lalu mencatat pemanggilannya. Tanpa itu, menjalankan tes berarti benar-benar menembak SMTP — lambat, tidak konsisten, dan pada konfigurasi yang salah bisa mengirim email ke alamat sungguhan. Ini penerapan prinsip dari sub-bab 2.12: **tiru yang di luar kendalimu**, dan penyedia email jelas termasuk.',
+      ),
+      p(
+        "Perhatikan `assertSentTo` menerima **koleksi** `$penulis->pengikut`, bukan satu pengguna. Laravel memeriksa setiap anggotanya menerima notifikasi itu — jadi satu assertion membuktikan ketiganya, dan gagal kalau ada satu yang terlewat. Perhatikan pula penyiapan datanya memakai `has(User::factory()->count(3), 'pengikut')`, yang membuat penulis beserta tiga pengikutnya dalam satu pernyataan.",
+      ),
+      p(
+        'Yang diuji di sini adalah **kontrak endpoint terhadap notifikasi**, bukan isi emailnya. Apakah subjeknya benar atau tombolnya mengarah ke alamat yang tepat adalah tes terpisah untuk `toMail`. Pemisahan itu yang membuat tes ini tetap hijau saat teks emailnya diubah — perubahan kata-kata tidak boleh menggagalkan tes tentang siapa yang menerima notifikasi.',
+      ),
       code(
         'bash',
         `
@@ -2271,6 +2734,12 @@ export const lessons: LessonDraft[] = [
         MAIL_HOST=localhost
         MAIL_PORT=1025      # Mailpit
         `,
+      ),
+      p(
+        'Dua pilihan untuk kebutuhan yang berbeda. `MAIL_MAILER=log` menulis email ke berkas log alih-alih mengirimnya, dan itu paling sederhana serta cukup saat kamu hanya ingin memastikan emailnya benar-benar dipicu. Mailpit menangkapnya di kotak surat lokal dengan antarmuka web, jadi kamu bisa **melihat hasil render HTML-nya**, dan untuk email tampilan itu justru bagian yang paling sering salah.',
+      ),
+      p(
+        'Peringatan berikutnya menyebut kecelakaan yang tidak bisa dibatalkan. Satu seeder yang menjalankan notifikasi, atau satu tes yang lupa `Notification::fake()`, bisa mengirim ribuan email ke alamat pengguna sungguhan — dan email yang sudah terkirim tidak bisa ditarik kembali. Karena itu `.env` pengembangan tidak boleh pernah memuat kredensial SMTP produksi, dan `MAIL_MAILER=log` adalah nilai bawaan yang aman untuk `.env.example`.',
       ),
       callout(
         'danger',
@@ -2307,6 +2776,12 @@ export const lessons: LessonDraft[] = [
 
         // php artisan queue:work --queue=email --rest=1
         `,
+      ),
+      p(
+        "Menaruh email di jalur antreannya sendiri (`onQueue('email')`) memungkinkan **worker terpisah** melayaninya dengan aturan berbeda. Itu penting karena penyedia email punya batas kirim per detik, dan melampauinya bukan sekadar ditolak — akunmu bisa diblokir sementara, sehingga email penting seperti reset password ikut berhenti.",
+      ),
+      p(
+        'Opsi `--rest=1` menyuruh worker beristirahat satu detik di antara job, sehingga laju pengirimannya tertahan di tingkat yang aman. Perhatikan pembatasan ini **tidak bisa** dilakukan di jalur `default` tanpa ikut memperlambat semua job lain — dan itulah alasan pemisahan jalurnya diperlukan, bukan sekadar kerapian.',
       ),
       references(
         {
@@ -2382,7 +2857,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'dataset',
           meaning:
-            'Fitur Pest untuk menjalankan tes yang sama dengan **banyak masukan**. Ia yang membuat pengujian jalur gagal — input kosong, terlalu panjang, tipe salah — tidak menjadi belasan blok tes yang hampir identik.',
+            'Fitur Pest untuk menjalankan tes yang sama dengan **banyak masukan**. Ia yang membuat pengujian unhappy path, misalnya input kosong, terlalu panjang, dan tipe salah, tidak menjadi belasan blok tes yang hampir identik.',
         },
         {
           term: 'tes yang membuktikan larangan',
@@ -2420,6 +2895,15 @@ export const lessons: LessonDraft[] = [
         </php>
         `,
       ),
+      p(
+        "Trait `RefreshDatabase` di `tests/Pest.php` yang membuat setiap tes mulai dari keadaan bersih: ia membungkus tiap tes dalam transaksi lalu me-*rollback* di akhir. Itu jauh lebih cepat daripada `TRUNCATE` di setiap tes, dan hasilnya sama — tes tidak bisa saling mengotori. Perhatikan `->in('Feature')` membatasinya ke folder itu, sehingga unit test yang tidak menyentuh database tidak ikut membayar ongkos penyiapannya.",
+      ),
+      p(
+        'Komentar berhuruf besar pada `DB_DATABASE` menandai penjagaan yang tidak bisa ditawar. `RefreshDatabase` menghapus data **tanpa konfirmasi**, dan konfigurasi yang salah, entah `.env` tertukar atau variabel terbawa dari terminal lain, akan menghapus seluruh data kerjamu. Menuliskan database tes secara eksplisit di `phpunit.xml` menutup kelas kecelakaan yang tidak bisa dibatalkan.',
+      ),
+      p(
+        'Tiga baris terakhir mengganti layanan luar dengan versi yang aman dan cepat. `MAIL_MAILER=array` menampung email di memori alih-alih mengirimnya — sehingga satu tes yang lupa `Notification::fake()` tidak mengirim email ke alamat sungguhan. `QUEUE_CONNECTION=sync` menjalankan job **seketika** alih-alih menaruhnya di antrean, jadi efeknya bisa langsung diperiksa tanpa menjalankan worker. Dan `CACHE_STORE=array` memastikan cache tidak bocor antar tes.',
+      ),
 
       h2('Tes fitur'),
       code(
@@ -2447,6 +2931,15 @@ export const lessons: LessonDraft[] = [
             expect(count($res->json('data')))->toBeLessThanOrEqual(100);
         });
         `,
+      ),
+      p(
+        "Tes pertama memakai **dua** pengguna dengan jumlah artikel yang sengaja dibedakan — tiga dan lima. Angka berbeda itu bukan kebetulan: kalau keduanya tiga, tes akan tetap hijau meskipun scope pemiliknya bocor, karena jumlahnya kebetulan sama. `assertJsonCount(3, 'data')` yang membuktikan hanya milik Ana yang keluar.",
+      ),
+      p(
+        'Tes kedua menyiapkan **150** artikel untuk menguji batas 100, dan angka itu dipilih dengan alasan. Data uji harus **melebihi** ambang yang diuji; menyiapkan hanya lima puluh akan membuat tes hijau bahkan kalau batas atasnya tidak pernah dipasang. Perhatikan yang diperiksa adalah **jumlah item** yang dikembalikan, bukan status code — permintaan `?per_hal=999999` akan tetap menjawab `200`, dan yang membuktikan batasnya ditegakkan hanya panjang datanya.',
+      ),
+      p(
+        'Keduanya adalah tes **integrasi**: permintaan HTTP sungguhan melewati middleware auth, controller, sampai database. Berbeda dari unit test yang menguji satu fungsi terisolasi, yang diuji di sini adalah **kontrak yang dilihat klien** — dan kontrak itulah yang bocor kalau otorisasi atau batasnya salah.',
       ),
 
       h2('Tes yang paling berharga: yang membuktikan larangan'),
@@ -2492,6 +2985,18 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        'Tes pertama menguji `GET` **dan** `PATCH`, dan yang kedua itu yang sering terlewat — sangat lazim `GET` sudah diperbaiki sementara `PATCH` masih memakai query tanpa scope pemilik. Perhatikan artikelnya dibuat berstatus `draf`: itu memastikan yang diuji benar-benar aturan kepemilikan, bukan sekadar aturan "artikel terbit boleh dilihat siapa saja". Dan `assertNotFound` yang diharapkan, bukan `403`, sesuai keputusan di sub-bab 6.4.',
+      ),
+      p(
+        'Dua baris terakhir tes itu menutup celah yang paling halus. Status `404` **belum membuktikan apa-apa** kalau ternyata datanya sempat berubah sebelum ditolak — `PATCH` yang menulis dulu baru memeriksa izin akan tetap menghasilkan `404` sambil sudah merusak data. `$artikelBudi->fresh()` membaca ulang dari database, dan itulah bukti yang sesungguhnya.',
+      ),
+      p(
+        'Tes kedua menembakkan `penulis_id` milik Budi ke endpoint pembuatan, dan perhatikan yang diharapkan adalah `assertCreated()` — permintaannya memang **berhasil**, hanya field asingnya yang diabaikan. Inilah yang membuktikan `$fillable` beserta pembuatan lewat relasi pengguna bekerja. Ganti `$user->artikel()->create(...)` menjadi `Artikel::create($request->validated())`, dan tes ini langsung merah.',
+      ),
+      p(
+        'Tes ketiga memeriksa **seluruh respons sebagai teks** lewat `json_encode`, bukan field per field. Itu disengaja: kebocoran kolom sering muncul di tempat yang tidak kamu duga — di dalam relasi bersarang, atau di field yang baru ditambahkan bulan depan. Menyisir seluruh teks menangkapnya tanpa perlu tahu di mana. Perhatikan pola ini akan tetap menjaga meski bentuk responsnya berubah.',
+      ),
       callout(
         'tip',
         'Ketiga tes itu yang paling sering tidak ditulis',
@@ -2517,6 +3022,15 @@ export const lessons: LessonDraft[] = [
         ]);
         `,
       ),
+      p(
+        '`->with([...])` menjalankan blok tes yang **sama** untuk setiap masukan di dalamnya — lima kasus dari satu blok. Tanpa dataset, pengujian unhappy path berubah menjadi lima blok yang hampir identik, dan orang berikutnya akan menambah kasus keenam dengan menyalin-tempel lalu lupa mengubah satu bagian.',
+      ),
+      p(
+        "Kunci berupa string (`'hanya spasi'`, `'bukan string'`) adalah bagian yang paling menghemat waktu saat ada yang merah. Pest memakainya sebagai nama kasus, sehingga kegagalan berbunyi *\"menolak judul yang tidak valid with data set 'terlalu panjang'\"* — langsung menunjuk masukan mana yang lolos, tanpa perlu menghitung indeks array.",
+      ),
+      p(
+        "Kelima kasusnya sengaja menyentuh jenis kegagalan yang berbeda, dan dua di antaranya paling sering lolos ke produksi. `'   '` menguji apakah `trim` berjalan **sebelum** pemeriksaan panjang minimum — tanpa itu, judul berisi spasi lolos `required`. Dan `12345` menguji **tipe**, bukan hanya isi: aturan yang hanya memeriksa panjang akan meloloskan angka, dan itu masalah nyata pada validasi yang lebih longgar seperti di sub-bab 5.4.",
+      ),
 
       h2('Tes performa'),
       code(
@@ -2533,6 +3047,15 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        'Tes ini mengubah N+1 dari masalah performa yang tak terlihat menjadi sesuatu yang bisa **gagal**. Perhatikan letak `enableQueryLog()`: **setelah** penyiapan data, tepat sebelum permintaan. Menyalakannya di awal akan ikut menghitung tiga puluh query dari `factory()`, dan ambangnya terlampaui bahkan pada kode yang benar.',
+      ),
+      p(
+        'Angka 30 pada penyiapan dan ambang `toBeLessThan(6)` bekerja berpasangan, sebab kalau ada N+1 jumlahnya melonjak ke sekitar 31, jauh di atas ambang sehingga kegagalannya tegas. Menyiapkan hanya tiga baris akan membuat tes ini hijau **walaupun ada N+1**. Aturannya sama seperti pada tes batas paginasi, yaitu data uji harus jauh melebihi ambang yang kamu pasang.',
+      ),
+      p(
+        'Perhatikan ini melengkapi `preventLazyLoading` dari sub-bab 6.3, tidak menggantikannya. Setelan itu menangkap lazy loading **saat kamu menulisnya**; tes ini menangkap pertumbuhan query dari sebab lain — subquery di Resource, accessor yang memicu query, atau `withCount` yang hilang saat refactor.',
+      ),
 
       h2('Fake untuk yang di luar kendali'),
       code(
@@ -2547,6 +3070,15 @@ export const lessons: LessonDraft[] = [
 
         $this->travelTo(now()->addDays(31));   // uji kedaluwarsa
         `,
+      ),
+      p(
+        'Garis pemisahnya adalah **apa yang kamu kendalikan**. Penyedia email, S3, API partner, dan jam sistem semuanya di luar kendali: memanggilnya sungguhan membuat tes lambat, berbiaya, atau tidak deterministik. `Http::fake` khususnya penting untuk integrasi — tanpa itu, tesmu ikut gagal setiap kali layanan partner sedang bermasalah, padahal kodemu baik-baik saja.',
+      ),
+      p(
+        '`$this->travelTo(...)` menggeser jam yang dilihat aplikasi. Tanpa itu, menguji "token kedaluwarsa setelah 30 hari" berarti benar-benar menunggu tiga puluh hari — jadi jalur kedaluwarsa hampir tidak pernah teruji, dan bug di sana baru ketahuan dari pengguna. Perhatikan ia juga membuat pengujian yang bergantung waktu menjadi **deterministik**: tes yang lulus hari ini tidak boleh gagal karena kebetulan dijalankan lewat tengah malam.',
+      ),
+      p(
+        'Peringatan berikutnya menandai batas yang mudah tergelincir, yaitu `Queue::fake()` memverifikasi job **dikirim ke antrean** dan bukan bahwa job itu bekerja. Isi `handle()`-nya harus diuji terpisah, sebab kalau tidak kamu punya tes hijau untuk job yang selalu gagal. Dan ingat batas satu lagi dari sub-bab 2.12, yaitu **jangan meniru databasemu sendiri**, karena itu menghapus justru bagian yang paling mungkin salah.',
       ),
       callout(
         'warning',
@@ -2638,7 +3170,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'presigned upload',
           meaning:
-            'Klien mengunggah **langsung** ke storage memakai URL bertanda tangan; server hanya menerbitkan URL-nya. Ia menghindarkan server dari menangani byte-nya — dengan konsekuensi: verifikasi isi harus dilakukan **setelah** unggahan selesai.',
+            'Klien mengunggah **langsung** ke storage memakai URL bertanda tangan, sementara server hanya menerbitkan URL-nya. Ia menghindarkan server dari menangani byte-nya, dengan konsekuensi bahwa verifikasi isi harus dilakukan **setelah** unggahan selesai.',
         },
         {
           term: 'Storage::fake',
@@ -2670,6 +3202,15 @@ export const lessons: LessonDraft[] = [
             ],
         ],
         `,
+      ),
+      p(
+        "`'visibility' => 'private'` muncul di **kedua** disk, dan itu disengaja. Nilai bawaan Laravel untuk disk lokal sebenarnya sudah privat, tetapi menuliskannya eksplisit membuat keputusannya terlihat saat review — dan mencegah orang berikutnya mengiranya kelalaian lalu \"memperbaikinya\" menjadi publik.",
+      ),
+      p(
+        "Baris `'endpoint' => env('AWS_ENDPOINT')` yang membuat konfigurasi S3 ini bisa dipakai untuk penyedia lain. Cloudflare R2, MinIO, dan DigitalOcean Spaces semuanya memakai protokol yang sama dengan S3 — jadi berpindah penyedia cukup mengganti satu variabel environment, tanpa menyentuh kode aplikasi.",
+      ),
+      p(
+        'Peringatan berikutnya menyebut hal yang tidak bisa diselesaikan berkas konfigurasi ini: **kebijakan bucket ada di sisi penyedia, bukan di aplikasimu**. `visibility: private` mengatur bagaimana Laravel mengunggah berkas, tetapi bucket yang kebijakannya terbuka tetap bisa dibaca siapa pun yang menebak URL-nya — dan itu salah satu penyebab kebocoran data paling umum di dunia. Periksa di konsol penyedia, bukan hanya di sini.',
       ),
       callout(
         'danger',
@@ -2703,6 +3244,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Komentar pada `storeAs` menandai keputusan paling penting di seluruh method ini: **nama dibuat server**. `Str::uuid()` menghasilkan nama yang tidak bisa ditebak sekaligus mustahil bertabrakan, menutup path traversal lewat `../` dan penimpaan berkas orang lain sekaligus. Perhatikan `$berkas->extension()` dipakai alih-alih ekstensi dari nama kiriman — Laravel menyimpulkannya dari **isi berkasnya**, bukan dari apa yang diklaim klien.',
+      ),
+      p(
+        'Folder tujuannya menyertakan `{$request->user()->id}`, dan itu bukan sekadar kerapian. Memisahkan unggahan per pengguna membuat pembersihan saat akun dihapus menjadi satu operasi, dan membuat kebocoran akibat kesalahan jalur terbatas pada satu pengguna alih-alih semuanya.',
+      ),
+      p(
+        'Perhatikan komentar `metadata saja` pada `nama_asli`. Nama dari klien tetap **disimpan sebagai data** — untuk ditampilkan kembali ke pengguna dan dipakai di header `Content-Disposition` saat mengunduh. Yang tidak boleh adalah memakainya sebagai nama di sistem berkas. Baris rekaman database inilah yang menjadi source of truth tentang siapa pemilik berkas itu, dan yang nanti dipakai memeriksa kewenangan saat mengunduh.',
+      ),
       code(
         'php',
         `
@@ -2721,6 +3271,17 @@ export const lessons: LessonDraft[] = [
             ];
         }
         `,
+      ),
+      p(
+        'Komentar di dalamnya menandai bagian yang membedakan validasi ini dari pemeriksaan di sisi klien: **`mimes` memeriksa isi berkas**, bukan nama maupun header `Content-Type` yang dikirim klien. Laravel membaca magic byte-nya, jadi berkas `.php` yang dinamai `foto.jpg` dan dikirim dengan `Content-Type: image/jpeg` tetap ditolak.',
+      ),
+      p(
+        'Perhatikan `max:5120` bersatuan **kilobyte** dan bukan byte, jadi angkanya berarti 5 MB. Ini sumber salah tulis yang umum, sebab menuliskan `max:5242880` dengan maksud 5 MB sebenarnya mengizinkan 5 GB. Perhatikan pula aturan ini berlapis dengan batas di `php.ini` (`upload_max_filesize`, `post_max_size`), sehingga batas PHP yang lebih kecil akan memotong lebih dulu dengan error yang jauh kurang ramah, dan karena itu keduanya harus diselaraskan.',
+      ),
+      callout(
+        'tip',
+        'Aturan `file` dan `mimes` menutup dua hal yang berbeda',
+        '`file` memastikan yang dikirim benar-benar unggahan yang berhasil, bukan string atau unggahan yang gagal di tengah jalan. `mimes` memastikan isinya sesuai jenis yang diizinkan. Melewatkan `file` membuat `mimes` bekerja pada sesuatu yang mungkin bukan berkas sama sekali.',
       ),
 
       h2('Menyajikan kembali dengan aman'),
@@ -2744,6 +3305,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Komentar di baris pertama menyatakan aturannya: **id berkas bukan bukti kewenangan**. Route model binding sudah mengambil `$berkas` dari database, tetapi ia sama sekali tidak memeriksa siapa pemiliknya — dan tanpa `authorize`, siapa pun yang menaikkan angka di URL bisa mengunduh berkas orang lain. Ini IDOR yang sama seperti di sub-bab 6.4, hanya hadiahnya berupa berkas utuh.',
+      ),
+      p(
+        'Tiga header di bawahnya menutup bahaya yang muncul saat **menyajikan** berkas, bukan saat menyimpannya. `Content-Type` diambil dari nilai tersimpan yang sudah diverifikasi, bukan dari apa pun yang dikirim saat mengunduh. `X-Content-Type-Options: nosniff` mencegah browser menebak sendiri tipe berkasnya dan mengeksekusinya — tanpa itu, berkas HTML atau SVG yang lolos bisa berjalan **di origin situsmu**, dan itu XSS dengan akses penuh ke sesi penggunamu. Dan `Cache-Control: private, no-store` menjaga berkas privat tidak tersimpan di CDN atau proxy bersama.',
+      ),
+      p(
+        'Perhatikan `download()` mengembalikan `StreamedResponse` — berkasnya **dialirkan**, bukan dimuat seluruhnya ke memori. Untuk berkas 500 MB, memuatnya sekaligus akan menjatuhkan proses PHP. Argumen kedua `$berkas->nama_asli` menjadi nama yang dilihat pengguna saat menyimpan, dan itulah gunanya menyimpan nama kiriman sebagai metadata tadi.',
+      ),
       code(
         'php',
         `
@@ -2751,10 +3321,16 @@ export const lessons: LessonDraft[] = [
         $url = Storage::disk('s3')->temporaryUrl($berkas->jalur, now()->addMinutes(5));
         `,
       ),
+      p(
+        'Bentuk ini menyerahkan pengunduhan **langsung ke storage**, sehingga byte-nya tidak melewati server aplikasimu sama sekali. Untuk berkas besar itu bedanya antara server yang menahan koneksi berlama-lama dan server yang hanya menerbitkan satu tautan lalu selesai.',
+      ),
+      p(
+        'Harganya disebut di peringatan berikut: **selama masa berlakunya, siapa pun yang memegang URL itu bisa mengunduhnya**. Tidak ada lagi pemeriksaan otorisasi karena permintaannya tidak sampai ke aplikasimu. Karena itu masa berlakunya dibuat hitungan **menit**, bukan jam — cukup untuk pengunduhan selesai, terlalu singkat untuk berguna kalau tautannya diteruskan atau tercatat di log akses.',
+      ),
       callout(
         'warning',
         'URL sementara tetap bisa diteruskan',
-        'Selama masa berlakunya, siapa pun yang memegang URL itu bisa mengunduhnya. Buat masanya sesingkat mungkin — hitungan menit, bukan jam — dan jangan pernah menaruhnya di tempat yang tercatat, seperti log akses atau riwayat pesan.',
+        'Selama masa berlakunya, siapa pun yang memegang URL itu bisa mengunduhnya. Buat masanya sesingkat mungkin dalam hitungan menit alih-alih jam, dan jangan pernah menaruhnya di tempat yang tercatat, seperti log akses atau riwayat pesan.',
       ),
 
       h2('Unggah langsung ke storage'),
@@ -2800,6 +3376,15 @@ export const lessons: LessonDraft[] = [
             expect($jalur)->not->toContain('foto.jpg');
         });
         `,
+      ),
+      p(
+        "`Storage::fake('s3')` mengganti disk sungguhan dengan disk tiruan di memori. Tanpa itu, menjalankan tes berarti benar-benar menulis ke bucket S3 — lambat, berbiaya, dan meninggalkan berkas sampah yang menumpuk setiap kali tes dijalankan. `UploadedFile::fake()->image(...)` melengkapinya dengan berkas gambar tiruan yang **valid secara isi**, sehingga aturan `mimes` di Form Request benar-benar teruji.",
+      ),
+      p(
+        "Dua assertion di akhir menguji hal yang berbeda, dan yang kedua paling berharga. `assertExists` membuktikan berkasnya tersimpan. `expect($jalur)->not->toContain('foto.jpg')` membuktikan **nama dari klien tidak dipakai** — dan itu satu-satunya cara memastikan penjagaan path traversal masih ada. Kalau seseorang nanti mengganti `storeAs` menjadi `store` dengan nama asli, tes ini langsung merah.",
+      ),
+      p(
+        'Perhatikan bentuk assertion-nya menguji sesuatu yang **tidak** terjadi, sama seperti tes otorisasi negatif di sub-bab 6.4. Tes yang hanya memeriksa `assertCreated()` akan tetap hijau walaupun nama berkas dari klien dipakai apa adanya — dan celah yang paling berbahaya justru yang lolos dari tes jalur sukses.',
       ),
 
       h2('Kuota dan pembersihan'),
@@ -2914,6 +3499,15 @@ export const lessons: LessonDraft[] = [
         GET    /api/ekspor/{job}            status, di-scope ke pemilik
         `,
       ),
+      p(
+        'Judulnya berbunyi "sama persis", dan itu inti latihan ini: cakupannya **identik** dengan praktik Express di sub-bab 2.13. Membangun hal yang sama dua kali dengan stack berbeda memperlihatkan mana yang benar-benar prinsip dan mana yang sekadar cara sebuah framework menuliskannya — dan tabel perbandingan di akhir sub-bab ini yang merangkumnya.',
+      ),
+      p(
+        'Perhatikan `{artikel:slug}` pada endpoint detail publik, berbeda dari `{artikel}` pada endpoint yang mengubah. Itu custom route key dari sub-bab 4.4: alamat publik memakai slug yang stabil dan ramah dibagikan, sedangkan endpoint pemilik memakai id. Syaratnya kolom `slug` harus `UNIQUE`, kalau tidak alamatnya menjadi ambigu.',
+      ),
+      p(
+        'Empat tingkat akses pada satu sumber daya artikel, yaitu publik, terautentikasi, pemilik-atau-admin, dan butuh ability khusus, adalah alasan konkret kenapa otorisasi tidak bisa diselesaikan satu middleware di depan pintu. Perhatikan pula keterangan pada `GET /api/artikel` yang berbunyi **hanya yang terbit**. Draf yang bocor ke daftar publik adalah kebocoran alih-alih sekadar bug tampilan, dan Policy tidak menjaganya karena hanya scope query yang bisa.',
+      ),
 
       h2('Langkah pengerjaan'),
       steps(
@@ -2931,7 +3525,7 @@ export const lessons: LessonDraft[] = [
         },
         {
           title: '4. Policy dan scope query',
-          body: 'Policy untuk view/update/delete/terbitkan, dengan `denyAsNotFound()` untuk data privat. Dan — yang paling sering terlewat — **scope di query** untuk endpoint daftar, karena policy tidak berlaku per baris di sana.',
+          body: 'Policy untuk view/update/delete/terbitkan, dengan `denyAsNotFound()` untuk data privat. Dan yang paling sering terlewat, **scope di query** untuk endpoint daftar, karena policy tidak berlaku per baris di sana.',
         },
         {
           title: '5. Form Request dan API Resource',
@@ -2983,6 +3577,15 @@ export const lessons: LessonDraft[] = [
         it('menolak membaca status job milik pengguna lain');
         `,
       ),
+      p(
+        'Perhatikan hampir setiap judul diawali kata **"menolak"**, **"mengabaikan"**, atau **"menyembunyikan"** — semuanya menguji sesuatu yang seharusnya **tidak** terjadi. Itulah yang membedakan daftar ini dari tes yang biasa ditulis lebih dulu. Jalur sukses adalah bagian yang paling jarang rusak di produksi, dan ia juga bagian yang sudah kamu coba puluhan kali secara manual selama membangun.',
+      ),
+      p(
+        'Perhatikan pula setiap judul menyebut **perilaku yang bisa diamati**, bukan nama kelas yang diuji. "Memberi pesan yang sama untuk email tidak ada dan password salah" tetap bermakna walau seluruh isi controller-nya ditulis ulang; "menguji MasukController" akan berhenti bermakna begitu kelasnya diganti nama.',
+      ),
+      p(
+        'Empat kelompok terakhir sering luput karena tidak terasa seperti "fitur". Kebocoran data dan batas menguji **jalur yang tidak pernah dilalui** saat mencoba manual. Tes penghitung query mengubah N+1 dari masalah yang muncul berbulan-bulan kemudian menjadi kegagalan yang terlihat saat ditambahkan. Dan dua tes job menutup dua hal yang paling mudah bocor di pekerjaan latar: idempotensi handler, dan otorisasi yang mudah terlupa karena "job kan datang dari antrean sendiri".',
+      ),
 
       h2('Membandingkan dengan versi Express'),
       table(
@@ -3017,6 +3620,15 @@ export const lessons: LessonDraft[] = [
         php artisan optimize
         curl -sI localhost:8000/api/artikel
         `,
+      ),
+      p(
+        'Empat perintah pertama adalah gerbang yang harus **hijau semua** sebelum pekerjaan disebut selesai. `pint --test` memeriksa format tanpa mengubahnya, sehingga cocok untuk CI. `phpstan analyse` menangkap kesalahan tipe dan properti yang tidak ada sebelum kodenya dijalankan. Perhatikan komentar pada `pest`: **termasuk yang negatif** — suite yang hanya berisi tes jalur sukses tidak membuktikan apa pun tentang keamanan.',
+      ),
+      p(
+        'Tiga perintah terakhir memeriksa hal yang tidak bisa dijawab dari kode. `route:list` memperlihatkan **kolom middleware setiap rute**, dan itu cara tercepat menemukan endpoint yang lupa masuk grup `auth` — kelalaian yang tidak menghasilkan error apa pun. `optimize` memastikan cache config, rute, dan view benar-benar bisa dibangun; kegagalannya di sini jauh lebih murah daripada saat deploy.',
+      ),
+      p(
+        'Dan `curl -sI` memeriksa **header pada server yang benar-benar berjalan**. Konfigurasi yang benar di berkas tetapi tidak diterapkan adalah kegagalan yang paling mudah terlewat sekaligus paling mudah dideteksi. Yang kamu cari: header keamanan ada, `X-Powered-By` **tidak** ada, dan `Cache-Control` sesuai sifat endpoint-nya.',
       ),
 
       divider,

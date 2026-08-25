@@ -58,7 +58,7 @@ export const lessons: LessonDraft[] = [
             'Singkatan *Static Site Generation* — HTML dibuat **sekali saat build**, lalu disajikan sebagai berkas statis. Tercepat dan paling murah. Website yang sedang kamu baca memakai ini untuk 377 halamannya; progres belajarmu ditambahkan di browser dari `localStorage`.',
         },
         {
-          term: 'hidrasi (hydration)',
+          term: 'hydration (hidrasi)',
           meaning:
             'Proses React "menghidupkan" HTML yang sudah dikirim server dengan menyambungkannya ke kode di browser. Kata kuncinya di sini: pada SSR klasik, hidrasi **menuntut kode komponennya ikut dikirim** — dan itulah yang diubah RSC.',
         },
@@ -73,14 +73,14 @@ export const lessons: LessonDraft[] = [
             'Format data yang dikirim server berisi hasil render Server Component. Ia bukan HTML biasa dan bukan JavaScript — ia deskripsi pohon yang React di browser tahu cara menempatkannya, tanpa perlu kode komponennya.',
         },
         {
-          term: 'perayap (crawler)',
+          term: 'crawler',
           meaning:
             'Program mesin pencari atau layanan pratinjau tautan yang membaca halamanmu. Sebagian tidak menjalankan JavaScript sama sekali — jadi pada SPA murni, yang mereka lihat cuma `<div>` kosong. Ini alasan pratinjau di WhatsApp dan Slack sering kosong pada aplikasi SPA.',
         },
         {
-          term: 'perjalanan bolak-balik (round trip)',
+          term: 'round trip (RTT)',
           meaning:
-            'Satu siklus permintaan–balasan ke server. Biaya SPA murni terletak di sini: pengguna menunggu **dua** round trip berurutan — satu untuk mengunduh bundle, satu lagi untuk mengambil datanya — sebelum melihat apa pun.',
+            'Satu siklus permintaan–balasan ke server. Biaya SPA murni terletak di sini, sebab pengguna menunggu **dua** round trip berurutan, yaitu satu untuk mengunduh bundle dan satu lagi untuk mengambil datanya, sebelum melihat apa pun.',
         },
       ),
 
@@ -98,7 +98,7 @@ export const lessons: LessonDraft[] = [
       ),
       ul(
         '**Layar kosong yang lama.** Pengguna menunggu dua perjalanan bolak-balik sebelum melihat apa pun.',
-        '**SEO lemah.** Perayap yang tidak menjalankan JavaScript hanya melihat div kosong.',
+        '**SEO lemah.** Crawler yang tidak menjalankan JavaScript hanya melihat div kosong.',
         '**Pratinjau tautan kosong.** WhatsApp, Slack, dan Twitter membaca HTML — bukan hasil render JavaScript.',
         '**Perangkat lemah dihukum dua kali.** Ia harus mengunduh **dan** menjalankan semuanya.',
       ),
@@ -157,12 +157,12 @@ export const lessons: LessonDraft[] = [
         },
       ),
       p(
-        'Baca kedua kolom sebagai **daftar apa yang diunduh browser**, karena di situlah perbedaannya. Pada SSR klasik, server merender `<Artikel />` menjadi HTML — tapi browser tetap harus mengunduh kode komponen itu untuk melakukan hidrasi, yaitu memasang kembali seluruh logika React di atas HTML yang sudah ada. Jadi kodenya benar-benar ada di dua tempat, dan bundle tumbuh setiap kali kamu menambah komponen apa pun. Pada RSC, yang dikirim adalah HTML **plus payload RSC** — deskripsi hasil render dalam bentuk data, bukan kode yang menghasilkannya. Kalimat di kurung menegaskan intinya: kode `Artikel` tidak pernah menyeberang. Konsekuensinya bukan sekadar bundle lebih kecil, melainkan **bundle yang berhenti tumbuh** untuk bagian aplikasi yang memang tidak interaktif.',
+        'Baca kedua kolom sebagai **daftar apa yang diunduh browser**, karena di situlah perbedaannya. Pada SSR klasik, server merender `<Artikel />` menjadi HTML, tetapi browser tetap harus mengunduh kode komponen itu untuk melakukan hidrasi, yaitu memasang kembali seluruh logika React di atas HTML yang sudah ada. Jadi kodenya benar-benar ada di dua tempat, dan bundle tumbuh setiap kali kamu menambah komponen apa pun. Pada RSC, yang dikirim adalah HTML **plus payload RSC**, yaitu deskripsi hasil render dalam bentuk data dan bukan kode yang menghasilkannya. Kalimat di kurung menegaskan intinya, yaitu kode `Artikel` tidak pernah menyeberang. Konsekuensinya bukan sekadar bundle lebih kecil, melainkan **bundle yang berhenti tumbuh** untuk bagian aplikasi yang memang tidak interaktif.',
       ),
       callout(
         'info',
         'Konsekuensi praktisnya',
-        'Library berat yang hanya dipakai untuk menampilkan sesuatu — pemformat tanggal, parser Markdown, penyorot sintaks — bisa dipakai di Server Component tanpa menambah satu byte pun ke bundle browser. Website ini memakai Shiki (penyorot kode) persis dengan cara itu.',
+        'Library berat yang hanya dipakai untuk menampilkan sesuatu, misalnya pemformat tanggal, parser Markdown, dan penyorot sintaks, bisa dipakai di Server Component tanpa menambah satu byte pun ke bundle browser. Website ini memakai Shiki (penyorot kode) persis dengan cara itu.',
       ),
       references(
         {
@@ -222,7 +222,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'layout.tsx',
           meaning:
-            'Pembungkus bersama untuk sebuah segmen dan seluruh turunannya. Sifat pentingnya: ia **tidak dirender ulang** saat pengguna berpindah antar anaknya. Itu sebabnya sidebar di website ini tidak melompat kembali ke atas saat kamu ganti sub-bab.',
+            'Pembungkus bersama untuk sebuah segmen dan seluruh turunannya. Sifat pentingnya: ia **tidak di-render ulang** saat pengguna berpindah antar anaknya. Itu sebabnya sidebar di website ini tidak melompat kembali ke atas saat kamu ganti sub-bab.',
         },
         {
           term: 'template.tsx',
@@ -230,14 +230,14 @@ export const lessons: LessonDraft[] = [
             'Seperti layout, tapi **dipasang ulang** setiap navigasi — state di dalamnya kembali ke awal. Dipakai ketika kamu justru menginginkan itu, misalnya animasi masuk yang harus berjalan lagi di tiap halaman.',
         },
         {
-          term: 'segmen (segment)',
+          term: 'segment (segmen)',
           meaning:
             'Satu potongan alamat yang dipisahkan garis miring. Pada `/kelas/frontend-basic/oop`, segmennya adalah `kelas`, `frontend-basic`, dan `oop`. Tiap segmen bisa punya `layout`, `loading`, dan `error` sendiri.',
         },
         {
           term: 'colocation',
           meaning:
-            'Menaruh berkas pendukung — komponen, helper, tes — di **folder rute yang sama** dengan halaman yang memakainya. Aman karena hanya `page.tsx` dan `route.ts` yang membuat rute; dan sering lebih baik daripada memindahkannya ke `components/` yang jauh.',
+            'Menaruh berkas pendukung seperti komponen, helper, dan tes di **folder rute yang sama** dengan halaman yang memakainya. Cara ini aman karena hanya `page.tsx` dan `route.ts` yang membuat rute, dan sering lebih baik daripada memindahkannya ke `components/` yang jauh.',
         },
         {
           term: 'route group',
@@ -258,7 +258,7 @@ export const lessons: LessonDraft[] = [
           ['`page.tsx`', 'Membuat rute bisa diakses publik. **Tanpa ini, folder bukan halaman.**'],
           [
             '`layout.tsx`',
-            'Pembungkus bersama; **tidak dirender ulang** saat pindah antar anaknya',
+            'Pembungkus bersama; **tidak di-render ulang** saat pindah antar anaknya',
           ],
           ['`loading.tsx`', 'Otomatis menjadi Suspense boundary untuk segmen ini'],
           ['`error.tsx`', 'Otomatis menjadi Error Boundary (wajib Client Component)'],
@@ -289,7 +289,7 @@ export const lessons: LessonDraft[] = [
         { caption: 'Struktur rute website yang sedang kamu baca, disederhanakan.' },
       ),
       p(
-        'Bandingkan kolom kiri dengan komentar alamat di kanannya: **struktur folder adalah petanya**, tanpa satu pun berkas konfigurasi rute. Perhatikan `globals.css` dan `layout.tsx` tidak menghasilkan alamat apa pun — hanya `page.tsx` yang membuat sebuah folder bisa diakses, dan itu sebabnya folder `kelas/[category]/` punya `page.tsx` sendiri agar `/kelas/frontend-basic` tetap ada. Nama folder berkurung siku seperti `[category]` menandai **segmen dinamis**: satu berkas melayani semua kategori, dan nilainya diterima komponen sebagai parameter. Tiga tingkat bersarang di bawah `kelas/` menghasilkan alamat pelajaran yang panjang itu tanpa satu baris pun kode routing — dan menambah tingkat keempat cukup dengan membuat folder baru.',
+        'Bandingkan kolom kiri dengan komentar alamat di kanannya, sebab **struktur folder adalah petanya**, tanpa satu pun berkas konfigurasi rute. Perhatikan `globals.css` dan `layout.tsx` tidak menghasilkan alamat apa pun, karena hanya `page.tsx` yang membuat sebuah folder bisa diakses, dan itu sebabnya folder `kelas/[category]/` punya `page.tsx` sendiri agar `/kelas/frontend-basic` tetap ada. Nama folder berkurung siku seperti `[category]` menandai **segmen dinamis**, sehingga satu berkas melayani semua kategori, dan nilainya diterima komponen sebagai parameter. Tiga tingkat bersarang di bawah `kelas/` menghasilkan alamat pelajaran yang panjang itu tanpa satu baris pun kode routing, dan menambah tingkat keempat cukup dengan membuat folder baru.',
       ),
 
       h2('Layout bersarang menumpuk'),
@@ -320,12 +320,12 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Hasilnya: `RootLayout` > `LayoutKelas` > `page`. Saat pengguna berpindah dari satu pelajaran ke pelajaran lain, hanya `page` yang dirender ulang — sidebar dan navigasi tetap utuh, termasuk posisi scroll-nya.',
+        'Hasilnya: `RootLayout` > `LayoutKelas` > `page`. Saat pengguna berpindah dari satu pelajaran ke pelajaran lain, hanya `page` yang di-render ulang — sidebar dan navigasi tetap utuh, termasuk posisi scroll-nya.',
       ),
       callout(
         'tip',
         'Ini alasan sidebar tidak berkedip',
-        'Di website ini, berpindah antar sub-bab tidak membuat sidebar melompat kembali ke atas. Itu bukan trik — itu konsekuensi langsung dari layout yang tidak dirender ulang.',
+        'Di website ini, berpindah antar sub-bab tidak membuat sidebar melompat kembali ke atas. Itu bukan trik — itu konsekuensi langsung dari layout yang tidak di-render ulang.',
       ),
 
       h2('Colocation: berkas lain di folder rute'),
@@ -371,7 +371,7 @@ export const lessons: LessonDraft[] = [
           label: 'layout.js',
           href: 'https://nextjs.org/docs/app/api-reference/file-conventions/layout',
           source: 'Next.js',
-          note: 'Termasuk penegasan bahwa layout tidak dirender ulang saat berpindah antar anaknya.',
+          note: 'Termasuk penegasan bahwa layout tidak di-render ulang saat berpindah antar anaknya.',
         },
         {
           label: 'template.js',
@@ -411,7 +411,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'generateStaticParams',
           meaning:
-            'Fungsi yang memberitahu Next.js **semua kombinasi `params` yang harus dibuat saat build**. Inilah yang mengubah satu berkas `page.tsx` menjadi 330 halaman HTML statis di website ini. Tanpanya, setiap kunjungan dirender di server.',
+            'Fungsi yang memberitahu Next.js **semua kombinasi `params` yang harus dibuat saat build**. Inilah yang mengubah satu berkas `page.tsx` menjadi 380 halaman HTML statis di website ini. Tanpanya, setiap kunjungan dirender di server.',
         },
         {
           term: 'catch-all segment',
@@ -467,7 +467,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perhatikan tipe `params` adalah **`Promise`**, dan itu perubahan yang paling sering menjegal orang yang mengikuti tutorial lama. Karena berupa Promise, ia harus di-`await` sebelum isinya bisa dibaca — dan itu mungkin di sini justru karena komponennya `async`, sesuatu yang hanya bisa dilakukan Server Component. Ketiga nilai yang keluar (`category`, `chapter`, `lesson`) berpasangan tepat dengan tiga folder berkurung siku di struktur rutenya. Baris `if (isi === undefined) notFound()` menutup kasus yang wajib ditangani setiap rute dinamis: alamat yang bentuknya sah tapi datanya tidak ada. `notFound()` bukan sekadar melempar error — ia memberi tahu Next.js untuk menampilkan `not-found.tsx` **beserta status HTTP 404**, sehingga mesin pencari tidak mengindeks halaman kosong sebagai halaman yang sah.',
+        'Perhatikan tipe `params` adalah **`Promise`**, dan itu perubahan yang paling sering menjegal orang yang mengikuti tutorial lama. Karena berupa Promise, ia harus di-`await` sebelum isinya bisa dibaca, dan itu mungkin di sini justru karena komponennya `async`, sesuatu yang hanya bisa dilakukan Server Component. Ketiga nilai yang keluar (`category`, `chapter`, `lesson`) berpasangan tepat dengan tiga folder berkurung siku di struktur rutenya. Baris `if (isi === undefined) notFound()` menutup kasus yang wajib ditangani setiap rute dinamis, yaitu alamat yang bentuknya sah tetapi datanya tidak ada. `notFound()` bukan sekadar melempar error, sebab ia memberi tahu Next.js untuk menampilkan `not-found.tsx` **beserta status HTTP 404**, sehingga mesin pencari tidak mengindeks halaman kosong sebagai halaman yang sah.',
       ),
       callout(
         'warning',
@@ -490,7 +490,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Inilah yang mengubah satu berkas `page.tsx` menjadi 330 halaman HTML statis di website ini. Tanpa fungsi ini, setiap kunjungan akan dirender di server.',
+        'Inilah yang mengubah satu berkas `page.tsx` menjadi 380 halaman HTML statis di website ini. Tanpa fungsi ini, setiap kunjungan akan dirender di server.',
       ),
 
       h2('Catch-all segment'),
@@ -507,7 +507,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Bedanya dengan `[slug]` biasa ada pada **jumlah segmen yang ditangkap**: `[slug]` hanya cocok untuk satu segmen, sedangkan `[...slug]` menangkap berapa pun dan menyerahkannya sebagai **array**, bukan string. Itu yang membuat satu berkas bisa melayani `/dokumen/a` maupun `/dokumen/a/b/c`. Perhatikan baris ketiga: `[...slug]` **tidak** cocok untuk `/dokumen` polos, karena ia menuntut minimal satu segmen. Bentuk kurung dua `[[...slug]]` menghapus tuntutan itu — alamat tanpa segmen tetap cocok, hanya `slug`-nya bernilai `undefined`. Karena itu kodenya wajib menangani kemungkinan `undefined`, dan pilihan antara keduanya sederhana: pakai kurung dua kalau halaman induknya sendiri juga perlu ditangani berkas yang sama.',
+        'Bedanya dengan `[slug]` biasa ada pada **jumlah segmen yang ditangkap**. `[slug]` hanya cocok untuk satu segmen, sedangkan `[...slug]` menangkap berapa pun dan menyerahkannya sebagai **array**, bukan string. Itu yang membuat satu berkas bisa melayani `/dokumen/a` maupun `/dokumen/a/b/c`. Perhatikan baris ketiga, sebab `[...slug]` **tidak** cocok untuk `/dokumen` polos, karena ia menuntut minimal satu segmen. Bentuk kurung dua `[[...slug]]` menghapus tuntutan itu, sehingga alamat tanpa segmen tetap cocok, hanya `slug`-nya bernilai `undefined`. Karena itu kodenya wajib menangani kemungkinan `undefined`, dan pilihan antara keduanya sederhana, yaitu pakai kurung dua kalau halaman induknya sendiri juga perlu ditangani berkas yang sama.',
       ),
 
       h2('Parallel route: dua halaman dalam satu layout'),
@@ -708,7 +708,7 @@ export const lessons: LessonDraft[] = [
         },
       ),
       p(
-        'Selisih 22 baris menjadi 8 itu bukan penghematan tulisan melainkan **pekerjaan yang tidak lagi perlu dilakukan**. Kolom kiri memerlukan tiga state hanya untuk melacak satu permintaan, `AbortController` untuk mencegah race condition, dan endpoint `/api/produk/[id]` terpisah yang harus ditulis, diamankan, dan dipelihara sendiri. Kolom kanan menghapus semuanya sekaligus: karena komponennya berjalan di server, ia bisa `await` langsung ke database tanpa perantara HTTP — dan tanpa perjalanan jaringan, tidak ada permintaan yang bisa saling mendahului. Keadaan memuat pun hilang dari komponen ini; ia diserahkan ke `loading.tsx` atau `Suspense` seperti dibahas sebelumnya. Yang tersisa hanya `notFound()` untuk data yang memang tidak ada — dan itu memang kondisi yang nyata, bukan konsekuensi cara pengambilan datanya.',
+        'Selisih 22 baris menjadi 8 itu bukan penghematan tulisan melainkan **pekerjaan yang tidak lagi perlu dilakukan**. Kolom kiri memerlukan tiga state hanya untuk melacak satu permintaan, `AbortController` untuk mencegah race condition, dan endpoint `/api/produk/[id]` terpisah yang harus ditulis, diamankan, dan dipelihara sendiri. Kolom kanan menghapus semuanya sekaligus. Karena komponennya berjalan di server, ia bisa `await` langsung ke database tanpa perantara HTTP, dan tanpa perjalanan jaringan tidak ada permintaan yang bisa saling mendahului. Keadaan memuat pun hilang dari komponen ini; ia diserahkan ke `loading.tsx` atau `Suspense` seperti dibahas sebelumnya. Yang tersisa hanya `notFound()` untuk data yang memang tidak ada, dan itu memang kondisi yang nyata, bukan konsekuensi cara pengambilan datanya.',
       ),
 
       h2('Query database langsung dari komponen'),
@@ -736,7 +736,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Kedua versi memanggil query yang sama dan merender komponen yang sama — bedanya **satu baris `select`**. Tanpa `select`, `findUnique` mengembalikan seluruh kolom baris itu, termasuk `passwordHash`, alamat email internal, dan apa pun yang kebetulan ada di tabelnya. Karena objek itu lalu dioper sebagai prop ke Client Component, seluruh isinya ikut diserialisasi ke payload RSC dan **bisa dibaca siapa pun yang membuka DevTools** — meski tidak satu field pun dirender di layar. Yang berbahaya dari kesalahan ini adalah ia tidak punya gejala: halamannya benar, tidak ada error, dan kebocorannya hanya terlihat kalau seseorang memeriksa payload-nya. Karena itu `select` layak diperlakukan sebagai kebiasaan, bukan optimasi — sebutkan field yang kamu butuhkan, jangan ambil semuanya lalu berharap.',
+        'Kedua versi memanggil query yang sama dan merender komponen yang sama, dan bedanya hanya **satu baris `select`**. Tanpa `select`, `findUnique` mengembalikan seluruh kolom baris itu, termasuk `passwordHash`, alamat email internal, dan apa pun yang kebetulan ada di tabelnya. Karena objek itu lalu dioper sebagai prop ke Client Component, seluruh isinya ikut diserialisasi ke payload RSC dan **bisa dibaca siapa pun yang membuka DevTools**, meski tidak satu field pun dirender di layar. Yang berbahaya dari kesalahan ini adalah ia tidak punya gejala, sebab halamannya benar, tidak ada error, dan kebocorannya hanya terlihat kalau seseorang memeriksa payload-nya. Karena itu `select` layak diperlakukan sebagai kebiasaan alih-alih optimasi, jadi sebutkan field yang kamu butuhkan, jangan ambil semuanya lalu berharap.',
       ),
 
       h2('Permintaan paralel'),
@@ -844,7 +844,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'statis vs dinamis',
           meaning:
-            'Rute **statis** dirender sekali saat build; rute **dinamis** dirender tiap permintaan. Yang penting dipahami: kamu jarang memilihnya langsung — ia **dipicu** oleh API yang kamu pakai di dalam rute itu.',
+            'Rute **statis** dirender sekali saat build, sedangkan rute **dinamis** dirender tiap permintaan. Yang penting dipahami, kamu jarang memilihnya langsung, sebab ia **dipicu** oleh API yang kamu pakai di dalam rute itu.',
         },
         {
           term: 'API dinamis',
@@ -874,7 +874,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'opsi segmen rute',
           meaning:
-            "Konstanta yang diekspor dari `page.tsx` atau `layout.tsx` untuk memaksa perilaku: `dynamic = 'force-dynamic'`, `dynamic = 'force-static'`, `dynamicParams = false`. Website ini efektif memakai yang terakhir — 330 slug sudah dikenal saat build, jadi slug lain memang seharusnya 404.",
+            "Konstanta yang diekspor dari `page.tsx` atau `layout.tsx` untuk memaksa perilaku: `dynamic = 'force-dynamic'`, `dynamic = 'force-static'`, `dynamicParams = false`. Website ini efektif memakai yang terakhir — 380 slug sudah dikenal saat build, jadi slug lain memang seharusnya 404.",
         },
         {
           term: 'keluaran build',
@@ -918,7 +918,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Kelima baris memanggil `fetch` yang sama persis — yang berbeda hanya opsi keduanya, dan tiap opsi menjawab pertanyaan berbeda. `force-cache` menyimpan selamanya sampai kamu sendiri yang membatalkannya, cocok untuk data yang praktis tidak berubah. `revalidate: 3600` memberi masa berlaku, sehingga datanya menyegarkan diri tiap jam tanpa kamu mengurusnya. `no-store` menutup cache sepenuhnya, dan itu yang kamu butuhkan untuk data per-pengguna seperti keranjang atau saldo. Baris terakhir berbeda sifat dari ketiganya: `tags` **tidak mengatur kapan cache kedaluwarsa**, ia memberi nama supaya cache itu bisa dibatalkan dari tempat lain — mekanismenya dibahas di bagian invalidasi. Perhatikan opsi ini menempel pada tiap pemanggilan, jadi satu halaman bisa memuat data yang di-cache berbeda-beda sesuai kebutuhannya.',
+        'Kelima baris memanggil `fetch` yang sama persis, dan yang berbeda hanya opsi keduanya, dengan tiap opsi menjawab pertanyaan berbeda. `force-cache` menyimpan selamanya sampai kamu sendiri yang membatalkannya, cocok untuk data yang praktis tidak berubah. `revalidate: 3600` memberi masa berlaku, sehingga datanya menyegarkan diri tiap jam tanpa kamu mengurusnya. `no-store` menutup cache sepenuhnya, dan itu yang kamu butuhkan untuk data per-pengguna seperti keranjang atau saldo. Baris terakhir berbeda sifat dari ketiganya, sebab `tags` **tidak mengatur kapan cache kedaluwarsa** melainkan memberi nama supaya cache itu bisa dibatalkan dari tempat lain, dan mekanismenya dibahas di bagian invalidasi. Perhatikan opsi ini menempel pada tiap pemanggilan, jadi satu halaman bisa memuat data yang di-cache berbeda-beda sesuai kebutuhannya.',
       ),
       callout(
         'warning',
@@ -955,7 +955,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Ini pasangan dari `tags` tadi, dan bersama-sama keduanya menyelesaikan masalah yang tidak bisa dijawab masa berlaku: **cache yang harus basi tepat saat datanya berubah, bukan setelah satu jam.** Perhatikan `revalidateTag('produk')` dipanggil **setelah** penulisan ke database berhasil — urutan itu penting, karena membatalkan cache sebelum data benar-benar tersimpan hanya akan mengisi ulang cache dengan data lama. Satu pemanggilan ini menandai basi **semua** `fetch` bertag `'produk'` di seluruh aplikasi, di halaman mana pun — itu keunggulannya atas membatalkan per-URL, karena kamu tidak perlu tahu halaman apa saja yang kebetulan menampilkan produk. Perhatikan juga direktif `'use server'` di baris pertama: invalidasi hanya bisa dilakukan dari kode yang berjalan di server.",
+        "Ini pasangan dari `tags` tadi, dan bersama-sama keduanya menyelesaikan masalah yang tidak bisa dijawab masa berlaku, yaitu **cache yang harus basi tepat saat datanya berubah, bukan setelah satu jam.** Perhatikan `revalidateTag('produk')` dipanggil **setelah** penulisan ke database berhasil, dan urutan itu penting karena membatalkan cache sebelum data benar-benar tersimpan hanya akan mengisi ulang cache dengan data lama. Satu pemanggilan ini menandai basi **semua** `fetch` bertag `'produk'` di seluruh aplikasi, di halaman mana pun, dan itulah keunggulannya atas membatalkan per-URL, karena kamu tidak perlu tahu halaman apa saja yang kebetulan menampilkan produk. Perhatikan juga direktif `'use server'` di baris pertama, sebab invalidasi hanya bisa dilakukan dari kode yang berjalan di server.",
       ),
 
       h2('Opsi segmen rute'),
@@ -973,7 +973,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Website ini memakai `dynamicParams = false` secara efektif: seluruh 330 sub-bab sudah dikenal saat build, jadi slug apa pun di luar itu memang seharusnya 404 — bukan dicoba dirender.',
+        'Website ini memakai `dynamicParams = false` secara efektif: seluruh 380 sub-bab sudah dikenal saat build, jadi slug apa pun di luar itu memang seharusnya 404 — bukan dicoba dirender.',
       ),
 
       h2('Cara memastikan apa yang sebenarnya terjadi'),
@@ -997,7 +997,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Keluaran `npm run build` ini adalah **satu-satunya jawaban yang bisa dipercaya** tentang bagaimana tiap rute dirender — bukan tebakan dari membaca kode. Tiga simbol di kolom kiri menyatakannya: `○` berarti halaman statis murni yang dibuat sekali saat build; `●` berarti statis juga, tapi dari daftar yang dihasilkan `generateStaticParams`; dan `ƒ` berarti dirender ulang **setiap permintaan**. Membiasakan diri membaca daftar ini menangkap kesalahan yang paling mahal di Next.js: satu halaman yang kamu kira statis ternyata bertanda `ƒ` karena ada satu pemanggilan API dinamis — `cookies()`, `headers()`, atau `searchParams` — yang tersembunyi di komponen anak. Periksa daftar ini setiap kali kamu menambahkan pengambilan data baru; jauh lebih murah daripada menemukannya dari tagihan server.',
+        'Keluaran `npm run build` ini adalah **satu-satunya jawaban yang bisa dipercaya** tentang bagaimana tiap rute dirender — bukan tebakan dari membaca kode. Tiga simbol di kolom kiri menyatakannya. `○` berarti halaman statis murni yang dibuat sekali saat build, `●` berarti statis juga tetapi dari daftar yang dihasilkan `generateStaticParams`, dan `ƒ` berarti di-render ulang **setiap permintaan**. Membiasakan diri membaca daftar ini menangkap kesalahan yang paling mahal di Next.js, yaitu satu halaman yang kamu kira statis ternyata bertanda `ƒ` karena ada satu pemanggilan API dinamis seperti `cookies()`, `headers()`, atau `searchParams` yang tersembunyi di komponen anak. Periksa daftar ini setiap kali kamu menambahkan pengambilan data baru, karena itu jauh lebih murah daripada menemukannya dari tagihan server.',
       ),
       callout(
         'tip',
@@ -1135,7 +1135,7 @@ export const lessons: LessonDraft[] = [
         { filename: 'src/app/catatan/aksi.ts' },
       ),
       p(
-        'Ketiga langkah bernomor itu adalah urutan yang tidak boleh ditukar, dan alasannya bukan gaya. **Validasi dulu**, karena `formData` datang dari luar dan bisa berisi apa saja — `safeParse` dipilih alih-alih `parse` supaya kegagalan dikembalikan sebagai nilai, bukan melempar error yang berakhir sebagai layar merah. **Otorisasi kedua**, karena memeriksa sesi pada data yang belum tervalidasi hanya membuang waktu. Langkah ketiga adalah yang paling sering dilanggar: `userId` diambil dari `sesi`, **bukan dari form** — kalau ia diambil dari `formData`, siapa pun bisa mengirim id orang lain dan menulis catatan atas nama mereka. Perhatikan parameter pertama `_sebelumnya` yang tidak dipakai: ia ada karena `useActionState` selalu mengoper keadaan sebelumnya sebagai argumen pertama, dan awalan garis bawah menandai bahwa itu memang sengaja diabaikan.',
+        'Ketiga langkah bernomor itu adalah urutan yang tidak boleh ditukar, dan alasannya bukan gaya. **Validasi dulu**, karena `formData` datang dari luar dan bisa berisi apa saja. `safeParse` dipilih alih-alih `parse` supaya kegagalan dikembalikan sebagai nilai, bukan melempar error yang berakhir sebagai layar merah. **Otorisasi kedua**, karena memeriksa sesi pada data yang belum tervalidasi hanya membuang waktu. Langkah ketiga adalah yang paling sering dilanggar. Nilai `userId` diambil dari `sesi` dan **bukan dari form**, sebab kalau ia diambil dari `formData`, siapa pun bisa mengirim id orang lain dan menulis catatan atas nama mereka. Perhatikan parameter pertama `_sebelumnya` yang tidak dipakai, sebab ia ada karena `useActionState` selalu mengoper keadaan sebelumnya sebagai argumen pertama, dan awalan garis bawah menandai bahwa itu memang sengaja diabaikan.',
       ),
       callout(
         'danger',
@@ -1224,12 +1224,12 @@ export const lessons: LessonDraft[] = [
         },
       ),
       p(
-        'Pembeda kedua kolom bisa diringkas satu pertanyaan: **apakah ada pihak lain yang perlu tahu alamatnya?** Server Action dipanggil dari komponenmu sendiri, dan Next.js menghasilkan alamatnya secara internal — id-nya bisa berubah antar-build, jadi ia memang tidak dirancang untuk dipublikasikan. Begitu ada pihak ketiga yang harus memanggilnya — webhook dari penyedia pembayaran, aplikasi mobile, atau integrasi partner — kamu butuh URL yang stabil dan kontrol penuh atas status code serta header responsnya, dan itu wilayah Route Handler. Catatan kedua di kolom kanan menyebut konsekuensi yang mudah dilupakan: begitu sebuah URL dipublikasikan, bentuknya menjadi **janji** yang tidak bisa kamu ubah sepihak tanpa merusak pemakainya.',
+        'Pembeda kedua kolom bisa diringkas menjadi satu pertanyaan, yaitu **apakah ada pihak lain yang perlu tahu alamatnya?** Server Action dipanggil dari komponenmu sendiri, dan Next.js menghasilkan alamatnya secara internal, sehingga id-nya bisa berubah antar-build, jadi ia memang tidak dirancang untuk dipublikasikan. Begitu ada pihak ketiga yang harus memanggilnya, entah webhook dari penyedia pembayaran, aplikasi mobile, atau integrasi partner, kamu butuh URL yang stabil dan kontrol penuh atas status code serta header responsnya, dan itu wilayah Route Handler. Catatan kedua di kolom kanan menyebut konsekuensi yang mudah dilupakan, yaitu begitu sebuah URL dipublikasikan, bentuknya menjadi **janji** yang tidak bisa kamu ubah sepihak tanpa merusak pemakainya.',
       ),
       callout(
         'warning',
         'Jangan mengembalikan data sensitif dari Server Action',
-        'Nilai kembaliannya dikirim ke browser. Kembalikan status dan pesan yang aman dibaca siapa pun — bukan objek database mentah, bukan detail error internal, bukan stack trace.',
+        'Return valuenya dikirim ke browser. Kembalikan status dan pesan yang aman dibaca siapa pun — bukan objek database mentah, bukan detail error internal, bukan stack trace.',
       ),
       references(
         {
@@ -1359,7 +1359,7 @@ export const lessons: LessonDraft[] = [
         `,
     ),
     p(
-      'Nama fungsi yang diekspor — `GET`, `POST` — itulah yang menentukan metode HTTP mana yang ditanganinya; Next.js memanggilnya otomatis berdasarkan nama itu, tanpa kamu perlu mendaftarkannya di tempat lain. `GET` di atas membaca parameter query lewat `new URL(request.url).searchParams`, karena `request` di Route Handler adalah objek `Request` bawaan web, bukan sesuatu yang khusus Next.js. `POST` menunjukkan urutan yang wajib ada di setiap endpoint yang mengubah data: **autentikasi lebih dulu** (`ambilSesi`, kembalikan `401` kalau gagal), **baru validasi** (`safeParse`, kembalikan `400` dengan pesan generik kalau gagal), **baru tulis ke database** — dan `pemilikId: sesi.userId` diambil dari sesi yang sudah diverifikasi, bukan dari `isi` yang dikirim klien, supaya seseorang tidak bisa membuat produk atas nama pengguna lain hanya dengan mengubah body permintaannya.',
+      'Nama fungsi yang diekspor, yaitu `GET` dan `POST`, itulah yang menentukan metode HTTP mana yang ditanganinya. Next.js memanggilnya otomatis berdasarkan nama itu, tanpa kamu perlu mendaftarkannya di tempat lain. `GET` di atas membaca parameter query lewat `new URL(request.url).searchParams`, karena `request` di Route Handler adalah objek `Request` bawaan web, bukan sesuatu yang khusus Next.js. `POST` menunjukkan urutan yang wajib ada di setiap endpoint yang mengubah data, yaitu **autentikasi lebih dulu** (`ambilSesi`, kembalikan `401` kalau gagal), **baru validasi** (`safeParse`, kembalikan `400` dengan pesan generik kalau gagal), lalu **baru tulis ke database**. Nilai `pemilikId: sesi.userId` diambil dari sesi yang sudah diverifikasi, bukan dari `isi` yang dikirim klien, supaya seseorang tidak bisa membuat produk atas nama pengguna lain hanya dengan mengubah body permintaannya.',
     ),
 
     h2('Metode yang didukung'),
@@ -1675,7 +1675,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'Open Graph',
           meaning:
-            'Standar yang dipakai WhatsApp, Slack, Facebook, dan LinkedIn untuk membuat **pratinjau tautan**. Tanpa tag ini, tautanmu muncul sebagai teks polos. Perlu diingat: perayapnya membaca **HTML**, bukan hasil render JavaScript.',
+            'Standar yang dipakai WhatsApp, Slack, Facebook, dan LinkedIn untuk membuat **pratinjau tautan**. Tanpa tag ini, tautanmu muncul sebagai teks polos. Perlu diingat: crawler-nya membaca **HTML**, bukan hasil render JavaScript.',
         },
         {
           term: 'Twitter Card',
@@ -1695,7 +1695,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'robots',
           meaning:
-            'Metadata yang meminta mesin pencari **tidak** mengindeks halaman ini. Kalimat kuncinya: ini permintaan **sopan** kepada perayap yang patuh — **bukan kontrol akses**. Halaman yang benar-benar privat tetap wajib dilindungi autentikasi di server.',
+            'Metadata yang meminta mesin pencari **tidak** mengindeks halaman ini. Kalimat kuncinya: ini permintaan **sopan** kepada crawler yang patuh — **bukan kontrol akses**. Halaman yang benar-benar privat tetap wajib dilindungi autentikasi di server.',
         },
       ),
 
@@ -1744,7 +1744,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        '`generateMetadata` adalah konvensi berbasis nama — cukup mengekspor fungsi `async` dengan nama persis ini dari `page.tsx`, dan Next.js memanggilnya sendiri **sebelum** merender halamannya, lalu memakai hasilnya untuk mengisi tag `<head>`. Ia menerima `params` yang sama dengan komponen halamannya (karena itu bentuknya `Promise` yang harus di-`await`, sama seperti dibahas di sub-bab dynamic route), sehingga bisa mencari pelajaran yang sama dan menghasilkan judul yang sesuai. Percabangan `if (isi === undefined)` penting: kalau slug-nya tidak dikenal, metadata tetap harus dikembalikan (judul "Tidak ditemukan") alih-alih membiarkan fungsi ini crash — komponen halamannya sendiri yang nanti memanggil `notFound()` untuk menampilkan halaman 404 yang sesungguhnya.',
+        '`generateMetadata` adalah konvensi berbasis nama, sehingga cukup mengekspor fungsi `async` dengan nama persis ini dari `page.tsx`, dan Next.js memanggilnya sendiri **sebelum** merender halamannya, lalu memakai hasilnya untuk mengisi tag `<head>`. Ia menerima `params` yang sama dengan komponen halamannya (karena itu bentuknya `Promise` yang harus di-`await`, sama seperti dibahas di sub-bab dynamic route), sehingga bisa mencari pelajaran yang sama dan menghasilkan judul yang sesuai. Percabangan `if (isi === undefined)` penting, sebab kalau slug-nya tidak dikenal, metadata tetap harus dikembalikan (judul "Tidak ditemukan") alih-alih membiarkan fungsi ini crash. Komponen halamannya sendiri yang nanti memanggil `notFound()` untuk menampilkan halaman 404 yang sesungguhnya.',
       ),
 
       h2('Open Graph & Twitter Card'),
@@ -1799,7 +1799,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Nama file `opengraph-image.tsx` di dalam segmen rute adalah konvensi berbasis file — sama seperti `page.tsx` atau `loading.tsx`, Next.js otomatis menghasilkan gambar dari berkas ini untuk rute yang bersangkutan tanpa kamu mendaftarkannya di `metadata` secara manual. Isi fungsinya menerima `params` yang sama dengan `page.tsx` di folder yang sama, sehingga bisa mengambil `isi.judul` pelajaran yang sedang dibuka dan menuliskannya ke gambar. Yang membuatnya terasa aneh pertama kali: JSX di dalam `ImageResponse` **tidak dirender sebagai HTML biasa** — ia dikonversi menjadi gambar PNG lewat mesin rendering terpisah, dan mesin itu hanya mendukung subset kecil CSS (kebanyakan properti flexbox seperti yang dipakai di atas), bukan seluruh kemampuan CSS yang biasa dipakai di komponen halaman.',
+        'Nama file `opengraph-image.tsx` di dalam segmen rute adalah konvensi berbasis file, sehingga sama seperti `page.tsx` atau `loading.tsx`, Next.js otomatis menghasilkan gambar dari berkas ini untuk rute yang bersangkutan tanpa kamu mendaftarkannya di `metadata` secara manual. Isi fungsinya menerima `params` yang sama dengan `page.tsx` di folder yang sama, sehingga bisa mengambil `isi.judul` pelajaran yang sedang dibuka dan menuliskannya ke gambar. Yang membuatnya terasa aneh pertama kali adalah JSX di dalam `ImageResponse` yang **tidak dirender sebagai HTML biasa**, sebab ia dikonversi menjadi gambar PNG lewat mesin rendering terpisah, dan mesin itu hanya mendukung subset kecil CSS (kebanyakan properti flexbox seperti yang dipakai di atas), bukan seluruh kemampuan CSS yang biasa dipakai di komponen halaman.',
       ),
 
       h2('Halaman privat: minta jangan diindeks'),
@@ -1814,7 +1814,7 @@ export const lessons: LessonDraft[] = [
       callout(
         'warning',
         '`robots` bukan kontrol akses',
-        'Itu permintaan sopan kepada perayap yang patuh — bukan penjagaan. Halaman yang benar-benar privat tetap wajib dilindungi autentikasi di server. Website yang sedang kamu baca memakai `index: false` karena ia memang untuk satu orang, tapi itu bukan yang membuatnya aman.',
+        'Itu permintaan sopan kepada crawler yang patuh — bukan penjagaan. Halaman yang benar-benar privat tetap wajib dilindungi autentikasi di server. Website yang sedang kamu baca memakai `index: false` karena ia memang untuk satu orang, tapi itu bukan yang membuatnya aman.',
       ),
 
       h2('Berkas metadata lain'),
@@ -1906,7 +1906,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'next/font/local',
           meaning:
-            'Memuat font dari berkas di dalam repo. Website ini memakainya setelah `next/font/google` — yang mengunduh font **saat build** — membuat `npm run build` gagal ketika Google tidak bisa dihubungi, pada kode yang tidak berubah sama sekali. Alasannya tercatat di ADR-0005.',
+            'Memuat font dari berkas di dalam repo. Website ini memakainya setelah `next/font/google`, yang mengunduh font **saat build**, membuat `npm run build` gagal ketika Google tidak bisa dihubungi, pada kode yang tidak berubah sama sekali. Alasannya tercatat di ADR-0005.',
         },
         {
           term: 'dynamic import',
@@ -2068,14 +2068,14 @@ export const lessons: LessonDraft[] = [
     'Menampilkan bagian yang siap lebih dulu.',
     [
       p(
-        'Tanpa streaming, server menunggu **seluruh** halaman selesai — termasuk query paling lambat — sebelum mengirim apa pun. Dengan streaming, HTML dikirim bertahap: yang siap duluan tampil duluan.',
+        'Tanpa streaming, server menunggu **seluruh** halaman selesai, termasuk query paling lambat, sebelum mengirim apa pun. Dengan streaming, HTML dikirim bertahap, sehingga yang siap duluan tampil duluan.',
       ),
 
       terms(
         {
           term: 'streaming',
           meaning:
-            'Mengirim HTML **bertahap** alih-alih sekaligus. Tanpanya, server menunggu seluruh halaman selesai — termasuk query paling lambat — sebelum mengirim apa pun. Dengan streaming, yang siap duluan tampil duluan.',
+            'Mengirim HTML **bertahap** alih-alih sekaligus. Tanpanya, server menunggu seluruh halaman selesai, termasuk query paling lambat, sebelum mengirim apa pun. Dengan streaming, yang siap duluan tampil duluan.',
         },
         {
           term: 'loading.tsx',
@@ -2202,7 +2202,7 @@ export const lessons: LessonDraft[] = [
         },
       ),
       p(
-        'Kedua kolom memakai `<Suspense>` dengan `fallback` yang sama, jadi perbedaannya bukan pada Suspense-nya melainkan pada **letak `await`-nya**. Di kolom kiri, `await ambilLambat()` berada di `Dasbor` — komponen yang **membungkus** batas Suspense. Karena itu Next.js harus menunggu data selesai sebelum bisa merender apa pun, termasuk `<Suspense>` itu sendiri; fallback-nya tidak pernah sempat terlihat, dan halamannya tetap tertahan penuh. Kolom kanan memindahkan penantian itu ke `Grafik`, komponen **di dalam** batasnya. Sekarang `Dasbor` tidak menunggu apa pun, jadi ia bisa dikirim seketika bersama skeleton, dan grafiknya menyusul saat datanya siap. Aturan yang bisa dibawa: `Suspense` tidak menunda apa pun — ia hanya menandai **batas** tempat penantian boleh terjadi, dan penantiannya harus ada di dalam batas itu.',
+        'Kedua kolom memakai `<Suspense>` dengan `fallback` yang sama, jadi perbedaannya bukan pada Suspense-nya melainkan pada **letak `await`-nya**. Di kolom kiri, `await ambilLambat()` berada di `Dasbor`, yaitu komponen yang **membungkus** batas Suspense. Karena itu Next.js harus menunggu data selesai sebelum bisa merender apa pun, termasuk `<Suspense>` itu sendiri, sehingga fallback-nya tidak pernah sempat terlihat, dan halamannya tetap tertahan penuh. Kolom kanan memindahkan penantian itu ke `Grafik`, yaitu komponen **di dalam** batasnya. Sekarang `Dasbor` tidak menunggu apa pun, jadi ia bisa dikirim seketika bersama skeleton, dan grafiknya menyusul saat datanya siap. Aturan yang bisa dibawa adalah `Suspense` tidak menunda apa pun, sebab ia hanya menandai **batas** tempat penantian boleh terjadi, dan penantiannya harus ada di dalam batas itu.',
       ),
       callout(
         'warning',
@@ -2269,7 +2269,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'reset',
           meaning:
-            'Fungsi yang diterima `error.tsx` sebagai prop. Memanggilnya membuat React mencoba merender ulang segmen yang gagal — inilah yang menjadikan tombol "Coba lagi" benar-benar berfungsi, bukan sekadar memuat ulang halaman.',
+            'Fungsi yang diterima `error.tsx` sebagai prop. Memanggilnya membuat React mencoba melakukan re-render segmen yang gagal — inilah yang menjadikan tombol "Coba lagi" benar-benar berfungsi, bukan sekadar memuat ulang halaman.',
         },
         {
           term: 'digest',
@@ -2367,7 +2367,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Komentarnya menyebut hal yang paling mudah terlewat: `global-error.tsx` **menggantikan root layout**, bukan berada di dalamnya — sehingga ia wajib merender `<html>` dan `<body>` sendiri. Itu masuk akal begitu kamu tahu kapan ia dipakai: ia hanya muncul ketika **root layout itu sendiri yang gagal**, dan pada saat itu tidak ada pembungkus apa pun yang bisa diandalkan. Konsekuensinya, isinya harus sesederhana mungkin — navigasi, tema, dan provider apa pun sudah tidak tersedia. Perhatikan juga ia menerima `reset` tapi tidak menampilkan `error.message`, konsisten dengan aturan sebelumnya. Dan seperti `error.tsx`, ia wajib Client Component karena tombolnya butuh `onClick`.',
+        'Komentarnya menyebut hal yang paling mudah terlewat, yaitu `global-error.tsx` **menggantikan root layout** alih-alih berada di dalamnya, sehingga ia wajib merender `<html>` dan `<body>` sendiri. Itu masuk akal begitu kamu tahu kapan ia dipakai, sebab ia hanya muncul ketika **root layout itu sendiri yang gagal**, dan pada saat itu tidak ada pembungkus apa pun yang bisa diandalkan. Konsekuensinya, isinya harus sesederhana mungkin, karena navigasi, tema, dan provider apa pun sudah tidak tersedia. Perhatikan juga ia menerima `reset` tapi tidak menampilkan `error.message`, konsisten dengan aturan sebelumnya. Dan seperti `error.tsx`, ia wajib Client Component karena tombolnya butuh `onClick`.',
       ),
 
       h2('`not-found.tsx` dan `notFound()`'),
@@ -2403,7 +2403,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Dua blok kode di atas adalah dua sisi dari satu mekanisme. Memanggil `notFound()` di `HalamanPelajaran` **tidak** langsung merender sesuatu — ia melempar sinyal khusus yang membatalkan render halaman itu, lalu Next.js mencari berkas `not-found.tsx` terdekat naik ke atas dari segmen rute tempat `notFound()` dipanggil, dan merender itu sebagai gantinya. "Terdekat" di sini berarti kalau `app/kelas/[category]/not-found.tsx` tidak ada, Next.js naik ke `app/kelas/not-found.tsx`, lalu ke `app/not-found.tsx` di root kalau perlu. Berbeda dari `error.tsx`, `TidakDitemukan` di atas **tidak perlu** `"use client"` — ia Server Component biasa, karena tugasnya cuma menampilkan pesan statis, bukan menangkap sebuah error yang terjadi di browser.',
+        'Dua blok kode di atas adalah dua sisi dari satu mekanisme. Memanggil `notFound()` di `HalamanPelajaran` **tidak** langsung merender sesuatu, sebab ia melempar sinyal khusus yang membatalkan render halaman itu, lalu Next.js mencari berkas `not-found.tsx` terdekat naik ke atas dari segmen rute tempat `notFound()` dipanggil, dan merender itu sebagai gantinya. "Terdekat" di sini berarti kalau `app/kelas/[category]/not-found.tsx` tidak ada, Next.js naik ke `app/kelas/not-found.tsx`, lalu ke `app/not-found.tsx` di root kalau perlu. Berbeda dari `error.tsx`, `TidakDitemukan` di atas **tidak perlu** `"use client"`, sebab ia Server Component biasa yang tugasnya cuma menampilkan pesan statis, bukan menangkap sebuah error yang terjadi di browser.',
       ),
 
       h2('Yang TIDAK ditangkap `error.tsx`'),
@@ -2493,7 +2493,7 @@ export const lessons: LessonDraft[] = [
             'Paket yang membuat **build gagal** kalau sebuah berkas terimpor dari komponen klien. Nilainya: ia mengubah kesalahan diam menjadi kegagalan yang terlihat. Pasangannya `client-only` mencegah modul yang butuh `window` terimpor di server.',
         },
         {
-          term: 'gagal keras saat boot',
+          term: 'fail loudly saat boot',
           meaning:
             'Aplikasi menolak menyala kalau konfigurasinya kurang atau cacat, dengan pesan yang jelas. Ini jauh lebih mudah diperbaiki daripada aplikasi yang menyala lalu gagal misterius saat pengguna pertama datang.',
         },
@@ -2505,7 +2505,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'rotasi rahasia',
           meaning:
-            'Mengganti nilai rahasia dengan yang baru. Aturan yang tidak bisa ditawar: rahasia yang **pernah** ter-commit dan ter-push dianggap **bocor** — ia sudah ada di setiap clone, setiap fork, dan kemungkinan besar sudah terindeks. Menulis ulang riwayat git tidak menariknya kembali; satu-satunya perbaikan yang benar adalah merotasinya.',
+            'Mengganti nilai rahasia dengan yang baru. Aturan yang tidak bisa ditawar, rahasia yang **pernah** ter-commit dan ter-push dianggap **bocor**, sebab ia sudah ada di setiap clone, setiap fork, dan kemungkinan besar sudah terindeks. Menulis ulang riwayat git tidak menariknya kembali, dan satu-satunya perbaikan yang benar adalah merotasinya.',
         },
       ),
 
@@ -2524,7 +2524,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Satu prefiks memisahkan dua dunia yang sangat berbeda, dan tidak ada mekanisme lain yang mengaturnya. Dua baris pertama tetap tinggal di server: nilainya dibaca saat kode server berjalan dan **tidak pernah** ikut ke berkas JavaScript yang diunduh browser. Baris terakhir sebaliknya ditanam langsung ke dalam bundle saat build — bukan diambil saat berjalan, melainkan **disalin ke dalam kodenya**. Itu sebabnya nilainya bisa dibaca siapa pun yang membuka DevTools, dan itu pula sebabnya mengubahnya menuntut build ulang. Perhatikan komentar `.gitignore` di baris pertama: berkas ini menyimpan rahasia sungguhan, jadi ia tidak boleh masuk repositori — dan seperti disebut di kotak istilah, rahasia yang pernah ter-push harus dianggap bocor dan dirotasi, bukan sekadar dihapus dari riwayat.',
+        'Satu prefiks memisahkan dua dunia yang sangat berbeda, dan tidak ada mekanisme lain yang mengaturnya. Dua baris pertama tetap tinggal di server, karena nilainya dibaca saat kode server berjalan dan **tidak pernah** ikut ke berkas JavaScript yang diunduh browser. Baris terakhir sebaliknya ditanam langsung ke dalam bundle saat build, jadi bukan diambil saat berjalan melainkan **disalin ke dalam kodenya**. Itu sebabnya nilainya bisa dibaca siapa pun yang membuka DevTools, dan itu pula sebabnya mengubahnya menuntut build ulang. Perhatikan komentar `.gitignore` di baris pertama, sebab berkas ini menyimpan rahasia sungguhan sehingga tidak boleh masuk repositori. Seperti disebut di kotak istilah, rahasia yang pernah ter-push harus dianggap bocor dan dirotasi, bukan sekadar dihapus dari riwayat.',
       ),
       callout(
         'danger',
@@ -2565,7 +2565,7 @@ export const lessons: LessonDraft[] = [
           API_SECRET: z.string().min(32),
         });
 
-        // Gagal keras saat start, bukan diam-diam undefined di permintaan pertama.
+        // Fail loudly saat start, bukan diam-diam undefined di permintaan pertama.
         export const env = Skema.parse(process.env);
         `,
       ),
@@ -2609,7 +2609,7 @@ export const lessons: LessonDraft[] = [
           label: 'Zod — parse vs safeParse',
           href: 'https://zod.dev/basics',
           source: 'Zod',
-          note: 'Bentuk validasi konfigurasi yang gagal keras saat boot, bukan diam-diam `undefined`.',
+          note: 'Bentuk validasi konfigurasi yang fail loudly saat boot, bukan diam-diam `undefined`.',
         },
       ),
     ],
@@ -2639,7 +2639,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'session',
           meaning:
-            'Catatan di **server** yang menandai satu pengguna sedang login; browser hanya menyimpan id-nya di cookie. Keunggulannya menentukan: ia bisa **dicabut seketika** — dan itu baru terasa penting saat kamu paling membutuhkannya.',
+            'Catatan di **server** yang menandai satu pengguna sedang login; browser hanya menyimpan id-nya di cookie. Keunggulannya menentukan, sebab ia bisa **dicabut seketika**, dan itu baru terasa penting saat kamu paling membutuhkannya.',
         },
         {
           term: 'JWT',
@@ -2705,12 +2705,12 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Kelima opsi ini bukan daftar praktik baik yang bisa dipilih sebagian — masing-masing menutup celah yang berbeda, dan komentarnya sudah menandai tiga yang terpenting. `httpOnly` membuat cookie **tidak bisa dibaca JavaScript sama sekali**, sehingga celah XSS tidak otomatis berarti sesi tercuri. `secure` memastikan ia hanya melintas lewat HTTPS, menutup penyadapan di jaringan bersama. `sameSite: 'lax'` mencegah cookie ikut terkirim pada permintaan yang dipicu situs lain — pertahanan dasar terhadap CSRF, dan `lax` dipilih alih-alih `strict` supaya pengguna yang mengeklik tautan ke situsmu dari tempat lain tetap dianggap masuk. `path: '/'` membuatnya berlaku di seluruh aplikasi, dan `maxAge` dalam detik memberi umur tujuh hari — tanpa itu, cookie hilang begitu browser ditutup.",
+        "Kelima opsi ini bukan daftar praktik baik yang bisa dipilih sebagian, sebab masing-masing menutup celah yang berbeda, dan komentarnya sudah menandai tiga yang terpenting. `httpOnly` membuat cookie **tidak bisa dibaca JavaScript sama sekali**, sehingga celah XSS tidak otomatis berarti sesi tercuri. `secure` memastikan ia hanya melintas lewat HTTPS, menutup penyadapan di jaringan bersama. `sameSite: 'lax'` mencegah cookie ikut terkirim pada permintaan yang dipicu situs lain, yaitu pertahanan dasar terhadap CSRF, dan `lax` dipilih alih-alih `strict` supaya pengguna yang mengeklik tautan ke situsmu dari tempat lain tetap dianggap masuk. `path: '/'` membuatnya berlaku di seluruh aplikasi, dan `maxAge` dalam detik memberi umur tujuh hari, sebab tanpa itu cookie hilang begitu browser ditutup.",
       ),
       callout(
         'danger',
         'Jangan pernah menyimpan token sesi di `localStorage`',
-        '`localStorage` bisa dibaca JavaScript mana pun yang berjalan di halamanmu. Satu celah XSS — satu dependency yang dibajak, satu render HTML tak tersanitasi — dan seluruh token pengguna ikut tercuri. Cookie `HttpOnly` tidak bisa dibaca JavaScript sama sekali.',
+        '`localStorage` bisa dibaca JavaScript mana pun yang berjalan di halamanmu. Satu celah XSS saja, entah dependency yang dibajak atau render HTML tak tersanitasi, sudah cukup untuk membuat seluruh token pengguna ikut tercuri. Cookie `HttpOnly` tidak bisa dibaca JavaScript sama sekali.',
       ),
 
       h2('Verifikasi di tempat datanya diakses'),
@@ -2750,7 +2750,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perhatikan bahwa `ambilSesi` dibungkus `cache()` dari React, mekanisme yang sama yang dibahas di sub-bab pengambilan data awal bab ini: kalau `Header`, `Sidebar`, dan `Dasbor` yang sama-sama memanggil `ambilSesi()` dalam satu render, hanya **satu** query ke database yang benar-benar dijalankan — React membagikan hasil pemanggilan pertama ke pemanggil berikutnya dalam render yang sama. Fungsi ini juga mengembalikan `null` untuk dua kondisi berbeda yang keduanya berarti "tidak ada sesi yang sah": cookie-nya tidak ada sama sekali (`id === undefined`), atau sesinya ditemukan tapi sudah lewat `kedaluwarsa`. Pemanggilnya (`Dasbor`) tidak perlu tahu bedanya — cukup memeriksa `sesi === null` lalu mengalihkan ke halaman masuk. Pola `import \'server-only\'` di baris pertama memastikan modul ini tidak bisa diimpor Client Component sama sekali; build akan gagal kalau ada yang mencoba, sesuai aturan dari sub-bab environment variable sebelumnya.',
+        'Perhatikan bahwa `ambilSesi` dibungkus `cache()` dari React, mekanisme yang sama yang dibahas di sub-bab pengambilan data awal bab ini. Kalau `Header`, `Sidebar`, dan `Dasbor` sama-sama memanggil `ambilSesi()` dalam satu render, hanya **satu** query ke database yang benar-benar dijalankan, sebab React membagikan hasil pemanggilan pertama ke pemanggil berikutnya dalam render yang sama. Fungsi ini juga mengembalikan `null` untuk dua kondisi berbeda yang keduanya berarti "tidak ada sesi yang sah". Kemungkinannya cookie-nya tidak ada sama sekali (`id === undefined`), atau sesinya ditemukan tetapi sudah lewat `kedaluwarsa`. Pemanggilnya (`Dasbor`) tidak perlu tahu bedanya, sebab cukup memeriksa `sesi === null` lalu mengalihkan ke halaman masuk. Pola `import \'server-only\'` di baris pertama memastikan modul ini tidak bisa diimpor Client Component sama sekali, dan build akan gagal kalau ada yang mencoba, sesuai aturan dari sub-bab environment variable sebelumnya.',
       ),
 
       h2('Otorisasi harus di lapisan data'),
@@ -2954,7 +2954,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Dua perintah ini harus dijalankan **berurutan dan bersama-sama** — `npm run start` menyajikan hasil build terakhir, jadi menjalankannya tanpa build ulang hanya menampilkan versi lama. Yang kamu uji di sini bukan fiturnya melainkan **mode produksinya**: kode sudah diminifikasi, penanganan error sudah menyamarkan detail internal, dan halaman statis sudah benar-benar dibuat sebagai berkas. Seperti disebut di kotak berikut, tiga kategori bug hanya bisa muncul di mode ini — hydration mismatch yang di development hanya berupa peringatan, variabel environment yang ternyata tidak terbaca saat build, dan rute yang ternyata dinamis padahal kamu mengira statis. Sepuluh menit menjalankan ini jauh lebih murah daripada menemukan ketiganya setelah deploy.',
+        'Dua perintah ini harus dijalankan **berurutan dan bersama-sama**, sebab `npm run start` menyajikan hasil build terakhir, jadi menjalankannya tanpa build ulang hanya menampilkan versi lama. Yang kamu uji di sini bukan fiturnya melainkan **mode produksinya**, sebab kode sudah diminifikasi, penanganan error sudah menyamarkan detail internal, dan halaman statis sudah benar-benar dibuat sebagai berkas. Seperti disebut di kotak berikut, tiga kategori bug hanya bisa muncul di mode ini, yaitu hydration mismatch yang di development hanya berupa peringatan, variabel environment yang ternyata tidak terbaca saat build, dan rute yang ternyata dinamis padahal kamu mengira statis. Sepuluh menit menjalankan ini jauh lebih murah daripada menemukan ketiganya setelah deploy.',
       ),
       callout(
         'warning',
@@ -3016,7 +3016,7 @@ export const lessons: LessonDraft[] = [
     'Menerapkan seluruh bab pada kode yang sedang kamu baca.',
     [
       p(
-        'Praktik penutup Frontend Intermediate. Kamu akan membangun ulang halaman pelajaran — halaman yang sedang kamu baca sekarang — dari nol, memakai setiap konsep di bab ini. Sumber acuannya ada di depanmu: kodenya sendiri.',
+        'Praktik penutup Frontend Intermediate. Kamu akan membangun ulang halaman pelajaran, yaitu halaman yang sedang kamu baca sekarang, dari nol dengan memakai setiap konsep di bab ini. Sumber acuannya ada di depanmu, yaitu kodenya sendiri.',
       ),
 
       terms(
@@ -3038,7 +3038,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'snapshot server kosong',
           meaning:
-            'Argumen ketiga `useSyncExternalStore`. Di server tidak ada `localStorage`, jadi ia harus mengembalikan keadaan kosong — dan komponennya wajib menampilkan skeleton sampai `hydrated` bernilai true. Tanpa itu, React melaporkan hydration mismatch.',
+            'Argumen ketiga `useSyncExternalStore`. Di server tidak ada `localStorage`, jadi ia harus mengembalikan empty state — dan komponennya wajib menampilkan skeleton sampai `hydrated` bernilai true. Tanpa itu, React melaporkan hydration mismatch.',
         },
         {
           term: 'kriteria selesai',
@@ -3066,7 +3066,7 @@ export const lessons: LessonDraft[] = [
       ul(
         'URL: `/kelas/[category]/[chapter]/[lesson]`',
         'Seluruh halaman dibuat saat build (SSG), tidak ada render per permintaan.',
-        'Sidebar navigasi tidak dirender ulang saat pindah antar pelajaran.',
+        'Sidebar navigasi tidak di-render ulang saat pindah antar pelajaran.',
         'Progres belajar dari `localStorage`, tanpa ketidakcocokan hidrasi.',
         'Slug yang tidak ada menghasilkan 404 yang ramah.',
         'Bundle browser **tidak** boleh memuat isi pelajaran mana pun selain yang sedang dibuka.',
@@ -3088,7 +3088,7 @@ export const lessons: LessonDraft[] = [
         },
         {
           title: '4. Pasang layout dengan sidebar',
-          body: 'Buat `app/kelas/layout.tsx`. Bangun proyeksi navigasi di Server Component — hanya slug, judul, dan nomor — lalu oper sebagai prop. **Jangan** biarkan komponen sidebar mengimpor kurikulum.',
+          body: 'Buat `app/kelas/layout.tsx`. Bangun proyeksi navigasi di Server Component berisi slug, judul, dan nomor saja, lalu oper sebagai prop. **Jangan** biarkan komponen sidebar mengimpor kurikulum.',
         },
         {
           title: '5. Tandai batas klien di daun',
@@ -3129,7 +3129,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Komentar di baris kedua adalah bagian yang paling layak diperhatikan: tes ini **menemukan dua pelanggar yang lolos dari pemeriksaan manual.** Itu bukan kebetulan — impor terlarang tidak menghasilkan gejala apa pun, jadi tidak ada yang memicu seseorang untuk memeriksanya. Perhatikan fungsi yang dipakai bernama `imporRuntime`, bukan sekadar membaca seluruh teks berkas: `import type` dihapus saat kompilasi dan tidak menambah apa pun ke bundle, jadi menandainya sebagai pelanggaran hanya akan menghasilkan gagal palsu. Dan `expect(pelanggar).toEqual([])` sengaja membandingkan dengan array kosong alih-alih memeriksa panjangnya, supaya pesan gagalnya langsung **menyebutkan berkas mana** yang bermasalah.',
+        'Komentar di baris kedua adalah bagian yang paling layak diperhatikan, sebab tes ini **menemukan dua pelanggar yang lolos dari pemeriksaan manual.** Itu bukan kebetulan, karena impor terlarang tidak menghasilkan gejala apa pun, jadi tidak ada yang memicu seseorang untuk memeriksanya. Perhatikan fungsi yang dipakai bernama `imporRuntime` dan bukan sekadar membaca seluruh teks berkas. Bentuk `import type` dihapus saat kompilasi dan tidak menambah apa pun ke bundle, jadi menandainya sebagai pelanggaran hanya akan menghasilkan gagal palsu. Dan `expect(pelanggar).toEqual([])` sengaja membandingkan dengan array kosong alih-alih memeriksa panjangnya, supaya pesan gagalnya langsung **menyebutkan berkas mana** yang bermasalah.',
       ),
       callout(
         'tip',

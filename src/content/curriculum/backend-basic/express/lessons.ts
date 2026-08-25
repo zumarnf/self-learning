@@ -49,7 +49,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'libuv',
           meaning:
-            'Pustaka C yang menangani operasi I/O di **luar** utas JavaScript. Ia yang membuat Node bisa menunggu ribuan operasi sekaligus tanpa menghentikan kodemu. Nama `uv` dari *unicorn velociraptor* — bercandaan penulisnya, bukan singkatan teknis.',
+            'Library C yang menangani operasi I/O di **luar** utas JavaScript. Ia yang membuat Node bisa menunggu ribuan operasi sekaligus tanpa menghentikan kodemu. Nama `uv` dari *unicorn velociraptor* — bercandaan penulisnya, bukan singkatan teknis.',
         },
         {
           term: 'single-threaded',
@@ -124,6 +124,9 @@ export const lessons: LessonDraft[] = [
         └───────────────────────────┘
         `,
       ),
+      p(
+        'Kotak tengah adalah kunci yang membuat diagram ini masuk akal, yaitu libuv yang **berjalan di luar utas** kodemu. Ketika kamu memanggil query database, utasmu tidak duduk menunggu jawabannya, sebab permintaannya diserahkan ke libuv dan utasmu langsung bebas melayani permintaan berikutnya. Saat jawabannya tiba, callback-nya tidak langsung dijalankan melainkan **masuk antrean**, dan event loop baru mengambilnya ketika call stack sudah kosong. Kata "saat call stack kosong" itulah yang menjelaskan peringatan berikutnya, sebab selama kodemu masih berjalan tidak ada satu pun callback yang bisa dijemput, sepanjang apa pun antreannya.',
+      ),
       callout(
         'danger',
         'Satu perhitungan berat memblokir SEMUA pengguna',
@@ -143,6 +146,12 @@ export const lessons: LessonDraft[] = [
         const data = await fs.promises.readFile('besar.txt');
         `,
       ),
+      p(
+        'Bandingkan apa yang sebenarnya dilakukan utas pada kedua kasus. Pada `hitungBerat`, sepuluh miliar putaran `for` berjalan **di dalam** utasmu; selama itu call stack tidak pernah kosong, jadi event loop tidak bisa menjemput satu pun callback dan seluruh permintaan lain menggantung. Pada baris terakhir, `await` menyerahkan pembacaan berkas ke libuv dan **melepaskan** utasnya — kodemu berhenti di titik itu, tetapi Node bebas melayani permintaan lain sampai berkasnya siap.',
+      ),
+      p(
+        'Pelajarannya bukan "hindari operasi lambat", melainkan bedakan **menunggu** dari **bekerja**. Menunggu jaringan, disk, atau database sama sekali tidak masalah walau memakan detik, karena utasnya dilepas. Yang berbahaya adalah pekerjaan CPU yang berjalan lama di utas utama — perulangan raksasa, pengolahan gambar, kompresi, hash yang sengaja lambat seperti bcrypt dengan cost tinggi. Untuk itu pindahkan ke worker thread, proses terpisah, atau antrean job, sesuai peringatan di atas.',
+      ),
 
       h2('Versi Node'),
       code(
@@ -151,6 +160,9 @@ export const lessons: LessonDraft[] = [
         node --version     # pakai versi LTS (bernomor genap)
         npm --version
         `,
+      ),
+      p(
+        'Komentar "bernomor genap" bukan takhayul, sebab Node memberi nomor mayor genap (20, 22, 24) pada rilis yang masuk jalur **LTS**, yaitu yang didukung dan menerima perbaikan keamanan selama sekitar tiga tahun, sementara nomor ganjil adalah rilis jangka pendek untuk mencoba fitur baru. Untuk apa pun yang akan dijalankan di server, pilih yang genap. Jalankan kedua perintah ini sebelum memulai project, karena banyak pesan error yang membingungkan nanti berpangkal pada versi Node yang lebih tua daripada yang diasumsikan dokumentasi.',
       ),
       callout(
         'tip',
@@ -180,6 +192,12 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Berkas ini adalah kartu identitas project-mu, dan empat baris di dalamnya menentukan banyak hal. `"type": "module"` memberi tahu Node bahwa berkas `.js` di sini memakai `import`/`export`, bukan `require` — tanpa baris itu, `import` akan menghasilkan error sintaks. `"engines"` mencatat versi Node minimum yang dibutuhkan, sehingga orang yang memakai versi terlalu lama mendapat peringatan alih-alih error aneh di tengah jalan.',
+      ),
+      p(
+        'Bagian `scripts` mengubah perintah panjang menjadi nama pendek yang dijalankan dengan `npm run <nama>`. Perhatikan `dev` memakai `--watch`, sehingga Node akan memuat ulang server setiap kali berkasmu berubah dan kamu tidak perlu menghentikan lalu menjalankannya lagi secara manual. Perhatikan pula `start` **tidak** memakainya, karena memantau perubahan berkas adalah kebutuhan pengembangan alih-alih produksi. Tanda `^` pada `"express": "^5.1.0"` berarti "5.1.0 atau versi 5.x yang lebih baru, tapi bukan 6", dan inilah rentang yang disebut peringatan lockfile di bawah.',
+      ),
       table(
         ['', 'Untuk'],
         [
@@ -198,6 +216,12 @@ export const lessons: LessonDraft[] = [
         npm install          # untuk pengembangan; boleh memperbarui lockfile
         npm ci               # untuk CI/produksi; PATUH pada lockfile, gagal kalau tidak cocok
         `,
+      ),
+      p(
+        'Dua perintah ini sering dikira sinonim, padahal sikapnya terhadap lockfile berlawanan. `npm install` **boleh menulis ulang** `package-lock.json` — kalau ada versi 5.2.0 yang masih cocok dengan `^5.1.0`, ia akan memasangnya dan memperbarui lockfile. Itu perilaku yang tepat saat kamu sedang mengembangkan. `npm ci` melakukan kebalikannya: ia menghapus `node_modules` lalu memasang **persis** apa yang tertulis di lockfile, dan **gagal** kalau lockfile tidak cocok dengan `package.json`.',
+      ),
+      p(
+        'Kegagalan itu justru yang kamu inginkan di CI dan produksi, karena ia mengubah masalah senyap menjadi masalah yang terlihat. Tanpa `npm ci`, server bisa memasang versi yang belum pernah diuji siapa pun, dan bug yang muncul hanya di produksi jadi hampir mustahil direproduksi di laptopmu. Aturan praktisnya: `npm install` saat menambah atau memperbarui paket, `npm ci` di setiap tempat yang seharusnya menjalankan hal yang sudah teruji.',
       ),
       references(
         {
@@ -327,6 +351,12 @@ export const lessons: LessonDraft[] = [
           notes: ['Bisa top-level await', 'Sama dengan frontend'],
         },
       ),
+      p(
+        'Kedua kolom melakukan hal yang sama dengan tata bahasa berbeda, tetapi ada satu perbedaan yang bukan sekadar penulisan. Perhatikan baris impor: ESM mewajibkan `./catatan.js` lengkap dengan ekstensi, sementara CommonJS menerima `./catatan` begitu saja. Sebabnya, `require` mencari berkas di disk **saat kode berjalan** sehingga sempat mencoba beberapa kemungkinan ekstensi, sedangkan `import` diselesaikan **sebelum** kode dijalankan dan karenanya harus menunjuk berkas yang pasti. Perbedaan waktu itu pula yang menjelaskan catatan "bisa require di tengah kode": `require` boleh diletakkan di dalam `if`, sementara `import` hanya boleh di tingkat teratas berkas.',
+      ),
+      p(
+        'Bagian `__dirname` di kolom kanan sering menjadi kejutan pertama saat berpindah ke ESM. Di CommonJS ia tersedia begitu saja, sedangkan di ESM ia tidak ada dan penggantinya disusun dari `import.meta.url`, yang berupa sebuah URL alih-alih jalur berkas sehingga perlu `fileURLToPath` untuk mengubahnya. Untuk project baru pilih ESM, karena ia standar bahasa, sama dengan yang kamu pakai di frontend, dan memberi `await` di tingkat teratas berkas. CommonJS tetap perlu kamu kenali karena masih dipakai banyak tutorial dan paket npm lama.',
+      ),
 
       h2('Mengaktifkan ESM'),
       code(
@@ -352,6 +382,9 @@ export const lessons: LessonDraft[] = [
         // BENAR — ekstensi ditulis lengkap
         import { helper } from './utils.js';
         `,
+      ),
+      p(
+        'Kesalahan ini akan kamu temui cepat atau lambat, jadi kenali pesannya sekarang. Node menjawab `ERR_MODULE_NOT_FOUND` dan menyebut jalur `./utils` yang tidak ada. Ia tidak sedang bilang berkasmu hilang, sebab berkas `utils.js` ada di sana, melainkan bahwa ia tidak akan menebak ekstensinya. Perhatikan pula aturan ini berlaku untuk **jalur relatif** saja, karena impor paket npm seperti `express` tetap tanpa ekstensi sebab penyelesaiannya diatur oleh `package.json` milik paket tersebut.',
       ),
       callout(
         'warning',
@@ -489,6 +522,12 @@ export const lessons: LessonDraft[] = [
         `,
         { filename: 'server.js' },
       ),
+      p(
+        'Delapan baris itu adalah server HTTP yang utuh tanpa satu pun paket dari npm, dan itulah pesan pentingnya. Express bukan yang membuat server berjalan, melainkan hanya membuat urusannya lebih nyaman. Fungsi yang kamu berikan ke `createServer` dipanggil **setiap kali ada permintaan masuk**, dengan `req` berisi apa yang dikirim klien dan `res` sebagai alat menjawab. `writeHead` menulis baris status beserta header, sedangkan `res.end` mengirim isinya sekaligus menutup jawaban, dan tanpa memanggilnya browser akan menunggu sampai kehabisan waktu.',
+      ),
+      p(
+        'Perhatikan `JSON.stringify` harus kamu panggil sendiri, dan `Content-Type` harus kamu tulis sendiri. Keduanya nanti menjadi satu pemanggilan `res.json()` di Express. Perhatikan pula server ini menjawab hal yang sama untuk **setiap** alamat dan setiap method — `POST /apa-saja` tetap dibalas "Halo", karena belum ada yang memeriksa `req.url` maupun `req.method`. Pemeriksaan itulah yang disebut routing, dan bagian berikutnya menunjukkan seperti apa rasanya menulisnya sendiri.',
+      ),
 
       h2('Routing manual'),
       code(
@@ -517,6 +556,12 @@ export const lessons: LessonDraft[] = [
           res.end(JSON.stringify(data));
         }
         `,
+      ),
+      p(
+        "Perhatikan setiap rute menuntut **dua** pemeriksaan yang harus ditulis lengkap: `req.method` dan `url.pathname`. Lupa memeriksa method berarti `DELETE /api/catatan` ikut dijawab oleh penangan `GET`. Baris `new URL(...)` juga tidak bisa dilewati — `req.url` berisi jalur beserta query string mentah (`/api/catatan?halaman=2`), jadi tanpa diurai lebih dulu, perbandingan `=== '/api/catatan'` akan gagal begitu ada query di belakangnya.",
+      ),
+      p(
+        'Bagian regex adalah inti keluhannya. Untuk sesuatu yang di Express cukup ditulis `/api/catatan/:id`, di sini kamu harus menyusun `/^\\/api\\/catatan\\/(\\d+)$/` sendiri, mengingat `^` dan `$` agar tidak cocok separuh jalan, lalu mengambil hasil tangkapannya lewat `cocok[1]` yang selalu berupa **string** sehingga perlu `Number(...)`. Sekarang bayangkan lima belas rute dengan pola berbeda: itulah pekerjaan berulang yang diambil alih Express. Fungsi `kirimJson` di bawah adalah contoh kecil hal yang sama — ia lahir hanya untuk menghindari pengulangan `writeHead` dan `JSON.stringify` di setiap cabang, dan Express menyediakannya sebagai `res.json()`.',
       ),
 
       h2('Membaca body — bagian yang paling merepotkan'),
@@ -669,6 +714,9 @@ export const lessons: LessonDraft[] = [
         npm pkg set type=module
         `,
       ),
+      p(
+        'Empat perintah, empat tujuan. `npm init -y` membuat `package.json` dengan jawaban bawaan tanpa bertanya satu per satu — cukup untuk memulai, dan isinya bisa dirapikan kemudian. `npm install express` mengunduh Express ke `node_modules`, mencatatnya di `dependencies`, dan membuat `package-lock.json`. Baris terakhir menambahkan `"type": "module"` lewat perintah alih-alih menyunting berkasnya manual; tanpa itu, `import express from \'express\'` di berkas berikutnya akan langsung gagal dengan error sintaks.',
+      ),
 
       h2('Aplikasi minimal'),
       code(
@@ -692,6 +740,15 @@ export const lessons: LessonDraft[] = [
         });
         `,
         { filename: 'src/server.js' },
+      ),
+      p(
+        "Bandingkan dengan server `node:http` di sub-bab sebelumnya: pemeriksaan `req.method` dan `req.url` hilang, digantikan `app.get('/health', ...)` yang menyatakan keduanya sekaligus. `JSON.stringify` dan penulisan `Content-Type` juga hilang, diringkas menjadi `res.json()`. Itulah yang sebenarnya dijual Express — bukan kemampuan baru, melainkan hilangnya pekerjaan berulang yang tadi kamu tulis sendiri.",
+      ),
+      p(
+        "Dua baris `app.use()` di atas rute adalah **middleware**, dan letaknya menentukan, sebab keduanya dipasang sebelum rute mana pun sehingga berjalan untuk setiap permintaan yang masuk. `express.json()` membaca body dan mengurainya menjadi `req.body`, dan tanpa baris itu `req.body` bernilai `undefined`, salah satu kebingungan paling umum bagi pemula Express. `express.urlencoded()` menangani format yang dikirim `<form>` HTML biasa, yang berbeda dari JSON. Opsi `limit: '100kb'` menutup keduanya dari body raksasa, dan ditulis eksplisit agar keputusannya terlihat alih-alih tersembunyi sebagai nilai bawaan.",
+      ),
+      p(
+        "Baris `process.env.PORT ?? 3000` juga bukan sekadar kerapian: banyak penyedia hosting menentukan sendiri port yang harus dipakai aplikasimu lewat variabel lingkungan, jadi angka yang ditulis mati akan membuat aplikasimu tidak bisa dihubungi di sana. `Number(...)` mengelilinginya karena isi `process.env` **selalu** string — nilai `'3000'` tanpa konversi bisa diterima `listen`, tetapi kebiasaan mengonversi sejak awal menghindarkanmu dari perbandingan yang aneh nanti.",
       ),
       callout(
         'danger',
@@ -749,6 +806,12 @@ export const lessons: LessonDraft[] = [
           `,
           notes: ['Bisa diuji tanpa membuka port', 'Satu berkas untuk satu tanggung jawab'],
         },
+      ),
+      p(
+        'Perubahannya kecil, yaitu `app.listen` dipindahkan ke berkas lain dan `app` diekspor, tetapi akibatnya besar untuk pengujian. Pada kolom kiri, mengimpor berkas itu di dalam tes **ikut menjalankan** `app.listen(3000)`, karena kode di tingkat teratas modul berjalan saat modul dimuat. Artinya setiap berkas tes membuka port sungguhan, dan dua berkas tes yang berjalan bersamaan akan bertabrakan dengan `EADDRINUSE`.',
+      ),
+      p(
+        'Pada kolom kanan, `app.js` hanya **mendefinisikan** aplikasinya tanpa membuka apa pun. Tes cukup mengimpor `app` lalu mengirim permintaan langsung ke sana lewat alat seperti Supertest — tanpa port, tanpa jaringan, dan karenanya jauh lebih cepat serta bisa dijalankan paralel. Pembagiannya juga jujur secara tanggung jawab: `app.js` menjawab "apa yang dilakukan aplikasi ini", `server.js` menjawab "bagaimana ia dijalankan". Keduanya berubah karena alasan yang berbeda, jadi wajar berada di berkas yang berbeda.',
       ),
 
       h2('Mematikan server dengan benar'),
@@ -826,7 +889,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'req.params',
           meaning:
-            'Objek berisi seluruh route parameter. Karena nilainya string dan **apa pun** cocok — `/catatan/abc` juga masuk ke rute `:id` — ia wajib divalidasi sebelum dipakai, bukan langsung dilempar ke query database.',
+            'Objek berisi seluruh route parameter. Karena nilainya string dan **apa pun** cocok, sehingga `/catatan/abc` juga masuk ke rute `:id`, ia wajib divalidasi sebelum dipakai alih-alih langsung dilempar ke query database.',
         },
         {
           term: 'urutan rute',
@@ -871,6 +934,12 @@ export const lessons: LessonDraft[] = [
         app.delete('/catatan/:id', (req, res) => { /* hapus */ });
         `,
       ),
+      p(
+        'Perhatikan lima baris ini hanya memakai **dua** alamat, yaitu `/catatan` dan `/catatan/:id`. Yang membedakan kelima operasi bukan alamatnya melainkan **method**-nya, dan itulah inti gaya REST dari sub-bab 1.4. Alamat menyebut *benda* sedangkan method menyebut *tindakan*, dan karena itu tidak ada `/buatCatatan` maupun `/hapusCatatan` di sini. Perhatikan juga pola jamak-tunggalnya. `/catatan` tanpa id berurusan dengan **kumpulan**, yaitu mendaftar dan menambah anggota baru, sedangkan `/catatan/:id` berurusan dengan **satu anggota** tertentu.',
+      ),
+      p(
+        'Bagian `:id` adalah *route parameter* — tanda titik dua memberi tahu Express bahwa potongan itu berisi nilai yang berubah-ubah, bukan teks harfiah. Nilainya nanti tersedia sebagai `req.params.id`. `patch` dipakai untuk mengubah **sebagian** kolom, berbeda dari `put` yang secara semantik mengganti seluruh isi sumber daya; untuk formulir edit yang hanya mengirim kolom tertentu, `patch` yang lebih jujur.',
+      ),
 
       h2('Route parameter'),
       code(
@@ -895,6 +964,12 @@ export const lessons: LessonDraft[] = [
           const { penggunaId, catatanId } = req.params;
         });
         `,
+      ),
+      p(
+        'Komentar "SELALU string" adalah hal pertama yang harus kamu percayai di sini: URL hanyalah teks, jadi `/catatan/42` memberi `req.params.id` bernilai `\'42\'`, bukan `42`. Tanpa `Number(...)`, perbandingan `c.id === req.params.id` di dalam `find` akan **selalu** gagal karena membandingkan angka dengan string — bug yang tidak menghasilkan error, hanya hasil yang selalu kosong.',
+      ),
+      p(
+        "Pemeriksaan berikutnya menutup celah yang lebih penting. Pola `:id` mencocokkan apa saja yang bukan garis miring, jadi `/catatan/abc` juga masuk ke handler ini dan `Number('abc')` menghasilkan `NaN`. `Number.isInteger` sekaligus menolak `NaN`, angka pecahan, dan nilai bukan angka, sementara `id < 1` menolak nol dan bilangan negatif yang mustahil menjadi id sah. Perhatikan pemeriksaannya dijawab `400` dan diakhiri `return` — tanpa `return`, kode di bawahnya tetap berjalan dan Express akan mengeluh karena kamu mengirim dua respons untuk satu permintaan.",
       ),
       callout(
         'danger',
@@ -935,6 +1010,9 @@ export const lessons: LessonDraft[] = [
         `,
         { filename: 'src/routes/catatan.js' },
       ),
+      p(
+        "Perhatikan jalur di dalam berkas ini semuanya **pendek**, yaitu `'/'` dan `'/:id'` tanpa `/api/catatan` di depannya. Sebuah `Router` adalah aplikasi mini yang tidak tahu di alamat mana ia nanti dipasang, dan justru itu kekuatannya. Prefiksnya ditentukan sekali di berkas berikutnya, sehingga mengubah `/api/catatan` menjadi `/api/v2/catatan` cukup menyentuh satu baris alih-alih setiap rute. Perhatikan pula handler-nya ditulis sebagai nama fungsi seperti `daftarCatatan` dan `buatCatatan`, alih-alih fungsi panjang di tempat, sehingga berkas rute bisa dibaca sekilas sebagai daftar isi sementara logikanya tinggal di berkas lain.",
+      ),
       code(
         'js',
         `
@@ -945,6 +1023,9 @@ export const lessons: LessonDraft[] = [
         app.use('/api/catatan', catatanRouter);
         app.use('/api/pengguna', penggunaRouter);
         `,
+      ),
+      p(
+        "`app.use('/api/catatan', catatanRouter)` inilah yang menyambungkan keduanya: setiap permintaan yang alamatnya diawali `/api/catatan` diserahkan ke router itu, dengan bagian prefiksnya **dipotong** lebih dulu. Jadi `GET /api/catatan/7` sampai di router sebagai `/7`, dan cocok dengan `router.get('/:id', ...)` yang kamu tulis tadi. Berkas ini pada akhirnya berfungsi sebagai peta: satu pandangan cukup untuk tahu sumber daya apa saja yang dilayani API-mu dan di alamat mana masing-masing tinggal.",
       ),
 
       h2('Router bersarang'),
@@ -961,6 +1042,12 @@ export const lessons: LessonDraft[] = [
 
         router.use('/:catatanId/komentar', komentarRouter);
         `,
+      ),
+      p(
+        'Baris terakhir memasang router komentar **di dalam** router catatan, sehingga alamat lengkapnya menjadi `/api/catatan/:catatanId/komentar`. Bentuk bersarang seperti ini dipakai ketika sebuah sumber daya tidak punya arti tanpa induknya — sebuah komentar selalu komentar *atas sesuatu*.',
+      ),
+      p(
+        'Opsi `{ mergeParams: true }` adalah bagian yang mudah terlewat dan mahal akibatnya. Secara bawaan, setiap router hanya melihat parameter dari pola yang **ia sendiri** definisikan; `:catatanId` milik router induk, jadi tanpa opsi itu `req.params.catatanId` bernilai `undefined`. Yang membuatnya sulit dilacak adalah tidak ada error sama sekali: query-mu mencari komentar milik catatan `undefined`, mendapat nol baris, dan halamanmu tampak sekadar "belum ada komentar".',
       ),
       callout(
         'warning',
@@ -979,6 +1066,12 @@ export const lessons: LessonDraft[] = [
           });
         });
         `,
+      ),
+      p(
+        'Middleware ini tidak menyebut alamat apa pun, jadi ia cocok untuk **semua** permintaan — dan itulah sebabnya letaknya harus paling bawah. Express mencocokkan dari atas ke bawah dan berhenti pada yang pertama cocok, jadi permintaan yang sudah ditangani rute di atasnya tidak akan pernah sampai ke sini; yang tiba hanyalah yang tidak cocok dengan satu rute pun. Pindahkan blok ini ke atas, dan seluruh API-mu menjawab 404.',
+      ),
+      p(
+        'Tanpa penampung ini, Express punya penanganan 404 bawaan yang mengembalikan **HTML** berisi "Cannot GET /apa-saja". Untuk sebuah API itu jawaban yang salah bentuk: klien yang mengharapkan JSON akan gagal mem-parse-nya, dan pesan error yang muncul di sisi klien menjadi menyesatkan. Dengan blok ini, permintaan ke alamat yang keliru mendapat bentuk error yang **sama** dengan seluruh error lain di API-mu, lengkap dengan kode yang bisa diperiksa program.',
       ),
       references(
         {
@@ -1048,7 +1141,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'menitipkan data lewat req',
           meaning:
-            'Menempelkan hasil kerja middleware ke objek `req` — misalnya `req.pengguna = {...}` — supaya handler berikutnya bisa membacanya. Ini jalur resmi berbagi data antar middleware dalam satu permintaan.',
+            'Menempelkan hasil kerja middleware ke objek `req`, misalnya `req.pengguna = {...}`, supaya handler berikutnya bisa membacanya. Ini jalur resmi berbagi data antar middleware dalam satu permintaan.',
         },
         {
           term: 'identitas hanya dari yang diverifikasi',
@@ -1068,7 +1161,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'express-rate-limit',
           meaning:
-            'Middleware pembatas jumlah permintaan per pemanggil. Wajib pada endpoint sensitif — login, reset password, pencarian — supaya satu klien tidak bisa menghabiskan kapasitas untuk semua.',
+            'Middleware pembatas jumlah permintaan per pemanggil. Wajib pada endpoint sensitif seperti login, reset password, dan pencarian, supaya satu klien tidak bisa menghabiskan kapasitas untuk semua.',
         },
       ),
 
@@ -1089,6 +1182,12 @@ export const lessons: LessonDraft[] = [
         app.use(pencatat);
         `,
       ),
+      p(
+        'Sebuah middleware hanyalah fungsi dengan tiga argumen, yaitu `req`, `res`, dan `next`. Argumen ketiga itulah yang membedakannya dari handler biasa, sebab ia bukan data melainkan **tombol lanjut**. Selama `next()` belum dipanggil, permintaan berhenti di fungsi ini, dan begitu dipanggil, Express meneruskannya ke middleware atau rute berikutnya dalam antrean. Karena itu aturannya mutlak, yaitu setiap jalur keluar harus mengirim respons **atau** memanggil `next()`, tepat satu di antaranya.',
+      ),
+      p(
+        "Perhatikan pencatatan waktunya tidak ditulis sebelum `next()`, melainkan didaftarkan pada `res.on('finish')`. Alasannya sama seperti pada server mentah di Bab 1: `next()` tidak menunggu handler selesai, sehingga baris yang ditulis langsung setelahnya akan berjalan sebelum respons benar-benar terkirim — `res.statusCode` masih 200 bawaan, dan selisih waktunya nyaris nol. Peristiwa `finish` menyala saat respons sudah tuntas dikirim, dan hanya di situlah kedua angka itu bermakna.",
+      ),
       callout(
         'danger',
         'Lupa `next()` = permintaan menggantung',
@@ -1105,6 +1204,9 @@ export const lessons: LessonDraft[] = [
         app.use('/api/catatan', catatanRouter);   // 4. handler
         app.use(penanganError);         // 5. terakhir, selalu
         `,
+      ),
+      p(
+        'Urutan lima baris ini bukan selera, melainkan rantai ketergantungan. `express.json()` harus paling awal karena middleware sesudahnya membaca `req.body`; pasang ia setelah router, dan handler-mu menerima `undefined`. Pencatat diletakkan lebih awal supaya permintaan yang **ditolak** auth pun tetap tercatat — pindahkan ke bawah, dan justru permintaan mencurigakan yang hilang dari log. `autentikasi` dipasang dengan prefiks `/api` sehingga hanya menjaga rute API, bukan halaman publik atau `/health`. Penangan error selalu terakhir, karena ia menampung error dari semua yang di atasnya.',
       ),
       compare(
         {
@@ -1133,6 +1235,12 @@ export const lessons: LessonDraft[] = [
           notes: ['Penjagaan di depan pintu'],
         },
       ),
+      p(
+        'Dua baris yang sama, ditukar posisinya, dan salah satunya membuka seluruh API. Pada kolom kiri, `catatanRouter` dipasang lebih dulu sehingga ia mencocokkan permintaan, menjalankan handler, dan **mengirim respons** — antrean berhenti di situ, dan `autentikasi` di bawahnya tidak pernah dijalankan sama sekali. Tidak ada error dan tidak ada log yang mencurigakan; API-nya bekerja persis seperti seharusnya, hanya saja tanpa penjagaan.',
+      ),
+      p(
+        'Catatan "tidak terlihat di pengujian normal" perlu dibaca serius. Kalau kamu menguji dengan token yang valid, semua permintaan berhasil dan tampak benar — kesalahannya hanya muncul pada permintaan **tanpa** token, yang justru jarang diuji. Inilah alasan aturan di `security.md` menuntut pengujian otorisasi negatif: satu tes yang mengirim permintaan tanpa token dan mengharapkan `401` akan langsung menangkap susunan seperti kolom kiri.',
+      ),
 
       h2('Middleware untuk satu rute'),
       code(
@@ -1144,6 +1252,12 @@ export const lessons: LessonDraft[] = [
         // Beberapa sekaligus dalam array
         app.delete('/catatan/:id', [autentikasi, wajibPemilik], hapusCatatan);
         `,
+      ),
+      p(
+        'Argumen di antara jalur dan handler terakhir dijalankan **berurutan dari kiri ke kanan**, masing-masing harus memanggil `next()` untuk meneruskan. Bacalah baris pertama sebagai kalimat: "untuk membuat catatan, pastikan dulu siapa yang meminta, lalu periksa isinya sah, baru kerjakan." Susunan ini membuat izin dan validasi terlihat langsung di daftar rute, bukan tersembunyi di dalam badan handler.',
+      ),
+      p(
+        'Baris kedua menunjukkan hal penting tentang perbedaan `autentikasi` dan `wajibPemilik`, karena yang pertama menjawab "siapa kamu" sedangkan yang kedua menjawab "boleh tidak kamu menyentuh benda ini". Keduanya terpisah karena pengguna yang sah tetap tidak berhak menghapus catatan orang lain, dan inilah pemeriksaan IDOR di tempat yang benar. Bentuk array dan bentuk argumen berurutan bekerja sama persis, dan array hanya lebih rapi ketika rangkaian yang sama dipakai di banyak rute dan ingin disimpan dalam satu variabel.',
       ),
 
       h2('Menitipkan data antar middleware'),
@@ -1172,6 +1286,12 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Baris `req.pengguna = { ... }` adalah jawaban atas pertanyaan judulnya: cara middleware menitipkan hasil kerjanya adalah dengan **menempelkannya pada objek `req`**, yang terus dibawa ke seluruh middleware dan handler berikutnya. Handler di ujung rantai cukup membaca `req.pengguna.id` tanpa perlu tahu bagaimana token diverifikasi. Perhatikan yang disimpan hanya `id` dan `peran`, bukan seluruh isi token — ambil secukupnya, supaya tidak ada data sensitif yang ikut beredar dan tanpa sengaja masuk ke log atau respons.',
+      ),
+      p(
+        'Dua penolakan di fungsi ini sengaja mengembalikan **pesan yang sama persis**. Header yang hilang, format yang salah, tanda tangan yang palsu, dan token yang kedaluwarsa semuanya dijawab `401 Tidak terautentikasi`. Membedakannya terdengar membantu, tetapi justru memberi petunjuk kepada penyerang: "token kedaluwarsa" memberitahunya bahwa tebakannya pernah sah, sedangkan "tanda tangan salah" memberitahunya ia menebak format yang benar. Perhatikan pula `header.slice(7)` yang memotong tepat tujuh karakter `\'Bearer \'` — dan pemeriksaan `startsWith` di atasnya yang memastikan pemotongan itu memang mengambil bagian yang benar.',
+      ),
       callout(
         'warning',
         'Jangan pernah membaca identitas dari body atau query',
@@ -1194,6 +1314,12 @@ export const lessons: LessonDraft[] = [
         // Selalu didaftarkan TERAKHIR
         app.use(penanganError);
         `,
+      ),
+      p(
+        'Fungsi ini terlihat seperti middleware biasa, hanya saja argumennya empat dengan `err` di posisi pertama. Express membedakan keduanya semata-mata dari **jumlah argumen**, dan itulah kenapa `next` tetap harus ditulis walau tidak pernah dipakai — menghapusnya menjadikan fungsi ini middleware biasa yang tidak akan pernah menerima error.',
+      ),
+      p(
+        'Perhatikan pembagian tugas di dalamnya, karena inilah aturan `security.md` dalam bentuk kode. `console.error` menyimpan objek error **lengkap** di sisi server, disertai `reqId` supaya bisa dicocokkan dengan baris log permintaannya. Yang dikirim ke klien jauh lebih sedikit. `err.expose === true` menandai error yang memang sengaja dibuat untuk dibaca pengguna, misalnya "judul wajib diisi", sementara semua sisanya diringkas menjadi "Terjadi kesalahan". Tanpa penyaringan itu, pesan bawaan sebuah error database bisa membocorkan nama tabel, potongan query, bahkan jalur berkas di servermu. `err.status ?? 500` mengikuti logika yang sama, sebab error yang kamu lempar sendiri membawa status yang tepat sedangkan apa pun yang tidak terduga jatuh ke `500`.',
       ),
       callout(
         'info',
@@ -1313,6 +1439,12 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        'Ketiganya sama-sama datang dari klien, tetapi masing-masing punya peran yang berbeda dan tidak saling menggantikan. `req.params` berasal dari **alamatnya** dan menunjuk benda mana yang dimaksud — nilainya wajib ada, karena kalau tidak cocok, rutenya tidak akan terpanggil sama sekali. `req.query` berisi keterangan tambahan yang sifatnya **opsional**: urutan, halaman, penyaring. `req.body` membawa **isi** yang dikirim, dan hanya ada pada method yang memang berbadan seperti `POST` dan `PATCH`.',
+      ),
+      p(
+        'Perhatikan komentar "perlu middleware" pada baris ketiga, karena hanya `req.body` yang bergantung pada `express.json()` sedangkan dua yang lain selalu tersedia. Dan yang lebih penting untuk diingat sepanjang sub-bab ini, ketiganya adalah **untrusted input**, sekalipun `req.params` terlihat aman karena "berasal dari URL yang saya buat sendiri". Tidak ada yang mengharuskan klien mengikuti tautan yang kamu sediakan, sebab siapa pun bisa mengetik alamat apa saja.',
+      ),
 
       h2('Body butuh middleware'),
       code(
@@ -1331,6 +1463,9 @@ export const lessons: LessonDraft[] = [
         const { judul, isi } = req.body ?? {};
         `,
       ),
+      p(
+        '`?? {}` di baris itu bukan kehati-hatian berlebihan. Merusak struktur dari `undefined` melempar `TypeError` yang menjatuhkan handler — dan `req.body` benar-benar bisa `undefined`, misalnya ketika klien mengirim `POST` tanpa header `Content-Type: application/json` sehingga `express.json()` melewatinya begitu saja. Dengan nilai cadangan objek kosong, `judul` dan `isi` sekadar bernilai `undefined`, dan validasimu di baris berikutnya bisa menjawabnya dengan `422` yang jelas alih-alih `500` yang membingungkan.',
+      ),
 
       h2('Query selalu string, dan bisa berbentuk apa saja'),
       code(
@@ -1341,6 +1476,12 @@ export const lessons: LessonDraft[] = [
         req.query.arsip;   // 'true'     <- string, bukan boolean
         req.query.tag;     // ['a','b']  <- ARRAY karena dikirim dua kali
         `,
+      ),
+      p(
+        "Baris kedua adalah jebakan yang paling sering memakan korban: `req.query.arsip` bernilai string `'true'`, dan dalam JavaScript **setiap string tidak kosong bernilai benar** saat diuji sebagai kondisi. Artinya `if (req.query.arsip)` juga bernilai benar ketika klien mengirim `?arsip=false` — kebalikan dari yang dimaksud, tanpa satu pun error. Itulah sebabnya boolean dari query harus dibandingkan eksplisit dengan `=== 'true'`.",
+      ),
+      p(
+        'Baris ketiga menunjukkan sesuatu yang lebih tak terduga: **tipe `req.query.tag` berubah** tergantung apa yang dikirim klien. Satu `?tag=a` memberi string, dua `?tag=a&tag=b` memberi array. Kode yang menulis `req.query.tag.trim()` bekerja mulus di semua pengujianmu lalu meledak begitu ada yang mengirim parameter itu dua kali — dan mengirimnya dua kali tidak butuh alat apa pun, cukup mengetik di bilah alamat.',
       ),
       callout(
         'danger',
@@ -1357,6 +1498,9 @@ export const lessons: LessonDraft[] = [
 
         const halaman = Number(satuNilai(req.query.hal) ?? 1);
         `,
+      ),
+      p(
+        'Fungsi `satuNilai` kecil tetapi ia yang menutup ketidakpastian tipe di atas, sebab apa pun bentuk yang dikirim klien, keluarannya selalu satu nilai. Ketika parameternya dikirim berkali-kali, ia mengambil yang pertama, sebuah keputusan yang sengaja dipilih dan konsisten sehingga jauh lebih baik daripada perilaku yang berubah-ubah tergantung permintaan. Pakai ia di **setiap** pembacaan query yang kamu harapkan tunggal, sebab menerapkannya hanya di sebagian tempat berarti celahnya masih terbuka di tempat lain.',
       ),
 
       h2('Konversi tipe yang benar'),
@@ -1391,6 +1535,12 @@ export const lessons: LessonDraft[] = [
           next(err);
         });
         `,
+      ),
+      p(
+        "Middleware ini menangkap dua error yang dilempar `express.json()` dan menerjemahkannya menjadi jawaban yang tepat. `SyntaxError` dengan properti `body` menandakan isi yang dikirim bukan JSON yang sah — kesalahan **klien**, jadi `400`, bukan `500` yang akan membunyikan alarm pemantauanmu untuk sesuatu yang berjalan normal. `err.type === 'entity.too.large'` menandakan batas `limit` yang kamu pasang tadi bekerja, dan status `413` memberitahu klien secara spesifik bahwa yang salah adalah ukurannya, bukan isinya.",
+      ),
+      p(
+        'Baris `next(err)` di ujung adalah bagian yang paling mudah terlupa. Error yang bukan salah satu dari kedua jenis di atas **harus** diteruskan ke penangan error berikutnya; menghilangkan baris itu membuat semua error lain tertelan diam-diam dan permintaannya menggantung sampai timeout. Perhatikan `next` dipanggil dengan argumen — `next(err)` berarti "lanjutkan ke penanganan error", berbeda dari `next()` kosong yang berarti "lanjutkan ke middleware biasa berikutnya".',
       ),
       callout(
         'tip',
@@ -1519,6 +1669,12 @@ export const lessons: LessonDraft[] = [
             └── errors.js
         `,
       ),
+      p(
+        'Perhatikan folder-folder ini dinamai menurut **peran**, bukan menurut fitur, dan keterangan di sebelah kanan masing-masing menyebutkan apa yang lapisan itu **tidak** boleh tahu. Itulah bagian yang menentukan: `services/` tidak tahu HTTP, `repositories/` satu-satunya yang tahu SQL. Batas seperti ini yang membuat aturan bisnismu bisa dipanggil dari perintah CLI atau job terjadwal tanpa berpura-pura menjadi permintaan HTTP.',
+      ),
+      p(
+        'Dua berkas di puncaknya mengulang pemisahan `app` dan `server` dari sub-bab 3.4, dengan `server.js` yang hanya membuka port dan `app.js` yang merakit aplikasinya, dan itulah yang membuat seluruh struktur ini bisa diuji tanpa jaringan. `config/env.js` berdiri sendiri karena konfigurasi dibaca dan divalidasi **sekali saat boot**, bukan lewat `process.env` yang berserakan di banyak berkas. `lib/` menampung hal yang dipakai lintas lapisan, yaitu koneksi database dan kelas-kelas error yang menjadi bahasa bersama antara service dan controller.',
+      ),
 
       h2('Aliran satu permintaan'),
       code(
@@ -1552,6 +1708,12 @@ export const lessons: LessonDraft[] = [
           res.json({ data: hasil.items, meta: hasil.meta });
         }
         `,
+      ),
+      p(
+        'Dua berkas pertama menunjukkan pembagian kerja yang sebenarnya sangat sederhana. Berkas rute tidak berisi logika apa pun — ia hanya memetakan alamat ke fungsi, dan menyisipkan `autentikasi` sebagai penjaga di depan masing-masing. Controller mengerjakan hal-hal yang khas HTTP: membaca `req.query`, mengubah tipenya, memanggil service, lalu menyusun bentuk respons. Perhatikan ia tidak memuat satu baris SQL pun, dan tidak memutuskan aturan apa pun.',
+      ),
+      p(
+        'Baris `penggunaId: req.pengguna.id` layak diperhatikan berikut komentarnya, "dari middleware auth, bukan dari klien". Inilah titik paling rawan di seluruh berkas: kalau nilai itu diambil dari `req.query.penggunaId`, siapa pun bisa mengganti angkanya dan membaca catatan orang lain. Identitas hanya boleh berasal dari sesuatu yang **sudah diverifikasi server**, dan di sinilah `req.pengguna` yang dititipkan middleware auth tadi terpakai.',
       ),
       code(
         'js',
@@ -1610,6 +1772,12 @@ export const lessons: LessonDraft[] = [
           return hasil.rowCount > 0;
         }
         `,
+      ),
+      p(
+        'Perhatikan `hapusCatatan` di service melempar `KesalahanTidakBerhak` alih-alih memanggil `res.status(403)`. Itulah wujud nyata janji "tidak tahu req/res", sebab service menyatakan **apa yang salah** sedangkan controller, atau penangan error terpusat, yang menerjemahkannya menjadi status HTTP. Karena itu fungsi yang sama bisa dipanggil dari skrip perawatan atau job terjadwal tanpa objek `res` sama sekali. Perhatikan pula ia mengembalikan `false` untuk catatan yang tidak ada dan **melempar** untuk yang bukan miliknya, dua keadaan berbeda yang layak dijawab berbeda.',
+      ),
+      p(
+        'Di repository, komentar "pertahanan kedua terhadap IDOR" menjelaskan sesuatu yang mudah dikira berlebihan: pemilik sudah diperiksa di service, mengapa `penulis_id` diperiksa lagi di `WHERE`? Karena pemeriksaan di lapisan data adalah yang **tidak bisa dilewati**. Satu pemanggilan baru yang lupa melewati service akan tetap aman, dan `rowCount > 0` menjadi bukti apakah barisnya benar-benar terhapus. Perhatikan juga seluruh nilai dikirim sebagai parameter `$1`, `$2`, `$3` — tidak ada satu pun yang disisipkan ke dalam teks query, sesuai aturan di sub-bab 2.10. Query-nya juga menutup `ORDER BY` dengan `id DESC` sebagai pemecah seri, dan menyaring `dihapus_pada IS NULL` karena skemanya memakai soft delete.',
       ),
 
       h2('Batas yang tidak boleh dilanggar'),
@@ -1680,7 +1848,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'daftar kosong tetap 200',
           meaning:
-            'Kesalahan yang sering. `404` berarti **endpoint atau sumber dayanya** tidak ada. "Tidak ada catatan yang cocok dengan filtermu" adalah hasil pencarian yang **sah** — jawab `200` dengan array kosong. Klien yang menerima `404` akan menampilkan halaman error, padahal seharusnya keadaan kosong.',
+            'Kesalahan yang sering. `404` berarti **endpoint atau sumber dayanya** tidak ada. "Tidak ada catatan yang cocok dengan filtermu" adalah hasil pencarian yang **sah** — jawab `200` dengan array kosong. Klien yang menerima `404` akan menampilkan halaman error, padahal seharusnya empty state.',
         },
         {
           term: '409 Conflict',
@@ -1695,7 +1863,7 @@ export const lessons: LessonDraft[] = [
         {
           term: '502 / 504',
           meaning:
-            'Dua kegagalan yang **bukan** salah kodemu langsung. `502 Bad Gateway` — dependensi hulu menjawab tidak keruan; `504 Gateway Timeout` — ia tidak menjawab tepat waktu. Membedakannya dari `500` mempercepat penelusuran saat ada masalah.',
+            'Dua kegagalan yang **bukan** salah kodemu langsung. `502 Bad Gateway` berarti dependensi hulu menjawab tidak keruan, sedangkan `504 Gateway Timeout` berarti ia tidak menjawab tepat waktu. Membedakannya dari `500` mempercepat penelusuran saat ada masalah.',
         },
         {
           term: 'kode error stabil',
@@ -1710,7 +1878,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'kebocoran lewat SELECT *',
           meaning:
-            'Cara paling umum data sensitif bocor ke API. Kolom baru bulan depan — `password_hash`, `token_reset`, `catatan_internal` — **otomatis ikut terkirim** ke setiap klien, tanpa ada yang mengubah kode endpoint-nya. Sebutkan kolomnya, atau bentuk ulang objeknya sebelum dikirim.',
+            'Cara paling umum data sensitif bocor ke API. Kolom baru bulan depan seperti `password_hash`, `token_reset`, dan `catatan_internal` **otomatis ikut terkirim** ke setiap klien, tanpa ada yang mengubah kode endpoint-nya. Sebutkan kolomnya, atau bentuk ulang objeknya sebelum dikirim.',
         },
         {
           term: 'Cache-Control: no-store',
@@ -1744,10 +1912,16 @@ export const lessons: LessonDraft[] = [
         res.json({ data: [], meta: { total: 0 } });
         `,
       ),
+      p(
+        'Baris pertama merangkai tiga pemanggilan sekaligus, dan urutannya tidak menentukan karena `status()` dan `location()` sama-sama mengembalikan `res`. Yang menentukan adalah `json()` di ujung — ia yang benar-benar mengirim jawabannya. Header `Location` berisi alamat sumber daya yang baru lahir, sehingga klien tahu ke mana harus melihat tanpa menebak-nebak dari isi respons.',
+      ),
+      p(
+        'Baris kedua memakai `end()` alih-alih `json()`, dan itu keharusan, sebab status `204 No Content` berarti "berhasil, dan memang tidak ada isi". Mengirim body bersamanya melanggar spesifikasi HTTP dan bisa membingungkan klien maupun proxy di tengah jalan. Baris ketiga menegaskan hal yang berlawanan dengan naluri banyak orang, yaitu daftar kosong tetap `200`. Perhatikan `meta.total` tetap dikirim bernilai `0`, sehingga klien menerima **bentuk yang sama** apa pun hasilnya dan tidak perlu menulis cabang khusus untuk empty state.',
+      ),
       callout(
         'warning',
         'Daftar kosong bukan `404`',
-        '`404` berarti *endpoint atau sumber dayanya* tidak ada. "Tidak ada catatan yang cocok dengan filtermu" adalah hasil pencarian yang sah — jawab `200` dengan array kosong. Klien yang menerima `404` untuk daftar akan menampilkan halaman error, padahal seharusnya keadaan kosong.',
+        '`404` berarti *endpoint atau sumber dayanya* tidak ada. "Tidak ada catatan yang cocok dengan filtermu" adalah hasil pencarian yang sah — jawab `200` dengan array kosong. Klien yang menerima `404` untuk daftar akan menampilkan halaman error, padahal seharusnya empty state.',
       ),
 
       h2('Status code untuk kegagalan'),
@@ -1818,10 +1992,16 @@ export const lessons: LessonDraft[] = [
         res.json({ data: rows[0] });
         `,
       ),
+      p(
+        'Blok "BOCOR" berisi dua kebocoran yang sifatnya berbeda. Yang pertama disengaja tetapi salah paham, karena `err.message` dan `err.stack` dikirim "supaya mudah di-debug", padahal pesan error database kerap memuat nama tabel dan potongan query, sementara `stack` memuat jalur berkas di servermu, sebuah peta gratis bagi siapa pun yang ingin menyerangnya. Versi amannya mengganti keduanya dengan `req.id`, sehingga pengguna melaporkan id itu, kamu mencarinya di log server, dan detail lengkapnya tetap ada tanpa pernah meninggalkan servermu.',
+      ),
+      p(
+        'Kebocoran kedua lebih berbahaya karena **tidak terlihat saat ditulis**. `SELECT *` hari ini mungkin hanya mengembalikan `id`, `nama`, dan `email` — dan endpoint-nya lolos review. Masalahnya muncul berbulan-bulan kemudian saat seseorang menambah kolom `password_hash` atau `token_reset` ke tabel yang sama: kolom itu **otomatis ikut terkirim** ke setiap klien, tanpa ada satu baris pun di berkas ini yang berubah. Versi amannya menyebut kolom secara eksplisit, sehingga daftar yang dikirim ke luar ditentukan oleh keputusanmu, bukan oleh bentuk tabel yang bisa berubah kapan saja.',
+      ),
       callout(
         'danger',
         '`SELECT *` adalah cara paling umum data sensitif bocor ke API',
-        'Kolom baru yang ditambahkan bulan depan — `password_hash`, `token_reset`, `catatan_internal` — otomatis ikut terkirim ke setiap klien, tanpa ada yang mengubah kode endpoint-nya. Sebutkan kolomnya, atau bentuk ulang objeknya sebelum dikirim.',
+        'Kolom baru yang ditambahkan bulan depan seperti `password_hash`, `token_reset`, dan `catatan_internal` otomatis ikut terkirim ke setiap klien, tanpa ada yang mengubah kode endpoint-nya. Sebutkan kolomnya, atau bentuk ulang objeknya sebelum dikirim.',
       ),
 
       h2('Header yang perlu diperhatikan'),
@@ -1831,6 +2011,12 @@ export const lessons: LessonDraft[] = [
         res.set('Cache-Control', 'no-store');   // untuk data privat
         res.set('X-Request-Id', req.id);        // supaya pengguna bisa melaporkan id-nya
         `,
+      ),
+      p(
+        '`Cache-Control: no-store` melarang jawaban ini disimpan di **mana pun** — bukan hanya browser, tetapi juga proxy perusahaan dan CDN di tengah jalan. Untuk data privat, itu bukan optimasi melainkan syarat keamanan: tanpa header ini, halaman profil milik satu pengguna bisa tersimpan di cache bersama lalu tersaji ke pengguna berikutnya yang meminta alamat sama. Pasang pada setiap respons yang isinya bergantung pada siapa yang meminta.',
+      ),
+      p(
+        '`X-Request-Id` melengkapi pola `req.id` yang sudah beberapa kali muncul di bab ini. Dengan mengirimnya kembali ke klien, id yang sama hidup di tiga tempat: log servermu, jawaban yang diterima pengguna, dan laporan yang ia kirim kepadamu. Saat ada yang mengeluh "tadi gagal", kamu tidak perlu menebak permintaan mana di antara ribuan — cukup cari id-nya. Awalan `X-` menandai header buatan sendiri di luar standar HTTP.',
       ),
       references(
         {
@@ -1900,7 +2086,7 @@ export const lessons: LessonDraft[] = [
         {
           term: '4xx dicatat ringkas, 5xx dicatat lengkap',
           meaning:
-            'Pembagian yang menjaga log tetap berguna. `4xx` adalah kesalahan **klien** — cukup satu baris ringkas. `5xx` adalah **bug kita** — catat lengkap dengan stack dan konteksnya, karena itu yang akan kamu telusuri.',
+            'Pembagian yang menjaga log tetap berguna. `4xx` adalah kesalahan **klien**, sehingga cukup satu baris ringkas. `5xx` adalah **bug kita**, jadi catat lengkap dengan stack dan konteksnya, karena itu yang akan kamu telusuri.',
         },
         {
           term: 'id permintaan di respons error',
@@ -1985,6 +2171,12 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Perhatikan service ini tidak menyebut angka status satu kali pun — ia hanya melempar `KesalahanTidakDitemukan`, dan penangan terpusat nanti yang menerjemahkannya. Itulah yang menjaga janji "service tidak tahu HTTP" sekaligus membuat pemetaan status terkumpul di satu tempat, bukan tersebar di puluhan handler yang bisa saling tidak konsisten.',
+      ),
+      p(
+        'Bagian paling penting adalah komentarnya, yaitu catatan milik orang lain dijawab **404, bukan 403**. Sekilas `403 Tidak berhak` terasa lebih jujur, tetapi ia membocorkan satu fakta, bahwa catatan dengan id itu memang ada. Penyerang tinggal mencoba id berurutan dan memetakan mana yang terpakai, hanya dari beda kode statusnya. Dengan menjawab `404` untuk keduanya, "tidak ada" dan "bukan milikmu" menjadi tidak bisa dibedakan dari luar. Pilih pola ini untuk data yang keberadaannya sendiri bersifat privat, sedangkan untuk sumber daya yang memang publik dan hanya aksinya yang dibatasi, `403` tetap jawaban yang tepat.',
+      ),
 
       h2('Middleware error'),
       code(
@@ -2021,6 +2213,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Baris `res.headersSent` di awal menangani keadaan yang mudah terlupa: kalau respons sudah mulai dikirim lalu error terjadi di tengah jalan, mencoba mengirim jawaban kedua akan melempar error baru. `next(err)` menyerahkannya ke penanganan bawaan Express, yang akan memutus koneksinya dengan benar.',
+      ),
+      p(
+        'Percabangan `status >= 500` membagi log menjadi dua kelas yang berbeda maknanya. Status `5xx` berarti **bug di pihakmu**, jadi dicatat sebagai `error` lengkap dengan objek error dan alamatnya — ini yang layak membunyikan alarm. Status `4xx` berarti kliennya yang salah, dan itu bagian normal dari kehidupan sebuah API; mencatatnya sebagai `error` hanya akan menenggelamkan masalah sungguhan di antara ribuan baris "seseorang mengetik alamat yang salah". Karena itu ia dicatat `warn` dan seperlunya saja.',
+      ),
+      p(
+        'Baris `bolehTampil` adalah penjaga terakhir sebelum data keluar. Hanya error yang **kamu buat sendiri** dan sengaja ditandai `tampilkan: true` yang pesannya diteruskan apa adanya, sedangkan semua sisanya, termasuk error database dan error dari paket pihak ketiga, diganti kalimat generik. `...(err.field !== undefined && { field: err.field })` menyisipkan `field` hanya ketika ia ada, sehingga error validasi bisa membawa rincian per kolom tanpa membuat error jenis lain punya properti kosong. Dan `id: req.id` menutupnya, sebab pesannya generik bagi klien tetapi tetap bisa ditelusuri sampai ke baris log yang persis.',
+      ),
       callout(
         'tip',
         'Sertakan id permintaan di respons error',
@@ -2037,6 +2238,12 @@ export const lessons: LessonDraft[] = [
           res.json({ data: catatan });                            // penanganError yang menerima
         });
         `,
+      ),
+      p(
+        'Perhatikan apa yang **tidak ada** di handler ini: tidak ada `try`, tidak ada `catch`, tidak ada `next(err)`. Ketika `service.ambilCatatan` melempar, Express 5 menangkap Promise yang ditolak itu dan mengarahkannya sendiri ke `penanganError`. Baris `res.json` di bawahnya tidak pernah berjalan, dan klien menerima `404` yang rapi.',
+      ),
+      p(
+        'Inilah yang membuat pemisahan lapisan tadi benar-benar terbayar. Service melempar error yang bermakna, handler cukup menuliskan jalur suksesnya saja, dan satu middleware di ujung menerjemahkan semuanya menjadi respons yang seragam. Bandingkan dengan `try`/`catch` di setiap handler: bukan hanya lebih panjang, tetapi juga hampir pasti akan berbeda-beda bentuknya dari satu handler ke handler lain.',
       ),
       callout(
         'warning',
@@ -2098,7 +2305,7 @@ export const lessons: LessonDraft[] = [
     'config-validasi',
     'Environment Variable & Konfigurasi yang Divalidasi',
     10,
-    'Membaca konfigurasi sekali, memvalidasinya, dan gagal keras kalau salah.',
+    'Membaca konfigurasi sekali, memvalidasinya, dan fail loudly kalau salah.',
     [
       p(
         'Sub-bab 1.7 menjelaskan **kenapa** konfigurasi harus terpisah dari kode. Yang ini tentang **bagaimana** mewujudkannya di Node dengan benar.',
@@ -2176,6 +2383,9 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Bandingkan kedua skrip di `package.json`, karena `dev` memakai `--env-file=.env` sedangkan `start` **tidak**. Perbedaan itu disengaja dan mencerminkan cara kerja yang berbeda. Di laptopmu, variabel lingkungan paling praktis disimpan sebagai berkas, sedangkan di produksi variabel disuntikkan oleh platform sebelum prosesnya dijalankan, jadi tidak ada berkas `.env` yang perlu ikut ke server, dan memang tidak boleh. Perhatikan pula sejak Node 20.6 dukungan ini bawaan, sehingga paket `dotenv` yang mungkin kamu temui di tutorial lama tidak lagi diperlukan untuk keperluan sesederhana ini.',
+      ),
       callout(
         'info',
         'Produksi tidak memakai berkas `.env`',
@@ -2222,6 +2432,15 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        "Skema di atas melakukan lebih dari sekadar memeriksa keberadaan variabel. `z.coerce.number()` pada `PORT` menangani kenyataan bahwa isi `process.env` selalu string — ia mengubah `'3000'` menjadi `3000`, lalu `.int().positive()` menolak `'abc'` maupun `'-1'`. `z.string().url()` memastikan `DATABASE_URL` benar-benar berbentuk URL, bukan sekadar teks apa pun yang kebetulan terisi. Dan `.min(32)` pada `JWT_SECRET` menegakkan aturan yang biasanya hanya hidup sebagai niat baik: rahasia sepanjang delapan karakter bisa ditebak, dan tidak ada yang akan menyadarinya sampai token dipalsukan.",
+      ),
+      p(
+        'Perhatikan `safeParse` dipakai alih-alih `parse`. Bedanya, `parse` melempar error yang pesannya panjang dan berorientasi program, sedangkan `safeParse` mengembalikan hasil yang bisa kamu olah sendiri, dan itulah yang dipakai perulangan di bawahnya untuk mencetak **setiap** masalah dengan nama variabelnya. Seseorang yang menyiapkan lingkungan baru langsung melihat daftar lengkap apa yang kurang, alih-alih satu error yang harus diperbaiki lalu dijalankan lagi untuk menemukan error berikutnya. `process.exit(1)` menutupnya dengan kode keluar bukan-nol yang membuat sistem deploy tahu bahwa proses ini gagal dan harus dibatalkan.',
+      ),
+      p(
+        'Objek yang diekspor dibungkus `Object.freeze` supaya tidak ada bagian aplikasi yang diam-diam mengubah konfigurasi saat berjalan. Dua properti tambahan di dalamnya menunjukkan gunanya konfigurasi terpusat: `corsOrigins` mengubah string `"a.com,b.com"` menjadi array **sekali di sini**, bukan diulang di setiap tempat yang membutuhkannya, dan `isProduksi` memberi nama yang terbaca untuk perbandingan yang kalau ditulis manual di banyak berkas cepat atau lambat akan ada yang salah ketik.',
+      ),
 
       h2('Memakainya'),
       code(
@@ -2235,6 +2454,9 @@ export const lessons: LessonDraft[] = [
         // Salah ketik nama variabel sekarang jadi error TypeScript/lint,
         // bukan undefined yang diam.
         `,
+      ),
+      p(
+        'Sejak berkas `config/env.js` ada, `process.env` seharusnya tidak lagi muncul di mana pun kecuali di sana. Perbedaannya terasa saat ada yang salah ketik. `process.env.PROT` menghasilkan `undefined` tanpa satu pun keluhan, sedangkan `env.PROT` adalah properti yang tidak ada pada objek yang bentuknya sudah pasti, sehingga tertangkap oleh TypeScript, lint, bahkan pelengkapan otomatis editor sebelum kodenya sempat dijalankan. Nilai di `env` juga sudah bertipe benar, sebab `env.PORT` berupa angka dan bukan string karena konversinya sudah dikerjakan skema.',
       ),
 
       h2('Kenapa gagal saat boot itu penting'),
@@ -2269,6 +2491,12 @@ export const lessons: LessonDraft[] = [
           notes: ['Rusak sebelum ada pengguna yang terkena'],
         },
       ),
+      p(
+        'Perhatikan stempel waktunya. Pada kolom kiri, penyebab dan gejala terpisah **empat belas menit**, dan yang terlihat di layar hanyalah gejalanya berupa pengguna gagal login. Orang yang menanganinya akan mulai dari kode autentikasi, tempat yang sama sekali tidak bersalah, sementara penyebab sebenarnya adalah satu variabel yang tidak terpasang jauh sebelumnya. Yang membuatnya lebih buruk, server tampak sehat, dengan health check hijau, tidak ada error di log, dan token tetap diterbitkan, hanya saja ditandatangani dengan kata `undefined`.',
+      ),
+      p(
+        'Pada kolom kanan, semuanya terjadi pada menit yang sama dan pesan errornya **menyebut nama variabelnya**. Tidak ada penelusuran, tidak ada tebakan. Yang paling penting ada di baris terakhir: deploy dibatalkan, sehingga tidak ada satu pun pengguna yang sempat terkena. Inilah alasan validasi konfigurasi diletakkan saat boot dan bukan saat pemakaian pertama — biaya gagal cepat jauh lebih murah daripada gagal diam-diam.',
+      ),
 
       h2('Default harus ketat, bukan longgar'),
       code(
@@ -2281,10 +2509,16 @@ export const lessons: LessonDraft[] = [
         const bolehSemua = process.env.CORS_ALLOW_ALL === 'true';
         `,
       ),
+      p(
+        'Perhatikan nama variabelnya juga ikut berubah, bukan hanya operatornya — dan itu bagian dari perbaikannya. Baris pertama bertanya "apakah mode ketat **tidak** aktif", sehingga variabel yang lupa dipasang (`undefined !== \'true\'`) berarti mode ketat mati dan semua origin diizinkan. Baris kedua bertanya "apakah izin longgar dinyalakan", sehingga variabel yang lupa dipasang bernilai salah dan pilihan paling amanlah yang berlaku.',
+      ),
+      p(
+        "Susun setiap sakelar keamanan seperti ini: **beri nama sesuai izin yang diberikan** (`ALLOW_ALL`, `DISABLE_AUTH`), lalu bandingkan dengan `=== 'true'`. Dengan begitu, satu-satunya cara mengaktifkan perilaku longgar adalah memasangnya secara sadar — dan lupa memasang variabel, yang selalu terjadi saat menyiapkan lingkungan baru, tidak akan pernah membuka apa pun.",
+      ),
       callout(
         'danger',
         'Checklist rahasia',
-        '`.env` masuk `.gitignore`; hanya `.env.example` yang di-commit, dengan nilai **kosong**; tidak ada rahasia yang di-`console.log`; dan rahasia yang **pernah** ter-commit dianggap bocor — rotasi, jangan sekadar menghapus riwayatnya.',
+        '`.env` masuk `.gitignore`, dan hanya `.env.example` yang di-commit dengan nilai **kosong**. Tidak ada rahasia yang di-`console.log`. Dan rahasia yang **pernah** ter-commit dianggap bocor, jadi rotasi nilainya alih-alih sekadar menghapus riwayatnya.',
       ),
       references(
         {
@@ -2362,7 +2596,7 @@ export const lessons: LessonDraft[] = [
             'Opsi pino yang menentukan ke mana log diteruskan dan bagaimana ia diformat. Menyalakannya hanya saat bukan produksi adalah cara memisahkan kenyamanan pengembangan dari performa produksi.',
         },
         {
-          term: 'id korelasi',
+          term: 'correlation id',
           meaning:
             'Satu id per permintaan yang muncul di **semua** baris log yang berasal darinya. Perhatikan contohnya: ia **memakai ulang** `x-request-id` dari header kalau ada — supaya jejaknya nyambung melintasi beberapa layanan sekaligus.',
         },
@@ -2409,6 +2643,12 @@ export const lessons: LessonDraft[] = [
           notes: ['Bisa diolah alat, tetap terbaca saat dibutuhkan'],
         },
       ),
+      p(
+        'Kedua kolom memuat informasi yang sama; yang berbeda adalah apakah komputer bisa **memahaminya**. Kalimat "Pengguna 42 membuat catatan 7" hanya bisa dicari dengan mencocokkan potongan teks — dan pencarian itu langsung gagal begitu ada yang menulisnya sedikit berbeda di tempat lain. Pada kolom kanan, `userId` adalah field tersendiri, jadi "tampilkan semua kejadian milik pengguna 42" menjadi penyaringan biasa, bukan tebak-tebakan pola teks.',
+      ),
+      p(
+        'Perhatikan `level: 30` di kolom kanan, karena pino memakai angka alih-alih kata, dengan 20 untuk debug, 30 info, 40 warn, 50 error, dan 60 fatal. Karena berupa angka, saringan `level >= 50` menjadi perbandingan sederhana yang mengambil seluruh error dan fatal sekaligus. Dan `reqId` adalah field yang paling berharga di antara semuanya, sebab ia yang mengikat semua baris log dari satu permintaan menjadi satu jejak utuh. Tanpa itu, log dari ribuan permintaan yang berjalan bersamaan bercampur menjadi satu aliran yang tidak bisa diurai.',
+      ),
 
       h2('Menyiapkannya'),
       code(
@@ -2449,13 +2689,19 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        'Perhatikan `pino-pretty` dipasang sebagai `--save-dev`, dan `transport` di bawah hanya menyalakannya ketika **bukan** produksi. Alasannya bukan sekadar kerapian: memformat dan mewarnai setiap baris log memakan waktu, dan di produksi tidak ada manusia yang membacanya secara langsung — yang membacanya adalah alat pengumpul, yang justru menginginkan JSON mentah satu baris per kejadian.',
+      ),
+      p(
+        "Bagian `redact` menyensor nilai **sebelum** ditulis, jadi rahasianya tidak pernah menyentuh disk maupun layanan pengumpul log. Perhatikan dua bentuk jalur yang dipakai. `'password'` mencocokkan field di tingkat teratas, sedangkan `'*.password'` mencocokkan field bernama sama satu tingkat lebih dalam, misalnya di dalam objek `body` atau `pengguna`. Dua baris pertama menyensor header `authorization` dan `cookie`, dan itu wajib karena keduanya membawa token atau sesi yang kalau tercatat sama saja dengan menyimpan kunci akun pengguna di dalam log.",
+      ),
       callout(
         'danger',
         '`redact` adalah jaring pengaman, bukan izin untuk ceroboh',
-        'Ia hanya menyensor jalur yang kamu sebutkan. Field bernama lain — `pass`, `secret`, `apiKey`, `kartu` — tetap lolos. Tetap berlaku aturan utamanya: **jangan pernah mencatat seluruh request body**. Catat field yang kamu pilih sadar.',
+        'Ia hanya menyensor jalur yang kamu sebutkan, sehingga field bernama lain seperti `pass`, `secret`, `apiKey`, dan `kartu` tetap lolos. Aturan utamanya tetap berlaku, yaitu **jangan pernah mencatat seluruh request body**. Catat field yang kamu pilih sadar.',
       ),
 
-      h2('Log per permintaan dengan id korelasi'),
+      h2('Log per permintaan dengan correlation id'),
       code(
         'js',
         `
@@ -2489,6 +2735,15 @@ export const lessons: LessonDraft[] = [
           next();
         }
         `,
+      ),
+      p(
+        'Baris pertama menunjukkan detail kecil dengan akibat besar: id **dipakai ulang** dari header `x-request-id` kalau ada, dan hanya dibuat baru kalau tidak. Di sistem yang terdiri dari beberapa layanan, itulah yang membuat satu permintaan pengguna bisa ditelusuri melintasi semuanya dengan id yang sama. `res.setHeader` mengirimkannya kembali ke klien, sehingga id itu juga muncul di sisi pengguna.',
+      ),
+      p(
+        '`log.child({ reqId })` membuat logger turunan yang **selalu** menyertakan `reqId` di setiap baris yang ditulis darinya. Karena logger ini dititipkan sebagai `req.log`, seluruh controller dan middleware sesudahnya cukup memanggil `req.log.info(...)` tanpa pernah mengulang id-nya — dan tidak ada baris yang bisa lupa menyertakannya.',
+      ),
+      p(
+        "Dua detail terakhir sering ditanyakan. `process.hrtime.bigint()` dipakai alih-alih `Date.now()` karena ia jam beresolusi nanodetik yang **tidak terpengaruh** penyesuaian waktu sistem — pembagian `/ 1e6` mengubahnya menjadi milidetik. Dan pemilihan level ditulis sebagai `res.statusCode >= 500 ? 'error' : 'info'`, mengikuti pembagian yang sama seperti pada penangan error: `5xx` adalah masalahmu dan layak memicu perhatian, sedangkan `4xx` adalah bagian normal dari melayani klien.",
       ),
 
       h2('Level dan kapan memakainya'),
@@ -2543,7 +2798,7 @@ export const lessons: LessonDraft[] = [
           label: 'crypto.randomUUID()',
           href: 'https://nodejs.org/api/crypto.html#cryptorandomuuidoptions',
           source: 'Node.js',
-          note: 'Menghasilkan id korelasi saat header `x-request-id` belum ada.',
+          note: 'Menghasilkan correlation id saat header `x-request-id` belum ada.',
         },
       ),
     ],
@@ -2566,7 +2821,7 @@ export const lessons: LessonDraft[] = [
             'Menolak input yang tidak sesuai bentuk yang kamu tetapkan. Ini **kontrol keamanan paling hulu** — yang membuat sebagian besar kontrol lain benar-benar bekerja. Semua sub-bab sebelumnya hanya membaca input; yang ini menolaknya.',
         },
         {
-          term: 'skema (schema)',
+          term: 'schema (skema)',
           meaning:
             'Deskripsi bentuk data yang sah — tipe tiap field, batas panjang, mana yang wajib. Ia ditulis **sekali** lalu dipakai memvalidasi setiap permintaan, alih-alih pemeriksaan `if` yang tersebar dan tidak lengkap.',
         },
@@ -2639,6 +2894,12 @@ export const lessons: LessonDraft[] = [
         .strict();
         `,
       ),
+      p(
+        'Skema ini menyatakan bentuk yang **boleh** masuk alih-alih daftar hal yang dilarang, dan itulah pola allow-list yang sama seperti pada pencegahan SQL injection. Perhatikan `.trim()` diletakkan **sebelum** `.min(1)`, dan urutan itu menentukan karena tanpa `trim` lebih dulu, judul berisi tiga spasi akan lolos pemeriksaan panjang minimum. Setiap batas atas juga disebutkan lewat `max(200)`, `max(10_000)`, dan `max(10)`, dan itu bukan kerapian melainkan pertahanan sumber daya, sebab field tanpa batas panjang berarti satu permintaan bisa mengirim teks sebesar apa pun.',
+      ),
+      p(
+        '`.default([])` dan `.default(false)` membuat field opsional punya nilai yang pasti, sehingga kode sesudahnya tidak perlu menangani `undefined`. Yang paling penting ada di baris terakhir: `.strict()` membuat Zod **menolak** field yang tidak ada di skema. Tanpa itu, Zod hanya membuang field asing diam-diam — hasilnya tetap aman, tetapi kamu tidak pernah tahu ada yang mengirim `{"peran":"admin"}` atau `{"penulisId":"orang-lain"}` ke endpoint-mu. Dengan `.strict()`, percobaan seperti itu menjadi `422` yang tercatat.',
+      ),
       callout(
         'danger',
         '`.strict()` mencegah mass assignment',
@@ -2683,6 +2944,12 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        "Perhatikan `validasiBody` bukan middleware, melainkan **fungsi yang mengembalikan middleware**. Bentuk itu yang membuatnya bisa dipakai dengan skema berbeda di setiap rute: `validasiBody(SkemaBuatCatatan)` dipanggil sekali saat rute didaftarkan, dan fungsi di dalamnyalah yang berjalan pada setiap permintaan. Perulangan `masalah.path.join('.')` mengubah daftar masalah Zod menjadi objek `{ judul: 'wajib diisi' }` — bentuk yang cocok dengan field `field` pada badan error di sub-bab 3.10, sehingga frontend bisa menempelkan pesannya di samping input yang tepat, bukan sebagai satu pesan umum di atas formulir.",
+      ),
+      p(
+        'Baris `req.body = hasil.data` mudah dikira sepele padahal ia inti keamanannya. Yang dipakai sesudahnya adalah **hasil validasi**, bukan body mentah — jadi field asing sudah hilang, tipe sudah dikonversi, dan nilai bawaan sudah terisi. Kalau baris itu dihapus, validasinya tetap berjalan dan tetap menolak yang salah, tetapi handler-mu kembali membaca data mentah, dan seluruh manfaat konversi tipenya hilang. Perhatikan pula kegagalan diteruskan lewat `next(new KesalahanValidasi(field))`, bukan `res.status(422)` langsung: penanganan error tetap terkumpul di satu tempat.',
+      ),
       callout(
         'warning',
         'Express 5: `req.query` tidak bisa ditimpa',
@@ -2703,6 +2970,12 @@ export const lessons: LessonDraft[] = [
         router.get('/', autentikasi, validasiQuery(SkemaDaftar), controller.daftar);
         router.post('/', autentikasi, validasiBody(SkemaBuatCatatan), controller.buat);
         `,
+      ),
+      p(
+        'Skema query ini menyelesaikan semua keruwetan sub-bab 3.7 dalam beberapa baris. `z.coerce.number()` menangani kenyataan bahwa query selalu string, `.int().min(1)` menolak nol, pecahan, dan nilai negatif, dan `.default(1)` mengisi nilai saat parameternya tidak dikirim sama sekali. Perhatikan komentar pada `perHalaman`: batas atas `.max(100)` diletakkan **di skema**, bukan sebagai `Math.min` yang tersebar di dalam handler. Bedanya, batas di skema berlaku otomatis untuk setiap rute yang memakainya dan tidak bisa terlupa saat ada endpoint baru.',
+      ),
+      p(
+        "`z.enum(['baru', 'lama', 'judul'])` adalah allow-list yang sama seperti pada pengurutan SQL di sub-bab 2.10, sebab nilai di luar ketiganya ditolak sehingga tidak ada teks dari klien yang bisa sampai ke `ORDER BY`. Dua baris terakhir menunjukkan hasil akhirnya, berupa rantai middleware yang terbaca sebagai kalimat, \"pastikan siapa peminta, pastikan masukannya sah, baru kerjakan\". Perhatikan validasi diletakkan **setelah** autentikasi, sebab permintaan tanpa token seharusnya ditolak sebelum servermu repot memvalidasi isinya.",
       ),
 
       h2('Validasi yang saling bergantung'),
@@ -2726,6 +2999,12 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        'Aturan pada `z.object({...})` hanya bisa memeriksa satu field secara terpisah. Untuk aturan yang melibatkan **dua field sekaligus**, misalnya tanggal mulai harus sebelum selesai atau konfirmasi harus sama dengan password, dipakai `.refine()` yang menerima seluruh objek setelah setiap field lolos pemeriksaannya sendiri. Perhatikan urutannya, sebab `.refine` tidak akan berjalan kalau `mulai` bukan tanggal yang sah, sehingga kamu tidak perlu memeriksa tipe lagi di dalamnya.',
+      ),
+      p(
+        'Opsi `path` adalah bagian yang sering terlewat, dan ia menentukan pengalaman penggunanya. Tanpa `path`, pesan errornya menempel di objek secara keseluruhan dan frontend tidak tahu input mana yang harus ditandai merah. Dengan `path: [\'konfirmasi\']`, pesan "konfirmasi tidak cocok" muncul tepat di bawah kolom konfirmasi — persis di tempat pengguna perlu melihatnya. Perhatikan pilihan `path`-nya juga disengaja: yang ditandai adalah kolom konfirmasi, bukan kolom password, karena kolom itulah yang lebih masuk akal untuk diperbaiki.',
+      ),
 
       h2('Batas yang wajib ada di setiap skema'),
       ul(
@@ -2747,6 +3026,12 @@ export const lessons: LessonDraft[] = [
         // Kalau partner mengubah bentuk responsnya, kamu tahu DI SINI —
         // bukan lima lapisan kemudian saat sebuah field bernilai undefined.
         `,
+      ),
+      p(
+        'Trust boundary tidak berhenti di pengguna. Respons dari API partner juga datang **dari luar sistemmu**, dan bentuknya bisa berubah kapan saja tanpa memberi tahu — sebuah field dihapus, tipe berubah dari angka menjadi string, atau layanannya sedang bermasalah dan mengirim halaman error alih-alih JSON. Tanpa `parse`, nilai yang salah bentuk itu masuk diam-diam ke logikamu dan baru meledak beberapa lapisan kemudian, di tempat yang tidak ada hubungannya dengan penyebabnya.',
+      ),
+      p(
+        '`AbortSignal.timeout(5000)` sama pentingnya dengan validasinya. `fetch` tanpa batas waktu akan menunggu **selamanya** kalau partner tidak menjawab, dan permintaan pengguna yang menggantung ikut menahan koneksi serta memori — satu layanan luar yang lambat cukup untuk menyeret seluruh API-mu ikut lambat. Pasang timeout eksplisit pada setiap panggilan keluar, dan putuskan apa yang terjadi saat ia habis: menjawab `504`, memakai data cache, atau mencoba lagi dengan jeda.',
       ),
       callout(
         'tip',
@@ -2829,7 +3114,7 @@ export const lessons: LessonDraft[] = [
             'Cara membuktikan otorisasi benar-benar bekerja. Ambil id catatan milik pengguna A, panggil endpoint dengan token pengguna B, dan pastikan jawabannya `404` — bukan `200`. Ini uji yang paling sering dilewatkan.',
         },
         {
-          term: 'uji jalur gagal',
+          term: 'uji unhappy path',
           meaning:
             'Delapan skenario yang harus kamu jalankan sendiri: tanpa token, token cacat, JSON rusak, body terlalu besar, field asing, id bukan angka, milik orang lain, dan rate limit terlampaui. **Setiap `500` untuk kesalahan klien adalah temuan**, bukan hasil yang wajar.',
         },
@@ -2854,6 +3139,12 @@ export const lessons: LessonDraft[] = [
         Pengguna HANYA bisa melihat dan mengubah catatannya sendiri.
         `,
       ),
+      p(
+        'Bacalah kontrak ini sebagai daftar hal yang harus **dibuktikan** oleh kodenya nanti, bukan sekadar rencana. Lima baris pertama menerapkan aturan status dari sub-bab 3.10, yaitu `201` beserta `Location` untuk pembuatan dan `204` tanpa body untuk penghapusan. Perhatikan baris `GET /:id` menuliskan `404 kalau bukan miliknya` alih-alih `403`, mengikuti alasan yang dibahas di sub-bab 3.11, sebab status yang berbeda akan membocorkan bahwa catatan dengan id itu memang ada.',
+      ),
+      p(
+        'Dua kalimat terakhir yang sebenarnya paling menentukan, karena keduanya mudah ditulis dan mudah pula bocor. "Semua endpoint butuh autentikasi" harus terlihat sebagai middleware yang dipasang **sebelum** router, dan "hanya catatannya sendiri" harus terlihat sebagai `penulis_id` di setiap query — bukan sebagai keyakinan bahwa frontend tidak akan mengirim id milik orang lain.',
+      ),
 
       h2('Struktur'),
       code(
@@ -2871,6 +3162,9 @@ export const lessons: LessonDraft[] = [
         ├── repositories/catatan.js
         └── schemas/catatan.js
         `,
+      ),
+      p(
+        'Susunan ini persis yang dibahas di sub-bab 3.9, dengan satu tambahan berupa `schemas/`. Skema Zod diberi foldernya sendiri karena ia dipakai dari dua arah. Middleware validasi memakainya untuk menolak masukan, dan kalau nanti proyeknya memakai TypeScript, tipe-tipe di seluruh aplikasi bisa diturunkan darinya sehingga definisi bentuk data hanya ada di satu tempat. Perhatikan setiap folder di sini berisi satu berkas `catatan.js`, sehingga satu sumber daya menembus semua lapisan, dan itu membuat penelusuran mudah karena kamu tinggal mulai dari `routes/catatan.js` lalu ikuti ke bawah sampai `repositories/catatan.js`.',
       ),
 
       h2('Merakit aplikasinya'),
@@ -2916,6 +3210,15 @@ export const lessons: LessonDraft[] = [
         app.use(penanganError);
         `,
         { filename: 'src/app.js' },
+      ),
+      p(
+        'Berkas ini adalah tempat semua yang dipelajari bab ini dirakit, dan **urutannya adalah isinya**. `helmet()` di atas memasang sekumpulan header keamanan sekaligus, termasuk `X-Content-Type-Options` dan `Referrer-Policy`, sehingga ia harus berjalan sebelum ada respons apa pun terkirim. `express.json({ limit })` menyusul agar `req.body` tersedia, lalu `pencatatPermintaan` supaya setiap permintaan mendapat `req.id` **sebelum** ada yang bisa gagal, termasuk permintaan yang nanti ditolak rate limiter.',
+      ),
+      p(
+        "Rate limiter dipasang dengan prefiks `/api`, dan letaknya di **atas** `/health` bukan kebetulan: health check dipanggil terus-menerus oleh sistem pemantauan, dan kalau ia ikut dibatasi, pemantauanmu akan mengira aplikasinya mati padahal ia sehat. `windowMs: 60_000` dengan `limit: 100` berarti seratus permintaan per menit per IP. Opsi `standardHeaders: 'draft-7'` mengirim sisa kuota lewat header baku `RateLimit-*` sehingga klien bisa mengatur diri, sementara `legacyHeaders: false` mematikan header lama `X-RateLimit-*` yang sudah usang.",
+      ),
+      p(
+        'Dua baris terakhir menutup rangkaiannya dengan urutan yang tidak boleh terbalik: penampung `404` harus berada setelah **semua** rute agar hanya menerima yang benar-benar tidak cocok, dan `penanganError` paling akhir karena ia menampung error dari segalanya di atasnya. Perhatikan juga berkas ini mengekspor `app` tanpa memanggil `listen` — pemisahan dari sub-bab 3.4 yang membuat seluruh aplikasi ini bisa diuji tanpa membuka satu port pun.',
       ),
       callout(
         'warning',
@@ -2982,10 +3285,19 @@ export const lessons: LessonDraft[] = [
         `,
         { filename: 'src/repositories/catatan.js' },
       ),
+      p(
+        'Konstanta `KOLOM` di atas menyelesaikan masalah `SELECT *` dari sub-bab 3.10 sekaligus menghindari pengulangan, sebab daftar kolom yang boleh keluar ditulis **satu kali** dan setiap query memakainya. Kolom sensitif yang ditambahkan ke tabel nanti tidak akan otomatis ikut terkirim, karena yang menentukan adalah daftar ini alih-alih bentuk tabelnya. Perhatikan pula nama fungsinya adalah `cariSatuMilikPengguna` dan bukan `cariSatu`, karena nama itu memaksa pemanggilnya menyediakan `penggunaId` sehingga versi tanpa pemeriksaan kepemilikan tidak pernah ada untuk dipakai keliru.',
+      ),
+      p(
+        'Fungsi `perbarui` adalah bagian tersulitnya, karena `PATCH` hanya mengubah **sebagian** kolom sehingga jumlah kolom yang di-`SET` berbeda-beda setiap permintaan. Perhatikan bagaimana query-nya dibangun: `KOLOM_BOLEH` adalah allow-list milikmu, dan kunci dari klien hanya dipakai untuk mencari di dalamnya — kunci yang tidak dikenal langsung dilewati `continue`. Ini persis pola dari sub-bab 2.10, dan ia wajib di sini karena **nama kolom tidak bisa diparameterkan**. Yang masuk ke `bagian` selalu nama kolom dari daftarmu, sementara nilainya tetap dikirim sebagai `$1`, `$2`, dan seterusnya.',
+      ),
+      p(
+        'Penomoran parameternya juga layak diperhatikan. `nilai.length` bertambah seiring kolom ditambahkan, lalu `id` dan `penggunaId` didorong paling akhir sehingga menempati dua nomor terakhir, dan itulah arti `$${nilai.length - 1}` serta `$${nilai.length}` di klausa `WHERE`. Baris `if (bagian.length === 0)` menangani permintaan `PATCH` yang tidak berisi satu pun kolom sah, sebab alih-alih menjalankan `UPDATE` cacat, ia sekadar mengembalikan keadaan sekarang. Dan `RETURNING` menutupnya dengan mengembalikan baris hasil perubahan dalam satu perjalanan, tanpa `SELECT` susulan.',
+      ),
       callout(
         'danger',
         'Perhatikan `AND penulis_id = $n` di setiap query',
-        'Ini bukan pengulangan yang berlebihan — ini pertahanan berlapis. Meski service sudah memeriksa kepemilikan, query yang di-scope membuat satu kesalahan di lapisan atas tidak berubah menjadi kebocoran data. Kalau baris itu tidak ada, `PATCH /api/catatan/1` dari pengguna mana pun akan mengubah catatan siapa pun.',
+        'Ini bukan pengulangan yang berlebihan — ini defense in depth. Meski service sudah memeriksa kepemilikan, query yang di-scope membuat satu kesalahan di lapisan atas tidak berubah menjadi kebocoran data. Kalau baris itu tidak ada, `PATCH /api/catatan/1` dari pengguna mana pun akan mengubah catatan siapa pun.',
       ),
 
       h2('Controller'),
@@ -3021,6 +3333,15 @@ export const lessons: LessonDraft[] = [
           res.status(204).end();
         }
         `,
+      ),
+      p(
+        'Perhatikan betapa pendeknya ketiga fungsi ini, dan itulah tandanya lapisannya bekerja. Tidak ada `try`/`catch` karena Express 5 meneruskan error dari handler `async` secara otomatis, tidak ada validasi karena middleware sudah menjaminnya, dan tidak ada SQL karena itu urusan repository. Yang tersisa hanyalah pekerjaan khas HTTP, yaitu membaca masukan yang sudah bersih, memanggil service, dan menyusun jawaban dengan status yang tepat.',
+      ),
+      p(
+        'Baris `...req.body` pada `buat` hanya aman karena dua hal yang terjadi sebelumnya. Skema `.strict()` sudah menolak field asing, sehingga tidak ada `peran` atau `penulisId` yang bisa ikut menyelinap — inilah yang membedakannya dari `db.insert({ ...req.body })` yang berbahaya. Dan `penggunaId` ditulis **setelah** penyebaran itu, jadi nilainya berasal dari token dan tidak bisa ditimpa oleh isi body. Urutan dua baris itu, kalau dibalik, membuka celah persis yang ingin ditutup.',
+      ),
+      p(
+        'Perhatikan `daftar` membaca `req.kueriTervalidasi`, bukan `req.query` — konsekuensi dari `req.query` yang tidak bisa ditimpa di Express 5. Membaca `req.query` di sini berarti kembali menerima nilai mentah dan seluruh validasi tadi jadi sia-sia. Terakhir, `hapus` menutup dengan `res.status(204).end()` tanpa body, sesuai kontrak di awal sub-bab.',
       ),
 
       h2('Uji jalur yang tidak bahagia'),

@@ -39,6 +39,12 @@ export const lessons: LessonDraft[] = [
         Gagal 2 kali berturut-turut -> kirim peringatan
         `,
       ),
+      p(
+        'Tiga angka di diagram ini masing-masing hasil kompromi. Interval **60 detik** menentukan seberapa cepat gangguan terdeteksi — memperpendeknya mempercepat deteksi tetapi menambah beban dan biaya. Syarat **2 kali gagal berturut-turut** menyaring gangguan jaringan sesaat; tanpa itu, satu paket yang hilang sudah cukup membangunkan orang di tengah malam.',
+      ),
+      p(
+        'Gabungan keduanya berarti alert datang paling lambat sekitar dua menit setelah aplikasi benar-benar mati — angka yang perlu kamu ketahui, karena itulah batas bawah "berapa lama gangguan bisa berlangsung tanpa ada yang tahu". Bagian **"dari beberapa lokasi"** menutup kesalahan diagnosis yang berbeda: kegagalan yang hanya terlihat dari satu wilayah biasanya masalah jaringan di sana, bukan aplikasimu.',
+      ),
       callout(
         'tip',
         'Pemantauan harus dari LUAR infrastrukturmu',
@@ -59,7 +65,7 @@ export const lessons: LessonDraft[] = [
       callout(
         'danger',
         'Health check yang hanya memeriksa "server merespons" menyembunyikan gangguan',
-        'Aplikasi bisa menjawab `200` di halaman depan sementara login rusak, atau database putus sehingga setiap aksi gagal. Pantau juga satu **alur nyata** — masuk, muat data, simpan sesuatu — bukan hanya ketersediaan port.',
+        'Aplikasi bisa menjawab `200` di halaman depan sementara login rusak, atau database putus sehingga setiap aksi gagal. Pantau juga satu **alur nyata** seperti masuk, muat data, dan simpan sesuatu, bukan hanya ketersediaan port.',
       ),
 
       h2('Metrik yang benar-benar berguna'),
@@ -106,6 +112,12 @@ export const lessons: LessonDraft[] = [
         # Lalu nyalakan lagi
         pm2 start api
         `,
+      ),
+      p(
+        'Latihan ini terasa berlebihan sampai kamu melakukannya sekali dan alertnya **tidak datang**. Yang diuji bukan aplikasinya — melainkan seluruh rantai di belakangnya: aturan ambang, integrasi ke saluran notifikasi, kunci API yang mungkin sudah kedaluwarsa, dan nomor telepon yang mungkin milik orang yang sudah pindah tim.',
+      ),
+      p(
+        'Frasa "di jam sepi" bukan basa-basi, sebab ini sengaja membuat gangguan singkat, jadi lakukan saat dampaknya paling kecil. Ada dua hal yang perlu dicatat, yaitu apakah alertnya datang dan **berapa lama**. Angka kedua itu yang menjadi dasar realistis untuk menjanjikan waktu respons, sebab menebaknya tanpa pernah mengukur hampir selalu menghasilkan angka yang terlalu optimistis.',
       ),
       callout(
         'tip',
@@ -165,6 +177,18 @@ export const lessons: LessonDraft[] = [
         });
         `,
       ),
+      p(
+        '`release: process.env.VERCEL_GIT_COMMIT_SHA` adalah baris yang paling sering dilewati padahal paling berguna saat panik. Dengan setiap error tertandai SHA commit-nya, pertanyaan "kapan ini mulai muncul" berubah dari penelusuran log menjadi satu tampilan grafik — dan error yang lonjakannya persis di satu rilis hampir selalu disebabkan rilis itu.',
+      ),
+      p(
+        '`tracesSampleRate: 0.1` merekam **10%** permintaan untuk pelacakan performa, bukan semuanya. Ini murni soal biaya dan beban: merekam seluruh trafik pada aplikasi ramai menghabiskan kuota dan menambah latensi, sementara 10% sudah cukup untuk melihat pola. Perhatikan ini hanya berlaku untuk trace performa — **error** tetap dikirim seluruhnya.',
+      ),
+      p(
+        'Fungsi `beforeSend` adalah satu-satunya tempat kamu mengendalikan apa yang keluar dari servermu. Ia menghapus header `authorization` (yang memuat token) dan `cookie` (yang memuat sesi), lalu membuang `event.request?.data` — body permintaan, yang bisa berisi password, nomor kartu, atau data pribadi apa pun. Menghapus body sepenuhnya memang mengurangi konteks saat mendiagnosis; itu pertukaran yang disengaja, dan `requestId` di bagian berikutnya yang menggantikan konteks tersebut secara aman.',
+      ),
+      p(
+        '`ignoreErrors` menyaring kebisingan yang bukan bug aplikasimu. `ResizeObserver loop limit exceeded` adalah peringatan browser yang tidak berdampak pada pengguna; `AbortError` muncul saat pengguna berpindah halaman sebelum permintaan selesai. Membiarkan keduanya masuk berarti bug sungguhan tenggelam di antara ribuan kejadian normal.',
+      ),
       callout(
         'danger',
         'Error tracking mengirim data aplikasimu ke pihak ketiga',
@@ -183,6 +207,15 @@ export const lessons: LessonDraft[] = [
         // requestId menghubungkan error ini ke log server
         Sentry.setContext('permintaan', { requestId: req.id, rute: '/api/ekspor' });
         `,
+      ),
+      p(
+        '`setUser({ id: String(pengguna.id) })` sengaja hanya mengirim ID, dan komentarnya menegaskannya. ID sudah cukup untuk menjawab pertanyaan yang penting, yaitu berapa banyak pengguna berbeda yang terkena dan apakah ini terjadi pada satu orang saja, sementara email dan nama adalah data pribadi yang tidak menambah kemampuan diagnosis apa pun. Kalau kamu perlu menghubungi orangnya, ID itu bisa kamu cocokkan sendiri di databasemu.',
+      ),
+      p(
+        "`setTag('fitur', 'ekspor')` menambahkan label yang bisa disaring dan diagregasi — berbeda dari `setContext`, yang menyimpan data rinci untuk dibaca saat membuka satu error. Aturan praktisnya: **tag** untuk hal yang ingin kamu kelompokkan (fitur, tenant, versi klien), **context** untuk detail yang hanya berguna setelah kamu masuk ke kejadian tertentu.",
+      ),
+      p(
+        'Baris `requestId` yang mengikat semuanya. ID yang sama dicetak di log server, dikirim ke error tracker, dan dikembalikan ke pengguna dalam respons error — sehingga laporan "saya dapat error dengan kode 7f3a2b" bisa langsung ditelusuri ke satu permintaan spesifik, lengkap dengan stack trace dan seluruh baris lognya.',
       ),
       callout(
         'tip',
@@ -217,6 +250,12 @@ export const lessons: LessonDraft[] = [
         #   at prosesEkspor (src/services/ekspor.ts:42:12)
         `,
       ),
+      p(
+        'Dua baris itu adalah error yang **sama persis**, ditampilkan sebelum dan sesudah source map diterapkan. Yang pertama menunjuk `main-a1b2c3.js:1:48291` — satu baris raksasa hasil minifikasi, dengan nama fungsi yang sudah dipendekkan menjadi `t`. Informasi itu praktis tidak bisa dipakai: kamu tahu ada yang gagal, tetapi tidak tahu di berkas mana.',
+      ),
+      p(
+        'Source map adalah berkas pemetaan yang menerjemahkan posisi di kode terminifikasi kembali ke posisi di kode sumber — sehingga `at t (main-a1b2c3.js:1:48291)` menjadi `at prosesEkspor (src/services/ekspor.ts:42:12)`. Peringatan berikut menyebut syaratnya: unggah berkas itu ke error tracker saat build, lalu **hapus dari artefak yang di-deploy**, karena menyajikannya dari server publik sama saja membagikan seluruh kode sumbermu.',
+      ),
       callout(
         'danger',
         'Unggah source map ke error tracker — jangan sajikan dari server publik',
@@ -239,6 +278,12 @@ export const lessons: LessonDraft[] = [
         // di rilis yang lebih baru, tracker membukanya kembali —
         // dan kamu tahu perbaikannya tidak bertahan.
         `,
+      ),
+      p(
+        'Menandai error sebagai selesai **pada rilis tertentu** berbeda dari sekadar menutupnya. Tracker menyimpan nomor rilis itu, lalu memantau: kalau error yang sama muncul lagi di rilis yang lebih baru, ia dibuka kembali secara otomatis dan ditandai sebagai regresi.',
+      ),
+      p(
+        'Itu menutup kegagalan yang sangat mudah terjadi — perbaikan yang tidak bertahan. Tanpa mekanisme ini, error yang kembali muncul terlihat sebagai kejadian baru di antara ratusan lainnya, dan tidak ada yang menyadari bahwa masalah ini pernah dinyatakan selesai. Kaitannya langsung dengan `release` di konfigurasi awal: tanpa rilis yang tercatat, tracker tidak punya dasar untuk membedakan "muncul lagi" dari "belum pernah beres".',
       ),
       callout(
         'tip',
@@ -288,6 +333,15 @@ export const lessons: LessonDraft[] = [
                                 Fluent Bit)    CloudWatch)
         `,
       ),
+      p(
+        'Pemanggilan `log.info` di potongan pertama mengoper **objek** sebagai argumen pertama dan pesannya sebagai argumen kedua. Urutan itu bukan gaya penulisan: field seperti `reqId`, `status`, dan `durasiMs` menjadi kolom yang bisa disaring dan dihitung, sementara teks `\'permintaan selesai\'` hanya label untuk dibaca manusia. Perbandingan di bagian "Log terstruktur" di bawah menunjukkan selisih nilainya.',
+      ),
+      p(
+        'Diagram di potongan kedua menjelaskan kenapa aplikasi cukup menulis ke `stdout`. Setiap kotak punya satu tugas: **kolektor** membaca keluaran proses dan mengirimnya keluar, **penyimpanan** mengindeksnya agar bisa dicari, dan **antarmuka** yang kamu buka saat menyelidiki. Aplikasi tidak perlu tahu satu pun dari ketiganya.',
+      ),
+      p(
+        'Konsekuensi praktisnya: berpindah dari CloudWatch ke Loki tidak menyentuh satu baris pun kode aplikasi — yang berubah hanya konfigurasi kolektor. Dan karena log dikirim keluar segera setelah ditulis, ia selamat meski instance-nya dibuang atau dikuasai penyerang.',
+      ),
 
       h2('Correlation ID'),
       code(
@@ -311,6 +365,15 @@ export const lessons: LessonDraft[] = [
           headers: { 'X-Request-Id': req.id },
         });
         `,
+      ),
+      p(
+        "Baris `req.headers['x-request-id'] ?? crypto.randomUUID()` adalah inti pola ini. Operator `??` berarti pakai ID yang sudah dibawa permintaan kalau ada, lalu buat yang baru kalau tidak ada. Layanan pertama yang disentuh permintaan menciptakan ID-nya, lalu layanan berikutnya **mewarisi** ID yang sama, dan itulah yang membuat satu perjalanan bisa dirangkai melintasi beberapa sistem.",
+      ),
+      p(
+        "`res.setHeader('X-Request-Id', req.id)` mengirim ID itu kembali ke pemanggil, sehingga ia muncul di panel Network browser dan bisa disebutkan pengguna saat melapor. `log.child({ reqId: req.id })` membuat logger turunan yang **otomatis** menyertakan field itu di setiap baris — tanpa kamu perlu mengoper `reqId` ke setiap fungsi yang mencatat sesuatu.",
+      ),
+      p(
+        'Potongan kedua menutup rantainya. Panggilan keluar yang tidak meneruskan `X-Request-Id` memutus jejak tepat di batas antar-layanan: layanan tujuan membuat ID baru, dan hubungannya dengan permintaan asal hilang. Terapkan hal yang sama pada job yang dimasukkan ke antrean — simpan `reqId` di payload job, supaya kegagalan yang terjadi jauh kemudian tetap bisa ditelusuri ke permintaan yang memicunya.',
       ),
       callout(
         'tip',
@@ -346,6 +409,15 @@ export const lessons: LessonDraft[] = [
           notes: ['Bisa disaring, dihitung, dan diberi alert'],
         },
       ),
+      p(
+        'Kedua kolom memuat **informasi yang sama**: pengguna 42, aksi ekspor, gagal karena timeout setelah 30 detik. Yang berbeda adalah apakah mesin bisa memahaminya. Kolom kiri hanya bisa dicari dengan pencocokan teks — dan pencarian teks gagal begitu formatnya sedikit berubah, misalnya "Pengguna 42" ditulis "user 42" di tempat lain.',
+      ),
+      p(
+        'Di kolom kanan, tiap potongan informasi menjadi field bernama. Karena `durasiMs` adalah **angka**, kamu bisa bertanya "berapa banyak ekspor yang melebihi 10 detik minggu ini" dan mendapat jawaban; karena `userId` adalah field tersendiri, kamu bisa menyaring seluruh aktivitas satu pengguna. Field `level: 50` adalah konvensi pino untuk `error` — angka, bukan teks, supaya bisa dibandingkan dengan `>=` seperti di contoh pencarian di akhir sub-bab ini.',
+      ),
+      p(
+        'Yang perlu digarisbawahi: log terstruktur **tidak lebih sulit ditulis**. Perbedaannya hanya mengoper objek alih-alih merangkai string, dan hasilnya berubah dari catatan yang dibaca satu per satu menjadi data yang bisa diberi alert.',
+      ),
 
       h2('Yang tidak boleh dicatat'),
       code(
@@ -361,6 +433,15 @@ export const lessons: LessonDraft[] = [
           censor: '[DISENSOR]',
         },
         `,
+      ),
+      p(
+        'Perhatikan hampir setiap entri ditulis dua kali, yaitu `password` dan `*.password`, serta `token` dan `*.token`. Jalur tanpa bintang hanya cocok di tingkat teratas objek, sedangkan `*.password` cocok satu tingkat lebih dalam seperti `body.password` atau `pengguna.password`. Melewatkan varian berbintang adalah kesalahan paling umum, karena data sensitif biasanya bersarang di dalam objek, bukan berdiri sendiri.',
+      ),
+      p(
+        "Dua baris pertama menyensor header `authorization` dan `cookie`, yang keduanya memuat kredensial aktif — bocornya berarti sesi yang bisa langsung dipakai orang lain. Baris terakhir (`*.nomorKtp`, `*.kartuKredit`) menyensor data pribadi yang kebocorannya membawa konsekuensi hukum, bukan sekadar teknis. `censor: '[DISENSOR]'` mengganti nilainya sambil **mempertahankan** field-nya, sehingga kamu tetap tahu bahwa field itu ada saat mendiagnosis.",
+      ),
+      p(
+        'Yang perlu disadari: daftar ini adalah **allow-by-default** — apa pun yang tidak disebut akan tercatat apa adanya. Itu sebabnya peringatan berikut menyebutnya jaring pengaman, bukan solusi. Aturan utamanya tetap mencatat field yang kamu pilih satu per satu, bukan menumpahkan seluruh request body lalu berharap daftar sensor ini lengkap.',
       ),
       callout(
         'danger',
@@ -392,6 +473,15 @@ export const lessons: LessonDraft[] = [
         peristiwa = "otorisasi_ditolak"       pola serangan
         durasiMs > 5000                       permintaan yang lambat
         `,
+      ),
+      p(
+        'Lima kueri ini adalah alasan seluruh disiplin di sub-bab ini sepadan. Baris pertama memakai `reqId` dari bagian correlation ID — satu nilai, dan seluruh perjalanan permintaan itu muncul lintas layanan. Baris kedua memakai `level >= 50`, yang hanya mungkin karena level dicatat sebagai **angka**; dengan teks bebas, "error" dan "ERROR" sudah menjadi dua hal berbeda.',
+      ),
+      p(
+        'Dua baris terakhir menunjukkan pemakaian yang berbeda sifatnya. `peristiwa = "otorisasi_ditolak"` mencari **pola serangan** — lonjakan penolakan otorisasi dari satu akun berarti seseorang sedang mencoba menyentuh data yang bukan miliknya, dan itu layak diberi alert, bukan sekadar dicari sesekali. `durasiMs > 5000` menemukan permintaan lambat tanpa menunggu ada yang mengeluh.',
+      ),
+      p(
+        'Perhatikan setiap kueri di atas menyaring berdasarkan **field**, bukan mencari teks. Itu yang membedakan log yang bisa dioperasikan dari arsip yang hanya bisa dibaca — dan itu ditentukan sejak baris `log.info` ditulis, bukan saat kamu membutuhkannya.',
       ),
     ],
   ),
@@ -448,6 +538,15 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        "Komponen ini mengembalikan `null` — ia tidak menggambar apa pun. Keberadaannya semata untuk memasang hook `useReportWebVitals`, yang dipanggil browser setiap kali sebuah metrik selesai diukur. Karena itu ia butuh `'use client'`: pengukuran hanya bisa terjadi di perangkat pengguna, bukan di server.",
+      ),
+      p(
+        'Empat field yang dikirim dipilih dengan hemat. `nama` dan `nilai` adalah datanya, `rating` adalah penilaian bawaan Chrome berupa `good`, `needs-improvement`, atau `poor` sehingga kamu tidak perlu menghafal ambangnya, sedangkan `rute` yang membuat data ini bisa ditindaklanjuti. Tanpa tahu halaman mana yang lambat, angka LCP rata-rata situs tidak memberi tahu apa yang harus diperbaiki.',
+      ),
+      p(
+        'Tanda tanya di `navigator.sendBeacon?.` menangani browser yang tidak mendukungnya: pemanggilannya dilewati alih-alih melempar error. Peringatan berikut menjelaskan kenapa `sendBeacon` yang dipakai dan bukan `fetch` — metrik seperti INP dan CLS baru final saat halaman ditinggalkan, tepat ketika browser boleh membatalkan permintaan biasa yang belum selesai.',
+      ),
       callout(
         'tip',
         'Pakai `sendBeacon`, bukan `fetch`',
@@ -501,10 +600,16 @@ export const lessons: LessonDraft[] = [
         }
         `,
       ),
+      p(
+        'Empat field yang dikumpulkan cukup untuk menjawab hampir semua pertanyaan yang benar-benar kamu ajukan. `rute` memberi tahu halaman mana yang populer, `referer` menunjukkan dari mana orang datang, sedangkan `negara` dan `jenisPerangkat` menjawab untuk siapa kamu sebaiknya mengoptimalkan. Perhatikan `negara`, bukan kota maupun koordinat, sudah cukup untuk keputusan seperti "perlukah CDN di Asia Tenggara".',
+      ),
+      p(
+        'Tiga hal di baris komentar terakhir adalah yang mengubah analitik menjadi pelacakan individu. Alamat IP adalah data pribadi di banyak yurisdiksi, ID pengguna menghubungkan setiap kunjungan ke orang tertentu, sedangkan sidik jari perangkat mengikuti orang yang sama meski ia menghapus cookie. Ketiganya jarang menjawab pertanyaan yang tidak bisa dijawab data agregat, dan data yang tidak kamu kumpulkan tidak bisa bocor, tidak perlu dijaga, dan tidak menuntut banner persetujuan.',
+      ),
       callout(
         'tip',
         'Kumpulkan yang menjawab pertanyaan, bukan semua yang bisa dikumpulkan',
-        'Analytics yang menghormati privasi seperti Plausible atau Umami memberi hampir semua yang benar-benar dipakai — halaman populer, sumber trafik, tingkat pentalan — tanpa cookie dan tanpa melacak individu. Data yang tidak kamu kumpulkan tidak bisa bocor, dan tidak menuntut banner persetujuan.',
+        'Analytics yang menghormati privasi seperti Plausible atau Umami memberi hampir semua yang benar-benar dipakai seperti halaman populer, sumber trafik, dan tingkat pentalan, tanpa cookie dan tanpa melacak individu. Data yang tidak kamu kumpulkan tidak bisa bocor, dan tidak menuntut banner persetujuan.',
       ),
 
       h2('Anggaran performa'),
@@ -554,6 +659,12 @@ export const lessons: LessonDraft[] = [
         2 media penyimpanan berbeda
         1 salinan di lokasi terpisah
         `,
+      ),
+      p(
+        'Tiga angka itu masing-masing menutup jenis kegagalan yang berbeda, dan itulah kenapa ketiganya diperlukan sekaligus. **3 salinan** melindungi dari kerusakan berkas — satu dump yang ternyata korup tidak membuatmu kehilangan segalanya. **2 media berbeda** melindungi dari kegagalan sistemik: disk yang sama, dibeli bersamaan, cenderung rusak dalam rentang waktu yang berdekatan.',
+      ),
+      p(
+        '**1 salinan di lokasi terpisah** yang paling sering diabaikan, dan yang paling menentukan pada skenario terburuk. Ia menjawab kejadian yang mengenai seluruh lokasi sekaligus: server terhapus, akun cloud dibekukan, atau ransomware yang mengenkripsi setiap berkas yang bisa dijangkau mesin itu. Perhatikan bahwa data asli ikut dihitung sebagai salah satu dari tiga salinan — jadi aturan ini menuntut dua cadangan, bukan tiga.',
       ),
       callout(
         'danger',
@@ -607,6 +718,18 @@ export const lessons: LessonDraft[] = [
         `,
         { filename: 'cadangan.sh' },
       ),
+      p(
+        'Flag `--no-owner --no-acl` pada `pg_dump` menghilangkan kepemilikan dan hak akses dari berkas dump. Itu penting saat memulihkan: tanpanya, pemulihan ke server lain gagal karena nama pengguna database di sana berbeda — dan kegagalan itu baru kamu temukan tepat ketika sedang membutuhkannya.',
+      ),
+      p(
+        'Blok pemeriksaan `UKURAN` adalah pengaman terhadap kegagalan paling berbahaya: cadangan yang "berhasil" tetapi kosong. `pg_dump` yang gagal karena kredensial salah tetap menghasilkan berkas — berisi pesan error beberapa ratus byte. Ambang 1024 byte menangkapnya, dan `exit 1` menghentikan skrip sebelum berkas kosong itu menimpa cadangan yang baik di penyimpanan.',
+      ),
+      p(
+        'Urutan tiga langkah berikutnya juga disengaja: `gpg --encrypt` dijalankan **sebelum** `aws s3 cp`, sehingga yang meninggalkan server sudah dalam keadaan terenkripsi. Kalau bucket-nya kelak salah konfigurasi, yang terekspos adalah berkas yang tidak bisa dibaca. `rm -f` di bawahnya membersihkan kedua berkas sementara dari `/tmp` — salinan lengkap database yang tertinggal di disk server adalah kebocoran yang menunggu terjadi.',
+      ),
+      p(
+        'Baris terakhir memakai pola yang berbeda dari semua pemantauan lain di sub-bab ini: yang dipantau adalah **ketiadaan** sinyal. Skrip yang selesai dengan sukses mengirim ping; kalau ping berhenti datang, layanan pemantau yang memberi tahu. Karena `set -euo pipefail` di baris kedua menghentikan skrip pada kegagalan mana pun, baris ini hanya tercapai kalau seluruh proses benar-benar berhasil.',
+      ),
       callout(
         'danger',
         'Cadangan berisi seluruh data penggunamu — enkripsi sebelum ia keluar dari server',
@@ -629,6 +752,15 @@ export const lessons: LessonDraft[] = [
 
         dropdb uji_pulih
         `,
+      ),
+      p(
+        'Rantai pipa di baris kedua membalik persis urutan skrip cadangan tadi: `aws s3 cp … -` mengalirkan berkas ke keluaran standar (tanda `-` di ujung), lalu `gpg --decrypt | gunzip | psql` mendekripsi, membuka kompresi, dan memulihkannya. Karena semuanya lewat pipa, tidak ada salinan dump yang tertinggal di disk mesin tempat kamu mengujinya.',
+      ),
+      p(
+        'Dua kueri verifikasi menanyakan hal yang berbeda dan keduanya perlu. `count(*) FROM pengguna` menjawab "apakah datanya lengkap" — bandingkan dengan jumlah di produksi. `max(dibuat_pada) FROM artikel` menjawab "apakah datanya **baru**": nilai yang tertinggal tiga minggu berarti cadangan otomatismu sebenarnya sudah lama berhenti berjalan, kegagalan yang tidak terlihat dari jumlah baris saja.',
+      ),
+      p(
+        'Perhatikan seluruh pengujian dilakukan di database `uji_pulih` yang dibuat khusus lalu dihapus dengan `dropdb`. Memulihkan cadangan ke database yang sedang dipakai adalah cara mengubah latihan menjadi insiden — dan `dropdb` di akhir menjaga agar salinan data produksi tidak tertinggal di mesin pengujian.',
       ),
       callout(
         'danger',
@@ -677,6 +809,12 @@ export const lessons: LessonDraft[] = [
         curl -fsS "https://heartbeat.contoh.com/cadangan-harian"
         `,
       ),
+      p(
+        'Angka **25 jam** di komentar adalah pilihan yang disengaja: satu jam lebih longgar dari jadwal harian. Toleransi itu mencegah alert palsu saat cadangan tertunda sebentar karena beban server, tetapi tetap cukup ketat untuk memberi tahu kamu sebelum kehilangan dua siklus cadangan berturut-turut.',
+      ),
+      p(
+        'Yang membedakan pola ini dari pemantauan lain adalah ia mendeteksi kegagalan yang **tidak menghasilkan apa-apa**. Cron yang mati, kredensial yang kedaluwarsa, atau disk yang penuh membuat skrip berhenti berjalan sama sekali, sehingga tidak ada error yang tercatat karena tidak ada yang berjalan untuk mencatatnya. Pemantauan biasa menunggu sinyal buruk, sedangkan heartbeat menunggu sinyal baik, lalu berbunyi saat sinyal itu tidak datang.',
+      ),
       callout(
         'warning',
         'Cadangan yang berhenti berjalan tidak menimbulkan error apa pun',
@@ -692,7 +830,7 @@ export const lessons: LessonDraft[] = [
     'Penutup kurikulum: yang harus benar sebelum dan sesudah kata "rilis".',
     [
       p(
-        'Ini sub-bab terakhir dari 330 sub-bab. Isinya bukan hal baru — ia mengumpulkan gerbang yang sudah dibangun sepanjang jalur belajar ini menjadi satu daftar yang benar-benar dijalankan.',
+        'Ini sub-bab penutup jalur membangun dan merilis. Isinya bukan hal baru, melainkan pengumpulan gerbang yang sudah dibangun sepanjang enam kategori sebelumnya menjadi satu daftar yang benar-benar dijalankan. Sesudah ini tersisa satu kategori lagi, yaitu [System Design](/kelas/system-design/fondasi-sistem), yang membahas apa yang terjadi ketika aplikasi yang sudah rilis ini mulai ramai.',
       ),
 
       h2('Aturan yang mendasari semuanya'),
@@ -715,6 +853,15 @@ export const lessons: LessonDraft[] = [
         npm run start          # jalankan versi PRODUKSI secara lokal
         `,
       ),
+      p(
+        'Urutan lima perintah pertama bukan selera — ia disusun dari yang **paling cepat gagal**. `lint` selesai dalam hitungan detik, `build` bisa memakan menit. Menjalankan yang cepat lebih dulu berarti kesalahan ketik tidak perlu menunggu build selesai untuk memberitahumu.',
+      ),
+      p(
+        'Perhatikan `format:check` (bukan `format`) yang dipakai di sini. Bedanya: `format` **mengubah** berkas, `format:check` hanya melaporkan yang tidak sesuai lalu gagal. Di gerbang pra-deploy kamu ingin yang kedua — perintah yang diam-diam memperbaiki sesuatu berarti ada perubahan yang belum ter-commit saat kamu mengira semuanya sudah bersih.',
+      ),
+      p(
+        'Baris terakhir berdiri terpisah karena ia menguji hal yang berbeda dari lima di atasnya. Kelimanya memeriksa **kode**; `npm run start` menjalankan artefak produksi yang baru dibangun dan membiarkanmu membukanya di browser. Di situlah hydration mismatch, variabel environment yang hilang, dan impor yang salah huruf besar-kecil muncul — tidak satu pun tertangkap oleh lint, type-check, maupun tes.',
+      ),
 
       h2('Pra-deploy: keamanan'),
       code(
@@ -731,6 +878,15 @@ export const lessons: LessonDraft[] = [
         curl -sI http://localhost:3000 | grep -iE \\
           "content-security-policy|strict-transport|x-content-type|referrer-policy|x-powered-by"
         `,
+      ),
+      p(
+        'Empat pemeriksaan ini menutup empat jalur kebocoran yang berbeda. `npm audit --production --audit-level=high` memeriksa dependency yang benar-benar ikut ke produksi, dengan ambang tinggi supaya tidak merah setiap minggu karena hal yang tidak bisa ditindaklanjuti. `gitleaks detect --no-git` memindai berkas di direktori kerja — termasuk `.env` lokal yang mungkin belum diabaikan.',
+      ),
+      p(
+        'Pemeriksaan ketiga menyisir **artefak build**, bukan kode sumber. Bedanya penting: rahasia bisa masuk ke bundle lewat variabel berawalan publik atau impor yang tidak sengaja, tanpa pernah tertulis di kode. `2>/dev/null` membuang pesan error untuk direktori yang tidak ada (project Next.js tidak punya `dist/`, dan sebaliknya), sehingga hasilnya tetap terbaca.',
+      ),
+      p(
+        'Pemeriksaan terakhir menjalankan `curl -sI` terhadap server yang **sedang berjalan** — bukan membaca `next.config.ts`. Empat header pertama yang dicari harus ada; yang kelima, `x-powered-by`, justru harus **tidak** ada, karena ia mengumumkan teknologi dan versi yang kamu pakai kepada pemindai otomatis. Header yang tertulis rapi di konfigurasi tetapi tidak muncul di keluaran ini berarti ia tidak berlaku.',
       ),
 
       h2('Pra-deploy: konfigurasi'),
@@ -776,6 +932,15 @@ export const lessons: LessonDraft[] = [
         # 4. Log tidak menampilkan jenis error baru
         `,
       ),
+      p(
+        'Empat langkah ini menaik dari yang paling mudah ke yang paling sering dilewati. Langkah 1 membuktikan aplikasinya hidup, dan hanya itu — pipeline yang hijau tidak membuktikan apa pun tentang aplikasi yang berjalan. Langkah 2 yang sebenarnya menjawab "apakah deploy ini berhasil": **perilaku yang baru kamu ubah** harus dicoba, karena halaman depan yang terbuka normal juga terjadi pada deploy yang gagal separuh.',
+      ),
+      p(
+        'Langkah 3 menekankan kata **dibandingkan**. "Kelihatannya normal" tidak berarti apa-apa tanpa angka sebelum deploy sebagai pembanding: tingkat error 5xx yang naik dari 0,1% ke 0,8% masih terlihat kecil di layar, tetapi itu delapan kali lipat. Panjang antrean job masuk daftar karena ia satu-satunya yang menunjukkan pekerja antrean berhenti bekerja — gejalanya tidak muncul di metrik HTTP mana pun.',
+      ),
+      p(
+        'Langkah 4 mencari **jenis** error baru, bukan jumlahnya. Aplikasi yang sehat pun selalu punya error di lognya; yang menandakan masalah adalah pesan yang belum pernah ada sebelum deploy ini. Daftar berikut menerjemahkan keempat langkah tersebut menjadi enam pemeriksaan konkret.',
+      ),
       ol(
         'Health check hijau, dari **luar** infrastruktur.',
         'Alur kritis diuji manual sekali — masuk, muat, simpan.',
@@ -794,7 +959,7 @@ export const lessons: LessonDraft[] = [
       callout(
         'warning',
         'Apa pun yang gagal atau dilewati dilaporkan apa adanya',
-        'Langkah yang tidak bisa dijalankan — karena layanan mati, variabel kurang, atau waktu habis — disebutkan **eksplisit**, bukan dibulatkan menjadi "selesai". Ini prinsip yang sama yang berlaku untuk seluruh pekerjaan teknis: bedakan yang **diverifikasi** dari yang **diasumsikan**.',
+        'Langkah yang tidak bisa dijalankan, entah karena layanan mati, variabel kurang, atau waktu habis, disebutkan **eksplisit** alih-alih dibulatkan menjadi "selesai". Ini prinsip yang sama yang berlaku untuk seluruh pekerjaan teknis, yaitu bedakan yang **diverifikasi** dari yang **diasumsikan**.',
       ),
 
       divider,
@@ -820,7 +985,7 @@ export const lessons: LessonDraft[] = [
         'Lint, type-check, format, test, dan build semuanya dijalankan dan hijau',
         '`npm run start` dijalankan lokal, dan aplikasinya benar-benar dibuka',
         'Audit dependency produksi bersih untuk kerentanan tinggi',
-        'Pemindai rahasia dijalankan dan tidak menemukan apa pun',
+        'Secret scanner dijalankan dan tidak menemukan apa pun',
         'Tidak ada rahasia di artefak build maupun bundle klien',
         'Header keamanan diverifikasi dengan `curl -I` pada server yang berjalan',
         '`X-Powered-By` dan header pengungkap teknologi lain tidak ada',

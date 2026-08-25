@@ -36,7 +36,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'useState',
           meaning:
-            'Hook yang memberi komponen sebuah **ingatan**. Ia mengembalikan array dua elemen — nilainya sekarang, dan fungsi untuk mengubahnya — sehingga selalu ditulis dengan destructuring array: `const [jumlah, setJumlah] = useState(0)`. Karena berbasis posisi, penamaannya bebas; kebiasaan `setXxx` murni kesepakatan.',
+            'Hook yang memberi komponen sebuah **ingatan**. Ia mengembalikan array dua elemen, yaitu nilainya sekarang dan fungsi untuk mengubahnya, sehingga selalu ditulis dengan destructuring array seperti `const [jumlah, setJumlah] = useState(0)`. Karena berbasis posisi, penamaannya bebas, dan kebiasaan `setXxx` murni kesepakatan.',
         },
         {
           term: 'hook',
@@ -98,8 +98,8 @@ export const lessons: LessonDraft[] = [
 
           return <button onClick={() => { jumlah++; }}>{jumlah}</button>;
         }
-        // 1. React tidak tahu ada yang berubah -> tidak merender ulang
-        // 2. Kalaupun dirender ulang, 'jumlah' di-reset ke 0 karena fungsinya dipanggil lagi
+        // 1. React tidak tahu ada yang berubah -> tidak melakukan re-render
+        // 2. Kalaupun di-render ulang, 'jumlah' di-reset ke 0 karena fungsinya dipanggil lagi
         `,
       ),
       p(
@@ -130,7 +130,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Kedua bentuk SALAH punya satu kesamaan: keduanya membuat **jumlah hook yang dipanggil bisa berbeda antar render**. Nilai `masuk` bisa berubah, dan panjang `items` bisa berubah. Bentuk BENAR menunjukkan koreksinya, dan yang dipindah bukan pemakaiannya melainkan **pemanggilan hook-nya**: `useState` naik ke atas tanpa syarat apa pun, sedangkan `if (masuk)` tetap ada untuk mengatur kapan nilainya dipakai. Kalau kamu benar-benar butuh state per item dalam sebuah daftar, jawabannya bukan hook di dalam loop melainkan **memecah tiap item menjadi komponennya sendiri** — karena tiap komponen punya daftar hook-nya sendiri. Kotak di bawah menjelaskan kenapa aturannya tidak bisa ditawar.',
+        'Kedua bentuk SALAH punya satu kesamaan, yaitu keduanya membuat **jumlah hook yang dipanggil bisa berbeda antar render**. Nilai `masuk` bisa berubah, dan panjang `items` bisa berubah. Bentuk BENAR menunjukkan koreksinya, dan yang dipindah bukan pemakaiannya melainkan **pemanggilan hook-nya**. `useState` naik ke atas tanpa syarat apa pun, sedangkan `if (masuk)` tetap ada untuk mengatur kapan nilainya dipakai. Kalau kamu benar-benar butuh state per item dalam sebuah daftar, jawabannya bukan hook di dalam loop melainkan **memecah tiap item menjadi komponennya sendiri**, karena tiap komponen punya daftar hook-nya sendiri. Kotak di bawah menjelaskan kenapa aturannya tidak bisa ditawar.',
       ),
       callout(
         'warning',
@@ -151,7 +151,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perbedaannya benar-benar hanya sepasang tanda kurung, tapi artinya berlawanan. `useState(bacaLocalStorage())` **menjalankan** fungsinya lebih dulu lalu mengoper hasilnya — dan karena badan komponen dijalankan ulang di setiap render, pembacaan itu terjadi berulang-ulang meski nilainya hanya dipakai sekali di render pertama. `useState(() => bacaLocalStorage())` mengoper **fungsinya**, dan React memanggilnya tepat sekali saat state itu pertama dibuat. Bentuk ini disebut *lazy initializer*. Ia layak dipakai setiap kali nilai awalnya butuh pekerjaan nyata — membaca `localStorage`, mengurai JSON, atau menghitung dari data besar. Untuk nilai murah seperti `useState(0)`, pembungkus fungsi hanya menambah teks tanpa manfaat.',
+        'Perbedaannya benar-benar hanya sepasang tanda kurung, tapi artinya berlawanan. `useState(bacaLocalStorage())` **menjalankan** fungsinya lebih dulu lalu mengoper hasilnya, dan karena badan komponen dijalankan ulang di setiap render, pembacaan itu terjadi berulang-ulang meski nilainya hanya dipakai sekali di render pertama. `useState(() => bacaLocalStorage())` mengoper **fungsinya**, dan React memanggilnya tepat sekali saat state itu pertama dibuat. Bentuk ini disebut *lazy initializer*. Ia layak dipakai setiap kali nilai awalnya butuh pekerjaan nyata, misalnya membaca `localStorage`, mengurai JSON, atau menghitung dari data besar. Untuk nilai murah seperti `useState(0)`, pembungkus fungsi hanya menambah teks tanpa manfaat.',
       ),
       callout(
         'tip',
@@ -256,7 +256,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'stale closure',
           meaning:
-            'Terjemahan bebasnya **closure yang membawa nilai basi**. Fungsi yang dibuat pada render lama lalu dijalankan belakangan — di dalam `setTimeout`, pendengar event, atau timer — sehingga ia membaca state dari saat ia dibuat, bukan dari saat ia berjalan. Sumber bug asinkron yang paling membingungkan di React.',
+            'Terjemahan bebasnya **closure yang membawa nilai basi**. Fungsi yang dibuat pada render lama lalu dijalankan belakangan, entah di dalam `setTimeout`, pendengar event, atau timer, sehingga ia membaca state dari saat ia dibuat, bukan dari saat ia berjalan. Sumber bug asinkron yang paling membingungkan di React.',
         },
         {
           term: 'render sebagai foto',
@@ -348,7 +348,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Bandingkan komentar di kedua blok, karena di situlah perbedaannya terbaca. Pada versi pertama, ketiga baris membaca variabel `jumlah` yang **sama** — konstanta milik render ini, yang tetap `0` sepanjang fungsi berjalan. Jadi ketiganya mengajukan permintaan yang identik: "jadikan 1". React menjalankan ketiganya, dan hasil akhirnya tentu saja 1. Versi kedua tidak mengoper nilai melainkan **fungsi**, dan React memanggil tiap fungsi itu dengan nilai terbaru hasil pemanggilan sebelumnya — itulah kenapa angkanya berjalan 0→1, 1→2, 2→3. Aturan praktis yang bisa dibawa pulang: **kalau nilai barunya dihitung dari nilai lama, pakai bentuk updater.** Untuk nilai yang tidak bergantung pada yang lama — misalnya `setNama(input.value)` — bentuk biasa sudah tepat.',
+        'Bandingkan komentar di kedua blok, karena di situlah perbedaannya terbaca. Pada versi pertama, ketiga baris membaca variabel `jumlah` yang **sama**, yaitu konstanta milik render ini yang tetap `0` sepanjang fungsi berjalan. Jadi ketiganya mengajukan permintaan yang identik, yakni "jadikan 1". React menjalankan ketiganya, dan hasil akhirnya tentu saja 1. Versi kedua tidak mengoper nilai melainkan **fungsi**, dan React memanggil tiap fungsi itu dengan nilai terbaru hasil pemanggilan sebelumnya, dan itulah kenapa angkanya berjalan 0→1, 1→2, 2→3. Aturan praktis yang bisa dibawa pulang, **kalau nilai barunya dihitung dari nilai lama, pakai bentuk updater.** Untuk nilai yang tidak bergantung pada yang lama, misalnya `setNama(input.value)`, bentuk biasa sudah tepat.',
       ),
 
       h2('Konsekuensi 2: `setTimeout` melihat nilai lama'),
@@ -388,7 +388,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Penjaga di baris ketiga adalah pola yang sangat umum untuk mencegah pengiriman ganda — dan di sini ia **tidak pernah bekerja sama sekali**. Sebabnya sama seperti sebelumnya: `memuat` adalah konstanta untuk render ini, jadi memanggil `setMemuat(true)` satu baris di atasnya tidak mengubahnya. Nilai `true` baru ada di render berikutnya, sementara pemeriksaan ini terjadi di render sekarang. Yang membuatnya berbahaya adalah gejalanya jarang muncul: pada koneksi cepat, pengguna tidak sempat mengklik dua kali. Ia baru terlihat di jaringan lambat, tepat pada saat pengiriman ganda paling merugikan.',
+        'Penjaga di baris ketiga adalah pola yang sangat umum untuk mencegah pengiriman ganda, tapi di sini ia **tidak pernah bekerja sama sekali**. Sebabnya sama seperti sebelumnya, karena `memuat` adalah konstanta untuk render ini, jadi memanggil `setMemuat(true)` satu baris di atasnya tidak mengubahnya. Nilai `true` baru ada di render berikutnya, sementara pemeriksaan ini terjadi di render sekarang. Yang membuatnya berbahaya adalah gejalanya jarang muncul, sebab pada koneksi cepat pengguna tidak sempat mengklik dua kali. Ia baru terlihat di jaringan lambat, tepat pada saat pengiriman ganda paling merugikan.',
       ),
       code(
         'tsx',
@@ -411,7 +411,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perhatikan ada **dua nilai yang melacak hal yang sama**, dan itu disengaja karena keduanya melayani pembaca berbeda. `sedangKirim` adalah `useRef` — nilainya berubah **seketika** tanpa menunggu render, jadi ia bisa dipakai sebagai penjaga yang benar-benar berlaku pada baris berikutnya. `memuat` tetap state karena ia yang **ditampilkan** ke pengguna sebagai tombol nonaktif atau spinner, dan hal yang tampil memang harus memicu render. Perhatikan juga pengembalian nilainya ditaruh di `finally`, bukan setelah `await kirim()` — dengan begitu penjaganya tetap dilepas meski pengirimannya gagal, sehingga pengguna tidak terkunci selamanya dari mencoba lagi.',
+        'Perhatikan ada **dua nilai yang melacak hal yang sama**, dan itu disengaja karena keduanya melayani pembaca berbeda. `sedangKirim` adalah `useRef` yang nilainya berubah **seketika** tanpa menunggu render, jadi ia bisa dipakai sebagai penjaga yang benar-benar berlaku pada baris berikutnya. `memuat` tetap state karena ia yang **ditampilkan** ke pengguna sebagai tombol nonaktif atau spinner, dan hal yang tampil memang harus memicu render. Perhatikan juga pengembalian nilainya ditaruh di `finally` dan bukan setelah `await kirim()`, sebab dengan begitu penjaganya tetap dilepas meski pengirimannya gagal, sehingga pengguna tidak terkunci selamanya dari mencoba lagi.',
       ),
 
       h2('Aturan praktisnya'),
@@ -494,7 +494,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'n vs jumlah',
           meaning:
-            'Perbedaan yang menentukan dan mudah terlewat. `setJumlah(jumlah + 1)` membaca `jumlah` dari **potret render** — jadi tiga kali berturut-turut tetap menghasilkan satu. `setJumlah(n => n + 1)` membaca `n` dari **antrean** — jadi tiga kali menghasilkan tiga.',
+            'Perbedaan yang menentukan dan mudah terlewat. `setJumlah(jumlah + 1)` membaca `jumlah` dari **potret render**, jadi tiga kali berturut-turut tetap menghasilkan satu. `setJumlah(n => n + 1)` membaca `n` dari **antrean**, jadi tiga kali menghasilkan tiga.',
         },
         {
           term: 'flushSync',
@@ -558,7 +558,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Cara memilih di antara keduanya bisa diringkas satu pertanyaan: **apakah nilai barunya menyebut nilai lama?** Ketiga baris pertama menyebutnya — `n + 1` butuh `n`, `[...d, baru]` butuh `d`, dan `!t` butuh `t` — jadi ketiganya wajib memakai updater. Ketiga baris kedua tidak: `e.target.value` datang dari input, `id` datang dari argumen, dan `null` adalah nilai tetap. Untuk kelompok itu, bentuk nilai langsung lebih pendek dan sama benarnya. Perlu ditegaskan bahwa memakai updater di kelompok kedua **tidak salah**, hanya tidak perlu — sedangkan memakai bentuk nilai di kelompok pertama adalah bug yang menunggu waktu.',
+        'Cara memilih di antara keduanya bisa diringkas satu pertanyaan, yaitu **apakah nilai barunya menyebut nilai lama?** Ketiga baris pertama menyebutnya, karena `n + 1` butuh `n`, `[...d, baru]` butuh `d`, dan `!t` butuh `t`, jadi ketiganya wajib memakai updater. Ketiga baris kedua tidak menyebutnya, sebab `e.target.value` datang dari input, `id` datang dari argumen, dan `null` adalah nilai tetap. Untuk kelompok itu, bentuk nilai langsung lebih pendek dan sama benarnya. Perlu ditegaskan bahwa memakai updater di kelompok kedua **tidak salah**, hanya tidak perlu, sedangkan memakai bentuk nilai di kelompok pertama adalah bug yang menunggu waktu.',
       ),
 
       h2('Kasus yang benar-benar menggigit'),
@@ -579,7 +579,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Contoh ini lebih berbahaya daripada kasus tiga `setJumlah` sebelumnya, karena kedua pemanggilnya **tidak saling mengetahui**. Satu dipicu pengguna lewat form, satu lagi dipicu pesan dari server lewat socket — keduanya ditulis di tempat berbeda, mungkin oleh orang berbeda, dan masing-masing terlihat benar sendiri. Masalahnya baru muncul saat keduanya terjadi berdekatan: keduanya membaca `daftar` dari render yang sama, keduanya membangun array baru dari titik awal yang sama, dan yang belakangan menimpa hasil yang pertama. Satu item hilang tanpa error apa pun. Perbaikannya cuma mengganti bentuknya menjadi updater — dan seperti dijelaskan kotak berikut, memakai updater sebagai kebiasaan menutup seluruh kelas bug ini sebelum ia sempat terjadi.',
+        'Contoh ini lebih berbahaya daripada kasus tiga `setJumlah` sebelumnya, karena kedua pemanggilnya **tidak saling mengetahui**. Satu dipicu pengguna lewat form, satu lagi dipicu pesan dari server lewat socket, sehingga keduanya ditulis di tempat berbeda, mungkin oleh orang berbeda, dan masing-masing terlihat benar sendiri. Masalahnya baru muncul saat keduanya terjadi berdekatan. Keduanya membaca `daftar` dari render yang sama, keduanya membangun array baru dari titik awal yang sama, dan yang belakangan menimpa hasil yang pertama. Satu item hilang tanpa error apa pun. Perbaikannya cuma mengganti bentuknya menjadi updater, dan seperti dijelaskan kotak berikut, memakai updater sebagai kebiasaan menutup seluruh kelas bug ini sebelum ia sempat terjadi.',
       ),
       code(
         'tsx',
@@ -701,12 +701,12 @@ export const lessons: LessonDraft[] = [
         {
           term: 'update bersarang',
           meaning:
-            'Memperbarui data beberapa tingkat ke dalam. Menulisnya dengan spread berlapis bisa jadi sangat panjang dan mudah salah. Dua jalan keluarnya: **ratakan bentuk datanya** sejak awal, atau pakai pustaka seperti Immer.',
+            'Memperbarui data beberapa tingkat ke dalam. Menulisnya dengan spread berlapis bisa jadi sangat panjang dan mudah salah. Dua jalan keluarnya: **ratakan bentuk datanya** sejak awal, atau pakai library seperti Immer.',
         },
         {
           term: 'Immer',
           meaning:
-            'Pustaka yang membiarkanmu menulis kode yang **terlihat seperti mutasi** — `draft.a.b.c = 1` — lalu diam-diam menghasilkan salinan baru yang benar. Berguna untuk state bersarang dalam. Perlu diingat, ia mengurangi gejalanya; bentuk data yang lebih rata sering menyelesaikan akar masalahnya.',
+            'Library yang membiarkanmu menulis kode yang **terlihat seperti mutasi**, misalnya `draft.a.b.c = 1`, lalu diam-diam menghasilkan salinan baru yang benar. Berguna untuk state bersarang dalam. Perlu diingat, ia mengurangi gejalanya, sedangkan bentuk data yang lebih rata sering menyelesaikan akar masalahnya.',
         },
         {
           term: 'ratakan state',
@@ -759,7 +759,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Ketujuh baris ini punya satu benang merah: **tidak satu pun menyentuh array aslinya.** Semuanya menghasilkan array baru, sehingga referensinya berubah dan React melihat perubahannya. Perhatikan tiga nama method yang mungkin masih asing — `toSorted`, `with` — adalah padanan aman dari `sort` dan `arr[i] = x` yang sudah kamu pelajari di Frontend Basic; awalan `to` adalah janji bahwa ia mengembalikan versi baru. Baris "Ubah satu" layak dibaca pelan karena ia menumpuk dua gagasan: `map` menghasilkan array baru, dan ternary di dalamnya menyalin **hanya item yang cocok** dengan `{ ...x, selesai: true }` sambil mengembalikan item lain apa adanya. Menyalin seperlunya itu penting — item yang alamatnya tidak berubah memberi tahu React bahwa baris itu tidak perlu digambar ulang.',
+        'Ketujuh baris ini punya satu benang merah, yaitu **tidak satu pun menyentuh array aslinya.** Semuanya menghasilkan array baru, sehingga referensinya berubah dan React melihat perubahannya. Perhatikan tiga nama method yang mungkin masih asing. `toSorted` dan `with` adalah padanan aman dari `sort` dan `arr[i] = x` yang sudah kamu pelajari di Frontend Basic, dan awalan `to` adalah janji bahwa ia mengembalikan versi baru. Baris "Ubah satu" layak dibaca pelan karena ia menumpuk dua gagasan. `map` menghasilkan array baru, dan ternary di dalamnya menyalin **hanya item yang cocok** dengan `{ ...x, selesai: true }` sambil mengembalikan item lain apa adanya. Menyalin seperlunya itu penting, karena item yang alamatnya tidak berubah memberi tahu React bahwa baris itu tidak perlu digambar ulang.',
       ),
       table(
         ['Jangan pakai (mutasi)', 'Pakai ini'],
@@ -811,7 +811,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perhatikan **tiga** spread bersarang untuk mengubah **satu** nilai boolean. Itu bukan kerumitan yang dibuat-buat — aturannya memang begitu: setiap tingkat yang isinya berubah harus disalin, karena kalau salah satu tingkat memakai objek lama, referensinya tidak berubah dan React tidak melihat perubahan di cabang itu. Hitung mundur dari bawah: mengubah `email` mengubah `notifikasi`, yang mengubah `pengaturan`, yang mengubah objek akarnya. Yang layak digarisbawahi bukan cara menulisnya, melainkan **apa yang ia beri tahu tentang bentuk state-mu** — seperti kata kotak berikut, kalau kamu menulis pola ini lebih dari sekali, masalahnya bukan di sintaks melainkan di struktur datanya.',
+        'Perhatikan **tiga** spread bersarang untuk mengubah **satu** nilai boolean. Itu bukan kerumitan yang dibuat-buat, karena aturannya memang begitu. Setiap tingkat yang isinya berubah harus disalin, sebab kalau salah satu tingkat memakai objek lama, referensinya tidak berubah dan React tidak melihat perubahan di cabang itu. Hitung mundur dari bawah, karena mengubah `email` mengubah `notifikasi`, yang mengubah `pengaturan`, yang mengubah objek akarnya. Yang layak digarisbawahi bukan cara menulisnya, melainkan **apa yang ia beri tahu tentang bentuk state-mu**. Seperti kata kotak berikut, kalau kamu menulis pola ini lebih dari sekali, masalahnya bukan di sintaks melainkan di struktur datanya.',
       ),
       callout(
         'warning',
@@ -834,7 +834,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perbaikannya bukan menulis spread yang lebih pintar melainkan **mengubah bentuk datanya**. Versi SEBELUM menyimpan subtugas di dalam tugas, jadi menyentuh satu subtugas berarti menyalin tiga tingkat. Versi SESUDAH memisahkannya menjadi dua state terpisah berbentuk `Record<string, T>` — peta dari id ke objeknya, bukan array bersarang. Hasilnya terlihat di baris terakhir: pembaruan yang tadinya tiga tingkat kini **dua tingkat saja**, satu untuk peta dan satu untuk item yang berubah. Cara ini disebut *normalisasi*, dan ia memberi keuntungan kedua yang tak kalah penting: mencari subtugas berdasarkan id menjadi pencarian langsung `subtugas[id]`, bukan menelusuri array di dalam array.',
+        'Perbaikannya bukan menulis spread yang lebih pintar melainkan **mengubah bentuk datanya**. Versi SEBELUM menyimpan subtugas di dalam tugas, jadi menyentuh satu subtugas berarti menyalin tiga tingkat. Versi SESUDAH memisahkannya menjadi dua state terpisah berbentuk `Record<string, T>`, yaitu peta dari id ke objeknya dan bukan array bersarang. Hasilnya terlihat di baris terakhir, karena pembaruan yang tadinya tiga tingkat kini **dua tingkat saja**, satu untuk peta dan satu untuk item yang berubah. Cara ini disebut *normalisasi*, dan ia memberi keuntungan kedua yang tak kalah penting. Mencari subtugas berdasarkan id menjadi pencarian langsung `subtugas[id]`, bukan menelusuri array di dalam array.',
       ),
 
       h2('Immer, kalau memang perlu'),
@@ -851,7 +851,7 @@ export const lessons: LessonDraft[] = [
       ),
       callout(
         'tip',
-        'Ratakan dulu sebelum menambah pustaka',
+        'Ratakan dulu sebelum menambah library',
         'Immer menyelesaikan gejalanya. Kalau state-mu bersarang lima tingkat, masalah sebenarnya adalah bentuk datanya — dan meratakannya juga mempercepat pencarian, memudahkan pembaruan sebagian, serta menyederhanakan tes.',
       ),
 
@@ -871,7 +871,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Aturan "jangan memutasi" berlaku untuk **objek yang React sudah simpan sebagai state**, bukan untuk objek apa pun yang kebetulan ada di memori. `salinan` pada contoh pertama adalah array biasa yang belum diserahkan ke `setDaftar` — memutasinya dengan `push` di dalam loop aman, karena React belum tahu apa-apa tentang objek itu; yang penting hasil akhirnya diserahkan lewat `setDaftar(salinan)` sebagai satu pembaruan. `hitungRef.current` malah **memang dirancang** untuk dimutasi langsung, karena ref sengaja tidak memicu render — sub-bab 4.7 (Frontend Intermediate Bab 7) membahas ini lebih dalam.',
+        'Aturan "jangan memutasi" berlaku untuk **objek yang React sudah simpan sebagai state**, bukan untuk objek apa pun yang kebetulan ada di memori. `salinan` pada contoh pertama adalah array biasa yang belum diserahkan ke `setDaftar`, sehingga memutasinya dengan `push` di dalam loop aman karena React belum tahu apa-apa tentang objek itu. Yang penting hasil akhirnya diserahkan lewat `setDaftar(salinan)` sebagai satu pembaruan. `hitungRef.current` malah **memang dirancang** untuk dimutasi langsung, karena ref sengaja tidak memicu render, dan sub-bab 4.7 (Frontend Intermediate Bab 7) membahas ini lebih dalam.',
       ),
 
       divider,
@@ -958,7 +958,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'e.target vs currentTarget',
           meaning:
-            'Sama seperti di DOM: `target` adalah elemen yang **benar-benar** memicu, `currentTarget` adalah tempat pendengarnya dipasang. Tambahan yang khas TypeScript: `currentTarget` bertipe tepat, sementara `target` sengaja longgar — kalau tipenya terasa janggal, biasanya kamu menginginkan `currentTarget`.',
+            'Sama seperti di DOM, `target` adalah elemen yang **benar-benar** memicu, sedangkan `currentTarget` adalah tempat pendengarnya dipasang. Ada tambahan yang khas TypeScript. `currentTarget` bertipe tepat, sementara `target` sengaja longgar, jadi kalau tipenya terasa janggal biasanya kamu menginginkan `currentTarget`.',
         },
         {
           term: 'nativeEvent',
@@ -999,7 +999,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perbedaan ketiga baris ini cuma sepasang tanda kurung, tapi artinya sangat berbeda. Baris pertama **mengoper fungsinya** — React menyimpannya dan memanggilnya nanti saat tombol diklik. Baris kedua **memanggilnya sekarang**, saat JSX sedang dievaluasi, lalu mendaftarkan nilai kembaliannya sebagai handler; karena `hapus` biasanya tidak mengembalikan fungsi, yang terdaftar akhirnya `undefined`. Baris ketiga menyelesaikan kebutuhan yang membuat orang tergoda menulis baris kedua: mengoper argumen. Caranya dengan membungkusnya dalam arrow function — yang **dioper** adalah arrow itu, dan `hapus(id)` di dalamnya baru berjalan saat arrow-nya dipanggil.',
+        'Perbedaan ketiga baris ini cuma sepasang tanda kurung, tapi artinya sangat berbeda. Baris pertama **mengoper fungsinya**, sehingga React menyimpannya dan memanggilnya nanti saat tombol diklik. Baris kedua **memanggilnya sekarang**, saat JSX sedang dievaluasi, lalu mendaftarkan return value-nya sebagai handler. Karena `hapus` biasanya tidak mengembalikan fungsi, yang terdaftar akhirnya `undefined`. Baris ketiga menyelesaikan kebutuhan yang membuat orang tergoda menulis baris kedua, yaitu mengoper argumen. Caranya dengan membungkusnya dalam arrow function, sehingga yang **dioper** adalah arrow itu, dan `hapus(id)` di dalamnya baru berjalan saat arrow-nya dipanggil.',
       ),
       callout(
         'danger',
@@ -1071,7 +1071,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'React hanya menyediakan prop `on*` untuk event yang terjadi **pada elemen** — klik, ketik, submit. Event yang terjadi pada `window` atau `document`, seperti `resize`, `scroll`, dan `online`/`offline`, tidak punya padanan prop, jadi harus dipasang sendiri lewat `useEffect`. Perhatikan `onResize` didefinisikan **di dalam** Effect, bukan di badan komponen: itu memastikan fungsi yang dipasang dan yang dilepas benar-benar objek yang sama, karena `removeEventListener` mencocokkan berdasarkan alamat fungsi. `{ passive: true }` adalah janji bahwa handler ini tidak akan memanggil `preventDefault`, sehingga browser tidak perlu menunggunya. Dan `return () => ...` adalah pembersihan yang wajib ada — alasannya dijelaskan di kotak berikut.',
+        'React hanya menyediakan prop `on*` untuk event yang terjadi **pada elemen**, seperti klik, ketik, dan submit. Event yang terjadi pada `window` atau `document`, seperti `resize`, `scroll`, dan `online`/`offline`, tidak punya padanan prop, jadi harus dipasang sendiri lewat `useEffect`. Perhatikan `onResize` didefinisikan **di dalam** Effect dan bukan di badan komponen, sebab itu memastikan fungsi yang dipasang dan yang dilepas benar-benar objek yang sama, karena `removeEventListener` mencocokkan berdasarkan alamat fungsi. `{ passive: true }` adalah janji bahwa handler ini tidak akan memanggil `preventDefault`, sehingga browser tidak perlu menunggunya. Dan `return () => ...` adalah pembersihan yang wajib ada, dengan alasan yang dijelaskan di kotak berikut.',
       ),
       callout(
         'warning',
@@ -1089,7 +1089,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Ketiganya membatalkan perilaku bawaan browser yang berjalan **otomatis** kalau tidak dicegah. Form yang di-submit tanpa `preventDefault` akan memuat ulang seluruh halaman — kebiasaan lama sebelum JavaScript menangani form; tautan `href="#"` tanpa `preventDefault` akan menggulir halaman ke atas; dan yang paling mudah terlupa, `onDragOver` tanpa `preventDefault` membuat `onDrop` di elemen yang sama **tidak pernah terpicu sama sekali** — browser memperlakukan area itu sebagai "tidak menerima drop" secara default, kecuali kamu menyatakan sebaliknya di `onDragOver`.',
+        'Ketiganya membatalkan perilaku bawaan browser yang berjalan **otomatis** kalau tidak dicegah. Form yang di-submit tanpa `preventDefault` akan memuat ulang seluruh halaman, kebiasaan lama sebelum JavaScript menangani form. Tautan `href="#"` tanpa `preventDefault` akan menggulir halaman ke atas. Dan yang paling mudah terlupa, `onDragOver` tanpa `preventDefault` membuat `onDrop` di elemen yang sama **tidak pernah terpicu sama sekali**, karena browser memperlakukan area itu sebagai "tidak menerima drop" secara default kecuali kamu menyatakan sebaliknya di `onDragOver`.',
       ),
 
       divider,
@@ -1175,7 +1175,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'single source of truth',
           meaning:
-            'Terjemahannya **satu sumber kebenaran**. Pada input controlled, sumbernya adalah state React; pada uncontrolled, sumbernya adalah DOM. Yang berbahaya adalah **mencampur keduanya** — menyimpan nilai di state sekaligus membiarkan DOM memegangnya sendiri berarti dua sumber yang pasti berselisih.',
+            'Terjemahannya **satu source of truth**. Pada input controlled, sumbernya adalah state React; pada uncontrolled, sumbernya adalah DOM. Yang berbahaya adalah **mencampur keduanya** — menyimpan nilai di state sekaligus membiarkan DOM memegangnya sendiri berarti dua sumber yang pasti berselisih.',
         },
       ),
 
@@ -1189,7 +1189,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'React memegang sumber kebenarannya. Setiap ketikan memicu render, dan nilai yang tampil selalu berasal dari state.',
+        'React memegang source of truth-nya. Setiap ketikan memicu render, dan nilai yang tampil selalu berasal dari state.',
       ),
 
       h2('Uncontrolled'),
@@ -1219,7 +1219,7 @@ export const lessons: LessonDraft[] = [
           ['Nilai memengaruhi tampilan lain', '**Controlled**'],
           ['Form besar yang dibaca sekali saat submit', '**Uncontrolled**'],
           ['Input file', '**Uncontrolled** — wajib'],
-          ['Integrasi dengan pustaka non-React', 'Uncontrolled'],
+          ['Integrasi dengan library non-React', 'Uncontrolled'],
         ],
       ),
       callout(
@@ -1241,7 +1241,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Peringatan ini muncul karena React menentukan mode sebuah input dari **ada tidaknya `value`**, dan `undefined` dianggap tidak ada. Jadi `useState()` tanpa argumen membuat input itu lahir sebagai *uncontrolled*; begitu pengguna mengetik dan `nilai` menjadi string, input yang sama berpindah menjadi *controlled* — dan React memperingatkan karena perpindahan itu membuang keadaan yang sudah ada di elemen DOM-nya. Perbaikannya sederhana: beri nilai awal `''` supaya `value` selalu berupa string sejak render pertama. Aturan yang berlaku umum: **input controlled tidak boleh pernah menerima `undefined`** — kalau nilainya bisa kosong, pakai `''`, bukan `undefined` maupun `null`.",
+        "Peringatan ini muncul karena React menentukan mode sebuah input dari **ada tidaknya `value`**, dan `undefined` dianggap tidak ada. Jadi `useState()` tanpa argumen membuat input itu lahir sebagai *uncontrolled*. Begitu pengguna mengetik dan `nilai` menjadi string, input yang sama berpindah menjadi *controlled*, dan React memperingatkan karena perpindahan itu membuang keadaan yang sudah ada di elemen DOM-nya. Perbaikannya sederhana, yaitu beri nilai awal `''` supaya `value` selalu berupa string sejak render pertama. Aturan yang berlaku umum, **input controlled tidak boleh pernah menerima `undefined`**, jadi kalau nilainya bisa kosong, pakai `''` dan bukan `undefined` maupun `null`.",
       ),
       code(
         'tsx',
@@ -1254,7 +1254,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Peringatan kedua ini menandai input yang **terkunci tanpa disengaja**. Begitu `value` diberikan, React yang memegang kendali penuh atas isinya — dan tanpa `onChange`, tidak ada apa pun yang memperbarui state saat pengguna mengetik, sehingga React langsung menggambar ulang nilai lamanya. Bagi pengguna, inputnya terlihat normal tapi tidak bisa diketik sama sekali. Dua baris perbaikan mewakili dua niat yang berbeda: kalau memang harus bisa diubah, pasangkan `onChange`; kalau memang sengaja tidak boleh diubah, nyatakan dengan `readOnly` — dan itu lebih baik daripada membiarkan peringatannya, karena `readOnly` juga memberi tahu pembaca layar bahwa field itu tidak untuk diisi.',
+        'Peringatan kedua ini menandai input yang **terkunci tanpa disengaja**. Begitu `value` diberikan, React yang memegang kendali penuh atas isinya, dan tanpa `onChange` tidak ada apa pun yang memperbarui state saat pengguna mengetik, sehingga React langsung menggambar ulang nilai lamanya. Bagi pengguna, inputnya terlihat normal tapi tidak bisa diketik sama sekali. Dua baris perbaikan mewakili dua niat yang berbeda. Kalau memang harus bisa diubah, pasangkan `onChange`, dan kalau memang sengaja tidak boleh diubah, nyatakan dengan `readOnly`. Cara kedua lebih baik daripada membiarkan peringatannya, karena `readOnly` juga memberi tahu pembaca layar bahwa field itu tidak untuk diisi.',
       ),
       code(
         'tsx',
@@ -1267,7 +1267,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Ini bentuk paling umum dari peringatan pertama tadi, dan penyebabnya bukan kelalaian melainkan **urutan waktu**: halaman dirender sebelum data tiba, jadi `pengguna` masih `undefined` di render pertama dan baru terisi beberapa ratus milidetik kemudian. Menulis `value={pengguna?.nama ?? ''}` memang menghindari `undefined`, tapi menimbulkan masalah lain — isian yang sudah diketik pengguna akan tertimpa begitu data tiba. Baris terakhir menunjukkan jalan keluar yang sudah dibahas di Bab 2: `key={pengguna?.id}` membuat React **membuang form lama dan memasang yang baru** saat identitas penggunanya berubah, sehingga state di dalamnya lahir sudah berisi data yang benar — tanpa `useEffect` penyalin, dan tanpa render yang menampilkan nilai lama.",
+        "Ini bentuk paling umum dari peringatan pertama tadi, dan penyebabnya bukan kelalaian melainkan **urutan waktu**. Halaman dirender sebelum data tiba, jadi `pengguna` masih `undefined` di render pertama dan baru terisi beberapa ratus milidetik kemudian. Menulis `value={pengguna?.nama ?? ''}` memang menghindari `undefined`, tapi menimbulkan masalah lain, karena isian yang sudah diketik pengguna akan tertimpa begitu data tiba. Baris terakhir menunjukkan jalan keluar yang sudah dibahas di Bab 2. `key={pengguna?.id}` membuat React **membuang form lama dan memasang yang baru** saat identitas penggunanya berubah, sehingga state di dalamnya lahir sudah berisi data yang benar, tanpa `useEffect` penyalin dan tanpa render yang menampilkan nilai lama.",
       ),
 
       h2('Checkbox, radio, select'),
@@ -1312,7 +1312,7 @@ export const lessons: LessonDraft[] = [
       divider,
       h2('Rangkuman'),
       ul(
-        'Controlled: React sumber kebenarannya, render tiap ketikan.',
+        'Controlled: React source of truth-nya, render tiap ketikan.',
         'Uncontrolled: DOM yang memegang, dibaca saat dibutuhkan.',
         'Input file selalu uncontrolled.',
         'Mulai state dari `""`, bukan `undefined`.',
@@ -1358,7 +1358,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'React Hook Form',
           meaning:
-            'Pustaka form yang bekerja dengan pendekatan **uncontrolled**, sehingga mengetik di satu field **tidak merender seluruh form**. Perlu ditegaskan: ia bukan keharusan. Form dengan dua atau tiga field cukup dengan `useState` — pustaka ini menang saat fieldnya banyak dan validasinya rumit.',
+            'Library form yang bekerja dengan pendekatan **uncontrolled**, sehingga mengetik di satu field **tidak merender seluruh form**. Perlu ditegaskan: ia bukan keharusan. Form dengan dua atau tiga field cukup dengan `useState` — library ini menang saat fieldnya banyak dan validasinya rumit.',
         },
         {
           term: 'register',
@@ -1373,22 +1373,22 @@ export const lessons: LessonDraft[] = [
         {
           term: 'resolver',
           meaning:
-            'Jembatan antara React Hook Form dan pustaka skema seperti Zod. Manfaatnya besar: aturan validasi ditulis **sekali sebagai skema**, lalu dipakai di form **dan** di server — sehingga keduanya tidak mungkin berselisih.',
+            'Jembatan antara React Hook Form dan library skema seperti Zod. Manfaatnya besar: aturan validasi ditulis **sekali sebagai skema**, lalu dipakai di form **dan** di server — sehingga keduanya tidak mungkin berselisih.',
         },
         {
           term: 'Zod',
           meaning:
-            'Pustaka pendefinisi skema yang memeriksa bentuk data **saat program berjalan**, sekaligus menghasilkan tipe TypeScript-nya. Inilah yang menutup celah dari Sub-bab 6.10 Frontend Basic: TypeScript sudah dihapus saat build, jadi data dari luar tetap butuh pemeriksaan sungguhan.',
+            'Library pendefinisi skema yang memeriksa bentuk data **saat program berjalan**, sekaligus menghasilkan tipe TypeScript-nya. Inilah yang menutup celah dari Sub-bab 6.10 Frontend Basic: TypeScript sudah dihapus saat build, jadi data dari luar tetap butuh pemeriksaan sungguhan.',
         },
         {
           term: 'validasi berlapis',
           meaning:
-            'Aturan yang tidak berubah sejak Frontend Basic: validasi klien untuk **kenyamanan**, validasi server untuk **keamanan**. Pustaka form secanggih apa pun tidak mengubah ini — siapa pun bisa mengirim permintaan langsung tanpa membuka halamanmu.',
+            'Aturan yang tidak berubah sejak Frontend Basic: validasi klien untuk **kenyamanan**, validasi server untuk **keamanan**. Library form secanggih apa pun tidak mengubah ini — siapa pun bisa mengirim permintaan langsung tanpa membuka halamanmu.',
         },
         {
           term: 'mode validasi',
           meaning:
-            'Kapan validasi dijalankan: `onSubmit` (bawaan), `onBlur`, atau `onChange`. Pola yang paling nyaman dipakai: **diam sampai submit pertama**, lalu setelah itu validasi tiap ketikan — sehingga pengguna tidak dimarahi sebelum sempat mengetik.',
+            'Ini menentukan kapan validasi dijalankan, apakah `onSubmit` (bawaan), `onBlur`, atau `onChange`. Pola yang paling nyaman dipakai adalah **diam sampai submit pertama**, lalu setelah itu validasi tiap ketikan, sehingga pengguna tidak dimarahi sebelum sempat mengetik.',
         },
         {
           term: 'formState',
@@ -1433,11 +1433,11 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Kunci penghematannya ada pada `[name]: value` di dalam `setForm` — **computed key** dari Frontend Basic, dipakai supaya satu fungsi `ubah` melayani semua field. Atribut `name` di tiap `<input>` yang menentukan field mana yang diperbarui, jadi menambah field baru cukup dengan menambah satu `<input>` bernama, tanpa menambah state maupun handler. Perhatikan juga bentuk updater `(f) => ({ ...f, ... })` dipakai, bukan `{ ...form, ... }` — karena nilai barunya dihitung dari yang lama, sesuai aturan di sub-bab batching. Dan `const { name, value } = e.target` di baris pertama hanya destructuring biasa untuk memendekkan dua baris berikutnya.',
+        'Kunci penghematannya ada pada `[name]: value` di dalam `setForm`, yaitu **computed key** dari Frontend Basic yang dipakai supaya satu fungsi `ubah` melayani semua field. Atribut `name` di tiap `<input>` yang menentukan field mana yang diperbarui, jadi menambah field baru cukup dengan menambah satu `<input>` bernama, tanpa menambah state maupun handler. Perhatikan juga bentuk updater `(f) => ({ ...f, ... })` yang dipakai alih-alih `{ ...form, ... }`, karena nilai barunya dihitung dari yang lama, sesuai aturan di sub-bab batching. Dan `const { name, value } = e.target` di baris pertama hanya destructuring biasa untuk memendekkan dua baris berikutnya.',
       ),
       callout(
         'warning',
-        'Setiap ketikan me-render ulang SELURUH form',
+        'Setiap ketikan melakukan re-render SELURUH form',
         'Dengan sepuluh field, satu huruf yang diketik merender sepuluh input. Biasanya masih terasa cepat — sampai ada field yang menghitung sesuatu di setiap render.',
       ),
 
@@ -1540,7 +1540,7 @@ export const lessons: LessonDraft[] = [
       code(
         'ts',
         `
-        // Skema Zod bisa dipakai di kedua sisi — satu sumber kebenaran
+        // Skema Zod bisa dipakai di kedua sisi — satu source of truth
         import { skema } from '@/lib/skema/daftar';
 
         export async function POST(req: Request) {
@@ -1555,7 +1555,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Baris impornya yang paling penting: **skema yang sama** diimpor dari berkas bersama, bukan ditulis ulang. Itu menutup masalah klasik validasi ganda — aturan di klien dan server yang perlahan menyimpang karena satu diperbarui dan yang lain lupa. `safeParse` dipilih alih-alih `parse` supaya kegagalan datang sebagai nilai yang bisa diperiksa, bukan error yang harus ditangkap; dan `error.flatten()` mengubahnya menjadi bentuk yang mudah dipetakan ke field di form. Status `422` dipakai, bukan `400`, karena bentuk permintaannya sebenarnya sudah benar — yang gagal adalah **isinya** menurut aturan bisnis. Perhatikan komentar terakhir: setelah `safeParse` lolos, `hasil.data` sudah bertipe, jadi kode di bawahnya tidak perlu memeriksa apa pun lagi.',
+        'Baris impornya yang paling penting, karena **skema yang sama** diimpor dari berkas bersama dan bukan ditulis ulang. Itu menutup masalah klasik validasi ganda, yaitu aturan di klien dan server yang perlahan menyimpang karena satu diperbarui dan yang lain lupa. `safeParse` dipilih alih-alih `parse` supaya kegagalan datang sebagai nilai yang bisa diperiksa dan bukan error yang harus ditangkap, sedangkan `error.flatten()` mengubahnya menjadi bentuk yang mudah dipetakan ke field di form. Status `422` dipakai, bukan `400`, karena bentuk permintaannya sebenarnya sudah benar dan yang gagal adalah **isinya** menurut aturan bisnis. Perhatikan komentar terakhir. Setelah `safeParse` lolos, `hasil.data` sudah bertipe, jadi kode di bawahnya tidak perlu memeriksa apa pun lagi.',
       ),
       callout(
         'danger',
@@ -1602,7 +1602,7 @@ export const lessons: LessonDraft[] = [
           label: 'Constraint Validation API',
           href: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Guides/Constraint_validation',
           source: 'MDN',
-          note: 'Validasi bawaan HTML yang sering sudah cukup sebelum menambah pustaka apa pun.',
+          note: 'Validasi bawaan HTML yang sering sudah cukup sebelum menambah library apa pun.',
         },
       ),
     ],
@@ -1618,7 +1618,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'lifting state up',
           meaning:
-            'Terjemahannya **menaikkan state ke atas**. Memindahkan state ke **induk terdekat yang dibutuhkan bersama** oleh komponen-komponen yang memerlukannya. Dilakukan ketika dua komponen bersaudara harus melihat data yang sama — karena data hanya mengalir turun, satu-satunya cara adalah menaikkannya ke induk mereka.',
+            'Terjemahannya **menaikkan state ke atas**. Memindahkan state ke **induk terdekat yang dibutuhkan bersama** oleh komponen-komponen yang memerlukannya. Dilakukan ketika dua sibling component harus melihat data yang sama — karena data hanya mengalir turun, satu-satunya cara adalah menaikkannya ke induk mereka.',
         },
         {
           term: 'induk terdekat bersama',
@@ -1628,7 +1628,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'biaya menaikkan terlalu tinggi',
           meaning:
-            'Tiga akibat yang nyata: setiap perubahan **merender ulang seluruh cabang** di bawahnya, komponen di tengah jadi harus mengoper props yang tidak ia pakai (prop drilling), dan komponen daun kehilangan kemandiriannya. Karena itu aturannya: **serendah mungkin, tapi setinggi yang diperlukan**.',
+            'Tiga akibat yang nyata: setiap perubahan **melakukan re-render seluruh cabang** di bawahnya, komponen di tengah jadi harus mengoper props yang tidak ia pakai (prop drilling), dan komponen daun kehilangan kemandiriannya. Karena itu aturannya: **serendah mungkin, tapi setinggi yang diperlukan**.',
         },
         {
           term: 'colocation',
@@ -1653,7 +1653,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'state management global',
           meaning:
-            'Pustaka seperti Zustand atau Redux. Kebutuhannya jauh lebih jarang daripada yang orang duga — sebagian besar yang terasa butuh state global sebenarnya **server state** (data dari API), dan itu punya alatnya sendiri. Dibahas di bab tersendiri nanti.',
+            'Library seperti Zustand atau Redux. Kebutuhannya jauh lebih jarang daripada yang orang duga — sebagian besar yang terasa butuh state global sebenarnya **server state** (data dari API), dan itu punya alatnya sendiri. Dibahas di bab tersendiri nanti.',
         },
       ),
 
@@ -1677,7 +1677,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Dua komponen bersaudara tidak bisa saling melihat state-nya. Solusinya: naikkan ke induk terdekat yang memuat keduanya.',
+        'Dua sibling component tidak bisa saling melihat state-nya. Solusinya: naikkan ke induk terdekat yang memuat keduanya.',
       ),
 
       h2('Setelah dinaikkan'),
@@ -1724,18 +1724,18 @@ export const lessons: LessonDraft[] = [
       callout(
         'danger',
         'Menaikkan terlalu tinggi punya biaya nyata',
-        'State di komponen akar berarti setiap perubahannya merender ulang seluruh pohon. Selain itu, komponen-komponen di antaranya jadi harus meneruskan props yang tidak mereka pakai — prop drilling. Naikkan seperlunya, tidak lebih.',
+        'State di komponen akar berarti setiap perubahannya melakukan re-render seluruh pohon. Selain itu, komponen-komponen di antaranya jadi harus meneruskan props yang tidak mereka pakai — prop drilling. Naikkan seperlunya, tidak lebih.',
       ),
 
       h2('Menaikkan bukan satu-satunya jawaban'),
       table(
         ['Situasi', 'Solusi'],
         [
-          ['Dua komponen bersaudara berdekatan', '**Lifting state**'],
+          ['Dua sibling component berdekatan', '**Lifting state**'],
           ['Melewati banyak lapisan yang tidak memakainya', 'Composition (`children`)'],
           ['Dibutuhkan banyak cabang berjauhan', 'Context'],
           ['Harus bisa dibagikan lewat tautan', 'URL (`searchParams`)'],
-          ['Sumber kebenarannya di server', 'Cache server (TanStack Query)'],
+          ['Source of truthnya di server', 'Cache server (TanStack Query)'],
         ],
       ),
 
@@ -1751,7 +1751,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Bandingkan berapa kali kata `pengguna` muncul di kedua baris: tiga kali di atas, satu kali di bawah. Pada versi pertama, `Layout` dan `Sidebar` sama-sama menerima `pengguna` padahal **tidak satu pun memakainya** — keduanya hanya jadi kurir. Versi kedua merakit susunannya **di tempat `p` memang tersedia**, lalu mengoper hasilnya yang sudah jadi sebagai prop `sidebar`. Dari sudut pandang `Layout`, yang ia terima cuma JSX siap render; ia tidak tahu dan tidak perlu tahu ada data pengguna di dalamnya. Perlu ditegaskan ini **bukan** pengganti lifting state — nilai `p` tetap dimiliki komponen di atas. Yang dihapus composition adalah kewajiban meneruskannya lapis demi lapis, dan itu masalah yang berbeda.',
+        'Bandingkan berapa kali kata `pengguna` muncul di kedua baris, yaitu tiga kali di atas dan satu kali di bawah. Pada versi pertama, `Layout` dan `Sidebar` sama-sama menerima `pengguna` padahal **tidak satu pun memakainya**, sehingga keduanya hanya jadi kurir. Versi kedua merakit susunannya **di tempat `p` memang tersedia**, lalu mengoper hasilnya yang sudah jadi sebagai prop `sidebar`. Dari sudut pandang `Layout`, yang ia terima cuma JSX siap render, dan ia tidak tahu serta tidak perlu tahu ada data pengguna di dalamnya. Perlu ditegaskan ini **bukan** pengganti lifting state, karena nilai `p` tetap dimiliki komponen di atas. Yang dihapus composition adalah kewajiban meneruskannya lapis demi lapis, dan itu masalah yang berbeda.',
       ),
 
       h2('Menurunkan state kembali'),
@@ -1760,7 +1760,7 @@ export const lessons: LessonDraft[] = [
         `
         // Kalau ternyata hanya satu komponen yang memakainya, TURUNKAN.
         // Sisa state di induk yang tidak lagi dipakai adalah utang:
-        // ia tetap merender ulang seluruh cabang untuk perubahan yang
+        // ia tetap melakukan re-render seluruh cabang untuk perubahan yang
         // sebenarnya hanya dipedulikan satu komponen.
         `,
       ),
@@ -1827,7 +1827,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'useEffect untuk sinkronisasi',
           meaning:
-            'Anti-pola yang sangat umum: `useEffect` yang tugasnya menyalin satu state ke state lain. Selain tidak perlu, ia juga **menambah satu render** dan membuat aplikasi sempat menampilkan nilai yang belum diperbarui. Dokumentasi React membahasnya di halaman berjudul "You Might Not Need an Effect".',
+            'Anti-pattern yang sangat umum: `useEffect` yang tugasnya menyalin satu state ke state lain. Selain tidak perlu, ia juga **menambah satu render** dan membuat aplikasi sempat menampilkan nilai yang belum diperbarui. Dokumentasi React membahasnya di halaman berjudul "You Might Not Need an Effect".',
         },
         {
           term: 'useMemo untuk turunan',
@@ -1835,7 +1835,7 @@ export const lessons: LessonDraft[] = [
             'Dipakai **hanya kalau perhitungannya benar-benar mahal** — mengurutkan ribuan baris, misalnya. Untuk `reduce` atas dua puluh item, membungkusnya justru lebih mahal daripada menghitungnya. Dan dengan React Compiler, sebagian besar kasus ini sudah ditangani otomatis.',
         },
         {
-          term: 'satu sumber kebenaran',
+          term: 'satu source of truth',
           meaning:
             'Prinsip yang mendasari seluruh sub-bab ini. Setiap data hanya boleh punya **satu** tempat penyimpanan resmi; sisanya dihitung darinya. Ini juga alasan menyimpan indeks terpilih lebih baik daripada menyimpan objeknya — indeks tidak bisa basi, salinan objek bisa.',
         },
@@ -1873,7 +1873,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perhatikan `tambah` **benar** — ketiga state diperbarui, dan komentar "harus ingat" menandai bahwa kebenarannya bergantung pada ingatan penulisnya. `hapus` menunjukkan apa yang terjadi ketika ingatan itu gagal: `items` berkurang tapi `total` dan `jumlah` tidak, dan sejak saat itu keranjang menampilkan angka yang tidak cocok dengan isinya. Yang membuatnya mahal adalah **jarak antara penyebab dan gejala** — kesalahannya ada di fungsi `hapus`, tapi yang terlihat rusak adalah ringkasan harga di bagian lain halaman. Dan seperti kata kotak berikut, ini bukan masalah ketelitian: tiap tempat baru yang menyentuh `items` menambah dua baris yang harus diingat, sehingga peluang terlewat hanya bertambah seiring aplikasinya tumbuh.',
+        'Perhatikan `tambah` **benar**, karena ketiga state diperbarui, dan komentar "harus ingat" menandai bahwa kebenarannya bergantung pada ingatan penulisnya. `hapus` menunjukkan apa yang terjadi ketika ingatan itu gagal. `items` berkurang tapi `total` dan `jumlah` tidak, dan sejak saat itu keranjang menampilkan angka yang tidak cocok dengan isinya. Yang membuatnya mahal adalah **jarak antara penyebab dan gejala**, sebab kesalahannya ada di fungsi `hapus` tapi yang terlihat rusak adalah ringkasan harga di bagian lain halaman. Dan seperti kata kotak berikut, ini bukan masalah ketelitian, karena tiap tempat baru yang menyentuh `items` menambah dua baris yang harus diingat, sehingga peluang terlewat hanya bertambah seiring aplikasinya tumbuh.',
       ),
       callout(
         'danger',
@@ -1907,7 +1907,7 @@ export const lessons: LessonDraft[] = [
       code(
         'tsx',
         `
-        // Anti-pola paling umum di React
+        // Anti-pattern paling umum di React
         const [items, setItems] = useState([]);
         const [terfilter, setTerfilter] = useState([]);
 
@@ -1920,15 +1920,15 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Empat baris menjadi satu, dan yang hilang bukan cuma barisnya. Versi anti-pola menyimpan `terfilter` sebagai state kedua lalu memakai `useEffect` untuk menjaganya tetap cocok — pola yang terlihat bertanggung jawab tapi menciptakan sumber kebenaran kedua. Biayanya disebut di kotak berikut: karena Effect berjalan **setelah** render, selalu ada satu render yang menampilkan `terfilter` lama bersama `items` yang baru. Versi perbaikan menghapus keduanya sekaligus — tidak ada state kedua, tidak ada Effect, dan tidak ada render tambahan. Perhatikan `terfilter` di sana adalah `const` biasa yang dihitung ulang tiap render, dan itu memang cukup: menghitung ulang jauh lebih murah daripada menyimpan dan menyelaraskan.',
+        'Empat baris menjadi satu, dan yang hilang bukan cuma barisnya. Versi anti-pattern menyimpan `terfilter` sebagai state kedua lalu memakai `useEffect` untuk menjaganya tetap cocok, pola yang terlihat bertanggung jawab tapi menciptakan source of truth kedua. Biayanya disebut di kotak berikut. Karena Effect berjalan **setelah** render, selalu ada satu render yang menampilkan `terfilter` lama bersama `items` yang baru. Versi perbaikan menghapus keduanya sekaligus, sehingga tidak ada state kedua, tidak ada Effect, dan tidak ada render tambahan. Perhatikan `terfilter` di sana adalah `const` biasa yang dihitung ulang tiap render, dan itu memang cukup, karena menghitung ulang jauh lebih murah daripada menyimpan dan menyelaraskan.',
       ),
       callout(
         'warning',
         'Effect yang menyalin state selalu terlambat satu render',
-        'Render pertama menampilkan nilai lama, effect berjalan, lalu render kedua menampilkan yang benar. Pengguna bisa melihat kedipan — dan kamu membayar dua render untuk sesuatu yang bisa dihitung langsung.',
+        'Render pertama menampilkan nilai lama, effect berjalan, lalu render kedua menampilkan yang benar. Pengguna bisa melihat flicker — dan kamu membayar dua render untuk sesuatu yang bisa dihitung langsung.',
       ),
 
-      h2('Kapan memoisasi diperlukan'),
+      h2('Kapan memoization diperlukan'),
       code(
         'tsx',
         `
@@ -1940,12 +1940,12 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Komentar baris pertama menyebut perbandingan yang layak diingat: **menyaring seratus item jauh lebih murah daripada satu render.** Membungkusnya dengan `useMemo` justru menambah biaya — React harus menyimpan hasilnya, membandingkan dependensinya tiap render, dan kamu menanggung risiko array dependensi yang salah. `useMemo` baru berbayar ketika perhitungannya benar-benar berat, seperti menganalisis sepuluh ribu baris di contoh kedua. Cara memutuskannya bukan menebak melainkan **mengukur** dengan React DevTools Profiler; kalau sebuah perhitungan tidak muncul sebagai penyumbang waktu di sana, memoisasi tidak akan mengubah apa pun. Dan seperti disebut di kotak berikut, dengan React Compiler aktif sebagian besar keputusan ini sudah tidak perlu kamu ambil sendiri.',
+        'Komentar baris pertama menyebut perbandingan yang layak diingat, yaitu **menyaring seratus item jauh lebih murah daripada satu render.** Membungkusnya dengan `useMemo` justru menambah biaya, sebab React harus menyimpan hasilnya, membandingkan dependensinya tiap render, dan kamu menanggung risiko array dependensi yang salah. `useMemo` baru berbayar ketika perhitungannya benar-benar berat, seperti menganalisis sepuluh ribu baris di contoh kedua. Cara memutuskannya bukan menebak melainkan **mengukur** dengan React DevTools Profiler, sebab kalau sebuah perhitungan tidak muncul sebagai penyumbang waktu di sana, memoization tidak akan mengubah apa pun. Dan seperti disebut di kotak berikut, dengan React Compiler aktif sebagian besar keputusan ini sudah tidak perlu kamu ambil sendiri.',
       ),
       callout(
         'info',
         'React Compiler menangani sebagian besarnya',
-        'Di React 19 dengan Compiler aktif, perhitungan turunan dimemoisasi otomatis. `useMemo` manual tinggal untuk perhitungan yang benar-benar mahal dan referensi yang dituntut pustaka luar — sub-bab 2.10.',
+        'Di React 19 dengan Compiler aktif, perhitungan turunan di-memoize otomatis. `useMemo` manual tinggal untuk perhitungan yang benar-benar mahal dan referensi yang dituntut library luar — sub-bab 2.10.',
       ),
 
       h2('Yang BUKAN turunan'),
@@ -1961,7 +1961,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Ini pengecualian penting supaya aturan "hitung, jangan simpan" tidak diterapkan berlebihan. `draft` memang **berasal** dari props, tapi setelah itu ia hidup sendiri: pengguna mengeditnya, dan seluruh gunanya justru karena ia **tidak** lagi mengikuti props. Menghitungnya dari props akan membuang ketikan pengguna setiap kali induknya dirender. Jadi ia state sungguhan, dan `props.nilaiAwal` hanya dipakai sekali sebagai titik mulai — perhatikan namanya pun mengandung kata "awal". Yang tersisa adalah pertanyaan kapan draft harus dimulai ulang, dan jawabannya `key` seperti di baris terakhir: saat `item.id` berganti, React membuang form lama beserta draftnya dan memasang yang baru.',
+        'Ini pengecualian penting supaya aturan "hitung, jangan simpan" tidak diterapkan berlebihan. `draft` memang **berasal** dari props, tetapi setelah itu ia hidup sendiri, sebab pengguna mengeditnya dan seluruh gunanya justru karena ia **tidak** lagi mengikuti props. Menghitungnya dari props akan membuang ketikan pengguna setiap kali induknya dirender. Jadi ia state sungguhan, dan `props.nilaiAwal` hanya dipakai sekali sebagai titik mulai, dan perhatikan namanya pun mengandung kata "awal". Yang tersisa adalah pertanyaan kapan draft harus dimulai ulang, dan jawabannya adalah `key` seperti di baris terakhir, sebab saat `item.id` berganti React membuang form lama beserta draftnya dan memasang yang baru.',
       ),
       callout(
         'tip',
@@ -1995,7 +1995,7 @@ export const lessons: LessonDraft[] = [
         'Effect yang menyalin state adalah tanda paling jelas adanya state turunan.',
         'Effect penyalin selalu terlambat satu render dan bisa terlihat berkedip.',
         'Ganti `key` untuk mereset state, jangan effect yang mengawasi props.',
-        'Memoisasi hanya untuk perhitungan yang benar-benar mahal.',
+        'Memoization hanya untuk perhitungan yang benar-benar mahal.',
       ),
       references(
         {
@@ -2020,7 +2020,7 @@ export const lessons: LessonDraft[] = [
           label: 'useMemo',
           href: 'https://react.dev/reference/react/useMemo',
           source: 'React',
-          note: 'Termasuk catatan resmi bahwa sebagian besar perhitungan tidak perlu dimemoisasi.',
+          note: 'Termasuk catatan resmi bahwa sebagian besar perhitungan tidak perlu di-memoize.',
         },
       ),
     ],
@@ -2041,7 +2041,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'reducer',
           meaning:
-            'Fungsi murni bertanda tangan `(state, action) => stateBaru`. Namanya dari `Array.prototype.reduce` di Sub-bab 1.9 Frontend Basic — gagasannya sama persis: mengambil nilai berjalan dan satu masukan, lalu menghasilkan nilai berjalan berikutnya. Karena ia fungsi murni biasa, ia bisa diuji tanpa React sama sekali.',
+            'Pure function bertanda tangan `(state, action) => stateBaru`. Namanya dari `Array.prototype.reduce` di Sub-bab 1.9 Frontend Basic — gagasannya sama persis: mengambil nilai berjalan dan satu masukan, lalu menghasilkan nilai berjalan berikutnya. Karena ia pure function biasa, ia bisa diuji tanpa React sama sekali.',
         },
         {
           term: 'action',
@@ -2056,12 +2056,12 @@ export const lessons: LessonDraft[] = [
         {
           term: 'kombinasi mustahil',
           meaning:
-            'Masalah yang diselesaikan sub-bab ini. Tiga state terpisah — `data`, `memuat`, `error` — menghasilkan **delapan kombinasi**, dan hanya sekitar empat yang masuk akal. "Sedang memuat sekaligus punya error" bisa ditulis, tidak berarti apa-apa, dan tidak ada yang mencegahnya.',
+            'Masalah yang diselesaikan sub-bab ini. Tiga state terpisah, yaitu `data`, `memuat`, dan `error`, menghasilkan **delapan kombinasi**, dan hanya sekitar empat yang masuk akal. "Sedang memuat sekaligus punya error" bisa ditulis, tidak berarti apa-apa, dan tidak ada yang mencegahnya.',
         },
         {
           term: 'state machine',
           meaning:
-            'Terjemahannya **mesin keadaan**. Menyimpan keadaan sebagai **satu nilai berhingga** — `"diam" | "memuat" | "berhasil" | "gagal"` — sehingga hanya keadaan yang sah yang bisa ada. Reducer adalah cara alami mewujudkannya, karena ia satu tempat yang mengatur seluruh perpindahan.',
+            'Terjemahannya **mesin keadaan**. Menyimpan keadaan sebagai **satu nilai berhingga** seperti `"diam" | "memuat" | "berhasil" | "gagal"`, sehingga hanya keadaan yang sah yang bisa ada. Reducer adalah cara alami mewujudkannya, karena ia satu tempat yang mengatur seluruh perpindahan.',
         },
         {
           term: 'transisi',
@@ -2094,10 +2094,10 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Tiga `useState` di atas terlihat wajar dan memang sangat umum — masalahnya baru terlihat kalau kombinasinya dihitung. Ketiganya bisa berubah **secara terpisah**, jadi tidak ada apa pun yang mencegah `memuat: true` hidup bersama `error` dan `data` sekaligus, seperti dicontohkan komentar terakhir. Delapan kombinasi, hanya empat yang punya arti. Yang berbahaya bukan kombinasi mustahilnya sendiri melainkan **cara ia muncul**: setiap tempat yang memulai atau menyelesaikan permintaan harus ingat mengatur ketiganya, dan satu yang terlewat — misalnya lupa `setError(null)` saat mencoba lagi — meninggalkan pesan gagal yang tetap tampil di atas data yang sebenarnya sudah berhasil dimuat.',
+        'Tiga `useState` di atas terlihat wajar dan memang sangat umum, tapi masalahnya baru terlihat kalau kombinasinya dihitung. Ketiganya bisa berubah **secara terpisah**, jadi tidak ada apa pun yang mencegah `memuat: true` hidup bersama `error` dan `data` sekaligus, seperti dicontohkan komentar terakhir. Delapan kombinasi, hanya empat yang punya arti. Yang berbahaya bukan kombinasi mustahilnya sendiri melainkan **cara ia muncul**. Setiap tempat yang memulai atau menyelesaikan permintaan harus ingat mengatur ketiganya, dan satu yang terlewat, misalnya lupa `setError(null)` saat mencoba lagi, meninggalkan pesan gagal yang tetap tampil di atas data yang sebenarnya sudah berhasil dimuat.',
       ),
 
-      h2('Reducer membuat keadaan mustahil tidak bisa ditulis'),
+      h2('Reducer membuat impossible state tidak bisa ditulis'),
       code(
         'tsx',
         `
@@ -2145,10 +2145,10 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Bandingkan tipe `Keadaan` di atas dengan tiga `useState` sebelumnya: `pesan` **hanya ada** di varian `gagal`, dan `data` **hanya ada** di varian `berhasil`. Kombinasi mustahil tadi kini tidak bisa dituliskan sama sekali — bukan dicegah validasi, melainkan tidak punya bentuk yang sah. Fungsi `reducer` di tengah adalah satu-satunya tempat keadaan berpindah, dan perhatikan ia **fungsi murni**: menerima keadaan lama dan aksi, mengembalikan keadaan baru, tanpa menyentuh apa pun di luar. Karena itu ia bisa diuji dengan memanggilnya langsung, tanpa merender komponen apa pun.',
+        'Bandingkan tipe `Keadaan` di atas dengan tiga `useState` sebelumnya, sebab `pesan` **hanya ada** di varian `gagal`, dan `data` **hanya ada** di varian `berhasil`. Kombinasi mustahil tadi kini tidak bisa dituliskan sama sekali, bukan karena dicegah validasi melainkan karena tidak punya bentuk yang sah. Fungsi `reducer` di tengah adalah satu-satunya tempat keadaan berpindah, dan perhatikan ia **pure function** yang menerima keadaan lama dan aksi lalu mengembalikan keadaan baru, tanpa menyentuh apa pun di luar. Karena itu ia bisa diuji dengan memanggilnya langsung, tanpa merender komponen apa pun.',
       ),
       p(
-        "Fungsi `muat` di bawahnya menunjukkan imbalan sehari-harinya: tiga `dispatch` menggantikan enam pemanggilan `setState` yang harus diingat urutannya, dan tidak ada lagi kemungkinan `error` lama tertinggal saat mencoba ulang — karena `{ tipe: 'muat' }` **mengganti seluruh keadaan**, bukan menambal sebagian. Blok `switch` terakhir menutup polanya: keempat keadaan UI dari Frontend Basic Bab 5 terbaca berurutan, masing-masing sebagai satu baris, dan menambah keadaan kelima berarti menambah satu varian di tipe lalu satu `case` — dengan TypeScript yang menolak build kalau salah satunya lupa.",
+        "Fungsi `muat` di bawahnya menunjukkan imbalan sehari-harinya. Tiga `dispatch` menggantikan enam pemanggilan `setState` yang harus diingat urutannya, dan tidak ada lagi kemungkinan `error` lama tertinggal saat mencoba ulang, karena `{ tipe: 'muat' }` **mengganti seluruh keadaan** dan bukan menambal sebagian. Blok `switch` terakhir menutup polanya. Keempat keadaan UI dari Frontend Basic Bab 5 terbaca berurutan, masing-masing sebagai satu baris, dan menambah keadaan kelima berarti menambah satu varian di tipe lalu satu `case`, dengan TypeScript yang menolak build kalau salah satunya lupa.",
       ),
       callout(
         'tip',
@@ -2176,7 +2176,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Ini keunggulan terbesarnya: seluruh logika transisi jadi fungsi murni yang bisa diuji tanpa jsdom, tanpa render, tanpa mock.',
+        'Ini keunggulan terbesarnya: seluruh logika transisi jadi pure function yang bisa diuji tanpa jsdom, tanpa render, tanpa mock.',
       ),
 
       h2('Memilih'),
@@ -2215,7 +2215,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Larangan ini datang langsung dari syarat "fungsi murni" tadi. Reducer harus menghasilkan keadaan yang **sama untuk masukan yang sama, setiap kali** — dan React memang berhak memanggilnya lebih dari sekali, misalnya di bawah StrictMode. Kalau ada `fetch` di dalamnya, permintaan itu ikut berjalan dua kali, dan gejalanya muncul sebagai data ganda yang sangat sulit dilacak karena tidak ada satu pun baris yang terlihat memanggilnya dua kali. Perbaikannya memindahkan efek sampingnya ke pemanggil, dengan pola tiga langkah yang sudah kamu lihat: dispatch penanda mulai, kerjakan efeknya, dispatch hasilnya. Reducer tetap murni dan hanya mengurus **perpindahan keadaan**, bukan pekerjaan yang menimbulkannya.',
+        'Larangan ini datang langsung dari syarat "pure function" tadi. Reducer harus menghasilkan keadaan yang **sama untuk masukan yang sama, setiap kali** — dan React memang berhak memanggilnya lebih dari sekali, misalnya di bawah StrictMode. Kalau ada `fetch` di dalamnya, permintaan itu ikut berjalan dua kali, dan gejalanya muncul sebagai data ganda yang sangat sulit dilacak karena tidak ada satu pun baris yang terlihat memanggilnya dua kali. Perbaikannya memindahkan efek sampingnya ke pemanggil, dengan pola tiga langkah yang sudah kamu lihat: dispatch penanda mulai, kerjakan efeknya, dispatch hasilnya. Reducer tetap murni dan hanya mengurus **perpindahan keadaan**, bukan pekerjaan yang menimbulkannya.',
       ),
 
       h2('Nilai awal yang mahal'),
@@ -2243,14 +2243,14 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Alasan memakai **dua** context terpisah, bukan satu yang membungkus `{ keadaan, dispatch }` sekaligus, sama dengan alasan yang dibahas di Bab 5 saat memisahkan nilai dari fungsi pengubahnya pada Context API: `dispatch` tidak pernah berubah identitasnya antar-render, sementara `keadaan` berubah setiap kali sebuah aksi diproses. Komponen yang hanya perlu memicu perubahan — misalnya sebuah tombol yang memanggil `dispatch({ tipe: 'reset' })` — cukup membaca `DispatchCtx`, dan karena context itu tidak pernah membawa nilai baru, komponen itu **tidak pernah ikut render ulang** ketika `keadaan` berubah di tempat lain. Kalau keduanya digabung dalam satu context, setiap konsumen — termasuk tombol yang cuma mem-dispatch — akan ikut render ulang setiap kali keadaannya berubah, meski ia tidak pernah membaca isinya.",
+        "Alasan memakai **dua** context terpisah, bukan satu yang membungkus `{ keadaan, dispatch }` sekaligus, sama dengan alasan yang dibahas di Bab 5 saat memisahkan nilai dari fungsi pengubahnya pada Context API. `dispatch` tidak pernah berubah identitasnya antar-render, sementara `keadaan` berubah setiap kali sebuah aksi diproses. Komponen yang hanya perlu memicu perubahan, misalnya sebuah tombol yang memanggil `dispatch({ tipe: 'reset' })`, cukup membaca `DispatchCtx`, dan karena context itu tidak pernah membawa nilai baru, komponen itu **tidak pernah ikut re-render** ketika `keadaan` berubah di tempat lain. Kalau keduanya digabung dalam satu context, setiap konsumen, termasuk tombol yang cuma mem-dispatch, akan ikut re-render setiap kali keadaannya berubah meski ia tidak pernah membaca isinya.",
       ),
 
       divider,
       h2('Rangkuman'),
       ul(
         '`useReducer` saat beberapa nilai berubah bersama atau transisinya punya aturan.',
-        'Discriminated union membuat kombinasi keadaan mustahil tidak bisa ditulis.',
+        'Discriminated union membuat kombinasi impossible state tidak bisa ditulis.',
         'Reducer wajib murni dan immutable — efek samping ada di pemanggil.',
         'Reducer bisa diuji sebagai fungsi biasa, tanpa React.',
         'Pisahkan context keadaan dan dispatch supaya render lebih hemat.',
@@ -2278,7 +2278,7 @@ export const lessons: LessonDraft[] = [
           label: 'Discriminated unions',
           href: 'https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions',
           source: 'TypeScript',
-          note: 'Membuat kombinasi keadaan mustahil menjadi tidak bisa ditulis, plus penjaga ketuntasan.',
+          note: 'Membuat kombinasi impossible state menjadi tidak bisa ditulis, plus penjaga ketuntasan.',
         },
       ),
     ],
@@ -2301,7 +2301,7 @@ export const lessons: LessonDraft[] = [
             'Memuat, kosong, gagal, berhasil. Kamu sudah menemuinya di Sub-bab 5.12 Frontend Basic; **di React ia justru lebih mudah terlewat**, karena menulis komponen yang hanya menangani keadaan berhasil terasa selesai dan tidak terlihat salah — sampai dipakai orang lain di jaringan yang lambat.',
         },
         {
-          term: 'keadaan kosong',
+          term: 'empty state',
           meaning:
             'Wajib menjelaskan **kenapa** kosong dan memberi **satu langkah lanjutan**. Perlu dibedakan penyebabnya: "belum ada data sama sekali" berbeda dari "ada, tapi tidak cocok dengan saringan" — dan menampilkan pesan yang sama untuk keduanya membingungkan.',
         },
@@ -2313,7 +2313,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'skeleton',
           meaning:
-            'Bentuk kerangka yang **memesan ruang seukuran isi akhirnya**. Ini yang membedakannya dari pemutar berputar: skeleton mencegah tata letak melompat, spinner tidak. Untuk operasi yang hampir selalu instan, keduanya justru lebih baik dihilangkan — kedipannya terasa lebih lambat daripada tanpa indikator.',
+            'Bentuk kerangka yang **memesan ruang seukuran isi akhirnya**. Ini yang membedakannya dari pemutar berputar: skeleton mencegah tata letak melompat, spinner tidak. Untuk operasi yang hampir selalu instan, keduanya justru lebih baik dihilangkan — flicker-nya terasa lebih lambat daripada tanpa indikator.',
         },
         {
           term: 'keadaan yang mustahil',
@@ -2362,7 +2362,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perhatikan tipe ini **generik** — `Keadaan<T>` — sehingga bentuk yang sama bisa dipakai untuk daftar tugas, profil, maupun apa pun, dengan `data` yang tetap bertipe tepat. Tiga varian memodelkan tiga dari empat keadaan di tabel, dan itu disengaja: keadaan **kosong** bukan varian tersendiri melainkan bagian dari `berhasil` dengan `data` yang panjangnya nol — karena "berhasil mengambil, hasilnya kosong" memang berbeda dari "gagal mengambil". Komentar terakhir menegaskan imbalannya: kombinasi seperti `memuat` yang sekaligus punya `data` ditolak **saat kompilasi**, bukan ditemukan saat menjalankan. Ini penerapan discriminated union dari Frontend Basic 6.9 pada masalah yang paling sering ditemui di aplikasi nyata.',
+        'Perhatikan tipe ini **generik**, ditulis `Keadaan<T>`, sehingga bentuk yang sama bisa dipakai untuk daftar tugas, profil, maupun apa pun, dengan `data` yang tetap bertipe tepat. Tiga varian memodelkan tiga dari empat keadaan di tabel, dan itu disengaja. Keadaan **kosong** bukan varian tersendiri melainkan bagian dari `berhasil` dengan `data` yang panjangnya nol, karena "berhasil mengambil, hasilnya kosong" memang berbeda dari "gagal mengambil". Komentar terakhir menegaskan imbalannya, yaitu kombinasi seperti `memuat` yang sekaligus punya `data` ditolak **saat kompilasi**, bukan ditemukan saat menjalankan. Ini penerapan discriminated union dari Frontend Basic 6.9 pada masalah yang paling sering ditemui di aplikasi nyata.',
       ),
 
       h2('Merendernya'),
@@ -2408,13 +2408,13 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Bentuk ini disebut *early return*: tiap keadaan diperiksa lewat satu `if`, dan begitu cocok, fungsinya langsung `return` tanpa perlu memeriksa sisanya. Urutannya sengaja — `memuat` diperiksa lebih dulu karena itu keadaan yang paling sering terjadi (setiap kali komponen pertama kali dipasang), lalu `gagal`, baru pengecekan `data.length === 0` untuk daftar kosong, dan barisan `<Baris>` sungguhan sebagai jalur terakhir. Karena `keadaan` didefinisikan sebagai discriminated union di sub-bab sebelumnya, TypeScript tahu persis field apa yang tersedia di tiap cabang: di dalam blok `if (keadaan.status === 'gagal')`, `keadaan.pesan` bisa diakses tanpa `?.` karena compiler sudah mempersempit tipenya — dan mencoba mengakses `keadaan.data` di blok yang sama akan ditolak sebagai error, karena varian `gagal` memang tidak punya field itu.",
+        "Bentuk ini disebut *early return*, yaitu tiap keadaan diperiksa lewat satu `if`, dan begitu cocok fungsinya langsung `return` tanpa perlu memeriksa sisanya. Urutannya sengaja. `memuat` diperiksa lebih dulu karena itu keadaan yang paling sering terjadi, yakni setiap kali komponen pertama kali dipasang, lalu `gagal`, baru pengecekan `data.length === 0` untuk daftar kosong, dan barisan `<Baris>` sungguhan sebagai jalur terakhir. Karena `keadaan` didefinisikan sebagai discriminated union di sub-bab sebelumnya, TypeScript tahu persis field apa yang tersedia di tiap cabang. Di dalam blok `if (keadaan.status === 'gagal')`, `keadaan.pesan` bisa diakses tanpa `?.` karena compiler sudah mempersempit tipenya, dan mencoba mengakses `keadaan.data` di blok yang sama akan ditolak sebagai error karena varian `gagal` memang tidak punya field itu.",
       ),
 
       h2('Kesalahan yang paling sering'),
       ol(
         '**Skeleton yang tingginya tidak sama** — halaman melompat saat data datang.',
-        '**Keadaan kosong tanpa penjelasan** — tidak bisa dibedakan dari halaman rusak.',
+        '**Empty state tanpa penjelasan** — tidak bisa dibedakan dari halaman rusak.',
         '**Pesan error mentah dari server** — membocorkan detail internal dan tidak bisa ditindaklanjuti.',
         '**Tidak ada cara mencoba lagi** — pengguna terpaksa memuat ulang halaman.',
         '**Menyamakan "belum mencari" dengan "tidak ada hasil"** — dua situasi berbeda.',
@@ -2422,14 +2422,14 @@ export const lessons: LessonDraft[] = [
       code(
         'tsx',
         `
-        // Bedakan dua keadaan kosong yang berbeda
+        // Bedakan dua empty state yang berbeda
         {cari
           ? \`Tidak ada hasil untuk "\${cari}". Coba kata kunci lain.\`
           : 'Belum ada data. Mulai dengan menambahkan yang pertama.'}
         `,
       ),
       p(
-        'Kedua kalimat ini keluar dari cabang yang sama — daftar kosong — tapi menjawab situasi yang sepenuhnya berbeda, dan yang membedakan hanya ada tidaknya kata kunci pencarian. Kalimat pertama memberi tahu bahwa **data ada, hanya tidak ada yang cocok**, sekaligus menyarankan tindakan yang masuk akal: ganti kata kuncinya. Kalimat kedua memberi tahu bahwa **memang belum ada apa-apa**, dan mengarahkan ke tindakan yang berbeda: tambahkan yang pertama. Menyamakan keduanya dengan satu pesan generik seperti "Tidak ada data" membuat pengguna yang salah ketik mengira aplikasinya kosong, dan pengguna baru mengira pencariannya gagal — dua kesimpulan yang sama-sama keliru dari satu kalimat yang terlalu hemat.',
+        'Kedua kalimat ini keluar dari cabang yang sama, yaitu daftar kosong, tapi menjawab situasi yang sepenuhnya berbeda, dan yang membedakan hanya ada tidaknya kata kunci pencarian. Kalimat pertama memberi tahu bahwa **data ada, hanya tidak ada yang cocok**, sekaligus menyarankan tindakan yang masuk akal, yaitu mengganti kata kuncinya. Kalimat kedua memberi tahu bahwa **memang belum ada apa-apa**, dan mengarahkan ke tindakan yang berbeda, yaitu menambahkan yang pertama. Menyamakan keduanya dengan satu pesan generik seperti "Tidak ada data" membuat pengguna yang salah ketik mengira aplikasinya kosong, dan pengguna baru mengira pencariannya gagal. Keduanya sama-sama kesimpulan keliru dari satu kalimat yang terlalu hemat.',
       ),
 
       h2('Kegagalan sebagian'),
@@ -2444,7 +2444,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perbedaan satu kata — `all` menjadi `allSettled` — mengubah perilaku seluruh dashboard. `Promise.all` menolak begitu **satu** promise gagal, sehingga baris destructuring-nya tidak pernah tercapai dan ketiga widget kosong meski dua di antaranya berhasil. `Promise.allSettled` selalu menunggu semuanya selesai lalu mengembalikan array berisi status tiap permintaan, sehingga kamu bisa merender widget yang berhasil dan menampilkan pesan gagal hanya pada yang bermasalah. Pilihan di antara keduanya bukan soal gaya melainkan **apakah datanya saling bergantung**: kalau halaman tidak berarti apa-apa tanpa salah satunya, `all` justru tepat; kalau tiap bagian berdiri sendiri seperti widget dashboard, `allSettled` yang benar.',
+        'Perbedaan satu kata, yaitu `all` menjadi `allSettled`, mengubah perilaku seluruh dashboard. `Promise.all` menolak begitu **satu** promise gagal, sehingga baris destructuring-nya tidak pernah tercapai dan ketiga widget kosong meski dua di antaranya berhasil. `Promise.allSettled` selalu menunggu semuanya selesai lalu mengembalikan array berisi status tiap permintaan, sehingga kamu bisa merender widget yang berhasil dan menampilkan pesan gagal hanya pada yang bermasalah. Pilihan di antara keduanya bukan soal gaya melainkan **apakah datanya saling bergantung**. Kalau halaman tidak berarti apa-apa tanpa salah satunya, `all` justru tepat, dan kalau tiap bagian berdiri sendiri seperti widget dashboard, `allSettled` yang benar.',
       ),
       code(
         'tsx',
@@ -2476,7 +2476,7 @@ export const lessons: LessonDraft[] = [
 
       h2('Kapan skeleton justru memperburuk'),
       ul(
-        'Operasi yang hampir selalu di bawah 200ms — kedipannya terasa lebih lambat.',
+        'Operasi yang hampir selalu di bawah 200ms — flicker-nya terasa lebih lambat.',
         'Memuat ulang data yang sudah tampil — pertahankan data lama, jangan ganti skeleton.',
         'Aksi yang dipicu pengguna dengan respons lokal — pakai keadaan pada tombolnya.',
       ),
@@ -2534,7 +2534,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'rancang state dulu',
           meaning:
-            'Langkah pertama praktik ini, dan urutan yang menentukan sisanya. Sebelum menulis satu komponen pun, **pisahkan state sungguhan dari nilai turunan**. Yang sungguhan hanya tiga di sini: kata pencarian, filter, dan halaman. Sisanya — hasil saring, jumlah total, jumlah halaman — semuanya dihitung.',
+            'Langkah pertama praktik ini, dan urutan yang menentukan sisanya. Sebelum menulis satu komponen pun, **pisahkan state sungguhan dari derived value**. Yang sungguhan hanya tiga di sini, yaitu kata pencarian, filter, dan halaman. Sisanya seperti hasil saring, jumlah total, dan jumlah halaman semuanya dihitung.',
         },
         {
           term: 'debounce',
@@ -2544,10 +2544,10 @@ export const lessons: LessonDraft[] = [
         {
           term: 'menjepit nilai',
           meaning:
-            'Terjemahan bebas dari *clamping*. Menjaga `halaman` tetap dalam rentang yang sah setelah hasil saring mengecil. Kerjakan **saat render** — `const halamanAman = Math.min(halaman, totalHalaman)` — bukan lewat `useEffect` yang memperbaikinya setelah layar sempat menampilkan halaman kosong.',
+            'Terjemahan bebas dari *clamping*. Menjaga `halaman` tetap dalam rentang yang sah setelah hasil saring mengecil. Kerjakan **saat render** lewat `const halamanAman = Math.min(halaman, totalHalaman)`, bukan lewat `useEffect` yang memperbaikinya setelah layar sempat menampilkan halaman kosong.',
         },
         {
-          term: 'fungsi murni untuk penyaringan',
+          term: 'pure function untuk penyaringan',
           meaning:
             'Menaruh logika saring, cari, dan paginasi di **fungsi biasa di luar komponen**. Manfaatnya langsung: bisa diuji tanpa merender apa pun, dan komponennya menyusut jadi sekadar menyusun tampilan.',
         },
@@ -2559,7 +2559,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'aria-live untuk hasil',
           meaning:
-            'Mengumumkan jumlah hasil setelah pencarian selesai — "12 hasil ditemukan". Bagi pengguna pembaca layar, tanpa ini mengetik di kotak pencarian tidak menghasilkan umpan balik apa pun.',
+            'Mengumumkan jumlah hasil setelah pencarian selesai — "12 hasil ditemukan". Bagi pengguna pembaca layar, tanpa ini mengetik di kotak pencarian tidak menghasilkan feedback apa pun.',
         },
         {
           term: 'URL sebagai state',
@@ -2592,7 +2592,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Komentar yang memisahkan kedua kelompok adalah keputusan terpenting di seluruh praktik ini. Empat baris pertama adalah **state sungguhan** — tidak satu pun bisa dihitung dari yang lain: kata pencarian datang dari ketikan, filter dari klik, halaman dari navigasi, dan `keadaan` dari hasil permintaan. Lima baris berikutnya semuanya **turunan**, dan tiap barisnya bersandar pada baris di atasnya: `semua` diambil dari keadaan, `terlihat` disaring dari `semua`, `totalHalaman` dihitung dari panjang `terlihat`, dan seterusnya. Karena semuanya dihitung ulang tiap render, tidak ada satu pun yang bisa menyimpang — mengubah `filter` otomatis membuat jumlah halaman dan isi barisnya ikut benar, tanpa satu `useEffect` pun. Bandingkan dengan menyimpan `totalHalaman` sebagai state: setiap tempat yang mengubah filter harus ingat memperbaruinya juga.',
+        'Komentar yang memisahkan kedua kelompok adalah keputusan terpenting di seluruh praktik ini. Empat baris pertama adalah **state sungguhan**, dan tidak satu pun bisa dihitung dari yang lain. Kata pencarian datang dari ketikan, filter dari klik, halaman dari navigasi, dan `keadaan` dari hasil permintaan. Lima baris berikutnya semuanya **turunan**, dan tiap barisnya bersandar pada baris di atasnya. `semua` diambil dari keadaan, `terlihat` disaring dari `semua`, `totalHalaman` dihitung dari panjang `terlihat`, dan seterusnya. Karena semuanya dihitung ulang tiap render, tidak ada satu pun yang bisa menyimpang, sehingga mengubah `filter` otomatis membuat jumlah halaman dan isi barisnya ikut benar tanpa satu `useEffect` pun. Bandingkan dengan menyimpan `totalHalaman` sebagai state, karena setiap tempat yang mengubah filter harus ingat memperbaruinya juga.',
       ),
       callout(
         'tip',
@@ -2622,7 +2622,7 @@ export const lessons: LessonDraft[] = [
         { filename: 'src/lib/saring.ts' },
       ),
       p(
-        "Perhatikan berkas ini **tidak mengimpor React sama sekali** — ia hanya menerima data beserta opsinya lalu mengembalikan hasil, persis pola modul `todo.js` dari Frontend Basic Bab 1. Karena murni, ia bisa diuji dengan memanggilnya langsung memakai array biasa: tidak perlu merender komponen, tidak perlu mensimulasikan ketikan. Rantai dua `filter` dipisah dengan sengaja alih-alih digabung jadi satu kondisi panjang, sehingga tiap tahap menjawab satu pertanyaan — yang pertama menyaring berdasarkan status, yang kedua berdasarkan kata kunci. Baris `const q = cari.trim().toLowerCase()` dihitung **sekali di luar** kedua filter, bukan di dalamnya; kalau ditaruh di dalam, normalisasi yang sama diulang untuk setiap item. Dan `q === '' ? true : …` memastikan pencarian kosong meloloskan semuanya alih-alih tidak mencocokkan apa pun.",
+        "Perhatikan berkas ini **tidak mengimpor React sama sekali**, karena ia hanya menerima data beserta opsinya lalu mengembalikan hasil, persis pola modul `todo.js` dari Frontend Basic Bab 1. Karena murni, ia bisa diuji dengan memanggilnya langsung memakai array biasa, tanpa perlu merender komponen dan tanpa perlu mensimulasikan ketikan. Rantai dua `filter` dipisah dengan sengaja alih-alih digabung jadi satu kondisi panjang, sehingga tiap tahap menjawab satu pertanyaan, yang pertama menyaring berdasarkan status dan yang kedua berdasarkan kata kunci. Baris `const q = cari.trim().toLowerCase()` dihitung **sekali di luar** kedua filter dan bukan di dalamnya, sebab kalau ditaruh di dalam, normalisasi yang sama diulang untuk setiap item. Dan `q === '' ? true : …` memastikan pencarian kosong meloloskan semuanya alih-alih tidak mencocokkan apa pun.",
       ),
 
       h2('3. Debounce pencarian'),
@@ -2638,7 +2638,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Kunci pola ini ada pada **dua nilai yang hidup berdampingan**, seperti disebut komentarnya. `cari` dipakai sebagai `value` input, sehingga huruf yang diketik muncul di layar seketika — menundanya di sini akan membuat input terasa lag. `cariTertunda` yang dipakai menyaring, dan ia baru menyusul 250 milidetik setelah pengguna berhenti mengetik. Jadi yang ditunda bukan tampilan melainkan **pekerjaannya**. Perhatikan `useDebounce` menerima nilai dan mengembalikan nilai — bukan menerima fungsi seperti `debounce` di Frontend Basic. Bentuk itu dipilih karena lebih cocok dengan cara React bekerja: kamu tidak menunda pemanggilan, kamu cukup memakai versi nilai yang tertinggal.',
+        'Kunci pola ini ada pada **dua nilai yang hidup berdampingan**, seperti disebut komentarnya. `cari` dipakai sebagai `value` input, sehingga huruf yang diketik muncul di layar seketika, sebab menundanya di sini akan membuat input terasa lag. `cariTertunda` yang dipakai menyaring, dan ia baru menyusul 250 milidetik setelah pengguna berhenti mengetik. Jadi yang ditunda bukan tampilan melainkan **pekerjaannya**. Perhatikan `useDebounce` menerima nilai dan mengembalikan nilai, bukan menerima fungsi seperti `debounce` di Frontend Basic. Bentuk itu dipilih karena lebih cocok dengan cara React bekerja, sebab kamu tidak menunda pemanggilan, kamu cukup memakai versi nilai yang tertinggal.',
       ),
       code(
         'tsx',
@@ -2659,7 +2659,7 @@ export const lessons: LessonDraft[] = [
       callout(
         'warning',
         'Input tetap controlled tanpa debounce',
-        'Kalau kamu men-debounce nilai `value` pada inputnya, ketikan akan terasa tersendat. Debounce yang di-debounce adalah **nilai turunan yang dipakai menyaring**, bukan yang ditampilkan.',
+        'Kalau kamu men-debounce nilai `value` pada inputnya, ketikan akan terasa tersendat. Debounce yang di-debounce adalah **derived value yang dipakai menyaring**, bukan yang ditampilkan.',
       ),
 
       h2('4. Merender keempat keadaan'),
@@ -2693,7 +2693,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Berbeda dari `DaftarTugas` di Bab 4.11 yang memakai `if`/`return` berurutan, di sini keempat keadaan ditulis sebagai ekspresi `&&` berurutan di dalam **satu** elemen pembungkus — pilihan yang masuk akal karena wadah itu sendiri butuh `aria-live` dan `aria-busy` yang menempel di satu tempat, bukan tersebar di beberapa `return`. Perhatikan syarat gandanya di dua baris terakhir: `keadaan.status === 'berhasil' && baris.length === 0` khusus untuk keadaan kosong, dan `keadaan.status === 'berhasil' && baris.length > 0` untuk daftar yang terisi — keduanya saling meniadakan, jadi tidak akan pernah tampil berbarengan. Pesan kosongnya sendiri dibedakan dua kalimat tergantung `cariTertunda || filter !== 'semua'`: kalau pengguna sedang menyaring atau mencari sesuatu, pesannya menjelaskan bahwa hasilnya nol untuk pencarian **itu**; kalau tidak, pesannya menjelaskan bahwa datanya memang belum ada sama sekali — dua situasi yang terasa sama bagi kode tapi berbeda maknanya bagi pengguna.",
+        "Berbeda dari `DaftarTugas` di Bab 4.11 yang memakai `if`/`return` berurutan, di sini keempat keadaan ditulis sebagai ekspresi `&&` berurutan di dalam **satu** elemen pembungkus. Pilihan itu masuk akal karena wadah itu sendiri butuh `aria-live` dan `aria-busy` yang menempel di satu tempat, bukan tersebar di beberapa `return`. Perhatikan syarat gandanya di dua baris terakhir. `keadaan.status === 'berhasil' && baris.length === 0` khusus untuk empty state, sedangkan `keadaan.status === 'berhasil' && baris.length > 0` untuk daftar yang terisi, dan keduanya saling meniadakan sehingga tidak akan pernah tampil berbarengan. Pesan kosongnya sendiri dibedakan dua kalimat tergantung `cariTertunda || filter !== 'semua'`. Kalau pengguna sedang menyaring atau mencari sesuatu, pesannya menjelaskan bahwa hasilnya nol untuk pencarian **itu**, dan kalau tidak, pesannya menjelaskan bahwa datanya memang belum ada sama sekali. Dua situasi itu terasa sama bagi kode tapi berbeda maknanya bagi pengguna.",
       ),
 
       h2('5. Kontrol filter yang bisa diakses'),
@@ -2742,7 +2742,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perhatikan `setHalaman(1)` dipanggil bersama `setCari` — persis seperti pada tombol filter di atas. Itu penanganan kasus tepi yang paling mudah terlewat: pengguna yang sedang di halaman 3 lalu mengetik pencarian baru akan melihat daftar kosong, karena hasil pencariannya mungkin hanya punya satu halaman. Menyetel ulang halaman **di tempat penyebabnya** lebih sederhana daripada mengawasinya lewat `useEffect`, dan bekerja berdampingan dengan `halamanAman` sebagai jaring pengaman kedua. Sisa atributnya menerapkan aturan form dari Bab 3: `<label>` dengan `sr-only` memberi nama yang terbaca pembaca layar tanpa memakan ruang, `type="search"` memberi tombol hapus bawaan, dan `autoComplete="off"` beserta `spellCheck={false}` mematikan dua bantuan browser yang hanya mengganggu di kotak pencarian.',
+        'Perhatikan `setHalaman(1)` dipanggil bersama `setCari`, persis seperti pada tombol filter di atas. Itu penanganan kasus tepi yang paling mudah terlewat, sebab pengguna yang sedang di halaman 3 lalu mengetik pencarian baru akan melihat daftar kosong, karena hasil pencariannya mungkin hanya punya satu halaman. Menyetel ulang halaman **di tempat penyebabnya** lebih sederhana daripada mengawasinya lewat `useEffect`, sekaligus bekerja berdampingan dengan `halamanAman` sebagai jaring pengaman kedua. Sisa atributnya menerapkan aturan form dari Bab 3, sebab `<label>` dengan `sr-only` memberi nama yang terbaca pembaca layar tanpa memakan ruang, `type="search"` memberi tombol hapus bawaan, dan `autoComplete="off"` beserta `spellCheck={false}` mematikan dua bantuan browser yang hanya mengganggu di kotak pencarian.',
       ),
 
       h2('7. Menguji bagian yang murni'),
@@ -2777,7 +2777,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        "Keempat tes ini menutup empat jenis kemungkinan yang berbeda, bukan empat variasi dari hal yang sama. Yang pertama menguji **jalur normal** tanpa saringan apa pun. Yang kedua menguji **normalisasi**: `'  REACT '` dengan spasi berlebih dan huruf besar tetap harus cocok dengan `'Belajar React'` — inilah yang membuktikan `trim().toLowerCase()` bekerja. Yang ketiga menguji **kombinasi** pencarian dan filter sekaligus, karena keduanya benar sendiri-sendiri tidak menjamin benar bersamaan. Dan yang keempat menguji **jalur tidak bahagia** dari Frontend Basic: daftar kosong tidak boleh melempar error. Perhatikan tidak ada satu pun tes yang merender komponen — dan seperti disebut kotak berikut, itulah imbalan memisahkan `saring` ke berkasnya sendiri.",
+        "Keempat tes ini menutup empat jenis kemungkinan yang berbeda, bukan empat variasi dari hal yang sama. Yang pertama menguji **jalur normal** tanpa saringan apa pun. Yang kedua menguji **normalisasi**, karena `'  REACT '` dengan spasi berlebih dan huruf besar tetap harus cocok dengan `'Belajar React'`, dan inilah yang membuktikan `trim().toLowerCase()` bekerja. Yang ketiga menguji **kombinasi** pencarian dan filter sekaligus, karena keduanya benar sendiri-sendiri tidak menjamin benar bersamaan. Dan yang keempat menguji **jalur tidak bahagia** dari Frontend Basic, yaitu daftar kosong tidak boleh melempar error. Perhatikan tidak ada satu pun tes yang merender komponen, dan seperti disebut kotak berikut, itulah imbalan memisahkan `saring` ke berkasnya sendiri.",
       ),
       callout(
         'tip',
@@ -2792,7 +2792,7 @@ export const lessons: LessonDraft[] = [
         'Tidak ada `useEffect` yang tugasnya menyalin satu state ke state lain',
         'Semua pembaruan yang bergantung nilai lama memakai bentuk updater',
         'Tidak ada mutasi array atau objek state',
-        'Keempat keadaan UI ditangani, dengan dua keadaan kosong yang dibedakan',
+        'Keempat keadaan UI ditangani, dengan dua empty state yang dibedakan',
         'Skeleton memesan tinggi yang sama dengan baris asli',
         'Halaman dijepit supaya tidak menunjuk halaman yang sudah tidak ada',
         'Debounce diterapkan pada nilai penyaring, bukan pada `value` input',
@@ -2805,10 +2805,10 @@ export const lessons: LessonDraft[] = [
       divider,
       h2('Rangkuman'),
       ul(
-        'Pisahkan state sungguhan dari nilai turunan sebelum menulis komponen.',
+        'Pisahkan state sungguhan dari derived value sebelum menulis komponen.',
         'Jepit nilai seperti halaman saat render, bukan lewat effect.',
         'Debounce nilai yang dipakai menyaring, bukan yang ditampilkan.',
-        'Logika penyaringan sebagai fungsi murni — diuji tanpa React.',
+        'Logika penyaringan sebagai pure function — diuji tanpa React.',
         'Empat keadaan UI dan atribut ARIA-nya adalah bagian dari fiturnya, bukan tambahan.',
       ),
       references(
@@ -2822,13 +2822,13 @@ export const lessons: LessonDraft[] = [
           label: 'Choosing the State Structure',
           href: 'https://react.dev/learn/choosing-the-state-structure',
           source: 'React',
-          note: 'Langkah pertama praktik ini: pisahkan state sungguhan dari nilai turunan.',
+          note: 'Langkah pertama praktik ini: pisahkan state sungguhan dari derived value.',
         },
         {
           label: 'Keeping Components Pure',
           href: 'https://react.dev/learn/keeping-components-pure',
           source: 'React',
-          note: 'Alasan logika penyaringan sebaiknya berupa fungsi murni di luar komponen.',
+          note: 'Alasan logika penyaringan sebaiknya berupa pure function di luar komponen.',
         },
         {
           label: 'ARIA live regions',

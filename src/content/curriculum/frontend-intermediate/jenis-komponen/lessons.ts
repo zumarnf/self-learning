@@ -44,7 +44,7 @@ export const lessons: LessonDraft[] = [
             'Artinya **wadah**. Kebalikan dari presentational: ia tahu dari mana data datang (query, store, router) tapi tidak tahu bentuk tampilannya. Ia mengambil data, lalu menyerahkannya sebagai props ke komponen penampil.',
         },
         {
-          term: 'pola (pattern)',
+          term: 'pattern (pola)',
           meaning:
             'Bentuk penyelesaian yang berulang dan sudah punya nama. Nilai sebuah nama bukan soal kerapian: **pola yang tidak bisa kamu sebut namanya adalah pola yang tidak bisa kamu ganti**. Itu alasan bab ini menaruh pola-pola lama di depan, bukan karena menganjurkannya.',
         },
@@ -66,7 +66,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'abstraksi prematur',
           meaning:
-            'Membangun lapisan untuk pemanggil yang **belum ada**. Biayanya dibayar hari ini — satu file lagi untuk dibuka, satu lapisan lagi untuk ditelusuri — demi manfaat yang mungkin tidak pernah datang. Aturan praktisnya: pisahkan saat pemakai kedua benar-benar muncul, bukan sebelumnya.',
+            'Membangun lapisan untuk pemanggil yang **belum ada**. Biayanya dibayar hari ini berupa satu file lagi untuk dibuka dan satu lapisan lagi untuk ditelusuri, demi manfaat yang mungkin tidak pernah datang. Aturan praktisnya, pisahkan saat pemakai kedua benar-benar muncul dan bukan sebelumnya.',
         },
         {
           term: 'custom hook',
@@ -103,7 +103,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perhatikan apa yang **tidak ada** di masing-masing. `DaftarProdukView` tidak memuat `useQuery`, `useRouter`, atau alamat API mana pun — ia hanya menerima `produk` dan `onPilih`, dan itu membuatnya bisa diuji dengan mengoper array biasa tanpa memalsukan jaringan. Sebaliknya `DaftarProdukContainer` tidak memuat satu pun tag HTML; ia hanya mengurus dari mana data datang dan apa yang terjadi saat sesuatu dipilih. Baris `data ?? []` menandai satu tanggung jawab container yang mudah terlewat: **menormalkan bentuk data** sebelum menyerahkannya, sehingga komponen tampilan tidak perlu menangani kemungkinan `undefined`. Perlu dicatat, contoh ini menunjukkan polanya bekerja — bagian berikutnya menjelaskan kenapa ia tidak lagi dianjurkan sebagai kebiasaan.',
+        'Perhatikan apa yang **tidak ada** di masing-masing. `DaftarProdukView` tidak memuat `useQuery`, `useRouter`, atau alamat API mana pun, sebab ia hanya menerima `produk` dan `onPilih`, dan itu membuatnya bisa diuji dengan mengoper array biasa tanpa memalsukan jaringan. Sebaliknya `DaftarProdukContainer` tidak memuat satu pun tag HTML, sebab ia hanya mengurus dari mana data datang dan apa yang terjadi saat sesuatu dipilih. Baris `data ?? []` menandai satu tanggung jawab container yang mudah terlewat, yaitu **menormalkan bentuk data** sebelum menyerahkannya, sehingga komponen tampilan tidak perlu menangani kemungkinan `undefined`. Perlu dicatat, contoh ini menunjukkan polanya bekerja, dan bagian berikutnya menjelaskan kenapa ia tidak lagi dianjurkan sebagai kebiasaan.',
       ),
 
       h2('Apa yang sebenarnya ia beli'),
@@ -149,12 +149,12 @@ export const lessons: LessonDraft[] = [
         },
       ),
       p(
-        'Bandingkan dengan contoh `DaftarProduk` di atas: di sana pemisahan membeli sesuatu, di sini tidak. `ProfilView` hanya merender satu `<h1>` dan **tidak punya pemakai kedua** — jadi yang dihasilkan pemisahan itu cuma satu file tambahan dan satu lapisan prop yang harus ditelusuri pembaca. Kolom kanan menunjukkan bahwa tujuan aslinya tetap tercapai tanpa komponen perantara: logika pengambilan data dipindah ke `useProfil`, sehingga ia tetap bisa dipakai ulang di komponen mana pun, sementara tampilannya tinggal satu fungsi. Inilah yang dimaksud "hooks sudah memisahkan logika dari tampilan tanpa memaksa membuat komponen kedua" — dan kenapa penulis polanya sendiri menarik anjurannya.',
+        'Bandingkan dengan contoh `DaftarProduk` di atas, karena di sana pemisahan membeli sesuatu sedangkan di sini tidak. `ProfilView` hanya merender satu `<h1>` dan **tidak punya pemakai kedua**, jadi yang dihasilkan pemisahan itu cuma satu file tambahan dan satu lapisan prop yang harus ditelusuri pembaca. Kolom kanan menunjukkan bahwa tujuan aslinya tetap tercapai tanpa komponen perantara, sebab logika pengambilan data dipindah ke `useProfil`, sehingga ia tetap bisa dipakai ulang di komponen mana pun, sementara tampilannya tinggal satu fungsi. Inilah yang dimaksud "hooks sudah memisahkan logika dari tampilan tanpa memaksa membuat komponen kedua", sekaligus kenapa penulis polanya sendiri menarik anjurannya.',
       ),
 
       h2('Kapan ia masih relevan'),
       p(
-        'Tiga situasi membuat pemisahan ini tetap berbayar: komponen tampilannya **benar-benar** dipakai dengan lebih dari satu sumber data; kamu memakai Storybook dan butuh komponen yang bisa dirender tanpa lingkungan apa pun; atau — yang paling penting sekarang — batasnya kebetulan sama dengan batas Server/Client Component, yang dibahas dua sub-bab berikutnya.',
+        'Tiga situasi membuat pemisahan ini tetap berbayar. Pertama, komponen tampilannya **benar-benar** dipakai dengan lebih dari satu sumber data. Kedua, kamu memakai Storybook dan butuh komponen yang bisa dirender tanpa lingkungan apa pun. Ketiga, yang paling penting sekarang, batasnya kebetulan sama dengan batas Server/Client Component, yang dibahas dua sub-bab berikutnya.',
       ),
       callout(
         'tip',
@@ -322,7 +322,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Arah yang boleh dan tidak boleh ini bukan aturan sewenang-wenang — ia mengikuti **di mana kode itu benar-benar berjalan**. Blok pertama sah karena `Halaman` berjalan di server, menyelesaikan `await ambilData()` di sana, lalu mengirim hasilnya ke browser bersama instruksi untuk merender `TombolInteraktif`. Blok kedua gagal karena kebalikannya mustahil: begitu kode berada di browser, tidak ada server untuk menjalankan komponen server itu — dan mengimpornya akan menyeret seluruh isinya, termasuk kredensial database dan kode yang tidak pernah boleh sampai ke klien. Perhatikan bahwa yang dilarang adalah **mengimpor**, bukan merender; perbedaan halus itulah yang membuka jalan keluar di bagian berikutnya.',
+        'Arah yang boleh dan tidak boleh ini bukan aturan sewenang-wenang, sebab ia mengikuti **di mana kode itu benar-benar berjalan**. Blok pertama sah karena `Halaman` berjalan di server, menyelesaikan `await ambilData()` di sana, lalu mengirim hasilnya ke browser bersama instruksi untuk merender `TombolInteraktif`. Blok kedua gagal karena kebalikannya mustahil. Begitu kode berada di browser, tidak ada server untuk menjalankan komponen server itu, dan mengimpornya akan menyeret seluruh isinya, termasuk kredensial database dan kode yang tidak pernah boleh sampai ke klien. Perhatikan bahwa yang dilarang adalah **mengimpor** dan bukan merender, sebab perbedaan halus itulah yang membuka jalan keluar di bagian berikutnya.',
       ),
       p('Tapi ada jalan keluar yang sering dilupakan: **oper sebagai `children`**.'),
       code(
@@ -347,7 +347,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Kuncinya ada pada komentar di dalam `Halaman`: `<KontenServer />` **dirender di server**, dan yang dioper ke `PembungkusKlien` bukan komponennya melainkan **hasilnya yang sudah jadi**. Karena itu larangan tadi tidak dilanggar — `PembungkusKlien` tidak pernah mengimpor apa pun dari sisi server; ia hanya menerima `children` seperti prop biasa. Ini persis pola komposisi dari Bab 2, dipakai untuk menyelesaikan batas yang sama sekali berbeda. Perhatikan `PembungkusKlien` bebas melakukan apa saja terhadap `children` — menyembunyikannya lewat `buka &&`, membungkusnya, atau menganimasikannya — tanpa perlu tahu isinya apa. Inilah cara membuat konten yang dirender server tetap bisa berada di dalam tab, modal, atau accordion yang interaktif.',
+        'Kuncinya ada pada komentar di dalam `Halaman`, sebab `<KontenServer />` **dirender di server**, dan yang dioper ke `PembungkusKlien` bukan komponennya melainkan **hasilnya yang sudah jadi**. Karena itu larangan tadi tidak dilanggar, sebab `PembungkusKlien` tidak pernah mengimpor apa pun dari sisi server dan hanya menerima `children` seperti prop biasa. Ini persis pola komposisi dari Bab 2, dipakai untuk menyelesaikan batas yang sama sekali berbeda. Perhatikan `PembungkusKlien` bebas melakukan apa saja terhadap `children`, entah menyembunyikannya lewat `buka &&`, membungkusnya, atau menganimasikannya, tanpa perlu tahu isinya apa. Inilah cara membuat konten yang dirender server tetap bisa berada di dalam tab, modal, atau accordion yang interaktif.',
       ),
       callout(
         'info',
@@ -370,7 +370,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Batasan ini masuk akal begitu kamu ingat bahwa props dari Server ke Client Component harus **melewati jaringan**. Apa pun yang dioper diubah menjadi teks, dikirim ke browser, lalu disusun kembali — dan fungsi tidak bisa diubah menjadi teks tanpa kehilangan seluruh isinya. Karena itu baris pertama gagal, dan pesannya menyebut kata "serializable" yang mudah membingungkan kalau kamu tidak tahu ada perjalanan jaringan di antaranya. Koreksinya membalik tanggung jawab: server mengirim **data** (`id`), dan komponen klien yang membuat handler-nya sendiri — sah karena kode itu memang berjalan di browser. Kotak berikut menyebut sisi lain dari kenyataan yang sama: karena props benar-benar dikirim, apa pun yang kamu oper bisa dibaca siapa saja yang membuka payload halaman.',
+        'Batasan ini masuk akal begitu kamu ingat bahwa props dari Server ke Client Component harus **melewati jaringan**. Apa pun yang dioper diubah menjadi teks, dikirim ke browser, lalu disusun kembali, sedangkan fungsi tidak bisa diubah menjadi teks tanpa kehilangan seluruh isinya. Karena itu baris pertama gagal, dan pesannya menyebut kata "serializable" yang mudah membingungkan kalau kamu tidak tahu ada perjalanan jaringan di antaranya. Koreksinya membalik tanggung jawab, sebab server mengirim **data** (`id`) dan komponen klien yang membuat handler-nya sendiri, dan itu sah karena kode itu memang berjalan di browser. Kotak berikut menyebut sisi lain dari kenyataan yang sama, yaitu karena props benar-benar dikirim, apa pun yang kamu oper bisa dibaca siapa saja yang membuka payload halaman.',
       ),
       callout(
         'warning',
@@ -428,7 +428,7 @@ export const lessons: LessonDraft[] = [
             'Sifat batas ini yang membuatnya berbahaya. Satu `"use client"` di `layout.tsx` menyeret sidebar, lalu navigasi, lalu apa pun yang navigasi itu impor. Kamu tidak menandai satu komponen — kamu menandai satu **cabang pohon impor**.',
         },
         {
-          term: 'daun (leaf)',
+          term: 'leaf',
           meaning:
             'Komponen paling ujung yang tidak merender komponen lain — sebuah tombol, sebuah input. Aturan bab ini: **turunkan `"use client"` sedekat mungkin ke daun**, supaya yang ikut ke browser hanya bagian yang memang butuh browser.',
         },
@@ -524,7 +524,7 @@ export const lessons: LessonDraft[] = [
         },
       ),
       p(
-        'Kedua versi menampilkan artikel yang sama dengan tombol suka yang sama, tapi **jumlah JavaScript yang diunduh pembaca berbeda jauh**. Kuncinya ada pada kalimat di rujukan: `"use client"` menandai **batas modul**, bukan satu komponen. Menaruhnya di atas `Artikel` berarti seluruh berkas itu beserta semua yang ia impor ikut dikirim ke browser — termasuk isi artikel yang tidak pernah interaktif. Versi kanan memindahkan direktifnya ke berkas terpisah yang hanya berisi tombolnya, sehingga `Artikel` tetap dirender di server dan yang menyeberang ke browser hanya beberapa baris. Perhatikan `Artikel` tetap **merender** `<TombolSuka />` — sesuai aturan arah tadi, server boleh merender klien. Aturan praktisnya: turunkan `"use client"` sedekat mungkin ke daun, dan letakkan pada berkas terkecil yang benar-benar membutuhkannya.',
+        'Kedua versi menampilkan artikel yang sama dengan tombol suka yang sama, tapi **jumlah JavaScript yang diunduh pembaca berbeda jauh**. Kuncinya ada pada kalimat di rujukan, yaitu `"use client"` menandai **batas modul** dan bukan satu komponen. Menaruhnya di atas `Artikel` berarti seluruh berkas itu beserta semua yang ia impor ikut dikirim ke browser, termasuk isi artikel yang tidak pernah interaktif. Versi kanan memindahkan direktifnya ke berkas terpisah yang hanya berisi tombolnya, sehingga `Artikel` tetap dirender di server dan yang menyeberang ke browser hanya beberapa baris. Perhatikan `Artikel` tetap **merender** `<TombolSuka />`, sebab sesuai aturan arah tadi server boleh merender klien. Aturan praktisnya, turunkan `"use client"` sedekat mungkin ke daun, dan letakkan pada berkas terkecil yang benar-benar membutuhkannya.',
       ),
 
       h2('Daftar pemicu yang benar-benar butuh `"use client"`'),
@@ -561,7 +561,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Tes ini tidak menguji perilaku aplikasi sama sekali — ia menguji **struktur impor**, dan itu justru yang membuatnya tepat di sini. Kebocoran bundle tidak punya gejala yang bisa diamati dari luar: halaman tetap benar, tidak ada error, hanya berkas yang diunduh membengkak. Yang bisa dideteksi hanyalah polanya di kode sumber, jadi tesnya membaca daftar berkas berdirektif `"use client"` lalu memeriksa apakah ada yang mengimpor modul terlarang. `expect(pelanggar).toEqual([])` sengaja membandingkan dengan array kosong, bukan memeriksa panjangnya — dengan begitu pesan gagalnya langsung **menyebutkan berkas mana** yang melanggar, bukan sekadar "diharapkan 0 dapat 3". Ini contoh kecil dari prinsip yang berlaku umum: aturan yang hanya dijaga kedisiplinan akan dilanggar suatu hari.',
+        'Tes ini tidak menguji perilaku aplikasi sama sekali, melainkan menguji **struktur impor**, dan itu justru yang membuatnya tepat di sini. Kebocoran bundle tidak punya gejala yang bisa diamati dari luar, sebab halaman tetap benar dan tidak ada error, hanya berkas yang diunduh membengkak. Yang bisa dideteksi hanyalah polanya di kode sumber, jadi tesnya membaca daftar berkas berdirektif `"use client"` lalu memeriksa apakah ada yang mengimpor modul terlarang. `expect(pelanggar).toEqual([])` sengaja membandingkan dengan array kosong alih-alih memeriksa panjangnya, sehingga pesan gagalnya langsung **menyebutkan berkas mana** yang melanggar dan bukan sekadar "diharapkan 0 dapat 3". Ini contoh kecil dari prinsip yang berlaku umum, bahwa aturan yang hanya dijaga kedisiplinan akan dilanggar suatu hari.',
       ),
       callout(
         'tip',
@@ -626,7 +626,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'prop proliferation',
           meaning:
-            'Dibaca "prop proliferesyen", artinya **props yang beranak-pinak**. Gejala API berprop banyak: setiap permintaan tampilan baru menambah satu prop baru — `ikonTerbuka`, `gayaJudul`, `bolehBanyakTerbuka` — sampai daftarnya lebih panjang daripada komponennya sendiri.',
+            'Dibaca "prop proliferesyen", artinya **props yang beranak-pinak**. Gejala API berprop banyak, sebab setiap permintaan tampilan baru menambah satu prop baru seperti `ikonTerbuka`, `gayaJudul`, dan `bolehBanyakTerbuka`, sampai daftarnya lebih panjang daripada komponennya sendiri.',
         },
         {
           term: 'static property',
@@ -699,7 +699,7 @@ export const lessons: LessonDraft[] = [
         },
       ),
       p(
-        'Perhatikan `<hr />` di tengah kolom kanan — elemen sederhana itu adalah bukti perbedaannya. Pada versi berprop, satu-satunya cara menyisipkan pemisah antar-item adalah menambah prop baru ke `Accordion` dan mengubah implementasinya; pada versi compound, pemanggil cukup menuliskannya karena **susunan isinya memang miliknya**. Pola yang sama berlaku untuk `ikonTerbuka` dan `gayaJudul`: keduanya lahir karena pemanggil tidak punya kendali atas apa yang dirender, sehingga tiap kebutuhan tampilan baru harus dititipkan lewat prop. Yang tetap tinggal sebagai prop di kolom kanan hanyalah `bolehBanyakTerbuka` — dan itu tepat, karena ia mengatur **perilaku**, bukan tampilan. Aturan pembedanya: perilaku jadi prop, susunan jadi `children`.',
+        'Perhatikan `<hr />` di tengah kolom kanan, sebab elemen sederhana itu adalah bukti perbedaannya. Pada versi berprop, satu-satunya cara menyisipkan pemisah antar-item adalah menambah prop baru ke `Accordion` dan mengubah implementasinya, sedangkan pada versi compound pemanggil cukup menuliskannya karena **susunan isinya memang miliknya**. Pola yang sama berlaku untuk `ikonTerbuka` dan `gayaJudul`, sebab keduanya lahir karena pemanggil tidak punya kendali atas apa yang dirender, sehingga tiap kebutuhan tampilan baru harus dititipkan lewat prop. Yang tetap tinggal sebagai prop di kolom kanan hanyalah `bolehBanyakTerbuka`, dan itu tepat karena ia mengatur **perilaku** alih-alih tampilan. Aturan pembedanya, perilaku jadi prop dan susunan jadi `children`.',
       ),
 
       h2('Implementasinya'),
@@ -747,7 +747,7 @@ export const lessons: LessonDraft[] = [
         { filename: 'src/components/ui/accordion.tsx' },
       ),
       p(
-        'Inilah yang membuat compound component bekerja: **Context dipakai secara lokal**, bukan sebagai state global. `Accordion` menyimpan daftar panel yang terbuka lalu membagikannya ke seluruh keturunannya, sehingga `Accordion.Trigger` bisa mengetahui statusnya tanpa satu pun prop dioper — dan pemanggil bebas menyusun apa pun di antaranya. Perhatikan `bolehBanyakTerbuka` tidak disimpan di context melainkan **dibaca di dalam `alihkan`**: baris `return bolehBanyakTerbuka ? [...lama, nilai] : [nilai]` adalah seluruh perbedaan antara accordion yang membuka banyak panel dan yang hanya satu. Fungsi `pakaiAccordion(komponen)` di atasnya menerapkan pola hook pembungkus dari Bab 5, dengan satu tambahan yang cerdas: ia menerima nama komponen sehingga pesan errornya menyebut persis bagian mana yang salah tempat.',
+        'Inilah yang membuat compound component bekerja, yaitu **Context dipakai secara lokal** dan bukan sebagai state global. `Accordion` menyimpan daftar panel yang terbuka lalu membagikannya ke seluruh keturunannya, sehingga `Accordion.Trigger` bisa mengetahui statusnya tanpa satu pun prop dioper, dan pemanggil bebas menyusun apa pun di antaranya. Perhatikan `bolehBanyakTerbuka` tidak disimpan di context melainkan **dibaca di dalam `alihkan`**, sebab baris `return bolehBanyakTerbuka ? [...lama, nilai] : [nilai]` adalah seluruh perbedaan antara accordion yang membuka banyak panel dan yang hanya satu. Fungsi `pakaiAccordion(komponen)` di atasnya menerapkan pola hook pembungkus dari Bab 5, dengan satu tambahan yang cerdas, yaitu ia menerima nama komponen sehingga pesan errornya menyebut persis bagian mana yang salah tempat.',
       ),
       code(
         'tsx',
@@ -789,7 +789,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perhatikan bahwa ada **dua** context di sini, bukan satu, dan keduanya menjawab pertanyaan berbeda. `Konteks` (dari blok kode sebelumnya) menjawab "daftar id mana saja yang sedang terbuka, dan bagaimana mengubahnya" — dibaca oleh `Accordion.Trigger` dan `Accordion.Content`. `KonteksItem` menjawab pertanyaan yang lebih sempit: "item **mana** yang sedang dibicarakan di titik pohon ini" — nilainya cuma satu string, di-set oleh `Accordion.Item`, lalu dibaca `useContext(KonteksItem)!` oleh `Trigger` dan `Content` yang ada di dalamnya. Tanda seru setelah `useContext(KonteksItem)` adalah **non-null assertion** TypeScript — penulisnya menjamin nilainya tidak akan pernah `null` di sini, karena `Trigger` dan `Content` menurut definisi API selalu dipasang di dalam `Accordion.Item`. Fungsi `pakaiAccordion(\'Trigger\')` yang muncul di awal `Trigger` dan `Content` adalah pembungkus `useContext(Konteks)` yang sama seperti `useTabs()` di sub-bab compound component sebelumnya — parameter string di dalamnya dipakai untuk menyebut nama komponen yang benar dalam pesan error kalau Provider-nya lupa dipasang.',
+        'Perhatikan bahwa ada **dua** context di sini, bukan satu, dan keduanya menjawab pertanyaan berbeda. `Konteks` (dari blok kode sebelumnya) menjawab "daftar id mana saja yang sedang terbuka, dan bagaimana mengubahnya", dan dibaca oleh `Accordion.Trigger` serta `Accordion.Content`. `KonteksItem` menjawab pertanyaan yang lebih sempit, yaitu "item **mana** yang sedang dibicarakan di titik pohon ini", dan nilainya cuma satu string, di-set oleh `Accordion.Item`, lalu dibaca `useContext(KonteksItem)!` oleh `Trigger` dan `Content` yang ada di dalamnya. Tanda seru setelah `useContext(KonteksItem)` adalah **non-null assertion** TypeScript, karena penulisnya menjamin nilainya tidak akan pernah `null` di sini, karena `Trigger` dan `Content` menurut definisi API selalu dipasang di dalam `Accordion.Item`. Fungsi `pakaiAccordion(\'Trigger\')` yang muncul di awal `Trigger` dan `Content` adalah pembungkus `useContext(Konteks)` yang sama seperti `useTabs()` di sub-bab compound component sebelumnya, dan parameter string di dalamnya dipakai untuk menyebut nama komponen yang benar dalam pesan error kalau Provider-nya lupa dipasang.',
       ),
 
       h2('Detail yang membedakan implementasi bagus dan asal jadi'),
@@ -869,7 +869,7 @@ export const lessons: LessonDraft[] = [
             'Baris tempat sebuah komponen atau fungsi **dipanggil**, bukan tempat ia didefinisikan. Ukuran keberhasilan sebuah API komponen ada di sini: apakah orang yang membaca `<Daftar ... />` bisa langsung paham tanpa membuka definisinya.',
         },
         {
-          term: 'keadaan kosong (empty state)',
+          term: 'empty state',
           meaning:
             'Tampilan saat datanya nol. Prop `kosong` ada supaya keadaan ini punya jawaban yang jelas, bukan area kosong tanpa keterangan. Ini salah satu dari empat keadaan UI yang wajib ditangani setiap tampilan berdata.',
         },
@@ -918,7 +918,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perhatikan bahwa `Daftar` sendiri **tidak tahu** bagaimana bentuk satu baris harus terlihat — ia hanya tahu bagaimana menangani daftar kosong dan bagaimana melakukan perulangan. Bentuk visual tiap baris sepenuhnya ditentukan oleh fungsi `render` yang dioper pemanggil, yang dipanggil sekali untuk tiap `item` beserta `indeks`-nya. Generic `<T>` pada `Props<T>` dan `Daftar<T>` berarti tipe `item` di dalam `render` otomatis mengikuti tipe array yang dioper lewat `items` — mengoper `produk: Produk[]` membuat parameter `p` di `render={(p) => ...}` otomatis bertipe `Produk`, tanpa kamu menuliskan tipenya secara manual.',
+        'Perhatikan bahwa `Daftar` sendiri **tidak tahu** bagaimana bentuk satu baris harus terlihat, sebab ia hanya tahu bagaimana menangani daftar kosong dan bagaimana melakukan perulangan. Bentuk visual tiap baris sepenuhnya ditentukan oleh fungsi `render` yang dioper pemanggil, yang dipanggil sekali untuk tiap `item` beserta `indeks`-nya. Generic `<T>` pada `Props<T>` dan `Daftar<T>` berarti tipe `item` di dalam `render` otomatis mengikuti tipe array yang dioper lewat `items`, sehingga mengoper `produk: Produk[]` membuat parameter `p` di `render={(p) => ...}` otomatis bertipe `Produk`, tanpa kamu menuliskan tipenya secara manual.',
       ),
 
       h2('Varian `children` sebagai fungsi'),
@@ -942,7 +942,7 @@ export const lessons: LessonDraft[] = [
 
       h2('Kapan render props masih menang atas custom hook'),
       p(
-        'Sebagian besar kasus "berbagi logika" sekarang lebih baik ditulis sebagai custom hook. Tapi render props tetap unggul untuk satu hal: ketika komponennya juga **merender sesuatu** — struktur, pembungkus, atau perilaku DOM — bukan sekadar menghitung nilai.',
+        'Sebagian besar kasus "berbagi logika" sekarang lebih baik ditulis sebagai custom hook. Tetapi render props tetap unggul untuk satu hal, yaitu ketika komponennya juga **merender sesuatu** seperti struktur, pembungkus, atau perilaku DOM, dan bukan sekadar menghitung nilai.',
       ),
       code(
         'tsx',
@@ -955,7 +955,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Contoh ini tepat sasaran karena `SaatTerlihat` melakukan **dua** hal yang tidak bisa dipisahkan: ia memasang `IntersectionObserver` — logika — sekaligus merender elemen yang diamati observer itu. Custom hook bisa mengerjakan bagian pertama, tapi tidak bisa merender elemen apa pun, sehingga pemakainya tetap harus menyiapkan ref dan elemennya sendiri. Dengan render props, keduanya datang sepaket: komponen menyediakan elemen dan pengamatnya, lalu **menyerahkan hasilnya** ke fungsi yang kamu tulis. Perhatikan fungsi itu menerima `terlihat` sebagai argumen dan bebas memakainya untuk apa saja — di sini memilih antara gambar asli dan placeholder, tapi bisa juga menjalankan animasi atau memuat data. Komponen tidak pernah menentukan tampilannya; ia hanya menyediakan informasi.',
+        'Contoh ini tepat sasaran karena `SaatTerlihat` melakukan **dua** hal yang tidak bisa dipisahkan, sebab ia memasang `IntersectionObserver` sebagai logika sekaligus merender elemen yang diamati observer itu. Custom hook bisa mengerjakan bagian pertama, tapi tidak bisa merender elemen apa pun, sehingga pemakainya tetap harus menyiapkan ref dan elemennya sendiri. Dengan render props, keduanya datang sepaket, karena komponen menyediakan elemen dan pengamatnya lalu **menyerahkan hasilnya** ke fungsi yang kamu tulis. Perhatikan fungsi itu menerima `terlihat` sebagai argumen dan bebas memakainya untuk apa saja. Di sini ia memilih antara gambar asli dan placeholder, tetapi bisa juga menjalankan animasi atau memuat data. Komponen tidak pernah menentukan tampilannya, sebab ia hanya menyediakan informasi.',
       ),
       table(
         ['Kebutuhan', 'Pilihan'],
@@ -1009,7 +1009,7 @@ export const lessons: LessonDraft[] = [
     'hoc',
     'Higher-Order Component',
     9,
-    'Pola lama yang perlu dikenali saat membaca kode warisan.',
+    'Pola lama yang perlu dikenali saat membaca legacy code.',
     [
       p(
         'Higher-Order Component (HOC) adalah fungsi yang menerima komponen dan mengembalikan komponen baru yang sudah dibungkus. Namanya meminjam dari higher-order function di JavaScript. Sebelum hooks ada, ini adalah cara utama berbagi logika antar komponen.',
@@ -1024,10 +1024,10 @@ export const lessons: LessonDraft[] = [
         {
           term: 'awalan `with`',
           meaning:
-            'Konvensi penamaan HOC: `withAuth`, `withTheme`, `withRouter`. Ini tanda pengenal paling cepat saat membaca kode lama. Tanda kedua: **komponen yang diekspor bukan komponen yang didefinisikan** — yang diekspor adalah hasil pembungkusan.',
+            'Konvensi penamaan HOC memakai bentuk `withAuth`, `withTheme`, dan `withRouter`. Ini tanda pengenal paling cepat saat membaca kode lama. Tanda keduanya, **komponen yang diekspor bukan komponen yang didefinisikan**, sebab yang diekspor adalah hasil pembungkusan.',
         },
         {
-          term: 'kode warisan (legacy)',
+          term: 'legacy code',
           meaning:
             'Kode yang sudah ada dan masih berjalan, ditulis dengan cara yang tidak lagi dianjurkan. Kamu tidak akan sering **menulis** HOC baru, tapi kamu akan **membacanya** — kode React sebelum 2019 penuh pola ini, dan banyak library masih memakainya.',
         },
@@ -1077,7 +1077,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Baca `withAuth` sebagai fungsi biasa yang menerima satu komponen dan mengembalikan komponen baru — bukan sihir apa pun. `<P extends object>` adalah generic yang berarti "apa pun bentuk props komponen aslinya, pertahankan bentuk itu"; `React.ComponentType<P>` adalah tipe untuk "komponen React yang menerima props bertipe `P`". Fungsi `KomponenTerlindungi` yang dikembalikan **membungkus** `Komponen` asli: ia memeriksa sesi lebih dulu, dan hanya merender `<Komponen {...props} />` — meneruskan seluruh props yang diterimanya apa adanya — kalau pemeriksaan itu lolos. `DasborTerlindungi` yang dihasilkan `withAuth(Dasbor)` bukan `Dasbor` itu sendiri; ia komponen baru yang **merender** `Dasbor` di dalamnya setelah pemeriksaan sesi selesai. Kalau kamu merender `<DasborTerlindungi />`, yang sebenarnya terjadi adalah `KomponenTerlindungi` dirender, dan ia baru merender `Dasbor` kalau `user` ada.',
+        'Baca `withAuth` sebagai fungsi biasa yang menerima satu komponen dan mengembalikan komponen baru, dan bukan sihir apa pun. `<P extends object>` adalah generic yang berarti "apa pun bentuk props komponen aslinya, pertahankan bentuk itu", sedangkan `React.ComponentType<P>` adalah tipe untuk "komponen React yang menerima props bertipe `P`". Fungsi `KomponenTerlindungi` yang dikembalikan **membungkus** `Komponen` asli, sebab ia memeriksa sesi lebih dulu lalu hanya merender `<Komponen {...props} />`, yang meneruskan seluruh props yang diterimanya apa adanya, kalau pemeriksaan itu lolos. `DasborTerlindungi` yang dihasilkan `withAuth(Dasbor)` bukan `Dasbor` itu sendiri, melainkan komponen baru yang **merender** `Dasbor` di dalamnya setelah pemeriksaan sesi selesai. Kalau kamu merender `<DasborTerlindungi />`, yang sebenarnya terjadi adalah `KomponenTerlindungi` dirender, dan ia baru merender `Dasbor` kalau `user` ada.',
       ),
 
       h2('Kenapa kamu tetap perlu mengenalinya'),
@@ -1126,7 +1126,7 @@ export const lessons: LessonDraft[] = [
         },
       ),
       p(
-        'Komentar di kolom kiri menyebut keluhan yang paling nyata: `user` muncul sebagai prop **tanpa ada yang mengopernya di call site**. Untuk tahu dari mana ia datang, pembaca harus membuka `withAuth` — dan kalau ada dua HOC bertumpuk, ia harus membuka keduanya sambil menebak mana yang menyuntikkan prop yang mana. Masalahnya bertambah saat dua HOC kebetulan menyuntikkan prop bernama sama; yang terluar menang, diam-diam. Kolom kanan menghapus seluruh kelas masalah itu karena `useSesi()` **terlihat di dalam komponen**, tepat di baris yang memakainya. Perhatikan keuntungan kedua yang mudah terlewat: penanganan `memuat` dan `!user` kini berada di komponen itu sendiri sebagai early return biasa, alih-alih tersembunyi di dalam pembungkus yang perilakunya sama untuk semua komponen yang ia bungkus.',
+        'Komentar di kolom kiri menyebut keluhan yang paling nyata, yaitu `user` muncul sebagai prop **tanpa ada yang mengopernya di call site**. Untuk tahu dari mana ia datang, pembaca harus membuka `withAuth`, dan kalau ada dua HOC bertumpuk, ia harus membuka keduanya sambil menebak mana yang menyuntikkan prop yang mana. Masalahnya bertambah saat dua HOC kebetulan menyuntikkan prop bernama sama, sebab yang terluar menang secara diam-diam. Kolom kanan menghapus seluruh kelas masalah itu karena `useSesi()` **terlihat di dalam komponen**, tepat di baris yang memakainya. Perhatikan keuntungan kedua yang mudah terlewat, yaitu penanganan `memuat` dan `!user` kini berada di komponen itu sendiri sebagai early return biasa, alih-alih tersembunyi di dalam pembungkus yang perilakunya sama untuk semua komponen yang ia bungkus.',
       ),
 
       h2('Yang masih pantas jadi HOC'),
@@ -1243,7 +1243,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Bandingkan dengan `withAuth` di sub-bab sebelumnya: HOC menghasilkan **komponen baru** yang membungkus komponen lain, sementara `useUkuranJendela` hanyalah fungsi yang mengembalikan **nilai**. Tidak ada lapisan tambahan di pohon komponen, tidak ada `props` yang perlu diteruskan lewat `{...props}` — komponen yang memakainya cukup memanggil `const { lebar } = useUkuranJendela()` seperti memanggil `useState`. Effect di dalamnya mengukur ulang setiap kali jendela berubah ukuran, dan fungsi yang dikembalikan (`() => window.removeEventListener(...)`) memastikan pendengar `resize` itu dilepas saat komponen yang memakai hook ini dilepas — pola cleanup yang sama dengan Bab 7. Karena logikanya berdiri sendiri di luar komponen mana pun, hook yang sama bisa dipanggil dari sepuluh komponen berbeda tanpa satu pun perlu tahu bagaimana ia bekerja di dalamnya.',
+        'Bandingkan dengan `withAuth` di sub-bab sebelumnya, sebab HOC menghasilkan **komponen baru** yang membungkus komponen lain, sementara `useUkuranJendela` hanyalah fungsi yang mengembalikan **nilai**. Tidak ada lapisan tambahan di pohon komponen, dan tidak ada `props` yang perlu diteruskan lewat `{...props}`, sehingga komponen yang memakainya cukup memanggil `const { lebar } = useUkuranJendela()` seperti memanggil `useState`. Effect di dalamnya mengukur ulang setiap kali jendela berubah ukuran, dan fungsi yang dikembalikan (`() => window.removeEventListener(...)`) memastikan pendengar `resize` itu dilepas saat komponen yang memakai hook ini dilepas, yaitu pola cleanup yang sama dengan Bab 7. Karena logikanya berdiri sendiri di luar komponen mana pun, hook yang sama bisa dipanggil dari sepuluh komponen berbeda tanpa satu pun perlu tahu bagaimana ia bekerja di dalamnya.',
       ),
 
       h2('Yang dibagi adalah logika, bukan state'),
@@ -1318,7 +1318,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Hook ini mengembalikan **objek tiga field**, sesuai aturan "tiga atau lebih pakai objek" dari Bab 5 — dan ketiganya menjawab kebutuhan berbeda: `nilai` untuk ditampilkan, `simpan` untuk mengubah, `terhidrasi` untuk mengetahui apakah nilainya sudah bisa dipercaya. Perhatikan pembacaan dari `localStorage` sengaja ditaruh di dalam `useEffect`, bukan sebagai nilai awal `useState`: di server tidak ada `localStorage` sama sekali, jadi membacanya saat render akan langsung melempar error. Kedua blok `catch` yang isinya hanya komentar juga disengaja — kegagalan penyimpanan **tidak boleh menggagalkan render**, dan nilai di memori tetap benar meski tidak tersimpan. Yang tersisa adalah masalah waktu, dan itulah tugas `terhidrasi` yang dijelaskan di kotak berikut.',
+        'Hook ini mengembalikan **objek tiga field**, sesuai aturan "tiga atau lebih pakai objek" dari Bab 5, dan ketiganya menjawab kebutuhan berbeda, yakni `nilai` untuk ditampilkan, `simpan` untuk mengubah, dan `terhidrasi` untuk mengetahui apakah nilainya sudah bisa dipercaya. Perhatikan pembacaan dari `localStorage` sengaja ditaruh di dalam `useEffect` dan bukan sebagai nilai awal `useState`, sebab di server tidak ada `localStorage` sama sekali, jadi membacanya saat render akan langsung melempar error. Kedua blok `catch` yang isinya hanya komentar juga disengaja, sebab kegagalan penyimpanan **tidak boleh menggagalkan render**, dan nilai di memori tetap benar meski tidak tersimpan. Yang tersisa adalah masalah waktu, dan itulah tugas `terhidrasi` yang dijelaskan di kotak berikut.',
       ),
       callout(
         'info',
@@ -1479,7 +1479,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Baris `const terkendali = nilai !== undefined` adalah seluruh mekanismenya: **keberadaan prop yang menentukan mode**, bukan sebuah flag terpisah. Itu penting karena pemanggil tidak perlu mengumumkan niatnya — ia cukup mengoper `nilai` atau tidak. Dari situ `sekarang` memilih sumbernya, dan `ubah` berperilaku berbeda di tiap mode: dalam mode tak terkendali ia memperbarui state internal **dan** melapor; dalam mode terkendali ia **hanya melapor**, karena kalau ia ikut menyimpan sendiri akan ada dua sumber kebenaran yang bisa berbeda. `onChange?.()` dengan tanda tanya diperlukan karena prop itu opsional di kedua mode. Dan `as const` di akhir membuat TypeScript menyimpulkan tuple `[T, (baru: T) => void]` alih-alih array biasa, sehingga destructuring di pemanggil mendapat tipe yang tepat per posisi.',
+        'Baris `const terkendali = nilai !== undefined` adalah seluruh mekanismenya, yaitu **keberadaan prop yang menentukan mode** dan bukan sebuah flag terpisah. Itu penting karena pemanggil tidak perlu mengumumkan niatnya, sebab ia cukup mengoper `nilai` atau tidak. Dari situ `sekarang` memilih sumbernya, dan `ubah` berperilaku berbeda di tiap mode. Dalam mode tak terkendali ia memperbarui state internal **dan** melapor, sedangkan dalam mode terkendali ia **hanya melapor**, karena kalau ia ikut menyimpan sendiri akan ada dua source of truth yang bisa berbeda. `onChange?.()` dengan tanda tanya diperlukan karena prop itu opsional di kedua mode. Dan `as const` di akhir membuat TypeScript menyimpulkan tuple `[T, (baru: T) => void]` alih-alih array biasa, sehingga destructuring di pemanggil mendapat tipe yang tepat per posisi.',
       ),
       code(
         'tsx',
@@ -1541,7 +1541,7 @@ export const lessons: LessonDraft[] = [
           label: 'const assertions (as const)',
           href: 'https://www.typescriptlang.org/docs/handbook/release-notes/typescript-3-4.html#const-assertions',
           source: 'TypeScript',
-          note: 'Penanda yang membuat nilai kembalian terbaca sebagai tuple, bukan array biasa.',
+          note: 'Penanda yang membuat return value terbaca sebagai tuple, bukan array biasa.',
         },
       ),
     ],
@@ -1591,7 +1591,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'div yang bisa diklik',
           meaning:
-            'Anti-pola yang dimungkinkan prop `as`. `<Tombol as="div" onClick={...}>` terlihat seperti tombol tapi bukan tombol: tidak bisa difokus dengan Tab, tidak merespons Enter atau Spasi, dan dibaca screen reader sebagai teks biasa. Kalau bisa diklik, ia harus `<button>` atau `<a>`. Selalu.',
+            'Anti-pattern yang dimungkinkan prop `as`. `<Tombol as="div" onClick={...}>` terlihat seperti tombol tapi bukan tombol: tidak bisa difokus dengan Tab, tidak merespons Enter atau Spasi, dan dibaca screen reader sebagai teks biasa. Kalau bisa diklik, ia harus `<button>` atau `<a>`. Selalu.',
         },
         {
           term: 'button vs a',
@@ -1802,7 +1802,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Dua method bernama panjang itu punya pembagian tugas yang jelas, dan komentarnya sudah menandainya. `getDerivedStateFromError` bersifat **murni** — ia hanya mengubah error menjadi state, tidak boleh melakukan apa pun selain itu — dan hasilnya membuat `render()` berpindah ke cabang fallback. `componentDidCatch` adalah tempat efek samping: melaporkan ke layanan pemantauan, dan hanya di sinilah `componentStack` tersedia, yaitu jejak komponen mana yang bersarang di mana saat error terjadi. Perhatikan `static` pada method pertama: ia dipanggil pada kelasnya, bukan pada instance, justru karena React memanggilnya sebelum komponen dianggap dalam keadaan sehat. Dan `render()` di bawah hanya punya dua cabang — ada error tampilkan fallback, tidak ada tampilkan anaknya — yang membuat seluruh mekanismenya lebih sederhana daripada nama-nama methodnya.',
+        'Dua method bernama panjang itu punya pembagian tugas yang jelas, dan komentarnya sudah menandainya. `getDerivedStateFromError` bersifat **murni**, sebab ia hanya mengubah error menjadi state tanpa boleh melakukan apa pun selain itu, dan hasilnya membuat `render()` berpindah ke cabang fallback. `componentDidCatch` adalah tempat efek samping, yaitu melaporkan ke layanan pemantauan, dan hanya di sinilah `componentStack` tersedia, yaitu jejak komponen mana yang bersarang di mana saat error terjadi. Perhatikan `static` pada method pertama, sebab ia dipanggil pada kelasnya dan bukan pada instance, justru karena React memanggilnya sebelum komponen dianggap dalam keadaan sehat. Dan `render()` di bawah hanya punya dua cabang, yaitu menampilkan fallback saat ada error dan menampilkan anaknya saat tidak ada, sehingga seluruh mekanismenya lebih sederhana daripada nama-nama methodnya.',
       ),
       code(
         'tsx',
@@ -1820,7 +1820,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Prop `fallback` di sini adalah **render prop** — pola yang dibahas lebih dalam beberapa sub-bab lalu — berupa fungsi yang dipanggil `BatasError` sendiri, bukan JSX statis. Fungsi itu menerima satu argumen, `coba`, yang saat dipanggil menjalankan `this.setState({ error: null })`: mengosongkan kembali state error, sehingga `render()` kembali ke cabang `this.props.children` dan React **mencoba merender ulang** `GrafikPenjualan` dari awal. Itulah mekanisme di balik tombol "Coba lagi" — ia tidak memuat ulang halaman atau memanggil API apa pun, ia sekadar meminta `BatasError` melupakan error yang tersimpan dan memberi komponen anaknya kesempatan kedua.',
+        'Prop `fallback` di sini adalah **render prop**, pola yang dibahas lebih dalam beberapa sub-bab lalu, berupa fungsi yang dipanggil `BatasError` sendiri alih-alih JSX statis. Fungsi itu menerima satu argumen, `coba`, yang saat dipanggil menjalankan `this.setState({ error: null })` untuk mengosongkan kembali state error, sehingga `render()` kembali ke cabang `this.props.children` dan React **mencoba melakukan re-render** `GrafikPenjualan` dari awal. Itulah mekanisme di balik tombol "Coba lagi", sebab ia tidak memuat ulang halaman atau memanggil API apa pun melainkan sekadar meminta `BatasError` melupakan error yang tersimpan dan memberi komponen anaknya kesempatan kedua.',
       ),
       callout(
         'warning',
@@ -1870,7 +1870,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Perhatikan ada **dua** `Suspense` yang terpisah, bukan satu yang membungkus keduanya — dan itu keputusan yang menentukan. Dengan boundary terpisah, `DaftarProduk` bisa muncul begitu datanya siap tanpa menunggu `Ulasan` yang mungkin jauh lebih lambat; satu boundary bersama akan membuat keduanya menunggu yang paling lambat. `<Header />` sengaja diletakkan di luar keduanya karena ia tidak mengambil data apa pun, sehingga bisa dikirim seketika. Aturan yang bisa dibawa: letakkan boundary di sekitar bagian yang **bisa selesai secara independen**, dan biarkan yang tidak butuh data berada di luar semuanya.',
+        'Perhatikan ada **dua** `Suspense` yang terpisah, dan bukan satu yang membungkus keduanya, dan itu keputusan yang menentukan. Dengan boundary terpisah, `DaftarProduk` bisa muncul begitu datanya siap tanpa menunggu `Ulasan` yang mungkin jauh lebih lambat, sedangkan satu boundary bersama akan membuat keduanya menunggu yang paling lambat. `<Header />` sengaja diletakkan di luar keduanya karena ia tidak mengambil data apa pun, sehingga bisa dikirim seketika. Aturan yang bisa dibawa, letakkan boundary di sekitar bagian yang **bisa selesai secara independen**, dan biarkan yang tidak butuh data berada di luar semuanya.',
       ),
       p(
         'Di Next.js App Router, `Suspense` adalah mekanisme **streaming**: server mengirim HTML yang sudah siap lebih dulu, lalu menambal bagian yang lambat begitu datanya selesai. Pengguna melihat header dan kerangka halaman seketika, bukan layar kosong sampai query paling lambat selesai.',
@@ -1960,7 +1960,7 @@ export const lessons: LessonDraft[] = [
       {
         term: 'createPortal',
         meaning:
-          'Fungsi dari `react-dom` bertanda tangan `createPortal(anak, wadahDOM)`. Argumen keduanya adalah node DOM sungguhan — biasanya `document.body` — dan itulah sebabnya ia tidak bisa berjalan di server, di mana `document` tidak ada.',
+          'Fungsi dari `react-dom` bertanda tangan `createPortal(anak, wadahDOM)`. Argumen keduanya adalah node DOM sungguhan, biasanya `document.body`, dan itulah sebabnya ia tidak bisa berjalan di server tempat `document` tidak ada.',
       },
       {
         term: 'event bubbling lewat pohon React',
@@ -2022,7 +2022,7 @@ export const lessons: LessonDraft[] = [
         `,
     ),
     p(
-      '`createPortal(anak, wadahDOM)` menerima dua argumen: apa yang mau dirender, dan **ke mana** ia sungguhan diletakkan di DOM. Dipanggil di dalam `return` sebuah komponen — bukan sebagai efek samping — sehingga React tetap menganggapnya sebagai hasil render biasa, hanya saja lokasinya di HTML akhir bukan di dalam `<div>` induk `Modal` melainkan langsung anak dari `document.body`. Komentar di kode di atas menegaskan inti seluruh sub-bab ini: elemen `lapisan-modal` lolos dari `overflow: hidden` atau `transform` induknya secara **DOM**, tapi secara **pohon React** — tempat `props`, `context`, dan `key` berlaku — ia tidak pernah pindah dari tempatnya semula.',
+      '`createPortal(anak, wadahDOM)` menerima dua argumen, yaitu apa yang mau dirender dan **ke mana** ia sungguhan diletakkan di DOM. Dipanggil di dalam `return` sebuah komponen dan bukan sebagai efek samping, sehingga React tetap menganggapnya sebagai hasil render biasa, hanya saja lokasinya di HTML akhir bukan di dalam `<div>` induk `Modal` melainkan langsung anak dari `document.body`. Komentar di kode di atas menegaskan inti seluruh sub-bab ini. Elemen `lapisan-modal` lolos dari `overflow: hidden` atau `transform` induknya secara **DOM**, tetapi secara **pohon React**, tempat `props`, `context`, dan `key` berlaku, ia tidak pernah pindah dari tempatnya semula.',
     ),
 
     h2('Yang tetap mengikuti pohon React'),
@@ -2065,7 +2065,7 @@ export const lessons: LessonDraft[] = [
         `,
     ),
     p(
-      'Render pertama di server selalu menghasilkan `terpasang === false`, sehingga komponen mengembalikan `null` dan tidak pernah memanggil `createPortal` di server — mencegah crash karena `document` memang tidak ada di sana. Effect dengan dependency array kosong `[]` baru berjalan **setelah** React selesai memasang komponennya di browser, mengubah `terpasang` menjadi `true` dan memicu satu render tambahan yang akhirnya benar-benar merender portalnya. Konsekuensinya: modal ini muncul sepersekian detik **setelah** halaman selesai dimuat, bukan bersamaan dengan HTML awal — cukup singkat untuk tidak terasa mengganggu, tapi berarti komponen ini tidak boleh dipakai untuk sesuatu yang harus terlihat sejak render pertama.',
+      'Render pertama di server selalu menghasilkan `terpasang === false`, sehingga komponen mengembalikan `null` dan tidak pernah memanggil `createPortal` di server, sehingga mencegah crash karena `document` memang tidak ada di sana. Effect dengan dependency array kosong `[]` baru berjalan **setelah** React selesai memasang komponennya di browser, mengubah `terpasang` menjadi `true` dan memicu satu render tambahan yang akhirnya benar-benar merender portalnya. Konsekuensinya, modal ini muncul sepersekian detik **setelah** halaman selesai dimuat dan bukan bersamaan dengan HTML awal. Itu cukup singkat untuk tidak terasa mengganggu, tetapi berarti komponen ini tidak boleh dipakai untuk sesuatu yang harus terlihat sejak render pertama.',
     ),
 
     h2('Portal tidak menyelesaikan aksesibilitas'),
@@ -2140,15 +2140,15 @@ export const lessons: LessonDraft[] = [
         {
           term: 'prop berpasangan',
           meaning:
-            'Dua prop yang selalu muncul bersama, seperti `adaGambar` + `gambar`. Salah satunya **selalu bisa disimpulkan** dari yang lain — jadi keduanya adalah dua sumber kebenaran untuk satu fakta. Obatnya: hapus yang boolean, biarkan keberadaan nilainya yang menjawab.',
+            'Dua prop yang selalu muncul bersama, seperti `adaGambar` + `gambar`. Salah satunya **selalu bisa disimpulkan** dari yang lain — jadi keduanya adalah dua source of truth untuk satu fakta. Obatnya: hapus yang boolean, biarkan keberadaan nilainya yang menjawab.',
         },
         {
           term: 'kombinasi mustahil',
           meaning:
-            'Gabungan prop yang sah menurut tipe tapi tidak berarti apa-apa — `adaGambar={false} gambarDiAtas`. Delapan boolean berarti **256 kombinasi**, dan sebagian besarnya tidak valid. Tipe yang mengizinkan keadaan mustahil adalah tipe yang belum selesai.',
+            'Gabungan prop yang sah menurut tipe tapi tidak berarti apa-apa — `adaGambar={false} gambarDiAtas`. Delapan boolean berarti **256 kombinasi**, dan sebagian besarnya tidak valid. Tipe yang mengizinkan impossible state adalah tipe yang belum selesai.',
         },
         {
-          term: 'varian (variant)',
+          term: 'variant (varian)',
           meaning:
             "Satu prop bernilai terbatas yang menggantikan beberapa boolean: `variant?: 'datar' | 'terangkat' | 'interaktif'`. Ia mengubah 8 kombinasi menjadi 3 keadaan yang memang ada, dan sekaligus memberi nama pada masing-masing.",
         },
@@ -2202,12 +2202,12 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Tipe ini adalah gejala yang paling mudah dikenali, dan ia tumbuh perlahan — tidak ada satu commit pun yang salah, hanya deretan permintaan wajar yang masing-masing menambah satu prop. Perhatikan polanya: **delapan boolean** (`adaGambar`, `gambarDiAtas`, `adaTombol`, `adaBadge`, `kompak`, `berbayang`, `bisaDiklik`, dan pasangannya) yang secara matematis menghasilkan 256 kombinasi, sementara mungkin hanya selusin yang masuk akal. Perhatikan juga hampir semuanya opsional dengan tanda `?`, sehingga TypeScript tidak bisa membantu — tipe ini menerima `<Kartu judul="a" isi="b" />` maupun kombinasi yang tidak berarti apa-apa dengan sama sahnya. Komentar "sekitar 80 baris kondisional" adalah akibat langsungnya: setiap boolean menambah percabangan di dalam.',
+        'Tipe ini adalah gejala yang paling mudah dikenali, dan ia tumbuh perlahan, sebab tidak ada satu commit pun yang salah, hanya deretan permintaan wajar yang masing-masing menambah satu prop. Perhatikan polanya, yaitu **delapan boolean** (`adaGambar`, `gambarDiAtas`, `adaTombol`, `adaBadge`, `kompak`, `berbayang`, `bisaDiklik`, dan pasangannya) yang secara matematis menghasilkan 256 kombinasi, sementara mungkin hanya selusin yang masuk akal. Perhatikan juga hampir semuanya opsional dengan tanda `?`, sehingga TypeScript tidak bisa membantu, sebab tipe ini menerima `<Kartu judul="a" isi="b" />` maupun kombinasi yang tidak berarti apa-apa dengan sama sahnya. Komentar "sekitar 80 baris kondisional" adalah akibat langsungnya, sebab setiap boolean menambah percabangan di dalam.',
       ),
 
       h2('Diagnosisnya'),
       ol(
-        '**Prop berpasangan.** `adaGambar` + `gambar`, `adaBadge` + `teksBadge`. Salah satunya selalu bisa disimpulkan dari yang lain — dua sumber kebenaran untuk satu fakta.',
+        '**Prop berpasangan.** `adaGambar` + `gambar`, `adaBadge` + `teksBadge`. Salah satunya selalu bisa disimpulkan dari yang lain — dua source of truth untuk satu fakta.',
         '**Kombinasi mustahil.** `adaGambar={false} gambarDiAtas` sah menurut tipenya, dan tidak berarti apa-apa. Delapan boolean berarti 256 kombinasi, sebagian besar tidak valid.',
         '**Susunan terkunci.** Tidak ada cara menaruh badge di bawah judul tanpa menambah prop baru lagi.',
         '**Call site tidak terbaca.** `<Kartu kompak berbayang bisaDiklik adaBadge />` tidak memberi tahu pembaca bentuk hasilnya.',
@@ -2244,7 +2244,7 @@ export const lessons: LessonDraft[] = [
         },
       ),
       p(
-        'Langkah pertama ini menghapus **empat prop menjadi dua** tanpa kehilangan satu pun kemampuan, dan prinsipnya bisa dipakai di mana saja: kalau sebuah boolean selalu bisa disimpulkan dari keberadaan nilai lain, ia tidak perlu ada. Catatan di kolom kiri menunjukkan kenapa: `adaGambar={false}` bersama `gambar="/foto.jpg"` adalah kombinasi yang sah menurut tipenya tapi tidak punya arti — dan setiap kombinasi tanpa arti adalah pertanyaan yang harus dijawab pembaca kode. Baris terakhir kolom kanan menunjukkan penerapannya di dalam komponen: `gambar !== undefined` menggantikan pemeriksaan `adaGambar`, sehingga tidak ada lagi dua nilai yang bisa saling bertentangan. Perhatikan pemeriksaannya memakai `!== undefined`, bukan `&&` polos — string kosong adalah nilai yang sah dan tidak boleh diperlakukan sebagai "tidak ada".',
+        'Langkah pertama ini menghapus **empat prop menjadi dua** tanpa kehilangan satu pun kemampuan, dan prinsipnya bisa dipakai di mana saja, yaitu kalau sebuah boolean selalu bisa disimpulkan dari keberadaan nilai lain, ia tidak perlu ada. Catatan di kolom kiri menunjukkan alasannya, sebab `adaGambar={false}` bersama `gambar="/foto.jpg"` adalah kombinasi yang sah menurut tipenya tetapi tidak punya arti, dan setiap kombinasi tanpa arti adalah pertanyaan yang harus dijawab pembaca kode. Baris terakhir kolom kanan menunjukkan penerapannya di dalam komponen, sebab `gambar !== undefined` menggantikan pemeriksaan `adaGambar`, sehingga tidak ada lagi dua nilai yang bisa saling bertentangan. Perhatikan pemeriksaannya memakai `!== undefined` dan bukan `&&` polos, sebab string kosong adalah nilai yang sah dan tidak boleh diperlakukan sebagai "tidak ada".',
       ),
 
       h2('Langkah 2 — gabungkan boolean tampilan menjadi varian'),
@@ -2294,7 +2294,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Kuncinya ada pada `onClick?: never` di cabang pertama — bentuk yang mungkin terlihat aneh tapi sangat berguna. `never` berarti "tidak ada nilai yang sah untuk ini", sehingga `<Kartu variant="datar" onClick={...} />` ditolak type-check: kartu yang tidak interaktif **tidak bisa** diberi handler klik. Cabang kedua melakukan kebalikannya — `onClick` di sana wajib, tanpa tanda tanya — sehingga `<Kartu variant="interaktif">` tanpa handler juga ditolak. Perhatikan `variant` di cabang pertama opsional sedangkan di cabang kedua wajib; itu yang memungkinkan TypeScript memilih cabang yang tepat berdasarkan nilainya, persis mekanisme diskriminan dari Bab 6. Hasilnya, dua kesalahan yang sebelumnya hanya bisa ditemukan dengan mencoba kini **tidak bisa dituliskan sama sekali**.',
+        'Kuncinya ada pada `onClick?: never` di cabang pertama, yaitu bentuk yang mungkin terlihat aneh tetapi sangat berguna. `never` berarti "tidak ada nilai yang sah untuk ini", sehingga `<Kartu variant="datar" onClick={...} />` ditolak type-check, karena kartu yang tidak interaktif **tidak bisa** diberi handler klik. Cabang kedua melakukan kebalikannya, sebab `onClick` di sana wajib tanpa tanda tanya, sehingga `<Kartu variant="interaktif">` tanpa handler juga ditolak. Perhatikan `variant` di cabang pertama opsional sedangkan di cabang kedua wajib, dan itu yang memungkinkan TypeScript memilih cabang yang tepat berdasarkan nilainya, persis mekanisme diskriminan dari Bab 6. Hasilnya, dua kesalahan yang sebelumnya hanya bisa ditemukan dengan mencoba kini **tidak bisa dituliskan sama sekali**.',
       ),
       callout(
         'tip',
