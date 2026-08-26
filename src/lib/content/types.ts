@@ -119,6 +119,17 @@ export const OFFICIAL_DOC_HOSTS = [
   // Google's SRE books are the primary source for SLO, error budgets, and the four golden
   // signals. Nothing else defines those terms first-hand.
   'sre.google',
+  // AI coding assistants & agent formats — each is the publisher's own documentation site.
+  // Added for the Prompt Engineering category, which teaches how to work with these tools and
+  // must be able to point at the vendor's primary reference rather than at a summary of one.
+  // Both vendors moved their docs during 2026, so these are the hosts that actually serve the
+  // pages today, verified by fetching them rather than recalled from memory.
+  'platform.claude.com',
+  'code.claude.com',
+  'developers.openai.com',
+  'learn.chatgpt.com',
+  'agents.md',
+  'modelcontextprotocol.io',
   // Security & specifications
   'owasp.org',
   'cheatsheetseries.owasp.org',
@@ -184,7 +195,7 @@ export type Block =
     }
   | { kind: 'callout'; tone: CalloutTone; title?: string; body: string[] }
   // Both carry no title: the renderer supplies a fixed one, so the reader learns to recognise
-  // these two boxes by shape across all 380 lessons instead of reading a different heading each
+  // these two boxes by shape across all 410 lessons instead of reading a different heading each
   // time.
   | { kind: 'terms'; items: TermEntry[] }
   | { kind: 'references'; items: DocReference[] }

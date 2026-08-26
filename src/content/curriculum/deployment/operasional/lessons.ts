@@ -827,10 +827,10 @@ export const lessons: LessonDraft[] = [
     'checklist-deploy',
     'Checklist Pra-Deploy & Pasca-Deploy',
     11,
-    'Penutup kurikulum: yang harus benar sebelum dan sesudah kata "rilis".',
+    'Penutup jalur rilis, yaitu apa yang harus benar sebelum dan sesudah kata rilis.',
     [
       p(
-        'Ini sub-bab penutup jalur membangun dan merilis. Isinya bukan hal baru, melainkan pengumpulan gerbang yang sudah dibangun sepanjang enam kategori sebelumnya menjadi satu daftar yang benar-benar dijalankan. Sesudah ini tersisa satu kategori lagi, yaitu [System Design](/kelas/system-design/fondasi-sistem), yang membahas apa yang terjadi ketika aplikasi yang sudah rilis ini mulai ramai.',
+        'Ini sub-bab penutup jalur membangun dan merilis. Isinya bukan hal baru, melainkan pengumpulan gerbang yang sudah dibangun sepanjang enam kategori sebelumnya menjadi satu daftar yang benar-benar dijalankan. Sesudah ini tersisa dua kategori lagi. [System Design](/kelas/system-design/fondasi-sistem) membahas apa yang terjadi ketika aplikasi yang sudah rilis ini mulai ramai, lalu [Prompt Engineering](/kelas/prompt-engineering/fondasi-prompt) membahas cara bekerja bersama coding agent yang ikut menulis kode ini.',
       ),
 
       h2('Aturan yang mendasari semuanya'),

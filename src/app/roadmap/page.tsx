@@ -10,7 +10,8 @@ import {
 
 export const metadata: Metadata = {
   title: 'Roadmap',
-  description: 'Tujuh tahap berurutan dari JavaScript dari nol sampai merancang sistem berskala.',
+  description:
+    'Delapan tahap berurutan dari JavaScript dari nol sampai bekerja bersama coding agent.',
 };
 
 /** Everything the roadmap displays — deliberately without any lesson content. */

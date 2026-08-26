@@ -32,7 +32,7 @@ export function RoadmapClient({ categories }: { categories: RoadmapCategory[] })
           Roadmap
         </h1>
         <p className="text-muted mt-3 max-w-prose">
-          Tujuh tahap berurutan. Kamu boleh melompat, tapi tiap tahap ditulis dengan asumsi tahap
+          Delapan tahap berurutan. Kamu boleh melompat, tapi tiap tahap ditulis dengan asumsi tahap
           sebelumnya sudah dipahami.
         </p>
       </header>

@@ -8,7 +8,7 @@ import { lessonKey } from '@/lib/curriculum/types';
 /**
  * Structural rules for the curriculum, checked against the real data rather than a fixture.
  *
- * These are the six rules from SRS §4. They exist because 380 hand-written lessons will
+ * These are the six rules from SRS §4. They exist because 410 hand-written lessons will
  * eventually grow a duplicate slug, a numbering gap, or a link to something that was renamed —
  * and none of those are things a person reliably catches by reading.
  */
@@ -34,9 +34,9 @@ function collectBlocks(): { block: Block; where: string }[] {
 }
 
 describe('bentuk kurikulum', () => {
-  it('punya tujuh kategori dengan urutan 1..7 tanpa lompatan', () => {
-    expect(curriculum).toHaveLength(7);
-    expect(curriculum.map((category) => category.order)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  it('punya delapan kategori dengan urutan 1..8 tanpa lompatan', () => {
+    expect(curriculum).toHaveLength(8);
+    expect(curriculum.map((category) => category.order)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
   });
 
   it('slug kategori unik', () => {
@@ -424,6 +424,10 @@ describe('istilah & rujukan resmi (ADR-0006)', () => {
       'system-design/blok-penyusun',
       'system-design/skala-data',
       'system-design/keandalan-studi-kasus',
+      'prompt-engineering/fondasi-prompt',
+      'prompt-engineering/teknik-lanjutan',
+      'prompt-engineering/claude-code',
+      'prompt-engineering/codex-lintas-tool',
     ];
 
     const denganTerms = lessonsWithBlock('terms');
@@ -461,13 +465,14 @@ describe('istilah & rujukan resmi (ADR-0006)', () => {
     // Batch 12 (2026-08-05): Backend Intermediate Bab 1–5 — 58 sub-bab. Kumulatif 292.
     // Batch 13 (2026-08-24): Keamanan Fullstack Bab 1–3 — 20 sub-bab. Kumulatif 312.
     // Batch 14 (2026-08-25): System Design Bab 1–4 — 30 sub-bab. Kumulatif 342.
-    expect(lessonsWithBlock('references').size).toBeGreaterThanOrEqual(342);
+    // Batch 15 (2026-08-26): Prompt Engineering Bab 1–4 — 30 sub-bab. Kumulatif 372.
+    expect(lessonsWithBlock('references').size).toBeGreaterThanOrEqual(372);
   });
 
   /**
    * Categories that finished the ADR-0006 revision end to end. Locking a whole category — size
    * included — means a lesson can never lose its terms or references block, and no lesson can be
-   * dropped to make the numbers work, without the suite going red. Same guarantee the `toBe(380)`
+   * dropped to make the numbers work, without the suite going red. Same guarantee the `toBe(410)`
    * threshold gives the curriculum as a whole.
    *
    * Add a category here only once every one of its lessons is revised; the per-chapter list above
@@ -480,6 +485,7 @@ describe('istilah & rujukan resmi (ADR-0006)', () => {
     { slug: 'backend-intermediate', jumlah: 58 },
     { slug: 'keamanan-fullstack', jumlah: 20 },
     { slug: 'system-design', jumlah: 30 },
+    { slug: 'prompt-engineering', jumlah: 30 },
   ] as const;
 
   for (const { slug, jumlah } of kategoriTuntas) {
@@ -505,10 +511,10 @@ describe('istilah & rujukan resmi (ADR-0006)', () => {
 });
 
 describe('ukuran kurikulum yang dijanjikan dokumen', () => {
-  it('38 bab dan 380 sub-bab', () => {
+  it('42 bab dan 410 sub-bab', () => {
     const chapters = curriculum.reduce((total, category) => total + category.chapters.length, 0);
-    expect(chapters).toBe(38);
-    expect(allLessons.length).toBe(380);
+    expect(chapters).toBe(42);
+    expect(allLessons.length).toBe(410);
   });
 
   /**
@@ -550,9 +556,9 @@ describe('ukuran kurikulum yang dijanjikan dokumen', () => {
   it('jumlah sub-bab yang sudah ditulis tercatat, agar progres penulisan tidak diklaim asal', () => {
     const written = allLessons.filter((location) => location.lesson.status === 'written').length;
     // Naikkan angka ini setiap satu bab selesai ditulis. Turun = regresi yang harus dijelaskan.
-    // Seluruh kurikulum: 76 + 100 + 58 + 58 + 20 + 38 + 30 = 380. TUNTAS.
+    // Seluruh kurikulum: 76 + 100 + 58 + 58 + 20 + 38 + 30 + 30 = 410. TUNTAS.
     // Angka ini tidak boleh turun — penurunan berarti materi hilang.
-    expect(written).toBe(380);
+    expect(written).toBe(410);
   });
 });
 

@@ -1,6 +1,6 @@
 # Ruang Belajar Fullstack
 
-Website belajar mandiri berisi kurikulum Fullstack Developer — 7 kategori, 38 bab, 380 sub-bab.
+Website belajar mandiri berisi kurikulum Fullstack Developer — 8 kategori, 42 bab, 410 sub-bab.
 Dipakai satu pengguna di perangkatnya sendiri: tanpa database, tanpa backend, tanpa autentikasi.
 Progres belajar disimpan di `localStorage`.
 
