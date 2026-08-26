@@ -7,9 +7,13 @@ import { lessons as lessonsTeknikLanjutan } from './prompt-engineering/teknik-la
 /**
  * Prompt Engineering — 4 chapters, 30 lessons.
  *
- * Placed at order 8, after System Design, because almost every concrete example in it refers to
- * something the reader has already built: a React refactor, a security review, a migration, a
- * deploy pipeline. Put first, those examples would be names without meaning.
+ * Placed last (order 9) because almost every concrete example in it refers to something the
+ * reader has already built: a React refactor, a security review, a migration, a deploy pipeline.
+ * Put first, those examples would be names without meaning.
+ *
+ * Moved from order 8 to 9 when Architecture Design was added, since that category belongs
+ * immediately after System Design — the two are one continuous argument about shape and load,
+ * and slotting an unrelated category between them would break the cross-references.
  *
  * Chapters 1 and 2 are vendor-neutral on purpose. Feature names move faster than the reasons
  * behind them, so the transferable half is taught first and the tool-specific half is always
@@ -354,7 +358,7 @@ const codex = defineChapter({
 
 export const promptEngineering = defineCategory({
   slug: 'prompt-engineering',
-  order: 8,
+  order: 9,
   title: 'Prompt Engineering',
   tagline: 'Dari kalimat yang ditebak sampai kerja yang terbukti',
   description:

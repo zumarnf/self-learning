@@ -1,4 +1,5 @@
 import type { Curriculum } from '@/lib/curriculum/types';
+import { architectureDesign } from './architecture-design';
 import { backendBasic } from './backend-basic';
 import { backendIntermediate } from './backend-intermediate';
 import { deployment } from './deployment';
@@ -9,7 +10,7 @@ import { promptEngineering } from './prompt-engineering';
 import { systemDesign } from './system-design';
 
 /**
- * The curriculum: 8 categories, 42 chapters, 410 lessons.
+ * The curriculum: 9 categories, 46 chapters, 440 lessons.
  *
  * The array order IS the learning order — "previous/next" and the roadmap both read it directly,
  * so reordering here reorders the whole path. Structural rules (unique slugs, gapless lesson
@@ -24,5 +25,6 @@ export const curriculum: Curriculum = [
   keamananFullstack,
   deployment,
   systemDesign,
+  architectureDesign,
   promptEngineering,
 ];

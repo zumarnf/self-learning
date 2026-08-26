@@ -130,6 +130,17 @@ export const OFFICIAL_DOC_HOSTS = [
   'learn.chatgpt.com',
   'agents.md',
   'modelcontextprotocol.io',
+  // Software architecture methods & pattern catalogues. Each entry is the primary home of the
+  // method itself or the vendor's own architecture documentation, which is the same
+  // justification `12factor.net` and `agents.md` already carry. Added for the Architecture
+  // Design category, which must be able to point at where a pattern is actually defined rather
+  // than at someone's summary of it. Personal sites were rejected on purpose, however
+  // well-regarded, because the allow-list would then have no edge left to defend.
+  'c4model.com',
+  'adr.github.io',
+  'arc42.org',
+  'learn.microsoft.com',
+  'docs.aws.amazon.com',
   // Security & specifications
   'owasp.org',
   'cheatsheetseries.owasp.org',
@@ -195,7 +206,7 @@ export type Block =
     }
   | { kind: 'callout'; tone: CalloutTone; title?: string; body: string[] }
   // Both carry no title: the renderer supplies a fixed one, so the reader learns to recognise
-  // these two boxes by shape across all 410 lessons instead of reading a different heading each
+  // these two boxes by shape across all 440 lessons instead of reading a different heading each
   // time.
   | { kind: 'terms'; items: TermEntry[] }
   | { kind: 'references'; items: DocReference[] }

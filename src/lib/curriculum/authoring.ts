@@ -5,7 +5,7 @@ import type { Category, CategorySlug, Chapter, ChapterRef, Lesson } from './type
  * Authoring helpers for the curriculum tree.
  *
  * `index` (the 1.1 / 1.2 numbering) is assigned here rather than typed by hand in every content
- * file. Hand-numbering 410 lessons guarantees a gap or a duplicate eventually, and the integrity
+ * file. Hand-numbering 440 lessons guarantees a gap or a duplicate eventually, and the integrity
  * test would then fail on a mistake that never needed to be possible.
  */
 

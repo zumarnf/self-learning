@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils/cn';
 /**
  * Curriculum tree in the sidebar.
  *
- * Only the branch containing the current lesson is expanded. Showing all 42 chapters and 410
+ * Only the branch containing the current lesson is expanded. Showing all 46 chapters and 440
  * lessons at once would be a wall of text that is impossible to scan — the sidebar's job is
  * "where am I and what is next", not "here is everything".
  */

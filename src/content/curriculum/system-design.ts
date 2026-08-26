@@ -11,10 +11,14 @@ import { lessons as lessonsSkalaData } from './system-design/skala-data/lessons'
  * been built somewhere in categories 1–6; what was never taught is *when* to reach for one, and
  * what number says it is needed.
  *
- * Placed last (order 7) because it references almost the whole path — cache and queues from
+ * Placed at order 7 because it references almost the whole path — cache and queues from
  * Backend Intermediate, indexes and transactions from Backend Basic, canary releases and health
  * checks from Deployment. Placed anywhere earlier, half its cross-references would point at
  * chapters the reader has not opened yet.
+ *
+ * Architecture Design (order 8) picks up directly from here: this category decides whether a
+ * system can carry its load, the next one decides what shape it should have. The microservice
+ * discussion deliberately left out of this category lives there.
  *
  * It deliberately does NOT re-teach Redis, BullMQ, or Docker. Where those appear, the material
  * links to the chapter that already covers them and spends its own words on the decision instead.

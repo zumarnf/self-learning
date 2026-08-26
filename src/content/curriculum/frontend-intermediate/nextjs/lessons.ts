@@ -411,7 +411,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'generateStaticParams',
           meaning:
-            'Fungsi yang memberitahu Next.js **semua kombinasi `params` yang harus dibuat saat build**. Inilah yang mengubah satu berkas `page.tsx` menjadi 410 halaman HTML statis di website ini. Tanpanya, setiap kunjungan dirender di server.',
+            'Fungsi yang memberitahu Next.js **semua kombinasi `params` yang harus dibuat saat build**. Inilah yang mengubah satu berkas `page.tsx` menjadi 440 halaman HTML statis di website ini. Tanpanya, setiap kunjungan dirender di server.',
         },
         {
           term: 'catch-all segment',
@@ -490,7 +490,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Inilah yang mengubah satu berkas `page.tsx` menjadi 410 halaman HTML statis di website ini. Tanpa fungsi ini, setiap kunjungan akan dirender di server.',
+        'Inilah yang mengubah satu berkas `page.tsx` menjadi 440 halaman HTML statis di website ini. Tanpa fungsi ini, setiap kunjungan akan dirender di server.',
       ),
 
       h2('Catch-all segment'),
@@ -874,7 +874,7 @@ export const lessons: LessonDraft[] = [
         {
           term: 'opsi segmen rute',
           meaning:
-            "Konstanta yang diekspor dari `page.tsx` atau `layout.tsx` untuk memaksa perilaku: `dynamic = 'force-dynamic'`, `dynamic = 'force-static'`, `dynamicParams = false`. Website ini efektif memakai yang terakhir — 410 slug sudah dikenal saat build, jadi slug lain memang seharusnya 404.",
+            "Konstanta yang diekspor dari `page.tsx` atau `layout.tsx` untuk memaksa perilaku: `dynamic = 'force-dynamic'`, `dynamic = 'force-static'`, `dynamicParams = false`. Website ini efektif memakai yang terakhir — 440 slug sudah dikenal saat build, jadi slug lain memang seharusnya 404.",
         },
         {
           term: 'keluaran build',
@@ -973,7 +973,7 @@ export const lessons: LessonDraft[] = [
         `,
       ),
       p(
-        'Website ini memakai `dynamicParams = false` secara efektif: seluruh 410 sub-bab sudah dikenal saat build, jadi slug apa pun di luar itu memang seharusnya 404 — bukan dicoba dirender.',
+        'Website ini memakai `dynamicParams = false` secara efektif: seluruh 440 sub-bab sudah dikenal saat build, jadi slug apa pun di luar itu memang seharusnya 404 — bukan dicoba dirender.',
       ),
 
       h2('Cara memastikan apa yang sebenarnya terjadi'),

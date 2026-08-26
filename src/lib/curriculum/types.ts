@@ -16,6 +16,7 @@ export type CategorySlug =
   | 'keamanan-fullstack'
   | 'deployment'
   | 'system-design'
+  | 'architecture-design'
   | 'prompt-engineering';
 
 export type ChapterRef = {
