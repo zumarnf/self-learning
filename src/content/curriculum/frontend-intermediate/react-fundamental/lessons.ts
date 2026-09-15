@@ -24,7 +24,7 @@ export const lessons: LessonDraft[] = [
   written(
     'kenapa-react',
     'Kenapa React: masalah apa yang sebenarnya dipecahkan',
-    10,
+    20,
     'Melihat React sebagai jawaban atas kode DOM manual yang kamu tulis sendiri di Frontend Basic.',
     [
       p(
@@ -172,6 +172,226 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Di Bab 4 Frontend Basic kamu menulis fungsi `sinkronkan` yang membandingkan daftar tugas dengan elemen di layar lalu mengubah yang berbeda saja. Fungsinya empat puluh baris, butuh `Map` id ke elemen, dan harus mengurus tiga hal terpisah, yaitu menghapus yang hilang, menambah yang baru, dan memperbarui yang berubah. Itu untuk satu daftar sederhana. Bayangkan halaman yang punya lima daftar sekaligus dengan filter yang saling mempengaruhi.',
+      ),
+      p(
+        'React tidak memperkenalkan gagasan baru di sini. Ia mengambil alih pekerjaan yang persis sama, dan yang tersisa untuk kamu tulis hanya bagian yang menyatakan bentuk akhirnya.',
+      ),
+      compare(
+        {
+          title: 'Yang kamu tulis sendiri di Bab 4',
+          lang: 'js',
+          code: `
+          const elemenTugas = new Map();
+
+          function sinkronkan(daftar) {
+            const idSekarang = new Set(daftar.map((t) => t.id));
+
+            for (const [id, el] of elemenTugas) {
+              if (!idSekarang.has(id)) {
+                el.remove();
+                elemenTugas.delete(id);
+              }
+            }
+
+            const frag = document.createDocumentFragment();
+            for (const tugas of daftar) {
+              const ada = elemenTugas.get(tugas.id);
+              if (!ada) {
+                const li = buatBaris(tugas);
+                elemenTugas.set(tugas.id, li);
+                frag.append(li);
+                continue;
+              }
+              const judulEl = ada.querySelector('.judul');
+              if (judulEl.textContent !== tugas.judul) {
+                judulEl.textContent = tugas.judul;
+              }
+              ada.classList.toggle('selesai', tugas.selesai);
+            }
+            if (frag.childElementCount > 0) daftarEl.append(frag);
+          }
+          `,
+          notes: ['Empat puluh baris yang mengurus PERBEDAAN, bukan mengurus tampilan'],
+        },
+        {
+          title: 'Yang kamu tulis dengan React',
+          lang: 'tsx',
+          code: `
+          function DaftarTugas({ tugas }: { tugas: Tugas[] }) {
+            return (
+              <ul>
+                {tugas.map((t) => (
+                  <li key={t.id} className={t.selesai ? 'selesai' : undefined}>
+                    <span className="judul">{t.judul}</span>
+                  </li>
+                ))}
+              </ul>
+            );
+          }
+          `,
+          notes: [
+            'Sepuluh baris yang mengurus BENTUK AKHIR, bukan perbedaannya',
+            '`key={t.id}` adalah `Map` id ke elemen yang tadi kamu tulis sendiri',
+          ],
+        },
+      ),
+      p(
+        'Perhatikan `key={t.id}` di kolom kanan, sebab ia bukan formalitas melainkan padanan langsung dari `Map` yang kamu buat sendiri. React memakainya untuk mencocokkan elemen lama dengan elemen baru, persis seperti `elemenTugas.get(tugas.id)` di kolom kiri. Karena itu memakai indeks array sebagai `key` sama saja dengan memakai posisi sebagai kunci `Map`, dan akibatnya identik, yaitu keadaan berpindah ke baris yang salah.',
+      ),
+      p(
+        'Pemeriksaan `if (judulEl.textContent !== tugas.judul)` di kolom kiri juga punya padanan, yaitu React melakukan perbandingan yang sama sebelum menyentuh DOM. Itu sebabnya menulis ulang seluruh JSX pada tiap perubahan tidak berarti seluruh DOM dibangun ulang. Yang dibangun ulang hanya deskripsinya, dan deskripsi itu hanya object biasa seperti dibahas di Bab 6 Frontend Basic.',
+      ),
+      p(
+        'Yang perlu jujur disebut, React bukan tanpa biaya. Ia menambah sekitar seratus kilobyte ke bundel, menambah satu lapisan yang harus dipahami saat menelusuri bug, dan mengharuskan alat pembangun. Untuk halaman yang isinya tidak pernah berubah setelah dimuat, seluruh biaya itu tidak terbayar. React menang justru saat tampilan sering berubah mengikuti data, dan semakin banyak keadaan yang saling mempengaruhi, semakin besar selisihnya.',
+      ),
+      callout(
+        'info',
+        'Nama resmi dari yang kamu tulis sendiri di Bab 4',
+        'Membandingkan deskripsi lama dengan deskripsi baru lalu mengubah selisihnya saja disebut rekonsiliasi. `Map` id ke elemen disebut `key`. Object deskripsi yang belum menyentuh DOM disebut elemen React. Ketiganya sudah kamu tulis dengan tangan, dan yang berubah di sini hanya namanya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut diuji dengan React 19 sungguhan, dan seluruhnya muncul pada hari pertama memakai React.',
+      ),
+      code(
+        'text',
+        `
+        <ul>{tugas.map((t) => <li>{t.judul}</li>)}</ul>
+
+        Warning: Each child in a list should have a unique "key" prop.
+        Check the top-level render call using <li>.
+        `,
+        { caption: 'Peringatan, bukan error, sehingga halamannya tetap terlihat benar.' },
+      ),
+      p(
+        'Karena hanya peringatan, ia sangat mudah diabaikan dan akibatnya baru muncul saat daftarnya berubah. Ingat padanannya di Bab 4, yaitu tanpa `Map` id ke elemen, kamu terpaksa mencocokkan berdasarkan posisi. Menghapus baris pertama membuat seluruh baris di bawahnya dianggap berubah isinya, dan isian kotak input di dalamnya ikut berpindah. Perlakukan peringatan ini sebagai kesalahan yang wajib diperbaiki.',
+      ),
+      code(
+        'text',
+        `
+        // Dipanggil di luar komponen
+        useState(0);
+
+        Warning: Invalid hook call. Hooks can only be called inside of the
+        body of a function component.
+
+        TypeError: Cannot read properties of null (reading 'useState')
+        `,
+        { caption: 'Peringatan menjelaskan, dan error yang menyertainya menghentikan.' },
+      ),
+      p(
+        'Dua pesan muncul bersamaan, dan yang menjelaskan adalah yang pertama. Pesan kedua hanya akibatnya, yaitu React tidak punya komponen yang sedang dirender sehingga penampung hooknya `null`. Selain memanggil hook di luar komponen, penyebab lain yang sering adalah ada dua salinan React di `node_modules`, dan peringatan aslinya memang menyebutkan kemungkinan itu.',
+      ),
+      code(
+        'text',
+        `
+        <div style="color: red" />
+
+        Error: The \`style\` prop expects a mapping from style properties to
+        values, not a string. For example, style={{marginRight: spacing + 'em'}}
+        when using JSX.
+        `,
+        { caption: 'Pesan yang bahkan menyertakan contoh perbaikannya.' },
+      ),
+      p(
+        'Ini termasuk pesan error React yang paling menolong, sebab ia menyebutkan bentuk yang benar lengkap dengan contoh. Sudah dibahas di Bab 6 Frontend Basic dari sisi tipe, dan di sini ia muncul sebagai error saat berjalan pada project tanpa TypeScript. Perhatikan React melempar alih-alih mengabaikan, dan itu pilihan yang baik sebab kesalahan ini selalu berarti bug.',
+      ),
+      code(
+        'text',
+        `
+        <img alt="x">teks</img>
+
+        Error: img is a self-closing tag and must neither have \`children\`
+        nor use \`dangerouslySetInnerHTML\`.
+        `,
+        { caption: 'Elemen yang tidak boleh punya anak menolak diberi anak.' },
+      ),
+      p(
+        'Elemen seperti `img`, `input`, `br`, dan `hr` tidak bisa punya anak menurut HTML, dan React menegakkannya alih-alih membiarkan peramban memperbaikinya diam-diam. Kalau kamu bermaksud memberi teks pengganti untuk gambar, yang dibutuhkan atribut `alt`, bukan anak. Sikap tegas React di sini justru menghemat waktu, sebab HTML yang tidak sah biasanya menghasilkan tata letak yang aneh tanpa penjelasan.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`Each child in a list should have a unique "key" prop`',
+            'Elemen hasil `map` tidak diberi `key`',
+            'Beri `key` berisi id sungguhan, bukan indeks',
+          ],
+          [
+            '`Invalid hook call`',
+            'Hook dipanggil di luar komponen, atau ada dua salinan React',
+            'Panggil di badan komponen, dan periksa `npm ls react`',
+          ],
+          [
+            '`The \\`style\\` prop expects a mapping ... not a string`',
+            'Gaya inline ditulis sebagai teks CSS',
+            'Tulis sebagai object dengan nama bergaya huruf kapital di tengah',
+          ],
+          [
+            '`img is a self-closing tag`',
+            'Elemen tanpa anak diberi anak',
+            'Pakai atribut yang sesuai, misalnya `alt` untuk gambar',
+          ],
+          [
+            'Komponen tidak pernah dipanggil dan tag asing muncul',
+            'Nama komponen berhuruf kecil',
+            'Awali nama komponen dengan huruf besar',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Hari-hari pertama memakai React hampir selalu diisi kesalahan yang berasal dari membawa kebiasaan DOM langsung. Baris di bawah adalah yang paling sering.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyentuh DOM langsung dengan `document.querySelector` di dalam komponen',
+            'Itu cara yang sudah dikuasai dari Bab 4',
+            'React akan menimpanya pada render berikutnya, dan keduanya berebut mengatur elemen yang sama. Ubah datanya, biarkan React yang menggambar',
+          ],
+          [
+            'Memakai indeks array sebagai `key`',
+            'Indeksnya unik dan sudah tersedia',
+            'Sama dengan memakai posisi sebagai kunci pencocokan. Keadaan berpindah ke baris salah saat ada yang dihapus',
+          ],
+          [
+            'Mengira React membuat aplikasi otomatis lebih cepat',
+            'Ada virtual DOM yang katanya cepat',
+            'Rekonsiliasi menambah pekerjaan, bukan mengurangi. Yang React berikan adalah kemudahan menulis, bukan kecepatan',
+          ],
+          [
+            'Memakai React untuk halaman yang isinya tidak pernah berubah',
+            'Semua project modern memakainya',
+            'Seratus kilobyte dan satu lapisan tambahan untuk keuntungan nol. HTML dengan sedikit JavaScript lebih tepat',
+          ],
+          [
+            'Menganggap komponen harus kecil sekecil mungkin',
+            'Semakin kecil semakin baik',
+            'Komponen yang panjang tapi kohesif lebih mudah dibaca daripada lima komponen dangkal yang harus dibuka bergantian. Pecah berdasarkan tanggung jawab',
+          ],
+          [
+            'Belajar React tanpa memahami closure dan pantangan mutasi',
+            'React punya cara sendiri',
+            'Hampir seluruh kebingungan tentang state berakar di kedua hal itu. Bab 1 Frontend Basic bukan prasyarat formalitas',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama adalah kesalahan yang paling sering dibuat orang yang sudah mahir DOM, dan justru karena mereka mahir. Menyentuh DOM langsung dari dalam komponen menciptakan dua pihak yang sama-sama merasa berwenang mengatur elemen itu, dan yang menang bergantung pada urutan yang tidak kamu kendalikan. Aturan yang menutupnya satu kalimat, yaitu ubah datanya dan biarkan React yang menggambar.',
+      ),
+      callout(
+        'tip',
+        'Cara membaca ulang Bab 4 Frontend Basic sekarang',
+        'Buka kembali praktik todo di sana dan cocokkan tiap bagiannya dengan padanannya di React. `Map` id ke elemen menjadi `key`. Fungsi `sinkronkan` menjadi rekonsiliasi. Pemeriksaan sebelum menulis menjadi perbandingan internal React. Lima menit mencocokkan itu membuat sisa kategori ini terasa seperti penamaan, bukan seperti hal baru.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Sinkronisasi manual antara data dan DOM adalah sumber bug yang tumbuh seiring aplikasi.',
@@ -211,7 +431,7 @@ export const lessons: LessonDraft[] = [
   written(
     'setup-project',
     'Menyiapkan Project: Vite vs Next.js',
-    10,
+    20,
     'Dua titik awal dan konsekuensinya — dipilih dari kebutuhan, bukan dari popularitas.',
     [
       terms(
@@ -352,6 +572,231 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Tiga orang di tim memulai project React di hari yang sama. Yang pertama memakai perintah pembuat resmi dan langsung menulis komponen. Yang kedua menyusun konfigurasinya sendiri karena ingin memahami tiap bagiannya, dan menghabiskan dua hari untuk itu. Yang ketiga menyalin konfigurasi dari project lain yang berumur tiga tahun, dan seminggu kemudian bertemu error yang tidak bisa ia telusuri karena setengah konfigurasinya sudah usang.',
+      ),
+      p(
+        'Yang perlu diputuskan sebelum mengetik perintah bukan alat mana yang paling canggih, melainkan tiga hal yang menentukan bentuk projectnya sepanjang umurnya.',
+      ),
+      table(
+        ['Pertanyaan', 'Kalau jawabannya ya', 'Kalau jawabannya tidak'],
+        [
+          [
+            'Butuh halaman yang dirender di server?',
+            'Next.js atau kerangka kerja sejenis',
+            'Vite dengan React saja sudah cukup',
+          ],
+          [
+            'Butuh alamat halaman yang berbeda-beda?',
+            'Kerangka kerja, atau tambahkan pustaka rute',
+            'Satu halaman tanpa rute, jauh lebih sederhana',
+          ],
+          [
+            'Butuh terbaca mesin pencari?',
+            'Wajib dirender di server',
+            'Aplikasi di sisi klien saja sudah cukup',
+          ],
+        ],
+        'Ketiganya soal kebutuhan, bukan soal selera alat.',
+      ),
+      code(
+        'bash',
+        `
+        # Aplikasi sisi klien saja. Paling cepat disiapkan, paling sedikit yang perlu dipahami.
+        npm create vite@latest toko -- --template react-ts
+        cd toko && npm install && npm run dev
+
+        # Aplikasi dengan rute dan render di server. Ini yang dipakai website ini.
+        npx create-next-app@latest toko --typescript --app --eslint
+        cd toko && npm run dev
+        `,
+        { caption: 'Keduanya menyiapkan TypeScript, alat pembangun, dan server pengembangan.' },
+      ),
+      p(
+        'Kata kunci `--template react-ts` dan `--typescript` bukan tambahan opsional. Menyiapkan TypeScript di awal jauh lebih murah daripada menambahkannya nanti, seperti dibahas di Bab 6 Frontend Basic. Kalau kamu memutuskan tidak memakainya, itu keputusan yang sah asal diambil sadar, bukan karena perintahnya lebih panjang.',
+      ),
+      code(
+        'text',
+        `
+        Isi folder yang perlu kamu kenali, dan yang tidak perlu disentuh:
+
+        src/                 <- seluruh kode yang kamu tulis
+          main.tsx           <- titik masuk, memasang React ke satu elemen
+          App.tsx            <- komponen paling atas
+        public/              <- berkas yang disalin apa adanya, tanpa diproses
+        index.html           <- satu-satunya HTML, berisi elemen tempat React dipasang
+        vite.config.ts       <- konfigurasi alat pembangun
+        tsconfig.json        <- konfigurasi TypeScript
+        package.json         <- daftar dependency dan perintah
+        node_modules/        <- JANGAN disentuh, dan jangan ikut di git
+        dist/                <- hasil build, JANGAN ikut di git
+        `,
+        { caption: 'Yang paling sering salah paham adalah beda `public/` dan `src/`.' },
+      ),
+      p(
+        'Perbedaan `public/` dan `src/` menentukan cara mengacu berkas dan sering keliru. Berkas di `public/` disalin apa adanya tanpa diproses, dan diacu dengan alamat mutlak seperti `/logo.svg`. Berkas gambar di dalam `src/` diproses alat pembangun, diberi nama berisi sidik jari isinya untuk keperluan cache, dan diacu lewat `import`. Menaruh gambar di `public/` berarti melewatkan pengoptimalan dan penanganan cache itu.',
+      ),
+      code(
+        'tsx',
+        `
+        // main.tsx — titik masuk, dan satu-satunya tempat React menyentuh DOM langsung.
+        import { StrictMode } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import App from './App.tsx';
+        import './index.css';
+
+        const wadah = document.getElementById('root');
+        if (!wadah) throw new Error('Elemen #root tidak ada di index.html');
+
+        createRoot(wadah).render(
+          <StrictMode>
+            <App />
+          </StrictMode>,
+        );
+        `,
+        { filename: 'src/main.tsx' },
+      ),
+      p(
+        'Pemeriksaan `if (!wadah) throw` menggantikan tanda seru yang biasa ditulis di berkas bawaan. Ini penerapan langsung aturan dari Bab 6, yaitu tanda seru adalah janji tanpa pemeriksaan. Kalau elemen `#root` benar-benar hilang dari `index.html`, pesan yang menyebut nama elemennya jauh lebih menolong daripada `Cannot read properties of null`.',
+      ),
+      p(
+        '`StrictMode` sengaja membuat React menjalankan komponen dua kali di mode pengembangan. Itu bukan bug dan bukan pemborosan, melainkan cara menemukan efek samping yang seharusnya tidak ada. Komponen yang benar akan berperilaku sama dijalankan berapa kali pun. Kalau ada yang rusak karenanya, yang rusak adalah komponenmu, dan mematikan `StrictMode` hanya menyembunyikannya sampai muncul di produksi dengan cara yang lebih sulit ditelusuri.',
+      ),
+      callout(
+        'danger',
+        'Jangan menyalin konfigurasi dari project lama tanpa memeriksanya',
+        'Ekosistem React berubah cepat, dan konfigurasi berumur tiga tahun bisa memuat opsi yang sudah dihapus, mode JSX lama yang mewajibkan impor React, atau plugin yang tidak lagi dirawat. Perintah pembuat resmi selalu menghasilkan konfigurasi yang cocok dengan versi terbaru, dan itu titik awal yang jauh lebih aman.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan saat penyiapan punya sifat khas, yaitu ia terjadi sebelum satu baris kodemu sempat berjalan sehingga jejaknya menunjuk ke berkas yang tidak kamu tulis.',
+      ),
+      code(
+        'text',
+        `
+        Uncaught Error: Target container is not a DOM element.
+        `,
+        { caption: 'Elemen tempat React dipasang tidak ditemukan.' },
+      ),
+      p(
+        'Dua penyebabnya, yaitu `index.html` tidak punya elemen dengan id yang dicari, atau skripnya berjalan sebelum elemen itu dibaca. Penyebab kedua tidak terjadi pada penyiapan bawaan karena skrip modulnya berperilaku seperti `defer`, seperti dibahas di Bab 4 Frontend Basic. Kalau kamu memasang React ke halaman yang sudah ada, periksa urutan tag skripnya.',
+      ),
+      code(
+        'text',
+        `
+        Warning: Invalid hook call. Hooks can only be called inside of the
+        body of a function component. This could happen for one of the
+        following reasons:
+        1. You might have mismatching versions of React and the renderer
+        `,
+        { caption: 'Sering berarti ada dua salinan React di `node_modules`.' },
+      ),
+      p(
+        'Alasan nomor satu yang disebut pesannya adalah yang paling sering terjadi saat penyiapan, terutama kalau kamu memakai pustaka lokal yang punya `node_modules` sendiri. Periksa dengan `npm ls react`, dan kalau muncul lebih dari satu versi, itulah penyebabnya. Jalan keluarnya berbeda per alat, dan untuk npm biasanya lewat `overrides` di `package.json`.',
+      ),
+      code(
+        'text',
+        `
+        $ npm run dev
+        Error: Cannot find module '@rollup/rollup-linux-x64-gnu'
+        `,
+        { caption: 'Paket biner khusus sistem tidak ikut terpasang.' },
+      ),
+      p(
+        'Ini kegagalan yang muncul saat `package-lock.json` dibuat di sistem yang berbeda, misalnya rekan memakai macOS dan kamu memakai Linux. Paket biner untuk tiap sistem berbeda, dan lockfile bisa hanya memuat satu di antaranya. Jalan keluarnya menghapus `node_modules` beserta lockfile lalu memasang ulang, dan sesudahnya lockfile yang baru memuat keduanya.',
+      ),
+      code(
+        'text',
+        `
+        $ npm run dev
+        Port 5173 is in use, trying another one...
+        `,
+        { caption: 'Bukan error, dan alamatnya berubah tanpa kamu sadari.' },
+      ),
+      p(
+        'Ini pesan yang mudah terlewat dan menyebabkan kebingungan yang tidak perlu. Server pengembangan berpindah port, sedangkan tab peramban yang masih terbuka menunjuk port lama yang dipakai proses lain. Yang kamu lihat adalah versi lama aplikasimu, dan perubahan kode seolah tidak berpengaruh. Selalu baca alamat yang dicetak di terminal, bukan mengandalkan tab yang sudah terbuka.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`Target container is not a DOM element`',
+            'Elemen tempat React dipasang tidak ada',
+            'Periksa id di `index.html`, dan urutan tag skripnya',
+          ],
+          [
+            '`Invalid hook call` tepat setelah penyiapan',
+            'Ada dua salinan React di `node_modules`',
+            'Periksa `npm ls react`, lalu satukan versinya',
+          ],
+          [
+            "`Cannot find module '@rollup/rollup-...'`",
+            'Lockfile dibuat di sistem yang berbeda',
+            'Hapus `node_modules` dan lockfile, lalu pasang ulang',
+          ],
+          [
+            'Perubahan kode tidak terlihat di peramban',
+            'Server pindah port, dan tab lama menunjuk port lama',
+            'Buka alamat yang dicetak terminal',
+          ],
+          [
+            'Gambar dari `src/` tidak muncul',
+            'Diacu dengan alamat teks, bukan lewat `import`',
+            'Impor berkasnya, atau pindahkan ke `public/`',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Penyiapan adalah tempat keputusan yang dampaknya paling lama terasa, dan sebagian besar kesalahan di bawah baru terasa berbulan-bulan kemudian.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyusun konfigurasi sendiri dari nol untuk belajar',
+            'Supaya paham tiap bagiannya',
+            'Menghabiskan hari-hari pertama untuk hal yang jarang perlu disentuh lagi. Pakai pembuat resmi, dan pelajari konfigurasinya saat benar-benar butuh mengubah sesuatu',
+          ],
+          [
+            'Mematikan `StrictMode` karena efeknya berjalan dua kali',
+            'Supaya perilakunya seperti produksi',
+            'Ia sengaja menemukan efek samping yang seharusnya tidak ada. Yang rusak adalah komponenmu, dan produksi akan menemukannya dengan cara yang lebih mahal',
+          ],
+          [
+            'Menaruh semua gambar di `public/`',
+            'Alamatnya lebih mudah ditulis',
+            'Melewatkan pengoptimalan dan sidik jari cache. Impor dari `src/` untuk aset yang dipakai komponen',
+          ],
+          [
+            'Menyalin konfigurasi dari project lama',
+            'Sudah terbukti bekerja di sana',
+            'Bisa memuat opsi yang sudah dihapus dan mode JSX lama. Mulai dari pembuat resmi',
+          ],
+          [
+            'Memasang pustaka rute, state, dan UI di hari pertama',
+            'Nanti pasti butuh',
+            'Sebagian besar tidak pernah dipakai, dan tiap satunya kontrak jangka panjang. Pasang saat kebutuhannya nyata',
+          ],
+          [
+            'Memakai kerangka kerja lengkap untuk satu halaman tanpa rute',
+            'Lebih lengkap lebih baik',
+            'Menambah konsep yang harus dipahami tanpa manfaat. Vite dengan React saja lebih sederhana',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua layak ditegaskan karena ia keputusan yang sering diambil di minggu pertama dan akibatnya baru terasa jauh kemudian. Efek yang berjalan dua kali menandakan ada sesuatu yang tidak bisa dijalankan ulang dengan aman, misalnya pendaftaran yang tidak melepas atau permintaan yang tidak dibatalkan. Keduanya adalah bug sungguhan yang akan muncul di produksi saat pengguna berpindah halaman dengan cepat.',
+      ),
+      callout(
+        'tip',
+        'Empat perintah yang layak dihafal sejak hari pertama',
+        '`npm run dev` untuk server pengembangan, `npm run build` untuk memastikan bisa dibangun, `npm run lint` untuk menangkap kesalahan pola, dan `npx tsc --noEmit` untuk memeriksa tipe tanpa membangun. Menjalankan keempatnya sebelum menyerahkan pekerjaan menutup sebagian besar kejutan, dan itu persis disiplin verifikasi yang dipakai project ini.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Vite untuk belajar dan aplikasi di balik login; Next.js kalau butuh SEO atau kode server.',
@@ -397,7 +842,7 @@ export const lessons: LessonDraft[] = [
   written(
     'komponen-pertama',
     'Komponen Pertama & Cara React Merender',
-    11,
+    21,
     'Fungsi yang mengembalikan tampilan — dan apa yang terjadi saat ia dipanggil.',
     [
       terms(
@@ -547,6 +992,217 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman detail pesanan berisi kepala halaman, ringkasan pembeli, daftar barang, rincian biaya, dan bilah aksi. Ditulis sebagai satu komponen, panjangnya tiga ratus baris dan setiap perubahan kecil menuntut menggulir mencari bagian yang tepat. Ditulis sebagai lima belas komponen kecil, kamu harus membuka enam berkas untuk memahami satu layar. Keduanya sama-sama menyulitkan, dan keduanya berasal dari memecah berdasarkan ukuran.',
+      ),
+      p(
+        'Yang menentukan bukan panjangnya melainkan **alasan berubahnya**. Bagian yang selalu berubah bersama tetap satu, dan bagian yang berubah karena alasan berbeda dipisah.',
+      ),
+      code(
+        'tsx',
+        `
+        // Satu berkas, empat komponen. Tiga di antaranya tidak diekspor,
+        // sebab hanya dipakai di halaman ini.
+        export function HalamanPesanan({ pesanan }: { pesanan: Pesanan }) {
+          return (
+            <main>
+              <KepalaPesanan pesanan={pesanan} />
+              <DaftarBarang barang={pesanan.barang} />
+              <RincianBiaya pesanan={pesanan} />
+            </main>
+          );
+        }
+
+        function KepalaPesanan({ pesanan }: { pesanan: Pesanan }) {
+          return (
+            <header>
+              <h1>Pesanan {pesanan.nomor}</h1>
+              <Lencana status={pesanan.status} />
+              <time dateTime={pesanan.padaIso}>{formatTanggal(pesanan.padaIso)}</time>
+            </header>
+          );
+        }
+
+        function DaftarBarang({ barang }: { barang: Barang[] }) {
+          if (barang.length === 0) return <p>Tidak ada barang</p>;
+          return (
+            <ul>
+              {barang.map((b) => (
+                <li key={b.id}>
+                  {b.nama} × {b.jumlah} — {formatRupiah(b.hargaSen * b.jumlah)}
+                </li>
+              ))}
+            </ul>
+          );
+        }
+
+        function RincianBiaya({ pesanan }: { pesanan: Pesanan }) {
+          const subtotal = pesanan.barang.reduce((j, b) => j + b.hargaSen * b.jumlah, 0);
+          return (
+            <dl>
+              <dt>Subtotal</dt><dd>{formatRupiah(subtotal)}</dd>
+              <dt>Ongkir</dt><dd>{formatRupiah(pesanan.ongkirSen)}</dd>
+              <dt>Total</dt><dd>{formatRupiah(subtotal + pesanan.ongkirSen)}</dd>
+            </dl>
+          );
+        }
+        `,
+        { filename: 'src/pesanan/HalamanPesanan.tsx' },
+      ),
+      p(
+        'Tiga komponen di bawah tidak diekspor, dan itu keputusan yang disengaja. Selama ia hanya dipakai di halaman ini, menaruhnya di berkas yang sama membuat seluruh layar bisa dibaca tanpa berpindah berkas, sekaligus tetap memberi nama pada tiap bagiannya. Kalau nanti `Lencana` dipakai halaman lain, barulah ia pindah ke berkas sendiri. Pindahkan saat pemakai kedua benar-benar ada, bukan sebelum itu.',
+      ),
+      p(
+        'Perhatikan `DaftarBarang` menerima `barang` saja, bukan seluruh `pesanan`. Ini pembedaan yang berpengaruh besar. Komponen yang hanya menerima yang ia butuhkan lebih mudah diuji, lebih mudah dipakai ulang, dan tidak ikut digambar ulang saat bagian pesanan yang lain berubah. Sebaliknya `RincianBiaya` memang menerima seluruh `pesanan` karena ia butuh dua bagian yang berbeda darinya.',
+      ),
+      p(
+        'Nama komponen memakai kata benda, bukan kata kerja, dan itu bukan sekadar gaya. Komponen adalah **sesuatu** yang ditampilkan, bukan tindakan. Nama seperti `RenderBarang` atau `TampilkanBiaya` menyiratkan pemanggilan fungsi, padahal yang kamu tulis di JSX adalah deskripsi bentuk. Penamaan yang tepat membuat JSX terbaca seperti susunan benda, dan itu memang yang ia gambarkan.',
+      ),
+      callout(
+        'tip',
+        'Pertanyaan yang memutuskan apakah sesuatu layak jadi komponen sendiri',
+        'Tanyakan apakah bagian ini punya alasan berubah yang berbeda dari sekitarnya, dan apakah ia sudah dipakai di tempat kedua. Kalau salah satunya ya, pisahkan. Kalau keduanya tidak, biarkan menyatu walaupun panjang. Ini bentuk lain dari uji penghapusan yang dibahas di Bab 2 Frontend Basic.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut diuji dengan React sungguhan, dan dua di antaranya tidak melempar apa pun.',
+      ),
+      code(
+        'text',
+        `
+        function kartu() { return <div>x</div>; }
+        <kartu />
+
+        // Hasil: <kartu></kartu>
+        // Komponennya tidak pernah dipanggil, dan tidak ada error.
+        `,
+        { caption: 'Nama berhuruf kecil dianggap tag HTML.' },
+      ),
+      p(
+        'Sudah dibahas di Bab 6 Frontend Basic dan muncul lagi di sini karena inilah tempatnya paling sering terjadi, yaitu saat orang baru mulai memecah halaman menjadi komponen. Tidak ada error, tidak ada peringatan, dan yang terlihat hanya bagian halaman yang kosong. Kebiasaan mengawali seluruh nama komponen dengan huruf besar menutup seluruh kelas bug ini.',
+      ),
+      code(
+        'text',
+        `
+        function Kartu() {}
+        <Kartu />
+
+        // Tidak ada error. Tidak ada yang dirender.
+        `,
+        { caption: 'Komponen yang tidak mengembalikan apa pun sah dan menghasilkan kekosongan.' },
+      ),
+      p(
+        'Komponen yang mengembalikan `undefined` diperbolehkan sejak React 18 dan diperlakukan sama dengan mengembalikan `null`, yaitu tidak merender apa pun. Karena itu `return` yang hilang tidak lagi melempar, dan gejalanya hanya bagian halaman yang kosong. Penyebab yang paling sering adalah titik koma otomatis setelah `return`, seperti dibahas di Bab 6.',
+      ),
+      code(
+        'text',
+        `
+        function Kartu() {
+          const [buka, setBuka] = useState(false);
+          if (!buka) return null;
+          const [pilih, setPilih] = useState(null);   // hook setelah return
+        }
+
+        Warning: React has detected a change in the order of Hooks called by Kartu.
+        `,
+        { caption: 'Hook dipanggil setelah `return` lebih awal.' },
+      ),
+      p(
+        'Ini pelanggaran aturan hook yang paling sering muncul justru saat memecah komponen, sebab `return null` untuk kasus kosong terasa alami ditaruh di tengah. React menyimpan state berdasarkan urutan pemanggilan hook, sehingga jumlah hook yang berbeda antar-render merusak pencocokannya. Seluruh hook harus dipanggil sebelum `return` mana pun, dan pembahasan lengkapnya ada di Bab 7.',
+      ),
+      code(
+        'text',
+        `
+        <div>{<Kartu />}</div>
+
+        // Bekerja, dan kurung kurawalnya tidak diperlukan.
+        `,
+        { caption: 'Bukan error, hanya kebiasaan yang menandakan kesalahpahaman.' },
+      ),
+      p(
+        'Kurung kurawal dipakai untuk menyisipkan **ekspresi JavaScript** ke dalam JSX. Elemen JSX sudah berupa ekspresi, jadi membungkusnya lagi tidak menambah apa pun. Kalau kamu menemukan diri menulis ini, biasanya itu tanda model mentalnya masih menganggap JSX sebagai teks yang perlu ditandai. Ia justru sebaliknya, yaitu JSX adalah nilai, dan kurung kurawal dipakai untuk masuk ke JavaScript dari dalamnya.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Tag asing muncul dan komponen tidak berjalan',
+            'Nama komponen berhuruf kecil',
+            'Awali dengan huruf besar',
+          ],
+          [
+            'Bagian halaman kosong tanpa error',
+            'Komponen tidak mengembalikan apa pun',
+            'Periksa `return`, terutama titik koma otomatis setelahnya',
+          ],
+          [
+            '`change in the order of Hooks called by ...`',
+            'Hook dipanggil setelah `return` lebih awal',
+            'Panggil seluruh hook sebelum `return` mana pun',
+          ],
+          [
+            'Komponen digambar ulang padahal datanya tidak berubah',
+            'Ia menerima seluruh object padahal hanya butuh satu field',
+            'Kirim field yang dibutuhkan saja',
+          ],
+          [
+            'Satu berkas berisi lima belas komponen yang tidak berhubungan',
+            'Dipecah berdasarkan ukuran, bukan alasan berubah',
+            'Satukan yang selalu berubah bersama',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Memecah halaman menjadi komponen adalah keputusan struktur, dan sebagian besar kesalahan di bawah berasal dari memakai ukuran sebagai patokannya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memecah komponen begitu melewati lima puluh baris',
+            'Komponen kecil katanya lebih baik',
+            'Lima komponen dangkal yang harus dibuka bergantian lebih sulit dipahami daripada satu yang panjang tapi kohesif. Pecah berdasarkan alasan berubah',
+          ],
+          [
+            'Membuat satu berkas untuk setiap komponen sekecil apa pun',
+            'Lebih rapi dan seragam',
+            'Komponen yang hanya dipakai di satu halaman lebih enak berada di berkas yang sama. Pindahkan saat pemakai kedua benar-benar ada',
+          ],
+          [
+            'Mengirim seluruh object padahal hanya butuh satu field',
+            'Lebih fleksibel kalau butuh yang lain nanti',
+            'Komponennya jadi terikat pada bentuk data, lebih sulit diuji, dan ikut digambar ulang saat field lain berubah',
+          ],
+          [
+            'Menamai komponen dengan kata kerja',
+            'Ia kan fungsi yang menghasilkan sesuatu',
+            'Komponen adalah benda yang ditampilkan, bukan tindakan. `RincianBiaya`, bukan `TampilkanBiaya`',
+          ],
+          [
+            'Mendefinisikan komponen di dalam komponen lain',
+            'Supaya bisa mengakses variabel induknya',
+            'Ia dibuat ulang tiap render, sehingga React menganggapnya komponen yang berbeda dan membuang seluruh state di dalamnya. Definisikan di luar, dan kirim lewat props',
+          ],
+          [
+            'Menyebar props dengan tiga titik supaya tidak repot',
+            'Semua prop jadi lolos otomatis',
+            'Tidak ada yang tahu prop apa saja yang sebenarnya dipakai, dan field asing ikut terkirim ke DOM. Sebut yang dibutuhkan',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima adalah kesalahan yang paling merusak dan paling sulit dikenali dari gejalanya. Komponen yang didefinisikan di dalam komponen lain adalah fungsi baru pada tiap render, dan React membandingkan jenis komponen berdasarkan identitas fungsinya. Karena identitasnya selalu berubah, React membongkar seluruh pohonnya lalu membangunnya lagi, sehingga state di dalamnya hilang dan fokus keyboard lepas pada tiap ketikan.',
+      ),
+      callout(
+        'info',
+        'Komponen adalah fungsi, dan itu berlaku sepenuhnya',
+        'Seluruh yang kamu pelajari tentang fungsi di Bab 1 Frontend Basic berlaku, yaitu nama yang mengungkap maksud, parameter yang sedikit, dan tidak ada efek samping tersembunyi. Yang membedakan komponen dari fungsi biasa hanya dua hal, yaitu ia mengembalikan deskripsi tampilan dan namanya diawali huruf besar.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Komponen adalah fungsi yang mengembalikan deskripsi tampilan.',
@@ -587,7 +1243,7 @@ export const lessons: LessonDraft[] = [
   written(
     'props',
     'Props: mengalirkan data ke bawah',
-    11,
+    21,
     'Kontrak masuk sebuah komponen — dan kenapa ia hanya-baca.',
     [
       terms(
@@ -763,6 +1419,250 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Komponen `Tombol` dipakai di seluruh aplikasi. Awalnya ia menerima tiga prop. Enam bulan kemudian ia menerima empat belas, termasuk `kecil`, `besar`, `penuh`, `merah`, `hantu`, dan `garis`. Setengahnya tidak boleh dipakai bersamaan, dan tidak ada satu pun yang mencegahnya. Ada halaman yang memakai `kecil` dan `besar` sekaligus, dan hasilnya bergantung pada urutan kelas CSS yang tidak seorang pun pahami.',
+      ),
+      p(
+        'Bentuk props menentukan seberapa mudah komponen dipakai salah. Perbandingan di bawah menunjukkan selisihnya, dan yang berubah bukan kemampuannya melainkan kemungkinan salahnya.',
+      ),
+      compare(
+        {
+          title: 'Boolean bertumpuk',
+          lang: 'tsx',
+          code: `
+          type TombolProps = {
+            kecil?: boolean;
+            besar?: boolean;
+            merah?: boolean;
+            hantu?: boolean;
+            garis?: boolean;
+          };
+
+          // Sah menurut tipe, dan tidak masuk akal:
+          <Tombol kecil besar merah hantu />
+
+          // 2^5 = 32 kombinasi, dan hanya 6 yang berarti.
+          `,
+          notes: ['Tidak ada yang mencegah kombinasi yang tidak masuk akal'],
+        },
+        {
+          title: 'Union yang saling meniadakan',
+          lang: 'tsx',
+          code: `
+          type TombolProps = {
+            ukuran?: 'kecil' | 'sedang' | 'besar';
+            varian?: 'utama' | 'sekunder' | 'bahaya' | 'hantu';
+            penuh?: boolean;
+          };
+
+          // Mustahil memilih dua ukuran sekaligus.
+          <Tombol ukuran="kecil" varian="bahaya" />
+
+          // 3 x 4 x 2 = 24 kombinasi, dan SEMUANYA berarti.
+          `,
+          notes: ['Editor melengkapi pilihannya, dan salah ketik ditolak'],
+        },
+      ),
+      p(
+        'Perbedaan terbesarnya bukan jumlah prop melainkan **kombinasi yang mustahil dibuat**. Dengan union, memilih dua ukuran sekaligus bukan sekadar tidak dianjurkan melainkan tidak bisa ditulis. Ini penerapan langsung gagasan dari Bab 2 Frontend Basic, yaitu membuat keadaan yang salah menjadi mustahil, dan di sini alatnya adalah tipe props.',
+      ),
+      p(
+        'Prop `penuh` tetap boolean, dan itu benar. Boolean cocok untuk hal yang memang hanya punya dua keadaan dan tidak meniadakan apa pun. Aturannya, boolean sah kalau ia berdiri sendiri, dan berubah menjadi masalah begitu ada beberapa boolean yang saling meniadakan.',
+      ),
+      code(
+        'tsx',
+        `
+        import type { ComponentPropsWithoutRef, ReactNode } from 'react';
+
+        type TombolProps = ComponentPropsWithoutRef<'button'> & {
+          ukuran?: 'kecil' | 'sedang' | 'besar';
+          varian?: 'utama' | 'sekunder' | 'bahaya' | 'hantu';
+          penuh?: boolean;
+          ikonKiri?: ReactNode;
+        };
+
+        export function Tombol({
+          ukuran = 'sedang',
+          varian = 'utama',
+          penuh = false,
+          ikonKiri,
+          className = '',
+          children,
+          ...sisa
+        }: TombolProps) {
+          const kelas = [
+            'tombol',
+            \`tombol-\${ukuran}\`,
+            \`tombol-\${varian}\`,
+            penuh ? 'tombol-penuh' : '',
+            className,                 // dari pemanggil, ditaruh TERAKHIR supaya bisa menimpa
+          ]
+            .filter(Boolean)
+            .join(' ');
+
+          return (
+            <button type="button" {...sisa} className={kelas}>
+              {ikonKiri}
+              {children}
+            </button>
+          );
+        }
+        `,
+        { filename: 'src/ui/Tombol.tsx' },
+      ),
+      p(
+        'Urutan pada `{...sisa}` dan `className` menentukan siapa yang menang, dan itu sering keliru. Karena `className` ditulis **setelah** spread, nilai yang kamu susun menang atas `className` mentah dari `sisa`. Itu sebabnya `className` dibongkar keluar lebih dulu dan digabungkan, bukan dibiarkan di dalam `sisa`. Tanpa itu, pemanggil yang memberi `className` akan menghapus seluruh kelas varian.',
+      ),
+      p(
+        'Sebaliknya `type="button"` ditulis **sebelum** spread, dan itu juga disengaja. Nilainya menjadi bawaan yang bisa ditimpa pemanggil dengan `type="submit"`. Kalau ia ditulis setelah spread, pemanggil tidak akan pernah bisa mengubahnya. Aturan yang bisa dipegang, taruh sebelum spread untuk nilai bawaan, dan setelah spread untuk nilai yang tidak boleh ditimpa.',
+      ),
+      p(
+        "Bagian `ComponentPropsWithoutRef<'button'>` membuat seluruh atribut tombol yang sah otomatis diterima, yaitu `onClick`, `disabled`, `aria-label`, `form`, dan puluhan lainnya. Tanpa itu, tiap kebutuhan baru berarti menyunting tipe props. Ini pola yang sudah dibahas di Bab 6 Frontend Basic, dan di sini terlihat gunanya pada komponen yang benar-benar dipakai banyak tempat.",
+      ),
+      callout(
+        'warning',
+        'Props adalah milik pemanggil, dan tidak boleh diubah',
+        'Mengubah `props.daftar.push(...)` di dalam komponen mengubah data milik induknya, dan React tidak akan tahu perubahan itu terjadi sehingga tampilan tidak ikut berubah. Ini pantangan mutasi dari Bab 1 Frontend Basic, muncul kembali sebagai aturan React. Perlakukan props sebagai nilai yang hanya bisa dibaca.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p('Empat kegagalan berikut adalah yang paling sering saat props mulai bertambah rumit.'),
+      code(
+        'text',
+        `
+        <Tombol ukuran="kcil" />
+
+        error TS2322: Type '"kcil"' is not assignable to type
+        '"kecil" | "sedang" | "besar" | undefined'.
+        `,
+        { caption: 'Salah ketik ditolak, dan pilihannya disebut lengkap.' },
+      ),
+      p(
+        'Inilah manfaat union yang paling langsung terasa. Dengan `ukuran: string`, salah ketik ini lolos tanpa suara dan menghasilkan kelas CSS `tombol-kcil` yang tidak ada, sehingga tombolnya tampil tanpa ukuran. Pesan errornya bahkan menyebut seluruh pilihan yang sah, sehingga perbaikannya tidak perlu membuka berkas tipenya.',
+      ),
+      code(
+        'text',
+        `
+        <Tombol onClick={hapus(id)} />
+
+        // hapus() berjalan SAAT RENDER, bukan saat diklik.
+        // Kalau hapus memanggil setState, muncul:
+        Warning: Cannot update a component while rendering a different component.
+        `,
+        { caption: 'Tanda kurung ikut ditulis pada penangan peristiwa.' },
+      ),
+      p(
+        'Gejalanya khas dan mudah dikenali, yaitu aksi berjalan sendiri saat halaman dimuat sebelum ada yang mengklik. Kalau fungsi itu mengubah state, React memberi peringatan tambahan sebab mengubah state komponen lain selama render adalah pelanggaran yang bisa menyebabkan putaran tak berujung. Bungkus menjadi `onClick={() => hapus(id)}`.',
+      ),
+      code(
+        'text',
+        `
+        function Daftar({ item }) {
+          item.sort((a, b) => a.nama.localeCompare(b.nama));
+          return <ul>{item.map((i) => <li key={i.id}>{i.nama}</li>)}</ul>;
+        }
+
+        // Tidak ada error. Array milik induk ikut terurut,
+        // dan induknya tidak tahu datanya berubah.
+        `,
+        { caption: 'Props diubah di tempat, dan `sort` memang mengubah aslinya.' },
+      ),
+      p(
+        'Ini pelanggaran pantangan mutasi yang paling sering di React, dan `sort` adalah pelakunya karena namanya tidak menyiratkan bahwa ia mengubah aslinya. Akibatnya berlapis, yaitu data induk berubah tanpa sepengetahuannya, dan pada `StrictMode` yang menjalankan render dua kali hasilnya bisa berbeda. Pakai `toSorted` dari Bab 1 Frontend Basic, atau salin dulu dengan `[...item].sort(...)`.',
+      ),
+      code(
+        'text',
+        `
+        <Tombol varian="utama" className="mt-4" />
+
+        // Hasil: <button class="mt-4">
+        // Seluruh kelas varian hilang.
+        `,
+        { caption: '`className` dari pemanggil menimpa yang disusun komponen.' },
+      ),
+      p(
+        'Ini akibat urutan spread yang keliru, yaitu `className` dibiarkan berada di dalam `{...sisa}` yang ditulis setelah `className` milik komponen. Tidak ada error, dan gejalanya berupa tombol yang kehilangan seluruh gayanya begitu pemanggil menambahkan satu kelas. Bongkar `className` keluar dari `sisa` lalu gabungkan, seperti pada studi kasus.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`Type \'"x"\' is not assignable to type \'"a" | "b"\'`',
+            'Salah ketik pada prop bertipe union',
+            'Perbaiki ejaannya, pilihannya disebut di pesan errornya',
+          ],
+          [
+            'Aksi berjalan sendiri saat halaman dimuat',
+            'Tanda kurung ikut ditulis pada penangan',
+            'Bungkus menjadi fungsi panah',
+          ],
+          [
+            'Data induk berubah tanpa sepengetahuannya',
+            'Props diubah di tempat, sering lewat `sort` atau `push`',
+            'Salin dulu, atau pakai `toSorted`',
+          ],
+          [
+            'Gaya komponen hilang saat pemanggil memberi `className`',
+            'Urutan spread membuat nilai pemanggil menimpa',
+            'Bongkar `className` keluar dari spread lalu gabungkan',
+          ],
+          [
+            'Prop asing muncul sebagai atribut di DOM',
+            'Props disebar ke elemen tanpa disaring',
+            'Bongkar prop khusus komponen keluar sebelum menyebar sisanya',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Props adalah antarmuka komponenmu, dan sebagian besar kesalahan di bawah membuat antarmuka itu lebih mudah dipakai salah daripada dipakai benar.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menambah boolean baru tiap ada varian tampilan baru',
+            'Satu prop untuk satu kebutuhan',
+            'Kombinasi yang tidak masuk akal menjadi mungkin, dan jumlahnya tumbuh dua pangkat. Pakai union',
+          ],
+          [
+            'Memakai `string` untuk prop yang pilihannya terbatas',
+            '`string` menerima semuanya',
+            'Salah ketik lolos tanpa peringatan dan menghasilkan kelas CSS yang tidak ada',
+          ],
+          [
+            'Mengubah props di dalam komponen',
+            'Datanya kan sudah ada di sini',
+            'Induk tidak tahu perubahannya sehingga tampilan tidak ikut berubah, dan pada `StrictMode` hasilnya bisa berbeda antar-render',
+          ],
+          [
+            'Menyebar seluruh props ke elemen DOM',
+            'Supaya semua atribut lolos',
+            'Prop khusus komponen ikut menjadi atribut HTML yang tidak dikenal. Bongkar yang khusus keluar lebih dulu',
+          ],
+          [
+            'Memberi nilai bawaan lewat `defaultProps`',
+            'Namanya jelas menyebut bawaan',
+            '`defaultProps` sudah tidak dipakai untuk komponen fungsi di React 19. Beri bawaan saat membongkar parameter',
+          ],
+          [
+            'Mengirim fungsi baru sebagai prop pada tiap render tanpa perlu',
+            'Fungsinya kecil',
+            'Komponen anak menganggap propnya berubah tiap render. Ini baru berarti kalau anaknya dioptimalkan, dan pembahasannya ada di Bab 7',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama layak diperiksa secara berkala pada komponen yang sudah lama hidup. Hitung berapa boolean yang dimiliki komponenmu, lalu hitung dua pangkat sebanyak itu. Kalau hasilnya jauh lebih besar daripada jumlah tampilan yang sebenarnya kamu maksud, sebagian besar kombinasi itu adalah keadaan yang tidak pernah kamu rancang dan tidak pernah kamu uji.',
+      ),
+      callout(
+        'tip',
+        'Urutan menulis tipe props yang jarang keliru',
+        'Mulai dari data yang wajib, lalu pilihan tampilan sebagai union, lalu penangan peristiwa, lalu `children` kalau ada. Warisi atribut elemen dengan `ComponentPropsWithoutRef` kalau komponenmu membungkus satu elemen HTML. Urutan itu juga membuat tipenya terbaca sebagai penjelasan tentang apa yang komponen ini butuhkan.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Props hanya-baca — komponen tidak boleh mengubah yang diterimanya.',
@@ -803,7 +1703,7 @@ export const lessons: LessonDraft[] = [
   written(
     'rendering-kondisional',
     'Rendering Kondisional',
-    10,
+    20,
     'Menampilkan sesuatu hanya bila perlu — dan jebakan yang menampilkan angka nol.',
     [
       terms(
@@ -958,6 +1858,234 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman daftar pesanan harus menampilkan lima keadaan yang berbeda, yaitu sedang memuat pertama kali, sedang memuat ulang setelah filter diganti, gagal, kosong karena filter terlalu sempit, dan kosong karena memang belum ada pesanan. Ditulis dengan ternary bersarang, hasilnya satu ekspresi sepanjang empat puluh baris yang tidak seorang pun berani ubah.',
+      ),
+      p(
+        'Ini persis masalah yang sama dengan piramida `if` di Bab 1 Frontend Basic, dan jalan keluarnya juga sama, yaitu keluar lebih awal untuk tiap keadaan.',
+      ),
+      compare(
+        {
+          title: 'Ternary bersarang',
+          lang: 'tsx',
+          code: `
+          return (
+            <div>
+              {memuat ? (
+                <Skeleton />
+              ) : galat ? (
+                <PesanGagal galat={galat} />
+              ) : data.length === 0 ? (
+                adaFilter ? (
+                  <KosongKarenaFilter />
+                ) : (
+                  <BelumAdaData />
+                )
+              ) : (
+                <Daftar data={data} />
+              )}
+            </div>
+          );
+          `,
+          notes: ['Menambah keadaan keenam berarti membongkar seluruh susunannya'],
+        },
+        {
+          title: 'Keluar lebih awal',
+          lang: 'tsx',
+          code: `
+          if (memuat && data.length === 0) return <Skeleton />;
+          if (galat) return <PesanGagal galat={galat} onCobaLagi={muat} />;
+
+          if (data.length === 0) {
+            return adaFilter
+              ? <KosongKarenaFilter onBersihkan={bersihkan} />
+              : <BelumAdaData onBuat={keFormBaru} />;
+          }
+
+          return (
+            <div aria-busy={memuat}>
+              <Daftar data={data} />
+            </div>
+          );
+          `,
+          notes: ['Tiap keadaan dan hasilnya bersebelahan, dan urutannya terbaca dari atas'],
+        },
+      ),
+      p(
+        'Syarat pertama di kolom kanan sengaja berbunyi `memuat && data.length === 0`, bukan sekadar `memuat`. Ini menutup masalah pengalaman yang sudah dibahas di Bab 5 Frontend Basic, yaitu menampilkan skeleton penuh saat filter diganti membuat daftar yang sudah ada lenyap dan layar berkedip. Dengan syarat itu, skeleton hanya muncul pada pemuatan pertama, dan pemuatan ulang ditandai `aria-busy` tanpa membuang isinya.',
+      ),
+      p(
+        'Urutan pemeriksaannya juga menentukan. Galat diperiksa sebelum kosong, sebab daftar yang gagal dimuat memang panjangnya nol dan tanpa urutan itu pengguna akan melihat pesan belum ada data padahal yang terjadi gangguan. Ini kesalahan yang sangat sering, dan ia hanya muncul saat server sedang bermasalah sehingga jarang tertangkap saat pengujian.',
+      ),
+      code(
+        'tsx',
+        `
+        // Untuk banyak kemungkinan yang setara, tabel lebih terbaca daripada rantai ternary.
+        const LENCANA: Record<StatusPesanan, { label: string; warna: string }> = {
+          menunggu: { label: 'Menunggu bayar', warna: 'kuning' },
+          lunas: { label: 'Lunas', warna: 'hijau' },
+          dikirim: { label: 'Dikirim', warna: 'biru' },
+          batal: { label: 'Dibatalkan', warna: 'abu' },
+        };
+
+        function Lencana({ status }: { status: StatusPesanan }) {
+          const info = LENCANA[status];
+          // Kalau status baru ditambahkan di server tapi belum di sini.
+          if (!info) return <span className="lencana lencana-abu">{status}</span>;
+
+          return <span className={\`lencana lencana-\${info.warna}\`}>{info.label}</span>;
+        }
+        `,
+        { filename: 'src/pesanan/Lencana.tsx' },
+      ),
+      p(
+        'Pola tabel ini sudah muncul di Bab 2 Frontend Basic sebagai pengganti rantai `if`, dan di React ia sama bergunanya. Menambah status kelima berarti menambah satu baris di object, bukan menyunting rantai percabangan. Karena `Record<StatusPesanan, ...>` mengharuskan seluruh anggota union ada, lupa menambahkan status baru akan ditolak TypeScript sebelum dijalankan.',
+      ),
+      p(
+        'Penjaga `if (!info)` tetap diperlukan meskipun tipenya sudah menjamin kelengkapan. Alasannya, data dari server tidak tunduk pada tipe TypeScript seperti dibahas di Bab 6 Frontend Basic. Kalau server suatu hari mengirim status yang belum dikenal, tanpa penjaga itu halaman akan melempar. Dengan penjaga, ia menampilkan status mentahnya dan halaman tetap berguna.',
+      ),
+      callout(
+        'tip',
+        'Aturan memilih bentuk percabangan di React',
+        'Dua kemungkinan yang salah satunya kosong, pakai `&&` dengan sisi kiri boolean. Dua kemungkinan yang keduanya ada, pakai ternary. Tiga atau lebih keadaan tampilan, pakai `return` lebih awal. Banyak kemungkinan yang setara dan hanya berbeda nilainya, pakai tabel object.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut diuji dengan React sungguhan, dan tiga di antaranya tidak melempar apa pun.',
+      ),
+      code(
+        'text',
+        `
+        const item = [];
+        <div>{item.length && <Badge jumlah={item.length} />}</div>
+
+        // Hasil render: <div>0</div>
+        `,
+        { caption: 'Angka nol dirender, sedangkan `false` dan `null` tidak.' },
+      ),
+      p(
+        "Sudah dibahas di Bab 6 Frontend Basic dan diulang di sini karena inilah tempatnya paling sering muncul, yaitu percabangan berdasarkan panjang daftar. Diuji dengan React sungguhan, `render(0, '', false, null, undefined, 'akhir')` menghasilkan `0akhir`, yang membuktikan hanya angka dan teks yang dirender. Bandingkan lebih dulu supaya sisi kiri `&&` benar-benar boolean.",
+      ),
+      code(
+        'text',
+        `
+        if (galat) return <PesanGagal />;
+        if (data.length === 0) return <BelumAdaData />;
+
+        // Server sedang mati. Pengguna melihat "Belum ada data".
+        `,
+        { caption: 'Urutan pemeriksaan terbalik, dan tidak ada error apa pun.' },
+      ),
+      p(
+        'Contoh di atas justru urutannya sudah benar, dan ditampilkan untuk menunjukkan seperti apa kegagalannya kalau dibalik. Kalau `data.length === 0` diperiksa lebih dulu, daftar yang gagal dimuat akan tertangkap di sana sebab panjangnya memang nol. Pengguna menyimpulkan datanya hilang, dan kamu kehilangan satu-satunya tanda bahwa ada gangguan. Periksa kegagalan lebih dulu, selalu.',
+      ),
+      code(
+        'text',
+        `
+        {kondisi && <Kartu />}
+        {!kondisi && <Kosong />}
+
+        // Bekerja, dan keduanya dievaluasi tiap render.
+        // Kalau salah satu syaratnya diubah, yang lain bisa lupa disesuaikan.
+        `,
+        { caption: 'Bukan error, dan dua syarat yang harus dijaga tetap berlawanan.' },
+      ),
+      p(
+        'Menulis dua `&&` yang syaratnya berlawanan menciptakan dua sumber kebenaran untuk satu keputusan. Kalau nanti syaratnya berubah menjadi lebih rumit, misalnya menambah satu kondisi, ada kemungkinan hanya satu yang disesuaikan. Hasilnya keadaan di mana keduanya tampil atau keduanya hilang. Pakai ternary supaya keputusannya tertulis sekali.',
+      ),
+      code(
+        'text',
+        `
+        {daftar.map((d) => d.aktif && <Baris key={d.id} data={d} />)}
+
+        Warning: Each child in a list should have a unique "key" prop.
+        `,
+        { caption: 'Sebagian anggota menghasilkan `false`, dan peringatannya tetap muncul.' },
+      ),
+      p(
+        'Contoh ini punya `key` dan peringatannya tetap muncul pada sebagian versi, sebab hasil `map` berisi campuran elemen dan `false`. Bentuk yang lebih bersih adalah menyaring lebih dulu dengan `filter` lalu memetakan, dan itu juga lebih terbaca. Menyaring di dalam `map` mengerjakan dua hal sekaligus, dan hasilnya array yang panjangnya sama dengan aslinya tapi sebagian isinya kosong.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Angka `0` muncul di halaman',
+            '`&&` dengan sisi kiri berupa angka',
+            'Bandingkan lebih dulu, misalnya `arr.length > 0 &&`',
+          ],
+          [
+            'Pesan belum ada data muncul saat server bermasalah',
+            'Kekosongan diperiksa sebelum kegagalan',
+            'Periksa galat lebih dulu',
+          ],
+          [
+            'Dua bagian tampil bersamaan atau keduanya hilang',
+            'Dua `&&` dengan syarat berlawanan yang tidak sinkron',
+            'Pakai satu ternary',
+          ],
+          [
+            'Peringatan `key` pada `map` yang sudah punya `key`',
+            'Hasilnya campuran elemen dan `false`',
+            'Saring dengan `filter` lebih dulu, baru petakan',
+          ],
+          [
+            'Layar berkedip saat filter diganti',
+            'Skeleton ditampilkan walaupun sudah ada data',
+            'Tampilkan skeleton hanya saat data masih kosong',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Percabangan tampilan adalah tempat keadaan yang tidak dipikirkan paling sering lolos ke produksi, sebab keadaan gagal dan kosong jarang muncul saat mengembangkan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis jalur sukses lebih dulu, sisanya menyusul',
+            'Itu yang paling penting',
+            'Keadaan memuat, kosong, dan gagal menjadi tambalan yang tidak konsisten. Tulis keempatnya sejak awal',
+          ],
+          [
+            'Memakai satu pesan kosong untuk semua sebab',
+            'Sama-sama tidak ada data',
+            'Pengguna tidak tahu apakah harus melonggarkan filter atau membuat data pertamanya',
+          ],
+          [
+            'Memakai `&&` untuk semua percabangan',
+            'Lebih pendek daripada ternary',
+            'Nilai `0` dan teks kosong ikut dirender, dan untuk dua kemungkinan yang keduanya ada ia tidak cukup',
+          ],
+          [
+            'Menumpuk ternary untuk lebih dari dua keadaan',
+            'Semuanya jadi di satu ekspresi',
+            'Termasuk bentuk yang paling sulit dibaca dan diubah. Pakai `return` lebih awal',
+          ],
+          [
+            'Menyembunyikan elemen dengan CSS alih-alih tidak merendernya',
+            'Lebih cepat berpindah',
+            'Elemen yang tersembunyi tetap ada di DOM, tetap bisa difokus keyboard, dan tetap dibaca pembaca layar. Untuk hal yang benar-benar tidak berlaku, jangan render sama sekali',
+          ],
+          [
+            'Memeriksa kekosongan sebelum kegagalan',
+            'Urutannya terasa alami',
+            'Daftar yang gagal dimuat panjangnya juga nol, sehingga gangguan tampil sebagai kekosongan',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima punya konsekuensi aksesibilitas yang sering tidak disadari. Elemen yang disembunyikan dengan `display: none` memang tidak terlihat dan tidak dibaca pembaca layar, tapi elemen yang disembunyikan dengan `opacity` atau posisi di luar layar tetap bisa difokus dengan Tab. Pengguna keyboard akan menemukan fokusnya berpindah ke tempat yang tidak terlihat. Kalau sesuatu tidak berlaku, jangan render.',
+      ),
+      callout(
+        'info',
+        'Empat keadaan itu bukan aturan React melainkan aturan project ini',
+        'Baseline frontend project ini mewajibkan tiap tampilan yang mengambil data punya keadaan memuat, kosong, galat, dan sukses. React hanya menyediakan caranya. Yang menentukan apakah keempatnya ada adalah disiplin menulisnya, dan cara termurah menjaganya adalah menulis keempatnya sebelum jalur suksesnya.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         '`length > 0 &&`, bukan `length &&` — `0` tetap dirender.',
@@ -997,7 +2125,7 @@ export const lessons: LessonDraft[] = [
   written(
     'rendering-list',
     'Rendering List & Kenapa `key` Penting',
-    12,
+    23,
     'Menampilkan banyak item dan menjaga identitasnya — sumber bug yang tampak mustahil.',
     [
       terms(
@@ -1184,6 +2312,232 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman keranjang menampilkan daftar barang, dan tiap baris punya kotak jumlah yang bisa diketik. Pengguna mengetik angka di baris ketiga, lalu menghapus baris pertama. Angka yang tadi ia ketik berpindah ke baris lain, dan baris yang seharusnya dihapus justru terlihat masih ada dengan isi yang berbeda. Laporan bugnya berbunyi angkanya kacau kalau menghapus barang, dan penyebabnya satu baris.',
+      ),
+      code(
+        'tsx',
+        `
+        // Penyebabnya di sini.
+        {barang.map((b, i) => (
+          <BarisKeranjang key={i} barang={b} />
+        ))}
+        `,
+        { caption: 'Indeks dipakai sebagai `key`.' },
+      ),
+      p(
+        'Bandingkan dengan `Map` id ke elemen yang kamu tulis sendiri di Bab 4 Frontend Basic. Di sana kuncinya adalah id, sehingga menghapus baris pertama tidak mempengaruhi pencocokan baris lain. Kalau kuncinya posisi, menghapus baris pertama membuat baris kedua sekarang berada di posisi nol, sehingga React menyimpulkan baris di posisi nol berubah isinya. Ia mempertahankan elemen DOM beserta seluruh keadaannya, dan hanya mengganti isinya.',
+      ),
+      code(
+        'text',
+        `
+        Sebelum menghapus:              Sesudah menghapus barang pertama:
+
+        key=0  Kaos    [ 2 ]           key=0  Topi    [ 2 ]  <- isian ikut dari baris lama
+        key=1  Topi    [ 1 ]           key=1  Tas     [ 1 ]  <- ikut bergeser
+        key=2  Tas     [ 5 ]           (baris terakhir dibuang)
+
+        React menyimpulkan: "key=0 masih ada, isinya berubah dari Kaos jadi Topi."
+        Yang dipertahankan: elemen input beserta angka yang diketik pengguna.
+        `,
+        { caption: 'Isian pengguna melekat pada posisi, bukan pada barangnya.' },
+      ),
+      p(
+        'Diagram itu menjelaskan kenapa gejalanya berupa angka yang berpindah, bukan baris yang hilang. Yang salah bukan datanya melainkan pencocokannya. Data yang dirender sudah benar, yaitu Topi dan Tas, dan yang ikut tertinggal adalah keadaan yang hidup di dalam elemen DOM, yaitu isi kotak input, posisi kursor, dan kelas animasi yang sedang berjalan.',
+      ),
+      code(
+        'tsx',
+        `
+        // Perbaikannya satu kata.
+        {barang.map((b) => (
+          <BarisKeranjang key={b.id} barang={b} />
+        ))}
+
+        // Kalau datanya belum punya id, buat SAAT DATANYA DIBUAT,
+        // bukan saat dirender.
+        const barangBaru = { id: crypto.randomUUID(), produkId, jumlah: 1 };
+        `,
+        { caption: 'Id dibuat di sumber datanya, bukan di dalam render.' },
+      ),
+      p(
+        'Baris terakhir menutup jalan pintas yang sering dipilih orang saat datanya belum punya id, yaitu membuat id di dalam `map`. Bentuk `key={crypto.randomUUID()}` menghasilkan kunci baru pada tiap render, sehingga React menganggap seluruh baris adalah baris baru dan membongkar semuanya setiap kali. Akibatnya jauh lebih buruk daripada memakai indeks, yaitu seluruh state hilang pada tiap render dan performanya anjlok.',
+      ),
+      code(
+        'tsx',
+        `
+        // Kasus yang lebih rumit: daftar bisa diurutkan dan disaring.
+        function DaftarBarang({ barang, urut, cari }: Props) {
+          // Hitung DI LUAR JSX, dan jangan mengubah array aslinya.
+          const terlihat = barang
+            .filter((b) => b.nama.toLowerCase().includes(cari.toLowerCase()))
+            .toSorted((a, b) => (urut === 'nama' ? a.nama.localeCompare(b.nama, 'id') : b.hargaSen - a.hargaSen));
+
+          if (terlihat.length === 0) {
+            return <p>Tidak ada barang yang cocok</p>;
+          }
+
+          return (
+            <ul>
+              {terlihat.map((b) => (
+                <BarisKeranjang key={b.id} barang={b} />
+              ))}
+            </ul>
+          );
+        }
+        `,
+        { filename: 'src/keranjang/DaftarBarang.tsx' },
+      ),
+      p(
+        'Method `toSorted` dipakai alih-alih `sort` karena `sort` mengubah array aslinya, dan array itu adalah props milik induk. Ini pantangan mutasi dari Bab 1 Frontend Basic yang muncul kembali, dan di React akibatnya lebih besar sebab induknya tidak tahu datanya berubah. Kalau kamu terpaksa memakai `sort` pada lingkungan yang belum mendukung `toSorted`, salin dulu dengan `[...barang].sort(...)`.',
+      ),
+      p(
+        'Penyaringan dan pengurutan diletakkan di atas `return`, bukan di dalam JSX, dan itu bukan sekadar keterbacaan. Variabel `terlihat` bisa dipakai untuk memeriksa kekosongan sebelum merender, dan bisa dicetak saat menelusuri bug. Rangkaian panjang yang tertanam di dalam JSX tidak bisa disentuh tanpa mengubah strukturnya.',
+      ),
+      callout(
+        'danger',
+        'Indeks sebagai `key` aman hanya kalau tiga syarat ini terpenuhi sekaligus',
+        'Daftarnya tidak pernah diurutkan ulang, tidak pernah disisipi atau dihapus di tengah, dan tidak ada satu pun elemen di dalamnya yang menyimpan keadaan. Dalam praktik, ketiganya jarang terpenuhi bersamaan, dan daftar yang hari ini memenuhinya bisa berubah besok. Biasakan memakai id sungguhan sejak awal.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut diuji dengan React sungguhan, dan hanya satu yang berupa peringatan. Sisanya bekerja diam-diam dengan hasil yang salah.',
+      ),
+      code(
+        'text',
+        `
+        <ul>{barang.map((b) => <li>{b.nama}</li>)}</ul>
+
+        Warning: Each child in a list should have a unique "key" prop.
+        Check the top-level render call using <li>.
+        `,
+        { caption: '`key` tidak diberikan sama sekali.' },
+      ),
+      p(
+        'Peringatan ini menyebut elemen mana yang bermasalah lewat kalimat `Check the top-level render call using <li>`, dan itu berguna saat ada beberapa `map` di satu komponen. Yang perlu diingat, `key` dipasang pada elemen **terluar** yang dihasilkan `map`, bukan di dalamnya. Kalau `map` mengembalikan fragment, kamu butuh bentuk panjang `<Fragment key={...}>` yang perlu diimpor.',
+      ),
+      code(
+        'text',
+        `
+        {barang.map((b) => <Baris key={b.produkId} barang={b} />)}
+
+        Warning: Encountered two children with the same key, \`7\`.
+        Keys should be unique so that components maintain their identity
+        across updates.
+        `,
+        { caption: 'Dua barang berbeda punya `produkId` yang sama.' },
+      ),
+      p(
+        'Ini terjadi saat kunci yang dipilih tidak benar-benar unik dalam daftar itu, misalnya keranjang yang memuat produk sama dengan varian berbeda. Pesannya menyebut nilai kunci yang bentrok, sehingga kamu langsung tahu data mana yang bermasalah. Perbaikannya memakai kunci yang benar-benar unik, misalnya id baris keranjang, atau menggabungkan dua field menjadi satu kunci.',
+      ),
+      code(
+        'text',
+        `
+        {barang.map((b) => <Baris key={crypto.randomUUID()} barang={b} />)}
+
+        // Tidak ada peringatan. Seluruh baris dibongkar dan dibangun ulang
+        // pada SETIAP render.
+        `,
+        { caption: 'Kunci acak baru pada tiap render, dan tidak ada tanda apa pun.' },
+      ),
+      p(
+        'Ini bentuk yang paling merugikan sekaligus paling sulit dikenali, sebab peringatan `key` justru hilang. Gejalanya berupa kotak input yang kehilangan fokus pada tiap ketikan, animasi yang selalu memulai dari awal, dan halaman yang terasa berat pada daftar panjang. Kalau daftar terasa aneh dan tidak ada satu pun peringatan, periksa apakah kuncinya dibuat di dalam render.',
+      ),
+      code(
+        'text',
+        `
+        function Daftar({ barang }) {
+          barang.sort((a, b) => a.nama.localeCompare(b.nama));
+          return <ul>{barang.map((b) => <li key={b.id}>{b.nama}</li>)}</ul>;
+        }
+
+        // Tidak ada error. Array milik induk ikut terurut permanen.
+        `,
+        { caption: '`sort` mengubah props di tempat.' },
+      ),
+      p(
+        'Selain melanggar pantangan mutasi, ini punya akibat khas React yang lebih membingungkan. Pada `StrictMode` yang menjalankan render dua kali di pengembangan, pengurutan berjalan dua kali pada array yang sama. Untuk pengurutan itu hasilnya sama, dan untuk operasi seperti `reverse` hasilnya berbeda antar-render sehingga tampilannya berkedip. Pakai `toSorted` atau salin dulu.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`Each child in a list should have a unique "key" prop`',
+            '`key` tidak diberikan',
+            'Beri `key` pada elemen terluar hasil `map`',
+          ],
+          [
+            '`Encountered two children with the same key`',
+            'Kunci yang dipilih tidak unik dalam daftar itu',
+            'Pakai id baris, atau gabungkan dua field',
+          ],
+          [
+            'Fokus hilang tiap ketikan tanpa satu pun peringatan',
+            'Kunci dibuat acak di dalam render',
+            'Buat id saat data dibuat, bukan saat dirender',
+          ],
+          [
+            'Isian input berpindah baris setelah menghapus',
+            'Indeks dipakai sebagai `key`',
+            'Pakai id yang melekat pada datanya',
+          ],
+          [
+            'Data induk ikut terurut permanen',
+            '`sort` mengubah props di tempat',
+            'Pakai `toSorted`, atau salin dengan spread',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Merender daftar terlihat sebagai bagian paling sederhana dari React, dan ia sekaligus tempat bug keadaan yang paling sulit ditelusuri berasal.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai indeks sebagai `key`',
+            'Indeksnya unik dan sudah tersedia',
+            'Ia menyatakan posisi bukan identitas. Keadaan di dalam baris berpindah begitu daftar diurutkan atau dihapus',
+          ],
+          [
+            'Membuat id acak di dalam `map`',
+            'Setidaknya kuncinya unik',
+            'Kunci berubah tiap render, sehingga seluruh baris dibongkar setiap kali. Lebih buruk daripada indeks',
+          ],
+          [
+            'Memakai `sort` atau `reverse` pada props',
+            'Datanya kan sudah ada',
+            'Mengubah data milik induk yang tidak tahu perubahannya, dan berperilaku aneh pada `StrictMode`',
+          ],
+          [
+            'Menyaring di dalam `map` dengan `&&`',
+            'Hemat satu langkah',
+            'Hasilnya array berisi campuran elemen dan `false`. Pakai `filter` lebih dulu',
+          ],
+          [
+            'Memasang `key` pada elemen di dalam, bukan yang terluar',
+            'Yang penting ada `key`-nya',
+            '`key` harus pada elemen terluar yang dihasilkan `map`. Kalau terluarnya fragment, pakai bentuk panjangnya',
+          ],
+          [
+            'Merender ribuan baris sekaligus',
+            'Datanya memang sebanyak itu',
+            'Peramban harus membuat ribuan elemen DOM. Pakai paginasi, atau daftar tervirtualisasi untuk yang benar-benar panjang',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua layak ditegaskan karena ia sering dipilih justru sebagai perbaikan atas baris pertama. Orang membaca bahwa indeks buruk lalu menggantinya dengan nilai acak, dan hasilnya lebih buruk. Yang dicari `key` bukan keunikan melainkan **kestabilan**, yaitu nilai yang sama untuk data yang sama di seluruh render. Id yang dibuat saat data lahir memenuhi keduanya.',
+      ),
+      callout(
+        'tip',
+        'Cara memeriksa apakah `key`-mu benar',
+        'Tanyakan apakah nilai kunci sebuah baris akan tetap sama setelah daftarnya diurutkan, disaring, dan ada yang dihapus di tengah. Kalau ya, kuncinya benar. Kalau nilainya bergantung pada posisi atau dibuat ulang tiap render, itulah penyebab bug yang sedang kamu telusuri.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         '`key` adalah identitas yang dipakai React untuk mencocokkan item lama dan baru.',
@@ -1224,7 +2578,7 @@ export const lessons: LessonDraft[] = [
   written(
     'styling-react',
     'Styling di React',
-    10,
+    20,
     'Beberapa pendekatan, dan kriteria memilih yang tidak berdasarkan selera.',
     [
       terms(
@@ -1367,6 +2721,233 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Tim mulai dengan gaya inline karena paling cepat. Tiga bulan kemudian ada permintaan menambahkan tema gelap, dan ternyata warna tersebar di seratus dua puluh berkas komponen. Tim kedua mulai dengan berkas CSS global, dan setelah setahun tidak ada yang berani menghapus satu aturan pun karena tidak tahu siapa yang memakainya. Keduanya masalah yang sama, yaitu tidak ada batas antara keputusan visual dan kode komponen.',
+      ),
+      p(
+        'Empat pendekatan yang umum dipakai, dan yang membedakan bukan mana yang paling modern melainkan di mana batasnya berada.',
+      ),
+      table(
+        ['Pendekatan', 'Di mana warnanya diputuskan', 'Kapan paling cocok'],
+        [
+          [
+            'Gaya inline',
+            'Di dalam komponen',
+            'Nilai yang benar-benar dihitung saat berjalan, misalnya posisi',
+          ],
+          ['CSS Modules', 'Berkas CSS per komponen', 'Project tanpa pustaka gaya, batasnya jelas'],
+          [
+            'Tailwind',
+            'Berkas token, dipakai lewat kelas',
+            'Yang dipakai project ini, konsisten dan tanpa penamaan',
+          ],
+          [
+            'CSS-in-JS',
+            'Di dalam berkas komponen',
+            'Jarang diperlukan, dan menambah biaya saat berjalan',
+          ],
+        ],
+        'Ketiganya sah. Yang tidak sah adalah menyebar nilai warna ke seluruh komponen.',
+      ),
+      code(
+        'tsx',
+        `
+        // Yang SALAH: nilai visual tersebar di JavaScript.
+        <div style={{
+          backgroundColor: aktif ? '#2563eb' : '#e5e7eb',
+          color: aktif ? '#ffffff' : '#374151',
+          padding: '8px 16px',
+          borderRadius: '6px',
+        }}>
+          {label}
+        </div>
+        `,
+        { filename: 'Sebelum' },
+      ),
+      code(
+        'tsx',
+        `
+        // Yang BENAR: komponen menyatakan KEADAAN, CSS memutuskan tampilannya.
+        <div className={\`chip \${aktif ? 'chip-aktif' : ''}\`}>{label}</div>
+
+        // Atau dengan atribut data, yang lebih enak dibaca di DevTools:
+        <div className="chip" data-aktif={aktif || undefined}>{label}</div>
+        `,
+        { filename: 'Sesudah' },
+      ),
+      p(
+        'Bentuk `data-aktif={aktif || undefined}` punya satu detail yang layak diperhatikan. Nilai `undefined` membuat React **menghapus** atributnya, sedangkan `false` akan menghasilkan `data-aktif="false"` yang tetap ada di DOM. Karena pemilih CSS `[data-aktif]` mencocokkan keberadaan atributnya, membiarkan `false` berarti gayanya selalu berlaku. Ini persis jebakan atribut boolean dari Bab 4 Frontend Basic.',
+      ),
+      code(
+        'tsx',
+        `
+        // Gaya inline TETAP tepat untuk nilai yang dihitung saat berjalan.
+        function BilahKemajuan({ persen }: { persen: number }) {
+          const aman = Math.min(100, Math.max(0, persen));
+          return (
+            <div className="bilah" role="progressbar" aria-valuenow={aman}>
+              {/* Nilai ini mustahil ditulis sebagai kelas CSS. */}
+              <div className="bilah-isi" style={{ width: \`\${aman}%\` }} />
+            </div>
+          );
+        }
+        `,
+        { filename: 'src/ui/BilahKemajuan.tsx' },
+      ),
+      p(
+        'Inilah batas yang tepat untuk gaya inline, yaitu nilai yang benar-benar tidak bisa diketahui sebelum program berjalan. Lebar bilah kemajuan bergantung pada angka yang berubah terus, sehingga tidak mungkin dinyatakan sebagai kelas. Sebaliknya warna dan bentuk bilahnya tetap di CSS, sebab keduanya keputusan visual yang tidak bergantung pada data.',
+      ),
+      p(
+        'Perhatikan `Math.min(100, Math.max(0, persen))` yang membatasi nilainya. Tanpa itu, nilai 150 menghasilkan lebar 150 persen yang meluber keluar wadahnya, dan nilai negatif menghasilkan CSS yang tidak sah. Data yang datang dari perhitungan atau dari server tidak dijamin berada dalam rentang yang kamu harapkan, dan membatasinya di tempat pemakaian jauh lebih murah daripada menelusuri tata letak yang rusak.',
+      ),
+      callout(
+        'warning',
+        'Gaya inline mengalahkan seluruh aturan CSS, dan itu sering merugikan',
+        'Nilai yang ditulis lewat `style` punya kekhususan tertinggi, sehingga tidak bisa ditimpa oleh kelas mana pun tanpa `!important`. Untuk komponen yang dipakai banyak tempat, ini berarti pemanggil kehilangan kemampuan menyesuaikan tampilannya. Simpan gaya inline hanya untuk nilai yang dihitung, dan biarkan sisanya bisa ditimpa.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut diuji dengan React sungguhan, dan dua di antaranya tidak melempar apa pun.',
+      ),
+      code(
+        'text',
+        `
+        <div style="color: red" />
+
+        Error: The \`style\` prop expects a mapping from style properties to
+        values, not a string. For example, style={{marginRight: spacing + 'em'}}
+        when using JSX.
+        `,
+        { caption: 'Gaya inline ditulis sebagai teks CSS.' },
+      ),
+      p(
+        'React melempar alih-alih mengabaikan, dan pesannya bahkan menyertakan contoh bentuk yang benar. Perhatikan kurung kurawal ganda pada bentuk yang benar bukan sintaks khusus, melainkan satu pasang untuk menyisipkan ekspresi dan satu pasang untuk object di dalamnya. Nama properti bertanda hubung ditulis dengan huruf kapital di tengah, jadi `margin-right` menjadi `marginRight`.',
+      ),
+      code(
+        'text',
+        `
+        <div style={{ width: 100 }} />
+
+        // Bekerja, dan menghasilkan width: 100px.
+
+        <div style={{ lineHeight: 100 }} />
+
+        // Juga bekerja, dan menghasilkan line-height: 100 TANPA satuan.
+        `,
+        {
+          caption: 'React menambahkan `px` untuk sebagian properti dan tidak untuk sebagian lain.',
+        },
+      ),
+      p(
+        'Perilaku ini berbeda dari DOM biasa yang mengabaikan angka tanpa satuan sepenuhnya, seperti dibahas di Bab 4 Frontend Basic. React menambahkan `px` otomatis untuk properti yang memang berukuran, dan membiarkan apa adanya untuk properti tanpa satuan seperti `lineHeight`, `opacity`, `zIndex`, dan `flexGrow`. Kemudahan ini menyenangkan sampai kamu butuh satuan lain, dan untuk itu nilainya harus ditulis sebagai teks.',
+      ),
+      code(
+        'text',
+        `
+        <div className="chip" data-aktif={false} />
+
+        // Hasil: <div class="chip" data-aktif="false">
+        // Pemilih [data-aktif] tetap cocok, dan gayanya berlaku.
+        `,
+        { caption: 'Nilai `false` pada atribut data tetap menghasilkan atributnya.' },
+      ),
+      p(
+        'React menghapus atribut hanya untuk nilai `false` pada atribut boolean HTML yang sungguhan seperti `disabled`, dan atribut `data-` bukan termasuk itu. Untuk atribut data, gunakan `undefined` supaya benar-benar dihapus. Bentuk `data-aktif={aktif || undefined}` menghasilkan atribut saat aktif dan menghilangkannya saat tidak, dan itu yang dicocokkan pemilih CSS.',
+      ),
+      code(
+        'text',
+        `
+        <Tombol className="mt-4" />
+
+        // Hasil: <button class="mt-4">
+        // Seluruh kelas varian dari komponen hilang.
+        `,
+        { caption: '`className` dari pemanggil menimpa yang disusun komponen.' },
+      ),
+      p(
+        'Sudah dibahas di sub-bab props dan diulang di sini karena inilah tempatnya paling terasa, yaitu saat gaya mulai dipakai serius. Bongkar `className` keluar dari spread lalu gabungkan, dan taruh milik pemanggil di posisi terakhir supaya ia bisa menimpa saat memang diinginkan. Untuk Tailwind, penggabungan yang benar butuh alat khusus supaya kelas yang bertabrakan diselesaikan, dan itu dibahas di bab Tailwind.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`The \\`style\\` prop expects a mapping ... not a string`',
+            'Gaya inline ditulis sebagai teks CSS',
+            'Tulis sebagai object dengan nama bergaya huruf kapital di tengah',
+          ],
+          [
+            'Nilai gaya kehilangan satuan yang diinginkan',
+            'React menambah `px` otomatis untuk properti berukuran',
+            "Tulis sebagai teks kalau butuh satuan lain, misalnya `\\'2rem\\'`",
+          ],
+          [
+            'Gaya keadaan selalu berlaku',
+            'Atribut data bernilai `false` tetap ada di DOM',
+            'Pakai `nilai || undefined` supaya atributnya dihapus',
+          ],
+          [
+            'Kelas komponen hilang saat pemanggil memberi `className`',
+            'Urutan spread membuat nilai pemanggil menimpa',
+            'Bongkar `className` keluar lalu gabungkan',
+          ],
+          [
+            'Gaya tidak bisa ditimpa dari luar',
+            'Gaya inline punya kekhususan tertinggi',
+            'Pindahkan ke kelas, dan sisakan inline untuk nilai yang dihitung',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Menata tampilan di React sering dimulai dengan cara yang paling cepat, dan biaya pilihannya baru terasa saat ada permintaan yang menyentuh seluruh aplikasi seperti tema gelap.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis warna dan ukuran lewat gaya inline',
+            'Langsung terlihat tanpa berpindah berkas',
+            'Nilai visual tersebar ke seluruh JavaScript, tema gelap jadi mustahil, dan gayanya tidak bisa ditimpa',
+          ],
+          [
+            'Membuat satu berkas CSS global untuk semuanya',
+            'Semua aturan di satu tempat',
+            'Nama kelas bertabrakan antar-komponen, dan tidak ada yang berani menghapus aturan karena tidak tahu pemakainya',
+          ],
+          [
+            'Menyusun nama kelas dengan penggabungan teks tanpa penyaring',
+            'Sederhana dan bekerja',
+            "Nilai kosong menghasilkan spasi ganda dan kelas `undefined`. Kumpulkan ke array lalu `filter(Boolean).join(\\' \\')`",
+          ],
+          [
+            'Memakai pustaka CSS-in-JS untuk project sederhana',
+            'Gaya dan komponen jadi di satu berkas',
+            'Menambah biaya saat berjalan dan mempersulit rendering di server. Untuk sebagian besar kasus, kelas sudah cukup',
+          ],
+          [
+            'Menyalin nilai warna dari desain ke tiap komponen',
+            'Warnanya kan sudah pasti',
+            'Satu perubahan merek berarti menyunting puluhan berkas. Simpan sebagai token, lalu rujuk tokennya',
+          ],
+          [
+            'Menganimasikan `width`, `height`, atau `top`',
+            'Itu properti yang mengatur posisi',
+            'Keempatnya memicu perhitungan tata letak tiap bingkai. Pakai `transform` dan `opacity`, seperti diukur di Bab 4 Frontend Basic',
+          ],
+        ],
+      ),
+      p(
+        "Baris ketiga menghasilkan bug yang terlihat sepele dan menyulitkan saat menelusuri. Bentuk `` className={`chip ${aktif && 'chip-aktif'}`} `` menghasilkan `chip false` saat tidak aktif, sebab `&&` mengembalikan `false` yang lalu diubah menjadi teks. Kumpulkan ke array lalu saring dengan `filter(Boolean)`, dan seluruh kelas kosong hilang dengan sendirinya.",
+      ),
+      callout(
+        'info',
+        'Project ini memakai Tailwind, dan alasannya dibahas di babnya sendiri',
+        'Bab Tailwind di kategori ini membahas token, varian keadaan, tema gelap, dan penggabungan kelas yang benar. Yang perlu dipegang dari sub-bab ini berlaku untuk pendekatan mana pun, yaitu keputusan visual tinggal di satu lapisan, dan komponen hanya menyatakan keadaan apa yang sedang berlaku.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Konsistensi dalam satu project mengalahkan preferensi pribadi.',
@@ -1407,7 +2988,7 @@ export const lessons: LessonDraft[] = [
   written(
     'composition-children',
     'Composition & `children`',
-    12,
+    23,
     'Menyusun komponen dari komponen lain — jalan keluar dari prop drilling.',
     [
       terms(
@@ -1599,6 +3180,252 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Komponen `Dialog` dipakai di enam tempat. Awalnya ia menerima `judul` dan `isi`. Lalu ada yang butuh tombol tambahan di kaki dialog, jadi lahir prop `tombolTambahan`. Lalu ada yang butuh ikon di kepala, jadi lahir `ikon`. Lalu ada yang butuh kaki tanpa tombol batal, jadi lahir `sembunyikanBatal`. Setelah setahun, `Dialog` menerima sembilan belas prop dan tidak ada satu pun pemakai yang memakai lebih dari lima.',
+      ),
+      p(
+        'Ini pola pertumbuhan yang khas, dan penyebabnya satu, yaitu komponen mencoba mengatur isi yang seharusnya ditentukan pemakainya. Komposisi membalik arah itu.',
+      ),
+      compare(
+        {
+          title: 'Konfigurasi lewat props',
+          lang: 'tsx',
+          code: `
+          type DialogProps = {
+            judul: string;
+            ikon?: ReactNode;
+            isi: string;
+            tombolTambahan?: ReactNode;
+            sembunyikanBatal?: boolean;
+            labelSimpan?: string;
+            ukuran?: 'kecil' | 'besar';
+            // ...dan dua belas lagi
+          };
+
+          <Dialog
+            judul="Hapus pesanan"
+            isi="Tindakan ini tidak bisa dibatalkan."
+            labelSimpan="Hapus"
+            sembunyikanBatal={false}
+          />
+          `,
+          notes: ['Tiap kebutuhan baru menambah satu prop, dan tidak pernah berkurang'],
+        },
+        {
+          title: 'Komposisi lewat children',
+          lang: 'tsx',
+          code: `
+          type DialogProps = {
+            terbuka: boolean;
+            onTutup: () => void;
+            children: ReactNode;
+          };
+
+          <Dialog terbuka={terbuka} onTutup={tutup}>
+            <Dialog.Kepala>
+              <IkonPeringatan /> Hapus pesanan
+            </Dialog.Kepala>
+
+            <Dialog.Isi>Tindakan ini tidak bisa dibatalkan.</Dialog.Isi>
+
+            <Dialog.Kaki>
+              <Tombol varian="hantu" onClick={tutup}>Batal</Tombol>
+              <Tombol varian="bahaya" onClick={hapus}>Hapus</Tombol>
+            </Dialog.Kaki>
+          </Dialog>
+          `,
+          notes: ['Kebutuhan baru diselesaikan pemanggil, tanpa menyentuh Dialog'],
+        },
+      ),
+      p(
+        'Perbedaan yang menentukan bukan panjangnya melainkan **siapa yang memutuskan isinya**. Di kolom kiri, `Dialog` harus tahu segala kemungkinan isi kakinya, sehingga tiap kebutuhan baru menjadi prop baru. Di kolom kanan, `Dialog` hanya tahu ia punya tiga area dan tidak peduli apa isinya. Menambah tombol ketiga tidak menyentuh berkas `Dialog` sama sekali.',
+      ),
+      p(
+        'Yang perlu jujur disebut, kolom kanan lebih panjang di tempat pemakaian. Itu memang harganya, dan ia sepadan justru ketika pemakaiannya beragam. Untuk dialog konfirmasi yang bentuknya selalu sama di sepuluh tempat, membuat komponen `DialogKonfirmasi` yang menerima tiga prop justru lebih tepat. Keduanya bisa hidup berdampingan, yaitu yang komposisional sebagai dasar, dan yang berprop sebagai pembungkus untuk pola yang sering berulang.',
+      ),
+      code(
+        'tsx',
+        `
+        // Prop 'children' bukan satu-satunya cara. Slot bernama juga sah.
+        type PanelProps = {
+          kepala: ReactNode;
+          samping?: ReactNode;
+          children: ReactNode;
+        };
+
+        function Panel({ kepala, samping, children }: PanelProps) {
+          return (
+            <section className="panel">
+              <header className="panel-kepala">{kepala}</header>
+              <div className="panel-badan">
+                <main>{children}</main>
+                {samping ? <aside className="panel-samping">{samping}</aside> : null}
+              </div>
+            </section>
+          );
+        }
+
+        <Panel
+          kepala={<h2>Ringkasan bulan ini</h2>}
+          samping={<FilterTanggal nilai={rentang} onUbah={setRentang} />}
+        >
+          <Grafik data={data} />
+        </Panel>
+        `,
+        { filename: 'src/ui/Panel.tsx' },
+      ),
+      p(
+        'Slot bernama lebih tepat daripada `children` saat ada beberapa area yang posisinya berbeda dan tidak boleh tertukar. Keunggulannya, tipe memaksa `kepala` diisi dan membiarkan `samping` opsional, sedangkan dengan `children` saja urutan dan kelengkapannya tidak bisa dijamin. Kekurangannya, JSX di tempat pemakaian menjadi lebih padat karena elemen ditulis di dalam atribut.',
+      ),
+      p(
+        'Ada satu manfaat komposisi yang jarang disebut dan sangat berpengaruh, yaitu elemen yang dikirim sebagai prop **dibuat oleh induknya**. Artinya kalau `Panel` digambar ulang karena keadaannya sendiri berubah, `<Grafik data={data} />` yang sudah dibuat induknya tidak ikut dibuat ulang. Ini cara paling sederhana menghindari penggambaran ulang yang tidak perlu, dan ia bekerja tanpa satu pun pengoptimalan eksplisit.',
+      ),
+      callout(
+        'tip',
+        'Tanda bahwa komponenmu butuh komposisi',
+        'Hitung berapa prop yang isinya berupa teks atau elemen yang akan ditampilkan apa adanya. Kalau ada lebih dari dua, kemungkinan besar keduanya sebenarnya area yang lebih baik diisi pemanggil. Tanda kedua, kalau ada prop bernama seperti `sembunyikanX` atau `tampilkanY`, itu berarti komponenmu sedang menebak isi yang bukan urusannya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut adalah yang paling sering saat mulai memakai komposisi, dan seluruhnya diuji dengan React sungguhan.',
+      ),
+      code(
+        'text',
+        `
+        type Props = { children: JSX.Element };
+        <Kartu>Halo</Kartu>
+
+        error TS2322: Type 'string' is not assignable to type 'Element'.
+        `,
+        { caption: '`children` diketik terlalu sempit.' },
+      ),
+      p(
+        'Tipe `JSX.Element` hanya mencakup satu elemen JSX, sedangkan teks, angka, array, dan `null` juga sah sebagai anak. Pakai `ReactNode` yang mencakup semuanya. Kalau kamu memang ingin memaksa anaknya berupa satu elemen, misalnya untuk komponen yang mengkloningnya, `ReactElement` lebih tepat dan itu kasus yang jarang.',
+      ),
+      code(
+        'text',
+        `
+        <div dangerouslySetInnerHTML={{ __html: html }}>anak</div>
+
+        Error: Can only set one of \`children\` or \`props.dangerouslySetInnerHTML\`.
+        `,
+        { caption: 'Dua cara mengisi isi elemen dipakai bersamaan.' },
+      ),
+      p(
+        'React menolak karena keduanya sama-sama mengatur isi elemen dan tidak ada urutan yang masuk akal. Yang lebih penting dari pesan errornya, kehadiran `dangerouslySetInnerHTML` itu sendiri layak dipertanyakan. Namanya sengaja dibuat panjang dan menakutkan supaya kamu berhenti sejenak. Kalau isinya berasal dari pengguna, ini celah XSS yang sama persis dengan `innerHTML` di Bab 4 Frontend Basic.',
+      ),
+      code(
+        'text',
+        `
+        function Induk() {
+          function Anak() { return <input />; }   // didefinisikan di dalam
+          return <Anak />;
+        }
+
+        // Tidak ada error. Kotak input kehilangan fokus pada tiap ketikan.
+        `,
+        { caption: 'Komponen didefinisikan di dalam komponen lain.' },
+      ),
+      p(
+        'Fungsi `Anak` dibuat ulang pada tiap render `Induk`, sehingga identitasnya selalu berbeda. React membandingkan jenis komponen berdasarkan identitas fungsinya, sehingga ia menyimpulkan komponennya berganti dan membongkar seluruh pohonnya. Akibatnya state hilang, fokus lepas, dan elemen DOM dibuat ulang. Definisikan komponen di luar, dan kirim yang berbeda lewat props atau `children`.',
+      ),
+      code(
+        'text',
+        `
+        <Dialog>
+          <Dialog.Kepala>Judul</Dialog.Kepala>
+        </Dialog>
+
+        // Dialog.Kepala membaca konteks yang disediakan Dialog.
+        // Kalau dipakai di luar Dialog:
+        Error: Dialog.Kepala harus berada di dalam Dialog
+        `,
+        { caption: 'Bagian dari komponen majemuk dipakai di luar induknya.' },
+      ),
+      p(
+        'Komponen majemuk seperti `Dialog.Kepala` biasanya bergantung pada konteks yang disediakan `Dialog`. Kalau dipakai sendirian, konteksnya tidak ada. Pesan error yang kamu tulis sendiri jauh lebih menolong daripada `Cannot read properties of undefined`, dan menuliskannya cukup satu baris pemeriksaan di dalam bagian itu. Pola lengkapnya dibahas di bab jenis komponen.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            "`Type 'string' is not assignable to type 'Element'`",
+            '`children` diketik `JSX.Element`',
+            'Pakai `ReactNode`',
+          ],
+          [
+            '`Can only set one of children or dangerouslySetInnerHTML`',
+            'Dua cara mengisi isi dipakai bersamaan',
+            'Pilih salah satu, dan pertanyakan kebutuhan `dangerouslySetInnerHTML`',
+          ],
+          [
+            'Fokus hilang tiap ketikan tanpa error',
+            'Komponen didefinisikan di dalam komponen lain',
+            'Definisikan di luar, kirim perbedaannya lewat props',
+          ],
+          [
+            'Bagian komponen majemuk gagal di luar induknya',
+            'Konteks yang ia butuhkan tidak ada',
+            'Tulis pemeriksaan dengan pesan yang menyebut induknya',
+          ],
+          [
+            'Komponen menerima belasan prop yang hanya diteruskan',
+            'Isi diatur lewat konfigurasi, bukan komposisi',
+            'Ubah menjadi area yang diisi pemanggil',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Komposisi adalah pola yang sangat berguna dan sangat mudah dipakai berlebihan. Sebagian besar baris di bawah adalah tentang menemukan batasnya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menambah prop baru tiap ada kebutuhan tampilan baru',
+            'Satu prop untuk satu kebutuhan',
+            'Komponen tumbuh menjadi puluhan prop yang tidak pernah dipakai bersamaan. Ubah menjadi area yang diisi pemanggil',
+          ],
+          [
+            'Memakai komposisi untuk komponen yang bentuknya selalu sama',
+            'Katanya komposisi lebih baik',
+            'Pemakainya jadi menulis sepuluh baris untuk hal yang bisa tiga prop. Sediakan pembungkus untuk pola yang sering berulang',
+          ],
+          [
+            'Mendefinisikan komponen di dalam komponen lain',
+            'Supaya bisa mengakses variabel induknya',
+            'State di dalamnya hilang tiap render dan fokus lepas. Definisikan di luar dan kirim lewat props',
+          ],
+          [
+            'Memakai `children` untuk beberapa area sekaligus',
+            'Semuanya kan anak',
+            'Urutan dan kelengkapannya tidak bisa dijamin. Pakai slot bernama untuk area yang posisinya berbeda',
+          ],
+          [
+            'Mengkloning `children` untuk menyuntikkan props',
+            'Supaya anaknya dapat data dari induk',
+            '`cloneElement` rapuh sebab bergantung pada bentuk anak yang tidak kamu kendalikan. Pakai konteks, dan itu dibahas di bab jenis komponen',
+          ],
+          [
+            'Mengetik `children` sebagai `any`',
+            'Isinya kan bisa apa saja',
+            '`ReactNode` sudah berarti apa saja yang bisa dirender, dan ia tetap menolak object dan janji yang memang tidak bisa',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua layak ditegaskan karena nasihat pilih komposisi sering dibaca terlalu keras, persis seperti nasihat pilih komposisi daripada pewarisan di Bab 2 Frontend Basic. Komposisi menukar kesederhanaan di tempat pemakaian dengan keluwesan. Untuk komponen yang dipakai di tiga tempat dengan bentuk yang persis sama, kesederhanaan lebih berharga, dan tiga prop adalah jawaban yang benar.',
+      ),
+      callout(
+        'info',
+        'Elemen sebagai prop menghindari penggambaran ulang tanpa pengoptimalan apa pun',
+        'Karena elemen yang dikirim sebagai `children` dibuat oleh induknya, ia tidak dibuat ulang saat komponen penerimanya digambar ulang. Ini yang membuat pola membungkus bagian yang sering berubah dengan komponen berkeadaan, lalu mengirim bagian yang jarang berubah sebagai `children`, menjadi pengoptimalan yang tidak menuntut satu pun pemanggilan khusus.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Composition menggantikan props yang terus bertambah dengan struktur yang terbaca.',
@@ -1639,7 +3466,7 @@ export const lessons: LessonDraft[] = [
   written(
     'virtual-dom',
     'Virtual DOM & Reconciliation',
-    12,
+    21,
     'Apa yang sebenarnya dilakukan React di balik layar — dan apa yang sering dilebih-lebihkan.',
     [
       terms(
@@ -1789,6 +3616,207 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Ada keluhan bahwa tabel pesanan terasa tersendat saat pengguna mengetik di kotak pencarian. Dugaan pertama tim adalah virtual DOM tidak cukup cepat untuk seribu baris. Setelah diukur di tab Profiler, ternyata React hanya butuh delapan milidetik untuk membandingkan seluruh pohonnya. Yang memakan dua ratus milidetik adalah satu komponen yang memformat tanggal seribu kali dengan `Intl.DateTimeFormat` yang dibuat ulang di dalam `map`.',
+      ),
+      p(
+        'Kesalahpahaman terbesar tentang virtual DOM adalah menganggapnya alat pemercepat. Ia bukan. Memahami apa yang sebenarnya ia lakukan menghemat banyak waktu penelusuran yang salah arah.',
+      ),
+      code(
+        'text',
+        `
+        Apa yang terjadi saat sebuah state berubah:
+
+        1. RENDER   — React memanggil fungsi komponenmu.
+                      Hasilnya object deskripsi, bukan DOM.
+                      Ini murni JavaScript, dan biasanya cepat.
+
+        2. DIFF     — React membandingkan deskripsi baru dengan yang lama.
+                      Pencocokan anak memakai \`key\`.
+                      Ini yang disebut rekonsiliasi.
+
+        3. COMMIT   — React mengubah DOM, HANYA pada bagian yang berbeda.
+                      Ini yang menyentuh peramban, dan biasanya paling mahal.
+
+        Digambar ulang TIDAK berarti DOM berubah.
+        Sebagian besar render berakhir tanpa satu pun perubahan DOM.
+        `,
+        { caption: 'Tiga tahap yang sering dianggap satu.' },
+      ),
+      p(
+        'Pemisahan tiga tahap ini menjelaskan kenapa React bisa cepat meski komponenmu dipanggil ulang. Memanggil fungsi dan membuat object adalah operasi JavaScript murni yang sangat cepat. Yang mahal adalah menyentuh DOM, dan tahap ketiga hanya mengerjakan bagian yang benar-benar berbeda. Ini persis pemeriksaan `if (judulEl.textContent !== tugas.judul)` yang kamu tulis sendiri di Bab 4 Frontend Basic.',
+      ),
+      p(
+        'Yang perlu ditegaskan, virtual DOM **menambah** pekerjaan dibandingkan mengubah DOM secara langsung dengan tepat sasaran. Kode DOM manual yang ditulis dengan benar akan selalu lebih cepat. Yang React berikan bukan kecepatan melainkan kemudahan menulis kode yang benar, sebab menulis pembaruan DOM manual yang tepat sasaran untuk aplikasi dengan banyak keadaan sangat sulit dijaga kebenarannya.',
+      ),
+      code(
+        'tsx',
+        `
+        // Penyebab sungguhan dari kasus di awal.
+        function BarisPesanan({ pesanan }: { pesanan: Pesanan }) {
+          // Objek Intl dibuat ULANG untuk tiap baris, tiap render.
+          const tanggal = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' })
+            .format(new Date(pesanan.padaIso));
+
+          return <tr><td>{tanggal}</td></tr>;
+        }
+
+        // Perbaikannya: buat SEKALI di luar komponen.
+        const FORMAT_TANGGAL = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' });
+
+        function BarisPesanan({ pesanan }: { pesanan: Pesanan }) {
+          const tanggal = FORMAT_TANGGAL.format(new Date(pesanan.padaIso));
+          return <tr><td>{tanggal}</td></tr>;
+        }
+        `,
+        { caption: 'Yang mahal bukan React, melainkan pekerjaan di dalam komponen.' },
+      ),
+      p(
+        'Ini pola yang sudah muncul di Bab 1 Frontend Basic saat membahas `formatRupiah`, yaitu objek pemformat dibuat sekali di luar fungsi. Di React alasannya sama dan dampaknya lebih besar, sebab fungsi komponen dipanggil ulang jauh lebih sering daripada fungsi biasa. Aturan yang bisa dipegang, apa pun yang tidak bergantung pada props atau state layak dipindahkan ke luar komponen.',
+      ),
+      p(
+        'Cara menemukan penyebab sungguhan seperti ini bukan menebak melainkan mengukur. Tab Profiler di React DevTools merekam tiap render, menyebut komponen mana yang memakan waktu, dan menyebut alasan ia digambar ulang. Sepuluh detik merekam di sana menghemat berjam-jam menebak, dan hampir selalu penyebabnya bukan yang pertama kali diduga.',
+      ),
+      callout(
+        'warning',
+        'Jangan mengoptimalkan sebelum mengukur',
+        'Menambahkan pembungkus pengoptimalan ke seluruh komponen menambah biaya perbandingan pada tiap render, dan untuk sebagian besar komponen biaya itu lebih besar daripada penghematannya. Rekam di Profiler lebih dulu, cari komponen yang benar-benar memakan waktu, lalu perbaiki yang itu saja. Ini persis disiplin yang sama dengan pengukuran performa DOM di Bab 4 Frontend Basic.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Masalah rendering jarang berupa pesan error. Yang muncul adalah gejala, dan mengenalinya menentukan ke mana kamu mencari.',
+      ),
+      code(
+        'text',
+        `
+        Warning: Maximum update depth exceeded. This can happen when a component
+        repeatedly calls setState inside componentWillUpdate or componentDidUpdate.
+        React limits the number of nested updates to prevent infinite loops.
+        `,
+        { caption: 'Putaran render tak berujung.' },
+      ),
+      p(
+        'Penyebab paling sering di komponen fungsi adalah `setState` dipanggil langsung di badan komponen alih-alih di dalam penangan peristiwa atau efek. Setiap render memicu pembaruan, dan pembaruan memicu render lagi. Penyebab kedua adalah efek yang dependensinya berupa object atau array yang dibuat baru tiap render, dan itu dibahas tuntas di Bab 7.',
+      ),
+      code(
+        'text',
+        `
+        function Daftar({ item }) {
+          const [pilih, setPilih] = useState(null);
+          if (item.length === 0) return null;
+          const [urut, setUrut] = useState('nama');
+
+          Warning: React has detected a change in the order of Hooks called by Daftar.
+        }
+        `,
+        { caption: 'Jumlah hook berbeda antar-render.' },
+      ),
+      p(
+        'React menyimpan state berdasarkan urutan pemanggilan hook, persis seperti dibahas di Bab 7. Kalau sebuah render memanggil dua hook dan render berikutnya hanya satu, pencocokannya bergeser dan nilai state berpindah ke slot yang salah. Peringatan ini termasuk yang wajib diperbaiki segera, sebab akibatnya berupa nilai yang tertukar tanpa pola yang jelas.',
+      ),
+      code(
+        'text',
+        `
+        // Tidak ada peringatan apa pun.
+        // Profiler menunjukkan komponen ini dirender 400 kali dalam satu detik.
+        `,
+        { caption: 'Penggambaran ulang berlebihan yang tidak melempar apa pun.' },
+      ),
+      p(
+        'Ini gejala yang paling sering dan paling tidak terlihat. Halaman tetap benar, hanya terasa berat. Cara menemukannya adalah menyalakan opsi Highlight updates di React DevTools, yang membuat komponen berkedip saat digambar ulang. Kalau seluruh halaman berkedip setiap kali satu huruf diketik, itu berarti keadaannya berada terlalu tinggi di pohon komponen.',
+      ),
+      code(
+        'text',
+        `
+        // Kotak input kehilangan fokus setiap kali diketik satu huruf.
+        // Tidak ada error, tidak ada peringatan.
+        `,
+        { caption: 'Elemen dibongkar dan dibuat ulang, bukan diperbarui.' },
+      ),
+      p(
+        'Ada tiga penyebab yang menghasilkan gejala persis sama, dan ketiganya membuat React menyimpulkan elemennya berganti identitas. Pertama, komponen didefinisikan di dalam komponen lain. Kedua, `key` dibuat acak di dalam render. Ketiga, struktur JSX berubah sehingga posisi elemennya bergeser, misalnya dibungkus kondisional yang berubah. Periksa ketiganya berurutan.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`Maximum update depth exceeded`',
+            '`setState` dipanggil di badan komponen, atau efek memicu dirinya sendiri',
+            'Pindahkan ke penangan peristiwa, dan periksa dependensi efeknya',
+          ],
+          [
+            '`change in the order of Hooks called by ...`',
+            'Jumlah hook berbeda antar-render',
+            'Panggil seluruh hook sebelum `return` mana pun',
+          ],
+          [
+            'Halaman berat tanpa satu pun peringatan',
+            'Penggambaran ulang berlebihan, atau pekerjaan mahal di dalam komponen',
+            'Rekam di Profiler, dan nyalakan Highlight updates',
+          ],
+          [
+            'Fokus hilang tiap ketikan',
+            'Elemen dibongkar karena identitasnya berubah',
+            'Periksa komponen bersarang, `key` acak, dan struktur JSX yang berubah',
+          ],
+          [
+            'Perubahan state tidak menyebabkan penggambaran ulang',
+            'Object atau array diubah di tempat, bukan diganti',
+            'Buat nilai baru, jangan mengubah yang lama',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Virtual DOM adalah bagian React yang paling sering disalahpahami, dan kesalahpahamannya mengarahkan penelusuran ke tempat yang salah.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Mengira virtual DOM membuat aplikasi lebih cepat',
+            'Katanya itu keunggulan React',
+            'Ia menambah pekerjaan dibandingkan DOM manual yang tepat sasaran. Yang ia berikan adalah kemudahan menulis kode yang benar',
+          ],
+          [
+            'Mengira render berarti DOM diubah',
+            'Namanya juga render',
+            'Sebagian besar render berakhir tanpa satu pun perubahan DOM. Render itu memanggil fungsi dan membuat object',
+          ],
+          [
+            'Membungkus seluruh komponen dengan pengoptimalan',
+            'Semakin sedikit render semakin baik',
+            'Perbandingan props juga makan biaya, dan untuk komponen ringan biayanya lebih besar daripada penghematannya',
+          ],
+          [
+            'Menebak penyebab kelambatan lalu langsung memperbaiki',
+            'Dugaannya masuk akal',
+            'Hampir selalu salah. Rekam di Profiler lebih dulu, dan penyebabnya sering pekerjaan di dalam komponen bukan React-nya',
+          ],
+          [
+            'Membuat objek mahal di dalam komponen',
+            'Nilainya kan dipakai di situ',
+            'Ia dibuat ulang tiap render dan dikalikan jumlah baris. Pindahkan ke luar komponen kalau tidak bergantung props',
+          ],
+          [
+            'Menaruh state di komponen paling atas',
+            'Supaya bisa dijangkau semua',
+            'Setiap perubahan menggambar ulang seluruh pohon. Simpan state sedekat mungkin dengan yang memakainya',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir adalah pengoptimalan paling ampuh sekaligus paling sering dilewatkan, dan ia tidak menuntut satu pun pemanggilan khusus. Kotak pencarian yang statenya berada di komponen halaman akan menggambar ulang seluruh halaman pada tiap ketikan. Memindahkan state itu ke dalam komponen kotak pencarian membuat hanya kotak itu yang digambar ulang. Ini penerapan aturan simpan state sedekat mungkin dengan pembacanya, yang sudah ada di baseline frontend project ini.',
+      ),
+      callout(
+        'tip',
+        'Tiga alat yang menjawab hampir semua pertanyaan performa React',
+        'Tab Profiler di React DevTools merekam tiap render beserta durasinya dan alasannya. Opsi Highlight updates membuat komponen berkedip saat digambar ulang, sehingga penggambaran berlebihan langsung terlihat. Tab Performance peramban menunjukkan apakah waktunya habis di JavaScript, di tata letak, atau di penggambaran. Pakai ketiganya sebelum mengubah satu baris pun.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'React tidak lebih cepat dari DOM — ia menyentuh DOM lebih sedikit, secara otomatis.',
@@ -1829,7 +3857,7 @@ export const lessons: LessonDraft[] = [
   written(
     'react-compiler',
     'React Compiler dan artinya bagi memoization',
-    11,
+    20,
     'Perubahan besar di React 19 yang mengurangi kebutuhan `useMemo` dan `useCallback` manual.',
     [
       p(
@@ -2005,6 +4033,241 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Tabel pesanan digambar ulang setiap kali pengguna mengetik di kotak pencarian, dan tim menghabiskan dua hari menaburkan pembungkus pengoptimalan ke seluruh komponen. Hasilnya kode yang penuh pembungkus, satu bug baru karena daftar dependensi yang tidak lengkap, dan peningkatan kecepatan yang nyaris tidak terukur. Sebulan kemudian React Compiler dinyalakan, seluruh pembungkus itu dihapus, dan hasilnya justru lebih cepat.',
+      ),
+      p(
+        'Compiler mengubah pertanyaan yang perlu kamu jawab. Yang tadinya di mana harus memasang pengoptimalan, kini menjadi apakah kodeku mengikuti aturan React.',
+      ),
+      compare(
+        {
+          title: 'Tanpa compiler',
+          lang: 'tsx',
+          code: `
+          const kolom = useMemo(
+            () => [
+              { kunci: 'nomor', judul: 'Nomor' },
+              { kunci: 'status', judul: 'Status' },
+            ],
+            [],
+          );
+
+          const tanganiPilih = useCallback(
+            (id: string) => bukaDetail(id),
+            [bukaDetail],
+          );
+
+          const total = useMemo(
+            () => data.reduce((j, d) => j + d.totalSen, 0),
+            [data],
+          );
+
+          return <Tabel kolom={kolom} onPilih={tanganiPilih} total={total} />;
+          `,
+          notes: [
+            'Tiga pembungkus, tiga daftar dependensi yang harus dijaga tetap benar',
+            'Daftar yang salah menghasilkan nilai basi, dan itu bug yang senyap',
+          ],
+        },
+        {
+          title: 'Dengan compiler',
+          lang: 'tsx',
+          code: `
+          const kolom = [
+            { kunci: 'nomor', judul: 'Nomor' },
+            { kunci: 'status', judul: 'Status' },
+          ];
+
+          const tanganiPilih = (id: string) => bukaDetail(id);
+
+          const total = data.reduce((j, d) => j + d.totalSen, 0);
+
+          return <Tabel kolom={kolom} onPilih={tanganiPilih} total={total} />;
+          `,
+          notes: [
+            'Compiler menambahkan penyimpanan hasilnya sendiri saat membangun',
+            'Tidak ada daftar dependensi yang bisa salah',
+          ],
+        },
+      ),
+      p(
+        'Yang dihilangkan compiler bukan sekadar baris melainkan **kelas bug tersendiri**. Daftar dependensi yang tidak lengkap menghasilkan nilai basi, yaitu fungsi yang masih memegang nilai lama dari render sebelumnya. Bug itu tidak melempar apa pun dan hanya muncul pada urutan interaksi tertentu, sehingga ia termasuk yang paling sulit direproduksi. Compiler menghitung dependensinya sendiri dari kode yang benar-benar ada.',
+      ),
+      p(
+        'Syaratnya satu, dan syarat itu mutlak, yaitu kodemu harus mengikuti aturan React. Compiler perlu bisa memprediksi kapan sebuah nilai berubah, dan itu hanya mungkin kalau komponenmu tidak punya efek samping tersembunyi. Komponen yang mengubah props di tempat, menulis ke variabel modul saat render, atau memanggil hook secara bersyarat membuat prediksi itu mustahil, dan compiler akan melewatinya.',
+      ),
+      code(
+        'text',
+        `
+        Yang membuat compiler MELEWATI sebuah komponen:
+
+        - Props atau state diubah di tempat, misalnya lewat push atau sort
+        - Variabel di luar komponen ditulis selama render
+        - Hook dipanggil di dalam kondisi atau loop
+        - DOM disentuh langsung selama render
+
+        Compiler tidak melempar error. Ia hanya diam-diam tidak mengoptimalkan
+        komponen itu, dan itulah kenapa aturan lint tetap diperlukan.
+        `,
+        { caption: 'Aturan React bukan formalitas, melainkan syarat teknis.' },
+      ),
+      p(
+        'Kalimat terakhir itu yang paling perlu dipegang. Compiler tidak memberi tahu bahwa ia melewati komponenmu, sehingga kamu bisa mengira sudah dioptimalkan padahal tidak. Plugin lint resmi React menandai pelanggaran aturan itu sebelum sampai ke compiler, dan pada project yang mengaktifkan compiler termasuk website ini, sebagian pelanggaran justru menjadi error bukan peringatan.',
+      ),
+      p(
+        'Perlu ditegaskan compiler tidak menghapus kebutuhan memahami `useMemo` dan `useCallback`. Keduanya masih diperlukan untuk kasus yang bukan sekadar penyimpanan hasil, misalnya menjaga identitas object yang dipakai sebagai dependensi efek, atau menyimpan hasil perhitungan yang benar-benar mahal dan jarang berubah. Yang hilang adalah pemakaiannya sebagai pengoptimalan rutin di mana-mana.',
+      ),
+      callout(
+        'info',
+        'Website ini mengaktifkan React Compiler',
+        'Artinya materi di kategori ini ditulis dengan asumsi compiler aktif, dan contoh-contohnya tidak menaburkan `useMemo` di setiap tempat. Kalau project-mu belum mengaktifkannya, contoh-contohnya tetap benar, hanya saja kamu perlu menambahkan pengoptimalan secara manual pada bagian yang terbukti lambat lewat pengukuran.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Compiler mengubah sebagian peringatan menjadi error, dan itu keputusan yang disengaja sebab kode yang melanggar aturannya tidak bisa dioptimalkan dengan aman.',
+      ),
+      code(
+        'text',
+        `
+        function Daftar({ item }) {
+          item.sort((a, b) => a.nama.localeCompare(b.nama));
+          return <ul>{item.map((i) => <li key={i.id}>{i.nama}</li>)}</ul>;
+        }
+
+        error: Mutating a value returned from a function whose return value
+        should not be mutated
+        `,
+        { caption: 'Props diubah di tempat, dan compiler menolaknya.' },
+      ),
+      p(
+        'Tanpa compiler, kode ini hanya menghasilkan bug yang senyap seperti dibahas di sub-bab props. Dengan compiler, ia menjadi error saat membangun. Ini peningkatan besar, sebab pelanggaran pantangan mutasi yang selama ini hanya terdeteksi lewat gejala kini tertangkap sebelum kodenya berjalan. Perbaikannya `toSorted`, atau salin dulu dengan spread.',
+      ),
+      code(
+        'text',
+        `
+        let penghitung = 0;
+
+        function Kartu() {
+          penghitung += 1;              // menulis variabel modul saat render
+          return <div>{penghitung}</div>;
+        }
+
+        error: Writing to a variable defined outside a component or hook
+        is not allowed
+        `,
+        { caption: 'Efek samping selama render membuat hasilnya tidak bisa diprediksi.' },
+      ),
+      p(
+        'Render harus menghasilkan hal yang sama untuk masukan yang sama, dan menulis ke variabel di luar melanggar itu. Akibatnya nyata bahkan tanpa compiler, sebab `StrictMode` menjalankan render dua kali sehingga penghitungnya bertambah dua. Ini persis gagasan fungsi murni dari Bab 2 Frontend Basic, dan di React ia bukan anjuran melainkan syarat.',
+      ),
+      code(
+        'text',
+        `
+        function Kartu({ tampil }) {
+          if (!tampil) return null;
+          const [buka, setBuka] = useState(false);   // hook setelah return
+          return <div>{buka ? 'terbuka' : 'tertutup'}</div>;
+        }
+
+        error: React Hook "useState" is called conditionally
+        `,
+        { caption: 'Aturan hook ditegakkan sebagai error, bukan peringatan.' },
+      ),
+      p(
+        'Tanpa compiler, ini adalah peringatan lint yang bisa diabaikan atau dimatikan. Dengan compiler aktif, ia menjadi error yang menghentikan build. Alasannya sama dengan yang dibahas di Bab 7, yaitu React menyimpan state berdasarkan urutan pemanggilan hook. Compiler menaikkan taruhannya karena ia juga bergantung pada urutan itu untuk menentukan apa yang bisa disimpan hasilnya.',
+      ),
+      code(
+        'text',
+        `
+        // Komponen tidak melanggar apa pun, dan tetap terasa lambat.
+        // Profiler menunjukkan durasi render 180 ms.
+        `,
+        { caption: 'Compiler tidak mempercepat pekerjaan yang memang mahal.' },
+      ),
+      p(
+        'Compiler menghindari **pekerjaan yang berulang tanpa perlu**, dan sama sekali tidak mempercepat pekerjaan yang memang harus dilakukan. Mengurutkan sepuluh ribu baris tetap memakan waktu yang sama. Kalau Profiler menunjukkan satu komponen memakan ratusan milidetik pada render pertamanya, yang perlu diperbaiki adalah algoritmanya, bukan pengoptimalannya.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`Mutating a value ... should not be mutated`',
+            'Props atau state diubah di tempat',
+            'Pakai `toSorted`, atau salin dengan spread',
+          ],
+          [
+            '`Writing to a variable defined outside a component`',
+            'Efek samping selama render',
+            'Pindahkan ke penangan peristiwa atau efek',
+          ],
+          [
+            '`React Hook ... is called conditionally`',
+            'Hook dipanggil setelah `return` atau di dalam kondisi',
+            'Panggil seluruh hook di level teratas komponen',
+          ],
+          [
+            'Komponen tidak dioptimalkan tanpa satu pun pesan',
+            'Compiler melewatinya karena ada pelanggaran aturan',
+            'Jalankan plugin lint React, dan perbaiki temuannya',
+          ],
+          [
+            'Masih lambat walaupun compiler aktif',
+            'Pekerjaannya memang mahal, bukan berulang',
+            'Perbaiki algoritmanya, atau pindahkan ke luar render',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'React Compiler mengubah kebiasaan yang sudah lama terbentuk, dan sebagian besar kesalahan di bawah berasal dari membawa kebiasaan lama atau dari terlalu memercayainya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Tetap menaburkan `useMemo` dan `useCallback` di mana-mana',
+            'Kebiasaan lama, dan tidak ada ruginya',
+            'Menambah baris dan daftar dependensi yang bisa salah, sementara compiler sudah mengerjakannya. Hapus yang hanya untuk pengoptimalan rutin',
+          ],
+          [
+            'Mengira compiler memperbaiki kode yang melanggar aturan',
+            'Ia kan menganalisis kodenya',
+            'Ia justru melewati komponen yang melanggar, dan diam-diam. Aturan React tetap wajib diikuti',
+          ],
+          [
+            'Mengira compiler mempercepat semua hal',
+            'Namanya juga pengoptimalan',
+            'Ia hanya menghindari pekerjaan berulang. Perhitungan yang memang mahal tetap mahal',
+          ],
+          [
+            'Mematikan plugin lint karena compiler sudah ada',
+            'Compiler lebih pintar',
+            'Lint yang menandai pelanggaran sebelum compiler melewatinya. Tanpa lint, kamu tidak tahu komponen mana yang dilewati',
+          ],
+          [
+            'Menghapus seluruh `useMemo` tanpa memeriksa maksudnya',
+            'Compiler menggantikan semuanya',
+            'Sebagian `useMemo` ada untuk menjaga identitas object yang dipakai sebagai dependensi efek, bukan untuk kecepatan. Yang itu tetap diperlukan',
+          ],
+          [
+            'Mengaktifkan compiler lalu tidak mengukur apa pun',
+            'Pasti lebih cepat',
+            'Ukur sebelum dan sesudah di Profiler. Untuk sebagian aplikasi selisihnya kecil, dan manfaat terbesarnya justru kode yang lebih bersih',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima layak diperiksa sebelum menghapus apa pun. Ada `useMemo` yang ada bukan demi kecepatan melainkan demi **identitas**, misalnya object pengaturan yang menjadi dependensi sebuah efek. Kalau identitasnya berubah tiap render, efeknya berjalan terus. Compiler biasanya menangani ini juga, dan pada kasus yang rumit ia bisa melewatinya. Hapus bertahap, dan perhatikan apakah ada efek yang mulai berjalan lebih sering.',
+      ),
+      callout(
+        'tip',
+        'Cara memeriksa apakah compiler benar-benar bekerja',
+        'React DevTools menandai komponen yang dioptimalkan compiler dengan lencana khusus. Buka tab Components, pilih sebuah komponen, dan lihat apakah lencananya ada. Kalau sebuah komponen yang kamu harapkan dioptimalkan ternyata tidak bertanda, jalankan plugin lint pada berkas itu dan hampir selalu ada pelanggaran aturan di dalamnya.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Compiler menyisipkan memoization otomatis — `useMemo`/`useCallback` manual jauh berkurang.',
@@ -2050,7 +4313,7 @@ export const lessons: LessonDraft[] = [
   written(
     'praktik-halaman-profil',
     'Praktik: Halaman profil dari data statis',
-    14,
+    24,
     'Menyusun beberapa komponen jadi satu halaman — tanpa satu pun state.',
     [
       p(
@@ -2317,6 +4580,261 @@ export const lessons: LessonDraft[] = [
         'Struktur heading benar: satu `h1`, lalu `h2` untuk tiap bagian',
       ),
 
+      divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman profil yang baru kamu bangun bekerja. Sekarang tiga permintaan datang sekaligus, yaitu tampilkan lencana verifikasi kalau akunnya terverifikasi, tampilkan daftar keahlian yang bisa disaring, dan pastikan halamannya tetap berguna saat sebagian data tidak ada. Ketiganya menyentuh seluruh materi bab ini, dan yang ketiga adalah yang paling sering dilewati.',
+      ),
+      p(
+        'Bentuk di bawah menggabungkan enam sub-bab sebelumnya menjadi satu halaman yang siap menghadapi data sungguhan.',
+      ),
+      code(
+        'tsx',
+        `
+        type Profil = {
+          id: string;
+          nama: string;
+          bio: string | null;              // boleh kosong, dan itu wajar
+          fotoUrl: string | null;
+          terverifikasi: boolean;
+          keahlian: Keahlian[];
+        };
+
+        type Props = {
+          profil: Profil;
+          memuat?: boolean;
+        };
+
+        export function HalamanProfil({ profil, memuat = false }: Props) {
+          const [saring, setSaring] = useState('');
+
+          // Hitung di atas return, dan jangan ubah array aslinya.
+          const keahlianTerlihat = profil.keahlian.filter((k) =>
+            k.nama.toLowerCase().includes(saring.toLowerCase()),
+          );
+
+          return (
+            <main aria-busy={memuat}>
+              <KepalaProfil profil={profil} />
+
+              {/* bio boleh null, jadi keadaan kosongnya ditulis eksplisit */}
+              {profil.bio ? (
+                <p className="bio">{profil.bio}</p>
+              ) : (
+                <p className="bio bio-kosong">Belum ada bio</p>
+              )}
+
+              <SaringKeahlian nilai={saring} onUbah={setSaring} />
+              <DaftarKeahlian keahlian={keahlianTerlihat} adaSaring={saring !== ''} />
+            </main>
+          );
+        }
+        `,
+        { filename: 'src/profil/HalamanProfil.tsx' },
+      ),
+      code(
+        'tsx',
+        `
+        function KepalaProfil({ profil }: { profil: Profil }) {
+          return (
+            <header className="kepala-profil">
+              {/* Gambar boleh tidak ada. Jangan render img dengan src kosong. */}
+              {profil.fotoUrl ? (
+                <img
+                  src={profil.fotoUrl}
+                  alt={\`Foto profil \${profil.nama}\`}
+                  width={96}
+                  height={96}          // width dan height mencegah pergeseran tata letak
+                />
+              ) : (
+                <div className="foto-kosong" aria-hidden="true">
+                  {profil.nama.charAt(0).toUpperCase()}
+                </div>
+              )}
+
+              <h1>
+                {profil.nama}
+                {profil.terverifikasi && (
+                  // Ikon saja tidak cukup. Beri nama yang bisa dibaca pembaca layar.
+                  <IkonVerifikasi role="img" aria-label="Akun terverifikasi" />
+                )}
+              </h1>
+            </header>
+          );
+        }
+
+        function DaftarKeahlian({ keahlian, adaSaring }: DaftarProps) {
+          if (keahlian.length === 0) {
+            return (
+              <p className="kosong">
+                {adaSaring
+                  ? 'Tidak ada keahlian yang cocok dengan pencarianmu'
+                  : 'Belum menambahkan keahlian'}
+              </p>
+            );
+          }
+
+          return (
+            <ul className="keahlian">
+              {keahlian.map((k) => (
+                <li key={k.id}>{k.nama}</li>
+              ))}
+            </ul>
+          );
+        }
+        `,
+        { filename: 'src/profil/bagian.tsx' },
+      ),
+      p(
+        'Tipe `bio: string | null` dan `fotoUrl: string | null` bukan kelengkapan formalitas. Menuliskan bahwa keduanya boleh kosong memaksa TypeScript menolak kode yang memakainya tanpa memeriksa, dan itu yang membuat keadaan kosongnya tidak mungkin lupa ditulis. Ini penerapan langsung materi Bab 6 Frontend Basic, yaitu tipe yang jujur tentang ketiadaan nilai.',
+      ),
+      p(
+        'Atribut `width` dan `height` pada gambar mencegah pergeseran tata letak saat gambar selesai dimuat, dan itu bagian dari baseline performa project ini. Tanpa keduanya, seluruh isi halaman melompat ke bawah begitu gambar muncul, dan itu salah satu penyebab terbesar skor Cumulative Layout Shift yang buruk. Biayanya dua atribut.',
+      ),
+      p(
+        'Ikon verifikasi diberi `role="img"` dan `aria-label`, sebab ikon tanpa nama tidak berarti apa-apa bagi pengguna pembaca layar. Ini aturan yang sama dengan yang dibahas di Bab 4 Frontend Basic, yaitu jangan menyampaikan informasi hanya lewat bentuk visual. Sebaliknya `div` foto pengganti diberi `aria-hidden` karena huruf inisial di dalamnya adalah hiasan, dan nama penggunanya sudah dibacakan lewat judul.',
+      ),
+      p(
+        'Dua pesan kosong yang berbeda untuk daftar keahlian menutup masalah yang sudah dibahas di Bab 5 Frontend Basic. Kosong karena saringan dan kosong karena memang belum ada adalah dua keadaan berbeda yang menuntut tindakan berbeda dari pengguna. Membedakannya hanya butuh satu prop tambahan, dan hasilnya pesan yang benar-benar menolong.',
+      ),
+      callout(
+        'tip',
+        'Urutan membangun halaman yang jarang meninggalkan keadaan tertinggal',
+        'Mulai dari bentuk datanya, dan tuliskan mana yang boleh kosong. Lalu tulis keadaan kosong dan gagalnya. Baru terakhir jalur suksesnya. Kalau dibalik, keadaan kosong dan gagal akan menjadi tambalan yang tidak konsisten, sebab keduanya jarang muncul saat mengembangkan.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut adalah yang paling sering muncul saat halaman seperti ini bertemu data sungguhan.',
+      ),
+      code(
+        'text',
+        `
+        <p>{profil.bio.slice(0, 100)}</p>
+
+        TypeError: Cannot read properties of null (reading 'slice')
+        `,
+        { caption: 'Field yang boleh kosong dipakai tanpa diperiksa.' },
+      ),
+      p(
+        "Dengan tipe `bio: string | null`, TypeScript menolak kode ini sebelum dijalankan dengan pesan `'profil.bio' is possibly 'null'`. Tanpa tipe, ia lolos sampai ada satu pengguna yang belum mengisi bio. Inilah yang membuat menuliskan `| null` di tipe jauh lebih berharga daripada terlihat, sebab ia memindahkan kegagalan dari produksi ke waktu build.",
+      ),
+      code(
+        'text',
+        `
+        <img src={profil.fotoUrl} alt="" />
+
+        // fotoUrl bernilai null.
+        // Peramban meminta alamat halaman itu sendiri sebagai gambar,
+        // lalu gagal, lalu menampilkan ikon gambar rusak.
+        `,
+        { caption: 'Tidak ada error di console, dan permintaan sia-sia tetap dikirim.' },
+      ),
+      p(
+        'Atribut `src` bernilai `null` diubah menjadi teks kosong, dan peramban memperlakukan teks kosong sebagai alamat halaman saat ini. Akibatnya satu permintaan jaringan sia-sia untuk tiap gambar yang kosong, dan pada daftar berisi lima puluh profil itu lima puluh permintaan. Jangan render elemen `img` sama sekali kalau alamatnya tidak ada.',
+      ),
+      code(
+        'text',
+        `
+        <img src={profil.fotoUrl} />
+
+        Warning: Image elements must have an alt prop, either with meaningful
+        text, or an empty string for decorative images.
+        `,
+        { caption: 'Peringatan dari plugin lint aksesibilitas, bukan dari React.' },
+      ),
+      p(
+        'Peringatan ini datang dari `eslint-plugin-jsx-a11y` yang aktif pada sebagian besar penyiapan React termasuk Next.js. Yang perlu diputuskan bukan sekadar mengisinya melainkan memilih di antara dua kemungkinan. Gambar yang membawa informasi butuh `alt` yang menjelaskan, sedangkan gambar hiasan butuh `alt=""` supaya pembaca layar melewatinya. Mengisi `alt="gambar"` adalah pilihan terburuk sebab ia mengumumkan sesuatu yang tidak berguna.',
+      ),
+      code(
+        'text',
+        `
+        // Halaman terlihat benar. Lalu gambar profil selesai dimuat,
+        // dan seluruh isi halaman melompat 96 piksel ke bawah.
+        `,
+        { caption: 'Pergeseran tata letak, tanpa satu pun pesan.' },
+      ),
+      p(
+        'Sebelum gambar terunduh, peramban tidak tahu ukurannya sehingga menyediakan ruang nol. Begitu terunduh, ruang itu tiba-tiba terisi dan mendorong seluruh isi di bawahnya. Pengguna yang sedang hendak mengklik sesuatu bisa mengklik hal yang salah. Atribut `width` dan `height` menyelesaikannya sepenuhnya, dan keduanya tetap berlaku walaupun ukuran akhirnya diatur CSS.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`Cannot read properties of null`',
+            'Field yang boleh kosong dipakai tanpa diperiksa',
+            'Tuliskan `| null` di tipenya, lalu tangani keadaan kosongnya',
+          ],
+          [
+            'Ikon gambar rusak dan permintaan sia-sia',
+            '`src` bernilai `null` diubah menjadi teks kosong',
+            'Jangan render `img` sama sekali kalau alamatnya tidak ada',
+          ],
+          [
+            '`Image elements must have an alt prop`',
+            'Atribut `alt` tidak diisi',
+            'Isi dengan teks yang menjelaskan, atau `alt=""` untuk hiasan',
+          ],
+          [
+            'Isi halaman melompat saat gambar muncul',
+            'Ukuran gambar belum diketahui sebelum terunduh',
+            'Selalu tulis `width` dan `height`',
+          ],
+          [
+            'Pesan kosong menyesatkan',
+            'Satu pesan untuk kosong karena saringan dan kosong karena belum ada data',
+            'Bedakan keduanya lewat prop',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Praktik penutup bab ini menggabungkan seluruh materi, dan kesalahan yang muncul di sini hampir selalu berupa keadaan yang tidak dipikirkan sejak awal.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis tipe data tanpa menandai field yang boleh kosong',
+            'Datanya biasanya terisi',
+            'Kegagalan berpindah dari waktu build ke produksi, dan muncul pada pengguna pertama yang belum melengkapi profilnya',
+          ],
+          [
+            'Menguji hanya dengan satu profil yang lengkap',
+            'Itu bentuk data yang normal',
+            'Profil tanpa foto, tanpa bio, tanpa keahlian, dan dengan nama sangat panjang adalah empat kasus yang paling sering merusak tampilan',
+          ],
+          [
+            'Menyampaikan status verifikasi hanya lewat ikon',
+            'Ikonnya jelas terlihat',
+            'Pengguna pembaca layar tidak mendapat informasinya sama sekali. Beri `aria-label`',
+          ],
+          [
+            'Melupakan `width` dan `height` pada gambar',
+            'Ukurannya kan sudah diatur CSS',
+            'Sebelum gambar terunduh peramban tidak tahu ukurannya, dan tata letak melompat saat ia muncul',
+          ],
+          [
+            'Menaruh state saringan di komponen halaman',
+            'Supaya bisa dijangkau dari mana-mana',
+            'Setiap ketikan menggambar ulang seluruh halaman termasuk kepala profil. Simpan sedekat mungkin dengan yang memakainya',
+          ],
+          [
+            'Memakai indeks sebagai `key` pada daftar keahlian',
+            'Daftarnya kan tidak pernah diurutkan',
+            'Ia bisa disaring, dan menyaring mengubah posisi. Pakai id',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua layak dijadikan kebiasaan tetap sebelum menyatakan sebuah halaman selesai. Siapkan empat data uji, yaitu yang lengkap, yang seluruh field opsionalnya kosong, yang teksnya sangat panjang, dan yang daftarnya kosong. Membuka keempatnya memakan dua menit, dan ia menemukan sebagian besar masalah tampilan yang biasanya baru dilaporkan pengguna.',
+      ),
+      callout(
+        'info',
+        'Yang kamu bawa dari bab ini ke bab berikutnya',
+        'Komponen sebagai fungsi yang mengembalikan deskripsi, props sebagai nilai yang hanya bisa dibaca, `key` sebagai identitas bukan posisi, dan empat keadaan tampilan yang ditulis sejak awal. Bab berikutnya menambahkan satu hal yang belum ada di sini, yaitu ingatan yang bertahan antar-render, dan itulah yang disebut state.',
+      ),
       divider,
       h2('Rangkuman'),
       ul(

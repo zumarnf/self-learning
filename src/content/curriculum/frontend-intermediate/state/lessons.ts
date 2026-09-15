@@ -24,7 +24,7 @@ export const lessons: LessonDraft[] = [
   written(
     'usestate-dasar',
     '`useState`: dasar dan aturannya',
-    11,
+    22,
     'Menambahkan ingatan ke sebuah komponen — dan aturan yang mengikatnya.',
     [
       terms(
@@ -191,6 +191,240 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Panel filter di halaman katalog punya kotak pencarian, pilihan kategori, rentang harga, dan tombol bersihkan. Versi pertama menyimpan keempatnya di komponen halaman supaya bisa dijangkau dari mana saja. Setelah dipasang, mengetik satu huruf di kotak pencarian membuat seluruh halaman berkedip, termasuk daftar produk yang belum berubah dan kepala halaman yang tidak ada hubungannya.',
+      ),
+      p(
+        'Yang menentukan bukan berapa banyak state melainkan **di mana** ia disimpan. Aturannya satu kalimat, yaitu simpan sedekat mungkin dengan yang membacanya.',
+      ),
+      compare(
+        {
+          title: 'State di komponen halaman',
+          lang: 'tsx',
+          code: `
+          function HalamanKatalog() {
+            const [cari, setCari] = useState('');
+            const [kategori, setKategori] = useState('');
+
+            return (
+              <>
+                <KepalaHalaman />          {/* ikut digambar ulang */}
+                <input value={cari} onChange={(e) => setCari(e.target.value)} />
+                <PilihKategori nilai={kategori} onUbah={setKategori} />
+                <DaftarProduk cari={cari} kategori={kategori} />
+                <KakiHalaman />            {/* ikut digambar ulang */}
+              </>
+            );
+          }
+          `,
+          notes: ['Tiap ketikan menggambar ulang seluruh isi halaman'],
+        },
+        {
+          title: 'State di komponen yang memakainya',
+          lang: 'tsx',
+          code: `
+          function HalamanKatalog() {
+            return (
+              <>
+                <KepalaHalaman />
+                <PanelKatalog />          {/* hanya ini yang punya state */}
+                <KakiHalaman />
+              </>
+            );
+          }
+
+          function PanelKatalog() {
+            const [cari, setCari] = useState('');
+            const [kategori, setKategori] = useState('');
+
+            return (
+              <>
+                <input value={cari} onChange={(e) => setCari(e.target.value)} />
+                <PilihKategori nilai={kategori} onUbah={setKategori} />
+                <DaftarProduk cari={cari} kategori={kategori} />
+              </>
+            );
+          }
+          `,
+          notes: ['Kepala dan kaki halaman tidak tersentuh sama sekali'],
+        },
+      ),
+      p(
+        'Perubahan ini tidak menuntut satu pun pemanggilan pengoptimalan, dan hasilnya sudah terasa. Alasannya, React menggambar ulang komponen tempat state berubah beserta seluruh keturunannya. Memindahkan state turun satu tingkat berarti mengeluarkan seluruh saudara di atasnya dari cakupan itu. Ini pengoptimalan dengan rasio hasil terhadap usaha yang paling tinggi, dan ia sering dilewatkan karena tidak terlihat seperti pengoptimalan.',
+      ),
+      code(
+        'tsx',
+        `
+        // Nilai awal yang mahal: pakai bentuk fungsi, bukan nilai langsung.
+        // SALAH: bacaDrafDariPenyimpanan() dipanggil pada SETIAP render,
+        // dan hasilnya dibuang kecuali render pertama.
+        const [draf, setDraf] = useState(bacaDrafDariPenyimpanan());
+
+        // BENAR: React hanya memanggilnya saat inisialisasi.
+        const [draf, setDraf] = useState(() => bacaDrafDariPenyimpanan());
+        `,
+        {
+          caption: 'Perbedaan satu pasang tanda kurung, dan satu pembacaan penyimpanan per render.',
+        },
+      ),
+      p(
+        "Bentuk fungsi ini disebut lazy initializer, dan gunanya baru terasa saat penyiapan nilainya benar-benar mahal, misalnya membaca `localStorage`, menguraikan JSON besar, atau menghitung dari daftar panjang. Untuk nilai awal sederhana seperti `useState(0)` atau `useState('')`, bentuk biasa sudah tepat dan membungkusnya dengan fungsi hanya menambah kebisingan.",
+      ),
+      p(
+        'Perlu ditegaskan `useState` hanya memakai argumennya sekali seumur hidup komponen. Kalau props berubah, nilai awal itu **tidak** dibaca ulang. Ini penyebab bug yang sangat sering, yaitu `useState(props.nilai)` yang tidak pernah mengikuti perubahan `props.nilai`. Bagian error di bawah membahasnya, dan jalan keluarnya ada di sub-bab tentang state turunan.',
+      ),
+      callout(
+        'tip',
+        'Tiga pertanyaan sebelum menambahkan satu state',
+        'Apakah nilainya bisa dihitung dari state atau props yang sudah ada, sebab kalau ya ia bukan state melainkan nilai turunan. Apakah ia hanya dibaca satu komponen, sebab kalau ya ia harus tinggal di sana. Dan apakah ia harus bertahan setelah halaman dimuat ulang, sebab kalau ya tempatnya bukan di state melainkan di alamat halaman atau penyimpanan.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut diuji dengan React 19 sungguhan, dan dua di antaranya tidak melempar apa pun.',
+      ),
+      code(
+        'text',
+        `
+        function Kartu() {
+          const [n, setN] = useState(0);
+          setN(n + 1);              // dipanggil langsung di badan komponen
+          return <div>{n}</div>;
+        }
+
+        Error: Too many re-renders. React limits the number of renders
+        to prevent an infinite loop.
+        `,
+        { caption: 'Setiap render memicu pembaruan, dan pembaruan memicu render lagi.' },
+      ),
+      p(
+        'React menghentikan putarannya setelah sekitar lima puluh render dan melempar. Tanpa batas itu, tab akan membeku total. Penyebabnya selalu sama, yaitu setter dipanggil selama render alih-alih di dalam penangan peristiwa atau efek. Kalau kamu memang perlu menghitung sesuatu dari props, itu bukan state melainkan nilai turunan yang cukup dihitung langsung.',
+      ),
+      code(
+        'text',
+        `
+        function Kotak({ awal }) {
+          const [nilai, setNilai] = useState(awal);
+          return <input value={nilai} onChange={(e) => setNilai(e.target.value)} />;
+        }
+
+        // Induk mengubah 'awal' dari 'Sari' menjadi 'Budi'.
+        // Kotak tetap menampilkan 'Sari'. Tidak ada error.
+        `,
+        { caption: 'Nilai awal hanya dibaca sekali seumur hidup komponen.' },
+      ),
+      p(
+        'Ini kesalahpahaman paling sering tentang `useState`. Argumennya bukan nilai yang terus diikuti melainkan nilai **awal**, dan React mengabaikannya pada seluruh render berikutnya. Ada tiga jalan keluar tergantung maksudnya. Kalau nilainya memang harus mengikuti props, jangan disimpan sebagai state. Kalau ia harus direset saat konteksnya berganti, pakai `key` pada komponennya. Ketiga, kirim nilainya dari induk beserta penanganya.',
+      ),
+      code(
+        'text',
+        `
+        const [n, setN] = useState(0);
+        // ...
+        n = 5;
+
+        TypeError: Assignment to constant variable.
+        `,
+        { caption: 'State diubah langsung, bukan lewat setternya.' },
+      ),
+      p(
+        'Error ini justru menolong sebab ia menghentikan kesalahan yang paling mendasar. Menugaskan langsung tidak akan pernah bekerja walaupun deklarasinya `let`, sebab React tidak punya cara mengetahui nilainya berubah sehingga tidak ada penggambaran ulang. Satu-satunya cara mengubah state adalah lewat setternya, dan itu bukan formalitas melainkan cara React tahu ada yang perlu digambar ulang.',
+      ),
+      code(
+        'text',
+        `
+        const [daftar, setDaftar] = useState([]);
+        // ...
+        daftar.push(itemBaru);
+        setDaftar(daftar);
+
+        // Tidak ada error. Tampilan tidak berubah sama sekali.
+        `,
+        { caption: 'Array diubah di tempat, lalu diserahkan kembali sebagai dirinya sendiri.' },
+      ),
+      p(
+        'React membandingkan nilai lama dan baru dengan `Object.is`, dan karena `daftar` masih object yang sama persis, ia menyimpulkan tidak ada yang berubah lalu melewati penggambaran ulang. Ini pantangan mutasi dari Bab 1 Frontend Basic, dan di React akibatnya berupa tampilan yang diam. Bentuk yang benar `setDaftar([...daftar, itemBaru])`, dan pembahasan lengkapnya ada di Sub-bab 4.4.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`Too many re-renders`',
+            'Setter dipanggil langsung di badan komponen',
+            'Pindahkan ke penangan peristiwa atau efek',
+          ],
+          [
+            'State tidak mengikuti perubahan props',
+            'Argumen `useState` hanya dibaca sekali',
+            'Jangan salin props ke state, atau reset dengan `key`',
+          ],
+          [
+            '`Assignment to constant variable`',
+            'State diubah langsung tanpa setter',
+            'Pakai setternya',
+          ],
+          [
+            'Tampilan tidak berubah setelah setState',
+            'Nilainya diubah di tempat lalu diserahkan kembali',
+            'Buat nilai baru, misalnya `[...daftar, item]`',
+          ],
+          [
+            'Seluruh halaman berkedip tiap ketikan',
+            'State disimpan terlalu tinggi di pohon komponen',
+            'Pindahkan ke komponen yang benar-benar memakainya',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        '`useState` adalah hook pertama yang dipelajari dan yang paling sering dipakai secara berlebihan. Sebagian besar baris di bawah adalah tentang state yang seharusnya tidak pernah ada.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyimpan nilai yang bisa dihitung dari state lain',
+            'Supaya tidak dihitung ulang tiap render',
+            'Dua sumber kebenaran yang harus dijaga tetap sinkron, dan itu selalu gagal. Hitung saat render, dan ini dibahas di Sub-bab 4.9',
+          ],
+          [
+            'Menyalin props ke state dengan `useState(props.x)`',
+            'Supaya bisa diubah di dalam',
+            'Nilainya tidak pernah mengikuti perubahan props. Kalau memang perlu diubah, angkat penanganya ke induk',
+          ],
+          [
+            'Membuat satu state untuk tiap field formulir',
+            'Tiap field kan berbeda',
+            'Sepuluh field berarti sepuluh state dan sepuluh setter. Kumpulkan menjadi satu object, atau pakai `FormData` seperti di Bab 5 Frontend Basic',
+          ],
+          [
+            'Menyimpan state di komponen paling atas',
+            'Supaya bisa dijangkau semua',
+            'Setiap perubahan menggambar ulang seluruh pohon. Simpan sedekat mungkin dengan pembacanya',
+          ],
+          [
+            'Memanggil fungsi mahal langsung sebagai nilai awal',
+            'Ia kan hanya nilai awal',
+            'Fungsinya dipanggil pada tiap render dan hasilnya dibuang. Bungkus dengan fungsi panah',
+          ],
+          [
+            'Menyimpan keadaan yang harus bertahan di state',
+            'State kan tempat menyimpan',
+            'State hilang saat halaman dimuat ulang. Untuk filter dan halaman keberapa, tempatnya di alamat halaman',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama adalah sumber bug yang paling sering di seluruh bab ini, dan gejalanya khas. Kalau ada dua nilai yang harus selalu cocok dan kamu menulis kode untuk menjaganya tetap cocok, salah satunya seharusnya bukan state. Contoh yang paling sering, menyimpan `daftar` dan `jumlahDaftar` sebagai dua state terpisah. Yang kedua cukup dihitung dengan `daftar.length` saat render, dan seluruh kode penjaga sinkronisasinya hilang.',
+      ),
+      callout(
+        'info',
+        'State adalah ingatan komponen, bukan tempat penyimpanan data',
+        'Yang layak menjadi state adalah hal yang berubah karena interaksi pengguna dan mempengaruhi tampilan, misalnya tab yang aktif atau isi kotak pencarian. Data dari server punya kebutuhan sendiri berupa cache, kesegaran, dan penanganan gagal, dan itu bukan pekerjaan `useState`. Pembahasannya ada di bab tentang state management.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Variabel biasa tidak memicu render dan ter-reset setiap render.',
@@ -230,7 +464,7 @@ export const lessons: LessonDraft[] = [
   written(
     'state-snapshot',
     'State itu Snapshot, Bukan Variabel Biasa',
-    13,
+    23,
     'Satu gagasan yang menyelesaikan sebagian besar kebingungan tentang React.',
     [
       p(
@@ -427,6 +661,220 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Tombol Tambah pada kartu produk harus menambah jumlah di keranjang lalu menampilkan pesan berisi jumlah barunya. Kamu menulisnya dalam tiga baris yang terlihat lurus, yaitu setel jumlah baru, lalu baca jumlahnya, lalu tampilkan pesan. Pesannya selalu menyebut angka yang lama. Pengguna menambah barang ketiga, dan pesannya berbunyi sekarang ada 2 barang.',
+      ),
+      p('Berikut hasil pengukuran sungguhan dengan React 19 di jsdom, bukan perkiraan.'),
+      code(
+        'tsx',
+        `
+        function Keranjang() {
+          const [n, setN] = useState(0);
+
+          return (
+            <button
+              onClick={() => {
+                setN(n + 1);
+                console.log('n TEPAT setelah setN:', n);   // nilai LAMA
+              }}
+            >
+              Tambah
+            </button>
+          );
+        }
+
+        // Keluaran terukur saat n bernilai 4:
+        // n TEPAT setelah setN: 4
+        // (render berikutnya baru menampilkan 5)
+        `,
+        { caption: 'Diukur dengan React 19 sungguhan. Nilainya tetap 4 setelah setN dipanggil.' },
+      ),
+      p(
+        'Penyebabnya bukan penundaan melainkan **closure**, dan itu materi yang sudah kamu pelajari di Bab 1 Frontend Basic. Variabel `n` di dalam penangan adalah konstanta yang nilainya ditetapkan saat render itu terjadi. Memanggil `setN` tidak mengubah konstanta itu, sebab tidak ada yang bisa mengubah konstanta. Yang ia lakukan adalah memberi tahu React untuk menjalankan komponennya lagi dengan nilai baru, dan di render berikutnya `n` adalah konstanta baru yang berbeda.',
+      ),
+      p(
+        'Istilah yang dipakai untuk ini adalah snapshot, yaitu tiap render memotret seluruh nilainya dan penangan peristiwa yang dibuat di render itu selamanya memegang potret tersebut. Sekali gagasan ini masuk, sebagian besar kebingungan tentang state React selesai sekaligus, termasuk yang dibahas di sub-bab berikutnya tentang tiga pemanggilan yang hanya menambah satu.',
+      ),
+      code(
+        'tsx',
+        `
+        // Perbaikannya: hitung nilainya SEKALI, lalu pakai variabel itu.
+        function Keranjang() {
+          const [n, setN] = useState(0);
+
+          return (
+            <button
+              onClick={() => {
+                const berikut = n + 1;      // satu sumber kebenaran di dalam penangan
+                setN(berikut);
+                tampilkanPesan(\`Sekarang ada \${berikut} barang\`);
+                catatAnalitik('tambah_keranjang', { jumlah: berikut });
+              }}
+            >
+              Tambah
+            </button>
+          );
+        }
+        `,
+        { filename: 'src/keranjang/TombolTambah.tsx' },
+      ),
+      p(
+        'Pola ini menyelesaikan seluruh masalahnya tanpa satu pun hook tambahan. Karena `berikut` dihitung sekali lalu dipakai di tiga tempat, tidak ada satu pun yang membaca nilai lama. Yang perlu dihindari adalah menghitung `n + 1` berulang di tiap baris, sebab itu mengulang perhitungan yang sama dan membuka peluang salah satu terlewat saat kode berubah.',
+      ),
+      p(
+        'Ada satu kasus di mana pola ini tidak cukup, yaitu ketika nilai barunya harus dihitung dari nilai terbaru yang mungkin sudah diubah pemanggilan lain. Untuk itu ada bentuk fungsi pada setter, dan itu topik sub-bab berikutnya. Untuk penangan peristiwa biasa yang hanya menyetel sekali, menghitung ke variabel sudah tepat dan lebih terbaca.',
+      ),
+      callout(
+        'info',
+        'Snapshot berlaku juga untuk props dan variabel lain di dalam komponen',
+        'Bukan hanya state. Setiap nilai yang dibaca penangan peristiwa adalah nilai dari render tempat penangan itu dibuat, termasuk props, hasil perhitungan, dan variabel biasa. Ini penting saat kamu memakai `setTimeout` atau `await` di dalam penangan, sebab nilainya tetap yang lama walaupun sudah lewat beberapa detik.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Snapshot hampir tidak pernah melempar error. Yang muncul adalah nilai yang tertinggal satu langkah, dan itulah yang membuatnya sulit dikenali sebelum kamu tahu mekanismenya.',
+      ),
+      code(
+        'text',
+        `
+        setN(n + 1);
+        console.log(n);
+
+        // n bernilai 4, dan tetap 4. Tidak ada error.
+        `,
+        { caption: 'Diukur sungguhan. Nilainya tidak berubah di baris berikutnya.' },
+      ),
+      p(
+        'Ini bukan bug React melainkan konsekuensi langsung dari `n` yang berupa konstanta. Kalau kamu perlu memakai nilai barunya di baris yang sama, hitung ke variabel lebih dulu. Kalau kamu perlu bereaksi setelah nilainya benar-benar berubah, tempatnya bukan di penangan melainkan di efek, dan itu dibahas di Bab 7.',
+      ),
+      code(
+        'text',
+        `
+        onClick={() => {
+          setN(n + 1);
+          kirimKeServer(n);        // mengirim nilai LAMA
+        }}
+
+        // Server menerima 4, padahal yang ditampilkan pengguna 5.
+        `,
+        { caption: 'Tidak ada error, dan data yang tersimpan salah satu langkah.' },
+      ),
+      p(
+        'Inilah bentuk paling mahal dari jebakan snapshot, sebab akibatnya berupa data yang salah tersimpan di server. Gejalanya sangat sulit dikenali dari laporan pengguna, yaitu jumlahnya kadang kurang satu. Perbaikannya sama, yaitu hitung ke variabel lalu kirim variabel itu, bukan membaca state lagi.',
+      ),
+      code(
+        'text',
+        `
+        onClick={() => {
+          setPesan('Menyimpan...');
+          setTimeout(() => {
+            console.log(pesan);    // masih nilai dari SEBELUM diklik
+          }, 2000);
+        }}
+
+        // Dua detik kemudian, yang tercetak tetap nilai lama.
+        `,
+        { caption: 'Penundaan tidak mengubah nilai yang tertangkap closure.' },
+      ),
+      p(
+        'Menunggu dua detik tidak membuat closure membaca nilai baru, sebab yang ia pegang adalah konstanta dari render lama. Ini sering mengejutkan karena orang mengira masalahnya waktu. Kalau kamu butuh nilai terbaru di dalam penundaan, ada dua jalan, yaitu memakai bentuk fungsi pada setter, atau menyimpan nilainya di `ref` yang memang dirancang untuk hidup di luar alur render.',
+      ),
+      code(
+        'text',
+        `
+        async function simpan() {
+          setMemuat(true);
+          await kirim(data);
+          if (memuat) { /* selalu false di sini */ }
+        }
+
+        // Kondisinya tidak pernah benar. Tidak ada error.
+        `,
+        { caption: '`await` tidak mengubah nilai yang sudah tertangkap.' },
+      ),
+      p(
+        'Sama seperti `setTimeout`, `await` hanya menunda eksekusi dan tidak membuat variabel membaca ulang. Nilai `memuat` di baris terakhir adalah nilai dari render saat fungsi ini dibuat, yaitu `false`. Kalau kamu perlu memeriksa apakah masih relevan setelah `await`, yang dibutuhkan penjaga nomor permintaan seperti di Bab 3 Frontend Basic, bukan membaca state.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Nilai tetap sama tepat setelah setter dipanggil',
+            'Variabelnya konstanta dari render ini',
+            'Hitung ke variabel lebih dulu, lalu pakai variabel itu',
+          ],
+          [
+            'Data yang dikirim ke server tertinggal satu langkah',
+            'Nilai lama dibaca setelah setter',
+            'Kirim variabel hasil perhitungan, bukan state',
+          ],
+          [
+            'Nilai di dalam `setTimeout` tetap lama',
+            'Closure memegang konstanta dari render lama',
+            'Pakai bentuk fungsi pada setter, atau `ref`',
+          ],
+          [
+            'Kondisi setelah `await` tidak pernah benar',
+            'Nilainya sudah tertangkap sebelum `await`',
+            'Pakai penjaga nomor permintaan, bukan membaca state',
+          ],
+          [
+            'Dua penangan membaca nilai yang berbeda',
+            'Keduanya dibuat pada render yang berbeda',
+            'Pastikan keduanya dibuat di render yang sama, atau pakai bentuk fungsi',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Gagasan snapshot bertentangan dengan intuisi yang dibangun dari JavaScript biasa, dan sebagian besar kesalahan di bawah berasal dari memperlakukan state seperti variabel biasa.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membaca state tepat setelah memanggil setternya',
+            'Barusan disetel, jadi pasti sudah berubah',
+            'Variabelnya konstanta dari render ini dan tidak bisa berubah. Hitung ke variabel lebih dulu',
+          ],
+          [
+            'Menambahkan `setTimeout` supaya nilainya sempat berubah',
+            'Mungkin hanya perlu menunggu sebentar',
+            'Menunggu tidak mengubah nilai yang tertangkap closure. Ini tebakan yang tidak pernah benar',
+          ],
+          [
+            'Memakai `ref` untuk menghindari snapshot pada semua hal',
+            '`ref` selalu berisi nilai terbaru',
+            'Mengubah `ref` tidak menggambar ulang, sehingga tampilan tidak mengikuti. Pakai `ref` hanya untuk nilai yang tidak mempengaruhi tampilan',
+          ],
+          [
+            'Mengira snapshot hanya berlaku untuk state',
+            'Yang dibahas kan state',
+            'Ia berlaku untuk props dan seluruh variabel di dalam komponen. Penangan memegang potret seluruh render itu',
+          ],
+          [
+            'Membaca nilai state di dalam fungsi async setelah `await`',
+            'Fungsinya kan masih berjalan',
+            'Nilainya sudah tertangkap sebelum `await`. Pakai penjaga nomor permintaan untuk memeriksa relevansi',
+          ],
+          [
+            'Menganggap ini bug React yang perlu diakali',
+            'Perilakunya tidak seperti dugaan',
+            'Ia justru yang membuat render bisa diprediksi. Tanpa snapshot, nilai bisa berubah di tengah penangan dan hasilnya tidak konsisten',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir layak direnungkan sebab ia mengubah snapshot dari gangguan menjadi jaminan. Karena seluruh nilai dalam satu penangan berasal dari render yang sama, kamu bisa yakin `n` di baris pertama dan `n` di baris kesepuluh adalah nilai yang sama persis. Kalau state bisa berubah di tengah penangan, tidak ada satu pun bagian kode yang bisa mengandalkan nilai yang baru saja ia baca.',
+      ),
+      callout(
+        'tip',
+        'Cara membuktikannya sendiri dalam satu menit',
+        'Buat komponen dengan satu state angka dan satu tombol. Di dalam penanganya, panggil setternya lalu cetak nilainya. Klik sekali, dan lihat angka yang tercetak. Percobaan satu menit itu memberi model mental yang jauh lebih kuat daripada penjelasan mana pun, termasuk penjelasan ini.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'State adalah konstanta untuk satu render, bukan variabel yang berubah.',
@@ -467,7 +915,7 @@ export const lessons: LessonDraft[] = [
   written(
     'batching-updater',
     'Batching & Updater Function',
-    12,
+    22,
     'Beberapa pembaruan dalam satu event — dan kapan bentuk updater wajib.',
     [
       terms(
@@ -624,6 +1072,237 @@ export const lessons: LessonDraft[] = [
       p('Ini alasan lain kenapa immutability penting: React membandingkan referensi, bukan isi.'),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Tombol Tambah Semua pada halaman keranjang harus menambah tiga barang sekaligus. Kamu menulis tiga pemanggilan setter berurutan, dan hasilnya jumlah hanya bertambah satu. Kamu mencoba membungkusnya dengan `setTimeout`, dan hasilnya bertambah tiga tapi layar berkedip tiga kali. Kedua gejala itu punya penjelasan yang sama, dan pengukurannya di bawah dilakukan dengan React 19 sungguhan.',
+      ),
+      compare(
+        {
+          title: 'Menyetel dengan nilai',
+          lang: 'tsx',
+          code: `
+          onClick={() => {
+            setN(n + 1);
+            setN(n + 1);
+            setN(n + 1);
+          }}
+
+          // n bernilai 0 saat diklik.
+          // HASIL TERUKUR: 1
+          `,
+          notes: [
+            'Ketiganya memakai `n` yang sama, yaitu 0, sehingga ketiganya menyetel 1',
+            'Ini akibat langsung dari snapshot di sub-bab sebelumnya',
+          ],
+        },
+        {
+          title: 'Menyetel dengan fungsi',
+          lang: 'tsx',
+          code: `
+          onClick={() => {
+            setN((v) => v + 1);
+            setN((v) => v + 1);
+            setN((v) => v + 1);
+          }}
+
+          // n bernilai 1 saat diklik.
+          // HASIL TERUKUR: 4
+          `,
+          notes: [
+            'Tiap fungsi menerima nilai TERBARU dalam antrean, bukan snapshot',
+            'React menjalankan ketiganya berurutan sebelum menggambar',
+          ],
+        },
+      ),
+      p(
+        'Angka 1 dan 4 di atas diukur sungguhan, bukan diperkirakan. Kolom kiri menghasilkan 1 karena ketiga pemanggilan memakai `n` yang sama, yaitu potret dari render saat tombol diklik. Ketiganya berkata jadikan nilainya 1, dan yang terakhir menang. Kolom kanan menghasilkan 4 karena tiap fungsi menerima nilai terbaru dari antrean, yaitu 1 lalu 2 lalu 3, dan menghasilkan 4.',
+      ),
+      p(
+        'Bagian kedua yang perlu diketahui adalah batching. Diukur pada percobaan yang sama, dua pemanggilan setter untuk dua state berbeda dalam satu penangan hanya menghasilkan **satu** render. React mengumpulkan seluruh pembaruan dalam satu penangan lalu memprosesnya sekaligus. Ini yang membuat menyetel lima state sekaligus tidak berarti lima kali penggambaran.',
+      ),
+      code(
+        'tsx',
+        `
+        // Diukur: dua setState dalam satu penangan -> jumlah render bertambah 1.
+        onClick={() => {
+          setN(n + 1);
+          setPesan('Ditambahkan');
+          // Halaman digambar ulang SEKALI, dengan kedua nilai baru sekaligus.
+        }}
+        `,
+        { caption: 'Batching berlaku juga untuk penangan asinkron sejak React 18.' },
+      ),
+      p(
+        'Sejak React 18, batching berlaku di mana pun termasuk di dalam `setTimeout`, di dalam janji, dan di penangan peristiwa asli. Sebelumnya batching hanya berlaku di penangan peristiwa React, dan itu sumber perbedaan perilaku yang membingungkan. Kalau kamu membaca tulisan lama yang menyebut setter di dalam `setTimeout` tidak di-batch, itu sudah tidak berlaku.',
+      ),
+      code(
+        'tsx',
+        `
+        // Kapan bentuk fungsi WAJIB dipakai:
+        // 1. Beberapa pembaruan berurutan dalam satu penangan.
+        setN((v) => v + 1);
+        setN((v) => v + 1);
+
+        // 2. Pembaruan di dalam penundaan atau setelah await.
+        setTimeout(() => setN((v) => v + 1), 1000);
+
+        // 3. Pembaruan dari penangan yang dipasang sekali dan hidup lama.
+        useEffect(() => {
+          const id = setInterval(() => setDetik((v) => v + 1), 1000);
+          return () => clearInterval(id);
+        }, []);   // dependensi kosong, jadi closure-nya dari render pertama
+        `,
+        { caption: 'Ketiganya sama-sama membutuhkan nilai terbaru, bukan snapshot.' },
+      ),
+      p(
+        'Kasus ketiga adalah yang paling sering menyebabkan bug yang membingungkan. Efek dengan dependensi kosong hanya berjalan sekali, sehingga fungsi di dalam `setInterval` selamanya memegang potret dari render pertama. Dengan `setDetik(detik + 1)`, nilainya selalu nol tambah satu sehingga penghitungnya berhenti di satu. Dengan bentuk fungsi, ia bekerja benar tanpa perlu menambah dependensi apa pun.',
+      ),
+      callout(
+        'tip',
+        'Aturan satu kalimat untuk memilih bentuknya',
+        'Kalau nilai barumu dihitung dari nilai lama, pakai bentuk fungsi. Kalau nilai barunya tidak bergantung pada yang lama, misalnya menyetel dari isi kotak input, bentuk nilai biasa sudah tepat dan lebih terbaca. Ragu berarti pakai bentuk fungsi, sebab ia benar di kedua kasus.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Batching dan bentuk updater hampir tidak pernah melempar. Yang muncul adalah angka yang salah, dan keempat bentuk di bawah diukur dengan React sungguhan.',
+      ),
+      code(
+        'text',
+        `
+        setN(n + 1);
+        setN(n + 1);
+        setN(n + 1);
+
+        // n awal 0. HASIL TERUKUR: 1, bukan 3.
+        `,
+        { caption: 'Ketiganya memakai snapshot yang sama.' },
+      ),
+      p(
+        'Tidak ada error dan tidak ada peringatan. Yang perlu dikenali adalah polanya, yaitu beberapa pemanggilan setter berurutan yang seluruhnya membaca state yang sama. Kalau kamu melihat itu di kode, hampir pasti hanya yang terakhir yang berlaku. Ganti seluruhnya menjadi bentuk fungsi, atau gabungkan menjadi satu pemanggilan.',
+      ),
+      code(
+        'text',
+        `
+        useEffect(() => {
+          const id = setInterval(() => setDetik(detik + 1), 1000);
+          return () => clearInterval(id);
+        }, []);
+
+        // Penghitung berhenti di 1 selamanya. Tidak ada error.
+        `,
+        { caption: 'Closure dari render pertama memegang `detik` bernilai nol.' },
+      ),
+      p(
+        'Ini bug penghitung yang paling terkenal di React, dan penyebabnya bukan `setInterval` melainkan dependensi kosong yang membuat efeknya tidak pernah dijalankan ulang. Ada dua jalan keluar, yaitu memakai bentuk fungsi seperti pada studi kasus, atau menambahkan `detik` ke dependensi sehingga intervalnya dipasang ulang tiap detik. Yang pertama jauh lebih baik sebab ia tidak membongkar dan memasang ulang timer.',
+      ),
+      code(
+        'text',
+        `
+        setPengaturan({ ...pengaturan, tema: 'gelap' });
+        setPengaturan({ ...pengaturan, bahasa: 'id' });
+
+        // Hasil: hanya bahasa yang berubah. Tema kembali seperti semula.
+        `,
+        { caption: 'Dua pembaruan object yang keduanya menyebar snapshot yang sama.' },
+      ),
+      p(
+        "Ini bentuk yang sama dengan jebakan angka, hanya lebih berbahaya karena akibatnya berupa data yang hilang bukan sekadar angka yang kurang. Pemanggilan kedua menyebar `pengaturan` versi lama yang temanya masih terang, sehingga perubahan pertama tertimpa. Pakai bentuk fungsi, yaitu `setPengaturan((p) => ({ ...p, bahasa: 'id' }))`, dan keduanya berlaku.",
+      ),
+      code(
+        'text',
+        `
+        setN((v) => {
+          simpanKeServer(v + 1);      // efek samping di dalam updater
+          return v + 1;
+        });
+
+        // Di StrictMode, simpanKeServer dipanggil DUA KALI.
+        `,
+        { caption: 'Fungsi updater harus murni, dan React memanggilnya lebih dari sekali.' },
+      ),
+      p(
+        'React memperlakukan fungsi updater sebagai fungsi murni dan boleh memanggilnya beberapa kali, terutama di `StrictMode` yang sengaja memanggilnya dua kali untuk menemukan efek samping. Karena itu jangan pernah menaruh pemanggilan server, pencatatan, atau perubahan variabel luar di dalamnya. Ia hanya boleh menghitung dan mengembalikan nilai baru, persis seperti fungsi murni di Bab 2 Frontend Basic.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Tiga pemanggilan setter hanya menambah satu',
+            'Ketiganya memakai snapshot yang sama',
+            'Pakai bentuk fungsi `setN((v) => v + 1)`',
+          ],
+          [
+            'Penghitung dalam interval berhenti di satu',
+            'Closure dari render pertama memegang nilai nol',
+            'Pakai bentuk fungsi, jangan menambah dependensi',
+          ],
+          [
+            'Perubahan object pertama tertimpa yang kedua',
+            'Keduanya menyebar snapshot yang sama',
+            'Pakai bentuk fungsi yang menyebar nilai terbaru',
+          ],
+          [
+            'Efek samping berjalan dua kali di pengembangan',
+            'Ada efek samping di dalam fungsi updater',
+            'Updater harus murni, pindahkan efek sampingnya keluar',
+          ],
+          [
+            'Layar berkedip beberapa kali untuk satu aksi',
+            'Pembaruan dipecah ke beberapa tugas terpisah',
+            'Kumpulkan dalam satu penangan supaya di-batch',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Batching dan bentuk updater adalah dua hal yang paling sering diakali alih-alih dipahami, dan hampir seluruh akalannya menambah masalah baru.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memanggil setter berkali-kali dengan bentuk nilai',
+            'Tiap pemanggilan kan menambah satu',
+            'Ketiganya memakai snapshot yang sama, jadi hanya yang terakhir berlaku',
+          ],
+          [
+            'Membungkus dengan `setTimeout` supaya tidak di-batch',
+            'Supaya tiap pembaruan terpisah',
+            'Sejak React 18 batching berlaku di sana juga, dan kalaupun tidak, layar akan berkedip beberapa kali',
+          ],
+          [
+            'Memakai bentuk fungsi untuk semua pembaruan',
+            'Lebih aman',
+            'Untuk nilai yang tidak bergantung nilai lama, misalnya dari kotak input, bentuk biasa lebih terbaca. Bentuk fungsi bukan salah, hanya lebih berisik',
+          ],
+          [
+            'Menaruh pencatatan atau pemanggilan server di dalam updater',
+            'Di sana nilai terbarunya tersedia',
+            'React boleh memanggilnya beberapa kali. Hitung nilainya di updater, dan lakukan efek sampingnya di luar',
+          ],
+          [
+            'Menyimpan beberapa state yang selalu berubah bersamaan',
+            'Tiap nilai punya state sendiri',
+            'Menambah peluang salah satu terlewat saat diperbarui. Kumpulkan menjadi satu object, atau pakai `useReducer`',
+          ],
+          [
+            'Mengira batching menunda pembaruan',
+            'Namanya mengumpulkan',
+            'Ia mengumpulkan dalam satu tugas lalu memproses semuanya sekaligus, dan itu terjadi sebelum penggambaran berikutnya. Tidak ada penundaan yang terasa',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima layak dipertimbangkan begitu kamu punya tiga state atau lebih yang selalu berubah bersama, misalnya `memuat`, `data`, dan `galat`. Ketiganya menggambarkan satu keadaan, dan memisahkannya membuka kemungkinan keadaan yang tidak masuk akal, misalnya sedang memuat sekaligus punya galat. Menggabungkannya menjadi satu object atau satu reducer membuat kombinasi yang tidak masuk akal menjadi mustahil.',
+      ),
+      callout(
+        'info',
+        'Cara React memproses antrean pembaruan',
+        'Tiap pemanggilan setter menaruh satu entri di antrean, bisa berupa nilai atau fungsi. Sebelum render berikutnya, React memproses antrean itu berurutan. Entri berupa nilai menggantikan hasilnya, dan entri berupa fungsi dipanggil dengan hasil sejauh ini. Itulah kenapa mencampur keduanya menghasilkan urutan yang perlu dipikirkan, dan kenapa memakai satu bentuk saja lebih mudah diprediksi.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Semua `setState` dalam satu tugas di-batch jadi satu render.',
@@ -664,7 +1343,7 @@ export const lessons: LessonDraft[] = [
   written(
     'update-immutable',
     'Memperbarui Object & Array secara Immutable',
-    13,
+    25,
     'Kenapa `push` tidak memicu render — dan cara memperbarui data bersarang tanpa mutasi.',
     [
       terms(
@@ -875,6 +1554,247 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman pengaturan notifikasi punya struktur bersarang tiga tingkat, yaitu pengaturan berisi kanal, kanal berisi email, dan email berisi daftar jenis pemberitahuan. Pengguna mematikan satu jenis, dan tampilan tidak berubah. Kamu menambahkan pemanggilan setter lagi, dan tampilan berubah tapi pengaturan lain ikut kembali ke bawaan. Keduanya adalah gejala dari satu penyebab, yaitu object bersarang diubah dengan cara yang setengah benar.',
+      ),
+      code(
+        'tsx',
+        `
+        type Pengaturan = {
+          tema: 'terang' | 'gelap';
+          kanal: {
+            email: { aktif: boolean; jenis: string[] };
+            push: { aktif: boolean; jenis: string[] };
+          };
+        };
+
+        // SALAH 1: diubah di tempat. React tidak tahu ada perubahan.
+        pengaturan.kanal.email.aktif = false;
+        setPengaturan(pengaturan);        // object yang SAMA, tidak ada render
+
+        // SALAH 2: disalin satu lapis. Lapisan dalam masih dibagi bersama.
+        setPengaturan({ ...pengaturan, kanal: { ...pengaturan.kanal, email: { aktif: false } } });
+        // 'jenis' hilang, sebab email diganti object baru yang tidak memuatnya
+        `,
+        { caption: 'Dua kesalahan yang gejalanya berlawanan, dan penyebabnya sama.' },
+      ),
+      p(
+        'Kesalahan pertama adalah pantangan mutasi dari Bab 1 Frontend Basic. React membandingkan dengan `Object.is`, dan karena rujukannya sama persis ia menyimpulkan tidak ada yang berubah. Kesalahan kedua adalah penyalinan dangkal yang sudah dibahas di Bab 1 juga, yaitu spread hanya menyalin satu lapis sehingga mengganti `email` dengan object baru menghapus field yang tidak disebut.',
+      ),
+      code(
+        'tsx',
+        `
+        // BENAR: salin tiap lapisan yang dilewati, sampai ke yang diubah.
+        setPengaturan({
+          ...pengaturan,
+          kanal: {
+            ...pengaturan.kanal,
+            email: {
+              ...pengaturan.kanal.email,
+              aktif: false,
+            },
+          },
+        });
+        `,
+        {
+          caption:
+            'Tiga lapis berarti tiga spread. Yang tidak dilewati tetap dibagi, dan itu benar.',
+        },
+      ),
+      p(
+        'Aturannya bisa dinyatakan satu kalimat, yaitu salin setiap object di sepanjang jalur dari akar sampai ke nilai yang diubah, dan biarkan sisanya. Object `push` pada contoh di atas tidak disalin dan tetap menunjuk object yang sama, dan itu justru diinginkan sebab ia memang tidak berubah. React akan melihat rujukannya sama lalu melewati penggambaran ulang bagian yang membacanya.',
+      ),
+      code(
+        'tsx',
+        `
+        // Untuk struktur yang lebih dalam, bentuk bersarang menjadi sulit dibaca.
+        // Dua jalan keluar yang keduanya sah.
+
+        // 1. Ratakan strukturnya. Ini yang paling sering benar.
+        type Pengaturan = {
+          tema: 'terang' | 'gelap';
+          emailAktif: boolean;
+          emailJenis: string[];
+          pushAktif: boolean;
+          pushJenis: string[];
+        };
+        setPengaturan({ ...pengaturan, emailAktif: false });
+
+        // 2. Pakai pustaka pembaru yang menulis seolah mengubah di tempat.
+        import { produce } from 'immer';
+        setPengaturan(produce((draf) => {
+          draf.kanal.email.aktif = false;      // aman, draf bukan objek aslinya
+        }));
+        `,
+        {
+          caption:
+            'Meratakan struktur biasanya menyelesaikan lebih banyak daripada menambah pustaka.',
+        },
+      ),
+      p(
+        'Pilihan pertama layak dicoba lebih dulu, dan ia sering diabaikan karena terasa kurang rapi. Struktur bersarang tiga tingkat di state hampir selalu meniru bentuk respons server, padahal keduanya tidak harus sama. Meratakannya membuat setiap pembaruan menjadi satu spread, membuat perbandingan React lebih tepat sasaran, dan menghilangkan seluruh kelas bug yang dibahas di bagian error.',
+      ),
+      code(
+        'tsx',
+        `
+        // Array: lima operasi yang paling sering, semuanya tanpa mutasi.
+        setDaftar([...daftar, baru]);                                   // tambah di akhir
+        setDaftar([baru, ...daftar]);                                   // tambah di awal
+        setDaftar(daftar.filter((d) => d.id !== id));                   // hapus
+        setDaftar(daftar.map((d) => (d.id === id ? { ...d, selesai: true } : d)));  // ubah satu
+        setDaftar(daftar.toSorted((a, b) => a.nama.localeCompare(b.nama, 'id')));   // urutkan
+        `,
+        { caption: 'Perhatikan `toSorted`, bukan `sort`. Yang kedua mengubah aslinya.' },
+      ),
+      p(
+        'Baris keempat adalah pola yang paling sering dipakai dan paling sering ditulis setengah benar. Bentuk `{ ...d, selesai: true }` di dalamnya wajib, sebab tanpa itu kamu mengubah object anggotanya di tempat walaupun arraynya sudah baru. Komponen yang menerima anggota itu sebagai props tidak akan melihat perubahan, dan gejalanya berupa satu baris yang tidak ikut diperbarui sementara sisanya benar.',
+      ),
+      callout(
+        'warning',
+        'Lima method array yang mengubah aslinya, dan wajib dihindari di state',
+        '`push`, `pop`, `shift`, `unshift`, `splice`, `sort`, `reverse`, dan `fill`. Ketiga terakhir punya padanan yang aman, yaitu `toSorted`, `toReversed`, dan `with`. Untuk sisanya, pakai spread dan `filter`. Daftar ini sudah muncul di Bab 1 Frontend Basic, dan di React melanggarnya berarti tampilan yang diam.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Pelanggaran pantangan mutasi hampir tidak pernah melempar. Empat gejala di bawah adalah cara mengenalinya.',
+      ),
+      code(
+        'text',
+        `
+        daftar.push(baru);
+        setDaftar(daftar);
+
+        // Tidak ada error. Tampilan tidak berubah sama sekali.
+        `,
+        { caption: 'Rujukan yang sama diserahkan kembali.' },
+      ),
+      p(
+        'React membandingkan dengan `Object.is`, dan `daftar` masih array yang sama persis. Karena tidak ada perbedaan, ia melewati penggambaran ulang. Gejalanya sangat khas, yaitu data bertambah kalau kamu cetak ke console tapi layar tidak berubah. Kalau kamu melihat itu, tersangka pertamanya selalu mutasi.',
+      ),
+      code(
+        'text',
+        `
+        setPengaturan({ ...pengaturan, kanal: { email: { aktif: false } } });
+
+        // Tampilan berubah, dan 'push' beserta 'jenis' hilang.
+        // Tidak ada error.
+        `,
+        { caption: 'Lapisan dalam diganti seluruhnya, bukan disalin lalu diubah.' },
+      ),
+      p(
+        'Ini kebalikan dari kesalahan pertama, yaitu penggambaran ulangnya terjadi dan datanya yang rusak. Object `kanal` baru hanya memuat `email`, sehingga `push` lenyap. Object `email` baru hanya memuat `aktif`, sehingga `jenis` lenyap. Setiap lapisan yang dilewati wajib disebar dengan spread, dan melewatkan satu berarti menghapus seluruh isinya.',
+      ),
+      code(
+        'text',
+        `
+        const [profil, setProfil] = useState({ nama: 'Sari', alamat: { kota: 'Bandung' } });
+        const salinan = { ...profil };
+        salinan.alamat.kota = 'Jakarta';
+        setProfil(salinan);
+
+        // Tampilan berubah, DAN nilai lama di riwayat ikut berubah.
+        `,
+        { caption: 'Salinan dangkal membagi lapisan dalam dengan aslinya.' },
+      ),
+      p(
+        'Ini masalah yang sudah dibahas di Bab 1 Frontend Basic, dan di React akibatnya lebih luas. Kalau kamu menyimpan riwayat untuk fitur urungkan, seluruh entri riwayat menunjuk object `alamat` yang sama, sehingga mengubah satu mengubah semuanya. Fitur urungkan mengembalikan keadaan yang isinya sudah ikut berubah, dan gejalanya berupa urungkan yang tidak melakukan apa-apa.',
+      ),
+      code(
+        'text',
+        `
+        setDaftar(daftar.map((d) => {
+          d.selesai = true;      // mengubah anggota di tempat
+          return d;
+        }));
+
+        // Array baru, anggota lama. Sebagian komponen tidak ikut diperbarui.
+        `,
+        { caption: 'Array-nya baru, dan isinya masih object yang sama.' },
+      ),
+      p(
+        'Ini bentuk yang paling menipu sebab `map` memang menghasilkan array baru, sehingga penggambaran ulang tingkat atas terjadi. Yang tidak berubah adalah rujukan tiap anggotanya, sehingga komponen anak yang menerima anggota sebagai props akan menyimpulkan propnya tidak berubah. Gejalanya berupa sebagian baris yang diperbarui dan sebagian tidak, tergantung apakah anaknya dioptimalkan. Kembalikan object baru dari dalam `map`.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Data berubah di console tapi layar diam',
+            'Rujukan yang sama diserahkan kembali ke setter',
+            'Buat nilai baru dengan spread, `filter`, atau `map`',
+          ],
+          [
+            'Field lain hilang setelah satu diubah',
+            'Lapisan dalam diganti, bukan disalin lalu diubah',
+            'Sebar setiap lapisan yang dilewati',
+          ],
+          [
+            'Fitur urungkan tidak mengembalikan apa pun',
+            'Riwayat memegang lapisan dalam yang ikut berubah',
+            'Salin sampai lapisan yang diubah, atau pakai `structuredClone` untuk riwayat',
+          ],
+          [
+            'Sebagian baris tidak ikut diperbarui',
+            'Anggota array diubah di tempat di dalam `map`',
+            'Kembalikan object baru, yaitu `{ ...d, selesai: true }`',
+          ],
+          [
+            'Data ikut terurut permanen setelah ditampilkan',
+            '`sort` dipakai pada array state',
+            'Pakai `toSorted`, atau salin dulu',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Pantangan mutasi adalah aturan yang paling sering dilanggar tanpa sadar, sebab JavaScript sama sekali tidak mencegahnya dan React tidak selalu memberi tanda.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `push` lalu memanggil setter dengan array yang sama',
+            'Datanya kan sudah bertambah',
+            'React membandingkan rujukan, dan rujukannya sama. Tidak ada penggambaran ulang',
+          ],
+          [
+            'Menyalin dengan spread lalu mengubah lapisan dalam',
+            'Sudah disalin, jadi aman',
+            'Spread hanya menyalin satu lapis. Lapisan dalam masih dibagi dengan aslinya',
+          ],
+          [
+            'Memakai `JSON.parse(JSON.stringify(x))` untuk menyalin dalam',
+            'Cara ini beredar luas',
+            '`Date` menjadi teks, `Map` dan `Set` hilang, `undefined` lenyap, dan struktur melingkar melempar. Pakai `structuredClone`',
+          ],
+          [
+            'Menyimpan struktur bersarang tiga tingkat di state',
+            'Bentuknya mengikuti respons server',
+            'Setiap pembaruan butuh tiga spread yang mudah salah. Ratakan strukturnya, sebab bentuk state tidak harus sama dengan bentuk API',
+          ],
+          [
+            'Memakai `sort` pada array state untuk menampilkan terurut',
+            'Datanya kan perlu diurutkan',
+            'Ia mengubah state di tempat. Urutkan saat render dengan `toSorted`, dan jangan simpan hasil urutannya sebagai state',
+          ],
+          [
+            'Menambahkan pustaka pembaru sejak awal',
+            'Supaya tidak repot dengan spread',
+            'Untuk struktur satu atau dua lapis, spread sudah cukup dan tanpa dependensi tambahan. Pertimbangkan pustaka setelah meratakan struktur ternyata tidak mungkin',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat adalah keputusan yang paling berpengaruh dan paling sering diambil tanpa dipikirkan. Bentuk state tidak harus meniru bentuk respons API. Server mungkin mengirim struktur bersarang karena itu bentuk yang efisien untuk dikirim, dan yang enak dipakai komponen bisa berbeda jauh. Meratakannya saat data masuk adalah pekerjaan sekali yang menghemat setiap pembaruan sesudahnya.',
+      ),
+      callout(
+        'tip',
+        'Cara cepat memeriksa apakah kamu melanggar pantangan mutasi',
+        'Cari `push`, `pop`, `splice`, `sort`, `reverse`, dan tanda sama dengan yang menulis ke properti, lalu periksa apakah targetnya berasal dari state atau props. Aturan lint React juga menandai sebagian di antaranya, dan pada project yang mengaktifkan React Compiler sebagian menjadi error saat membangun.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'React membandingkan referensi — mutasi tidak terlihat sebagai perubahan.',
@@ -921,7 +1841,7 @@ export const lessons: LessonDraft[] = [
   written(
     'event-handler-react',
     'Event Handler di React vs DOM',
-    11,
+    23,
     'Perbedaan yang halus tapi nyata — dan cara mengoper argumen dengan benar.',
     [
       terms(
@@ -1093,6 +2013,232 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Tabel produk punya baris yang bisa diklik untuk membuka detail, dan di dalam tiap baris ada tombol hapus. Mengklik tombol hapus membuka detail **dan** menghapus barisnya. Setelah diperbaiki dengan menghentikan perambatan, muncul masalah baru, yaitu menu dropdown di halaman itu berhenti menutup saat pengguna mengklik di luar.',
+      ),
+      p(
+        'Keduanya adalah masalah yang sama dengan yang dibahas di Bab 4 Frontend Basic, dan di React ada satu detail tambahan, yaitu React tidak memasang penangan pada elemennya melainkan pada akar aplikasi.',
+      ),
+      code(
+        'tsx',
+        `
+        function BarisProduk({ produk, onBuka, onHapus }: Props) {
+          return (
+            <tr onClick={() => onBuka(produk.id)}>
+              <td>{produk.nama}</td>
+              <td>
+                <button
+                  type="button"
+                  onClick={(peristiwa) => {
+                    // Hentikan perambatan supaya baris tidak ikut terbuka.
+                    peristiwa.stopPropagation();
+                    onHapus(produk.id);
+                  }}
+                >
+                  Hapus
+                </button>
+              </td>
+            </tr>
+          );
+        }
+        `,
+        { filename: 'src/produk/BarisProduk.tsx' },
+      ),
+      p(
+        'Ini pemakaian `stopPropagation` yang sah, sebab tombol hapus memang berada **di dalam** baris yang bisa diklik dan keduanya menangani peristiwa yang sama. Tanpa itu, klik pada tombol merambat naik ke `tr` dan memicu penangan barisnya juga. Yang perlu diwaspadai adalah efek sampingnya terhadap penangan lain yang dipasang lebih tinggi.',
+      ),
+      code(
+        'tsx',
+        `
+        // Penangan "klik di luar" yang TETAP bekerja walaupun ada stopPropagation.
+        useEffect(() => {
+          function tanganiKlikLuar(peristiwa: MouseEvent) {
+            if (!menuRef.current?.contains(peristiwa.target as Node)) setBuka(false);
+          }
+          // Fase CAPTURE berjalan turun, jadi ia sudah lewat sebelum
+          // stopPropagation di elemen dalam sempat memutusnya.
+          document.addEventListener('click', tanganiKlikLuar, { capture: true });
+          return () => document.removeEventListener('click', tanganiKlikLuar, { capture: true });
+        }, []);
+        `,
+        { caption: 'Fase capture menyelesaikan bentrokan tanpa menghapus `stopPropagation`.' },
+      ),
+      p(
+        'Peristiwa melewati dua fase, yaitu turun dari akar ke sasaran yang disebut capture, lalu naik kembali yang disebut bubbling. `stopPropagation` yang dipanggil pada fase naik tidak mempengaruhi penangan yang sudah berjalan pada fase turun. Memasang penangan klik di luar pada fase capture membuatnya kebal terhadap `stopPropagation` di elemen mana pun di dalamnya.',
+      ),
+      code(
+        'tsx',
+        `
+        // Perbedaan target dan currentTarget, dan kenapa itu penting di React.
+        <tr onClick={(e) => {
+          e.target;         // elemen yang BENAR-BENAR diklik, bisa <td> atau <button>
+          e.currentTarget;  // selalu <tr>, yaitu tempat penangan dipasang
+        }}>
+
+        // Setelah await, currentTarget menjadi null.
+        <button onClick={async (e) => {
+          const tombol = e.currentTarget;   // salin DULU
+          await simpan();
+          tombol.disabled = false;          // aman
+          // e.currentTarget di sini sudah null
+        }}>
+        `,
+        { caption: 'Salin `currentTarget` di baris pertama kalau penanganmu asinkron.' },
+      ),
+      p(
+        'React memakai kembali object peristiwa dan membersihkan sebagian propertinya setelah penangan selesai berjalan secara sinkron. Karena `await` mengembalikan kendali, sisa fungsi berjalan setelah pembersihan itu. Menyalin nilai yang dibutuhkan ke variabel di baris pertama menutup seluruh kelas bug ini, dan kebiasaan itu layak dipakai untuk setiap penangan asinkron.',
+      ),
+      p(
+        'Perlu diketahui React tidak memasang penangan pada tiap elemen melainkan satu penangan pada akar aplikasi, lalu meneruskannya ke komponen yang tepat. Ini persis pola delegasi dari Bab 4 Frontend Basic, dan konsekuensinya satu, yaitu penangan yang kamu pasang sendiri dengan `addEventListener` pada `document` akan berjalan **sesudah** penangan React pada fase bubbling.',
+      ),
+      callout(
+        'warning',
+        '`preventDefault` harus dipanggil sebelum `await`',
+        'Sama seperti di Bab 4 Frontend Basic, peluang membatalkan perilaku bawaan hanya ada selama penangan berjalan sinkron. Menulis `await periksa()` lalu `e.preventDefault()` tidak akan menghentikan pengiriman formulir. Panggil di baris pertama, lalu kerjakan sisanya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut adalah yang paling sering saat menangani peristiwa di React, dan tiga di antaranya tidak melempar apa pun.',
+      ),
+      code(
+        'text',
+        `
+        <button onClick={hapus(produk.id)}>Hapus</button>
+
+        // hapus() berjalan SAAT RENDER. Kalau ia memanggil setState:
+        Error: Too many re-renders. React limits the number of renders
+        to prevent an infinite loop.
+        `,
+        { caption: 'Tanda kurung ikut ditulis, sehingga fungsinya dipanggil terlalu awal.' },
+      ),
+      p(
+        'Ini kesalahan satu karakter yang gejalanya bergantung pada isi fungsinya. Kalau `hapus` hanya mencatat, ia berjalan sekali saat render dan tombolnya diam. Kalau ia memanggil setter, terbentuk putaran tak berujung yang dihentikan React dengan error di atas. Bungkus menjadi `onClick={() => hapus(produk.id)}`.',
+      ),
+      code(
+        'text',
+        `
+        <button onClick={async (e) => {
+          await simpan();
+          e.currentTarget.disabled = false;
+        }}>
+
+        TypeError: Cannot read properties of null (reading 'disabled')
+        `,
+        { caption: '`currentTarget` dibersihkan setelah penangan selesai sinkron.' },
+      ),
+      p(
+        'Perhatikan `e.target` tidak mengalami hal yang sama dan tetap bisa dibaca, sehingga sebagian orang menggantinya begitu saja. Itu memperbaiki errornya dan bisa menunjuk elemen yang salah, misalnya ikon di dalam tombol. Yang benar adalah menyalin `currentTarget` ke variabel di baris pertama penangan.',
+      ),
+      code(
+        'text',
+        `
+        <div onClick={tutupMenu}>
+          <button onClick={(e) => { e.stopPropagation(); pilih(); }}>Pilih</button>
+        </div>
+
+        // Menu tidak menutup. Dan penangan lain di document juga tidak berjalan.
+        `,
+        { caption: '`stopPropagation` memutus seluruh penangan di atasnya.' },
+      ),
+      p(
+        'Tidak ada error, dan yang rusak justru bagian lain aplikasi yang tidak ada hubungannya. Ini yang membuat `stopPropagation` berbahaya sebagai perbaikan cepat, yaitu dampaknya melewati batas komponen. Pakai hanya kalau memang ada dua penangan untuk peristiwa yang sama dalam satu pohon yang kamu kendalikan, dan untuk penangan global pakai fase capture.',
+      ),
+      code(
+        'text',
+        `
+        <form onSubmit={async (e) => {
+          await periksa();
+          e.preventDefault();
+        }}>
+
+        // Halaman tetap memuat ulang. Tidak ada error.
+        `,
+        { caption: '`preventDefault` dipanggil setelah `await`.' },
+      ),
+      p(
+        'Begitu `await` menyerahkan giliran, React menganggap penanganmu selesai dan peramban melanjutkan pengiriman formulir. Gejalanya berupa halaman yang berkedip lalu memuat ulang, dan seluruh state hilang. Panggil `preventDefault` sebagai baris pertama, lalu kerjakan pemeriksaannya.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`Too many re-renders` saat halaman dimuat',
+            'Tanda kurung ikut ditulis pada penangan',
+            'Bungkus menjadi fungsi panah',
+          ],
+          [
+            '`Cannot read properties of null` pada `currentTarget`',
+            'Dibaca setelah `await`',
+            'Salin ke variabel di baris pertama penangan',
+          ],
+          [
+            'Penangan di tempat lain berhenti bekerja',
+            '`stopPropagation` memutus perambatan',
+            'Pakai fase capture untuk penangan global, atau perbaiki syaratnya',
+          ],
+          [
+            'Halaman memuat ulang saat formulir dikirim',
+            '`preventDefault` dipanggil setelah `await`',
+            'Panggil sebagai baris pertama',
+          ],
+          [
+            'Penangan tidak terpanggil untuk klik di ikon dalam tombol',
+            '`e.target` dipakai tanpa `closest`',
+            'Pakai `e.currentTarget`, atau `e.target.closest(...)`',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Penangan peristiwa di React terlihat sama dengan DOM biasa, dan sebagian besar kesalahan di bawah berasal dari perbedaan kecil yang tidak terlihat.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis `onClick={fungsi(arg)}`',
+            'Bentuknya seperti memanggil fungsi',
+            'Fungsinya berjalan saat render, bukan saat diklik. Bungkus dengan fungsi panah',
+          ],
+          [
+            'Memakai `stopPropagation` untuk memperbaiki penangan yang bentrok',
+            'Masalahnya langsung hilang',
+            'Ia memutus penangan lain di seluruh pohon di atasnya, termasuk yang menutup menu. Perbaiki syaratnya, atau pakai fase capture',
+          ],
+          [
+            'Memasang `addEventListener` sendiri di dalam komponen',
+            'Itu cara yang sudah dikuasai',
+            'Ia bercampur dengan sistem peristiwa React dan urutannya sulit diprediksi. Pakai prop `onClick` kecuali memang butuh peristiwa yang React tidak sediakan',
+          ],
+          [
+            'Membaca `e.currentTarget` setelah `await`',
+            'Objectnya kan masih ada',
+            'React membersihkannya setelah penangan selesai sinkron. Salin ke variabel lebih dulu',
+          ],
+          [
+            'Memakai `onKeyPress`',
+            'Namanya paling langsung',
+            'Sudah usang dan tidak menangkap seluruh tombol. Pakai `onKeyDown` dan periksa `e.key`',
+          ],
+          [
+            'Memasang penangan klik pada `div` alih-alih `button`',
+            'Tampilannya lebih bebas diatur',
+            'Tidak bisa difokus keyboard dan Enter tidak bekerja. Pakai `button` lalu atur gayanya, seperti aturan di Bab 4 Frontend Basic',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir adalah pelanggaran aksesibilitas yang paling sering di kode React, dan ia mudah dihindari. Elemen `button` memberi fokus keyboard, memicu `onClick` lewat Enter dan spasi, dan diumumkan sebagai tombol oleh pembaca layar. Semuanya gratis. Kalau kamu memakai `div`, ketiganya harus dibangun ulang dengan `tabIndex`, penangan keyboard, dan `role`, dan hampir selalu ada yang terlewat.',
+      ),
+      callout(
+        'info',
+        'Kenapa React memakai satu penangan di akar',
+        'Memasang satu penangan lalu meneruskannya ke komponen yang tepat jauh lebih hemat daripada memasang ribuan penangan pada tiap elemen, dan ia juga membuat komponen yang baru dibuat langsung menerima peristiwa tanpa pemasangan ulang. Ini persis alasan yang sama dengan pola delegasi di Bab 4 Frontend Basic, diterapkan oleh pustakanya sendiri.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'React memasang dan melepas listener otomatis.',
@@ -1133,7 +2279,7 @@ export const lessons: LessonDraft[] = [
   written(
     'controlled-uncontrolled',
     'Controlled vs Uncontrolled Input',
-    12,
+    24,
     'Dua cara mengelola nilai input — dan kapan masing-masing tepat.',
     [
       terms(
@@ -1310,6 +2456,249 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Formulir alamat pengiriman punya delapan kolom. Versi pertama membuat delapan state dan delapan penangan perubahan, dan berkasnya seratus baris sebelum satu baris logika pun ditulis. Versi kedua menghapus seluruh state dan membaca nilainya saat dikirim, dan tiba-tiba fitur validasi per kolom menjadi mustahil. Keduanya benar untuk kebutuhan yang berbeda, dan yang salah adalah memilih tanpa menimbang.',
+      ),
+      table(
+        ['Kebutuhan', 'Terkendali', 'Tak terkendali'],
+        [
+          ['Validasi sambil mengetik', '**Bisa**', 'Tidak, kecuali membaca DOM'],
+          ['Menonaktifkan tombol kirim saat kosong', '**Bisa**', 'Tidak langsung'],
+          ['Memformat sambil mengetik, misalnya nomor kartu', '**Bisa**', 'Tidak'],
+          ['Menyalin nilai satu kolom ke kolom lain', '**Bisa**', 'Tidak'],
+          [
+            'Sekadar mengumpulkan nilai saat dikirim',
+            'Bisa, dan berlebihan',
+            '**Lebih sederhana**',
+          ],
+          ['Jumlah kolom banyak', 'Satu state per kolom, berisik', '**Satu `FormData`**'],
+        ],
+        'Yang menentukan adalah apakah kamu butuh bereaksi sebelum formulir dikirim.',
+      ),
+      code(
+        'tsx',
+        `
+        // TERKENDALI: dipakai karena tombol harus mati saat kolom belum sah,
+        // dan karena nomor telepon diformat sambil diketik.
+        function FormKontak() {
+          const [nilai, setNilai] = useState({ nama: '', telepon: '' });
+
+          const teleponSah = /^08[0-9]{8,11}$/.test(nilai.telepon);
+          const bolehKirim = nilai.nama.trim() !== '' && teleponSah;
+
+          function ubah(kolom: keyof typeof nilai, isi: string) {
+            setNilai((n) => ({ ...n, [kolom]: isi }));
+          }
+
+          return (
+            <form onSubmit={kirim}>
+              <input
+                value={nilai.nama}
+                onChange={(e) => ubah('nama', e.currentTarget.value)}
+              />
+              <input
+                value={nilai.telepon}
+                inputMode="numeric"
+                onChange={(e) => ubah('telepon', e.currentTarget.value.replace(/\\D/g, ''))}
+                aria-invalid={nilai.telepon !== '' && !teleponSah}
+              />
+              <button type="submit" disabled={!bolehKirim}>Kirim</button>
+            </form>
+          );
+        }
+        `,
+        { filename: 'src/kontak/FormKontak.tsx' },
+      ),
+      p(
+        'Satu object state untuk seluruh kolom menggantikan delapan state terpisah, dan fungsi `ubah` yang menerima nama kolom menggantikan delapan penangan. Bentuk `[kolom]: isi` di dalamnya adalah nama properti terhitung yang sudah dibahas di Bab 1 Frontend Basic. Bentuk fungsi pada setter dipakai karena nilai barunya dihitung dari nilai lama, dan itu aturan dari Sub-bab 4.3.',
+      ),
+      p(
+        'Perhatikan `teleponSah` dan `bolehKirim` **tidak** disimpan sebagai state melainkan dihitung saat render. Keduanya bisa disimpulkan sepenuhnya dari `nilai`, sehingga menyimpannya berarti dua sumber kebenaran yang harus dijaga tetap cocok. Ini nilai turunan, dan pembahasan lengkapnya ada di Sub-bab 4.9.',
+      ),
+      code(
+        'tsx',
+        `
+        // TAK TERKENDALI: delapan kolom, dan tidak ada yang perlu direaksi
+        // sebelum tombol kirim ditekan.
+        function FormAlamat({ onSimpan }: { onSimpan: (d: Alamat) => void }) {
+          function kirim(peristiwa: FormEvent<HTMLFormElement>) {
+            peristiwa.preventDefault();
+            const data = new FormData(peristiwa.currentTarget);
+
+            onSimpan({
+              nama: String(data.get('nama') ?? '').trim(),
+              telepon: String(data.get('telepon') ?? '').trim(),
+              kodePos: String(data.get('kodePos') ?? '').trim(),   // TETAP teks
+              jadikanUtama: data.has('jadikanUtama'),               // centang: keberadaannya
+            });
+          }
+
+          return (
+            <form onSubmit={kirim}>
+              <input name="nama" required defaultValue={alamat?.nama} />
+              <input name="telepon" required pattern="08[0-9]{8,11}" />
+              <input name="kodePos" required inputMode="numeric" />
+              <input name="jadikanUtama" type="checkbox" />
+              <button type="submit">Simpan</button>
+            </form>
+          );
+        }
+        `,
+        { filename: 'src/alamat/FormAlamat.tsx' },
+      ),
+      p(
+        'Versi ini nol state dan tetap punya validasi, yaitu lewat atribut `required` dan `pattern` yang ditangani peramban. Pesan galatnya sudah diterjemahkan mengikuti bahasa peramban dan sudah dibacakan pembaca layar dengan benar, seperti dibahas di Bab 5 Frontend Basic. Untuk formulir yang hanya perlu diperiksa saat dikirim, ini bentuk yang lebih sedikit kodenya dan lebih baik aksesibilitasnya.',
+      ),
+      p(
+        'Perhatikan `defaultValue`, bukan `value`. Perbedaannya menentukan, yaitu `defaultValue` hanya menetapkan nilai awal lalu membiarkan peramban yang mengurus sisanya, sedangkan `value` membuat React mengambil alih sepenuhnya. Memakai `value` tanpa `onChange` menghasilkan kolom yang tidak bisa diketik sama sekali, dan itu peringatan yang dibahas di bagian error.',
+      ),
+      callout(
+        'tip',
+        'Keduanya boleh dipakai bersama dalam satu formulir',
+        'Tidak ada aturan yang mengharuskan seluruh kolom seragam. Kolom yang butuh reaksi langsung dibuat terkendali, dan sisanya dibiarkan tak terkendali lalu dibaca lewat `FormData` saat dikirim. Untuk formulir panjang dengan satu atau dua kolom khusus, campuran ini justru bentuk yang paling sedikit kodenya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat peringatan berikut diuji dengan React 19 sungguhan, dan keempatnya menandai kesalahan yang nyata.',
+      ),
+      code(
+        'text',
+        `
+        <input value="x" />
+
+        Warning: You provided a \`value\` prop to a form field without an
+        \`onChange\` handler. This will render a read-only field. If the field
+        should be mutable use \`defaultValue\`.
+        `,
+        { caption: 'Kolom terkendali tanpa penangan perubahan tidak bisa diketik.' },
+      ),
+      p(
+        'Pesannya bahkan menyebut kedua jalan keluarnya. Kalau yang kamu maksud nilai awal, pakai `defaultValue`. Kalau kamu memang ingin mengendalikannya, tambahkan `onChange`. Ada satu kasus ketiga yang sah, yaitu kolom yang memang harus dibaca saja, dan untuk itu tambahkan `readOnly` supaya maksudnya tertulis dan peringatannya hilang.',
+      ),
+      code(
+        'text',
+        `
+        <input value={profil.bio} onChange={ubah} />
+        // profil.bio bernilai null
+
+        Warning: \`value\` prop on \`input\` should not be null. Consider using
+        an empty string to clear the component or \`undefined\` for
+        uncontrolled components.
+        `,
+        { caption: 'Nilai `null` dari server masuk langsung ke kolom terkendali.' },
+      ),
+      p(
+        "Ini terjadi setiap kali data dari server punya field yang boleh kosong, seperti dibahas di Bab 6 Frontend Basic. Nilai `null` membuat React bingung antara terkendali dan tak terkendali. Perbaikannya `value={profil.bio ?? ''}`, dan tanda tanya ganda dipakai bukan `||` supaya teks kosong yang sah tidak ikut tergantikan.",
+      ),
+      code(
+        'text',
+        `
+        <select defaultValue="a">
+          <option value="a" selected>A</option>
+        </select>
+
+        Warning: Use the \`defaultValue\` or \`value\` props on <select>
+        instead of setting \`selected\` on <option>.
+        `,
+        { caption: 'Kebiasaan HTML biasa dibawa apa adanya ke React.' },
+      ),
+      p(
+        'Di HTML biasa, pilihan awal ditandai dengan atribut `selected` pada `option`. React memindahkan tanggung jawab itu ke elemen `select` supaya ada satu tempat yang menentukan, dan itu konsisten dengan cara kolom lain bekerja. Hal yang sama berlaku untuk `textarea`, yang di HTML diisi lewat anak dan di React lewat `value` atau `defaultValue`.',
+      ),
+      code(
+        'text',
+        `
+        <input type="checkbox" value={setuju} onChange={ubah} />
+
+        // Hasil: <input type="checkbox" value="true">
+        // Centangnya tidak pernah tercentang. Tidak ada peringatan.
+        `,
+        { caption: 'Centang memakai `checked`, bukan `value`.' },
+      ),
+      p(
+        'Diuji sungguhan, dan hasilnya atribut `value` berisi teks `true` sementara centangnya tetap kosong. Tidak ada peringatan sebab `value` memang atribut yang sah untuk centang, hanya artinya berbeda yaitu nilai yang dikirim saat tercentang. Yang mengatur tercentang atau tidak adalah `checked`. Kesalahan ini sangat sering dan gejalanya berupa centang yang tidak pernah bisa dicentang.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`You provided a \\`value\\` prop ... without an \\`onChange\\` handler`',
+            'Kolom terkendali tanpa penangan perubahan',
+            'Tambahkan `onChange`, pakai `defaultValue`, atau tambahkan `readOnly`',
+          ],
+          [
+            '`\\`value\\` prop on \\`input\\` should not be null`',
+            'Field yang boleh kosong dari server masuk langsung',
+            "Pakai `value={nilai ?? \\'\\'}`",
+          ],
+          [
+            '`Use the \\`defaultValue\\` or \\`value\\` props on <select>`',
+            'Atribut `selected` dipakai pada `option`',
+            'Pindahkan ke `value` atau `defaultValue` pada `select`',
+          ],
+          [
+            'Centang tidak pernah tercentang',
+            '`value` dipakai, seharusnya `checked`',
+            'Ganti menjadi `checked`',
+          ],
+          [
+            'Kolom berubah dari tak terkendali menjadi terkendali',
+            'Nilai awalnya `undefined` lalu berubah menjadi teks',
+            'Beri nilai awal teks kosong, jangan `undefined`',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Memilih antara terkendali dan tak terkendali sering diputuskan tanpa menimbang, dan sebagian besar kesalahan di bawah berasal dari memakai yang terkendali untuk hal yang tidak membutuhkannya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membuat satu state untuk tiap kolom',
+            'Tiap kolom kan berbeda',
+            'Delapan kolom berarti delapan state dan delapan penangan. Kumpulkan menjadi satu object, atau pakai `FormData`',
+          ],
+          [
+            'Memakai kolom terkendali untuk semua formulir',
+            'Katanya itu cara React',
+            'Untuk formulir yang hanya dibaca saat dikirim, ia menambah state dan penggambaran ulang tiap ketikan tanpa manfaat',
+          ],
+          [
+            'Memakai `value` untuk centang',
+            'Kolom lain memakai `value`',
+            'Centang memakai `checked`. `value` pada centang berarti nilai yang dikirim, bukan keadaannya',
+          ],
+          [
+            'Memberi nilai awal `undefined` pada kolom terkendali',
+            'Datanya belum ada',
+            'React menganggapnya tak terkendali lalu berubah menjadi terkendali, dan itu memicu peringatan. Beri teks kosong',
+          ],
+          [
+            'Menyimpan hasil validasi sebagai state',
+            'Supaya tidak dihitung ulang',
+            'Ia bisa disimpulkan dari nilainya, jadi dua sumber kebenaran. Hitung saat render',
+          ],
+          [
+            'Mengganti seluruh validasi bawaan dengan validasi sendiri',
+            'Supaya seragam dengan desain',
+            'Pesan bawaan sudah diterjemahkan dan sudah dibacakan pembaca layar. Ganti hanya aturan yang tidak bisa dinyatakan atribut',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat menghasilkan peringatan yang khas dan sering membingungkan. Kalau nilai awal `useState` berupa `undefined` lalu diisi setelah data dari server tiba, React melihat kolom itu berubah dari tak terkendali menjadi terkendali di tengah jalan. Perbaikannya memberi teks kosong sebagai nilai awal, atau tidak merender formulirnya sama sekali sampai datanya ada.',
+      ),
+      callout(
+        'info',
+        'Aturan memilih dalam satu pertanyaan',
+        'Tanyakan apakah ada sesuatu yang harus terjadi **sebelum** pengguna menekan tombol kirim. Kalau ya, misalnya menonaktifkan tombol, memformat sambil mengetik, atau menampilkan sisa karakter, kolomnya terkendali. Kalau tidak, tak terkendali dengan `FormData` lebih sedikit kodenya dan lebih baik aksesibilitasnya.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Controlled: React source of truth-nya, render tiap ketikan.',
@@ -1351,7 +2740,7 @@ export const lessons: LessonDraft[] = [
   written(
     'form-react',
     'Form: dari `useState` ke React Hook Form',
-    13,
+    24,
     'Dari form sederhana ke form yang benar-benar dipakai — beserta alasan pindahnya.',
     [
       terms(
@@ -1571,6 +2960,242 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Formulir pendaftaran punya enam kolom, validasi per kolom, tombol kirim yang mati saat ada kesalahan, dan penanganan galat dari server yang harus menyorot kolom yang bermasalah. Versi pertama menyimpan enam state nilai ditambah enam state pesan galat ditambah satu state sedang mengirim, yaitu tiga belas state untuk satu formulir. Setengah bug yang muncul berasal dari salah satunya lupa direset.',
+      ),
+      p(
+        'Bentuk di bawah memakai tiga state saja, dan sisanya dihitung. Perbedaannya bukan jumlah baris melainkan jumlah hal yang bisa tidak sinkron.',
+      ),
+      code(
+        'tsx',
+        `
+        type Nilai = { nama: string; email: string; sandi: string };
+        type Galat = Partial<Record<keyof Nilai, string>>;
+
+        function periksa(nilai: Nilai): Galat {
+          const galat: Galat = {};
+          if (nilai.nama.trim().length < 3) galat.nama = 'Nama minimal 3 karakter';
+          if (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(nilai.email)) galat.email = 'Email tidak sah';
+          if (nilai.sandi.length < 8) galat.sandi = 'Kata sandi minimal 8 karakter';
+          return galat;
+        }
+
+        export function FormDaftar({ onDaftar }: Props) {
+          const [nilai, setNilai] = useState<Nilai>({ nama: '', email: '', sandi: '' });
+          const [disentuh, setDisentuh] = useState<Partial<Record<keyof Nilai, boolean>>>({});
+          const [mengirim, setMengirim] = useState(false);
+          const [galatServer, setGalatServer] = useState<Galat>({});
+
+          // DIHITUNG, bukan disimpan. Tidak mungkin tidak sinkron.
+          const galat = { ...periksa(nilai), ...galatServer };
+          const bolehKirim = Object.keys(galat).length === 0 && !mengirim;
+
+          function ubah(kolom: keyof Nilai, isi: string) {
+            setNilai((n) => ({ ...n, [kolom]: isi }));
+            // Galat dari server hilang begitu kolomnya disentuh lagi.
+            setGalatServer((g) => ({ ...g, [kolom]: undefined }));
+          }
+
+          return (
+            <form onSubmit={kirim} noValidate>
+              <Kolom
+                label="Nama"
+                nilai={nilai.nama}
+                galat={disentuh.nama ? galat.nama : undefined}
+                onUbah={(v) => ubah('nama', v)}
+                onBlur={() => setDisentuh((d) => ({ ...d, nama: true }))}
+              />
+              {/* dua kolom lain dengan pola yang sama */}
+              <button type="submit" disabled={!bolehKirim}>Daftar</button>
+            </form>
+          );
+        }
+        `,
+        { filename: 'src/daftar/FormDaftar.tsx' },
+      ),
+      p(
+        'Keputusan yang paling menentukan di sini adalah `galat` **dihitung** dari `nilai`, bukan disimpan. Karena itu mustahil ada keadaan di mana nilainya sudah benar tapi pesan galatnya masih tampil. Dengan enam state galat terpisah, keadaan itu terjadi setiap kali ada satu jalur yang lupa mengosongkannya, dan jalur seperti itu selalu ada.',
+      ),
+      p(
+        'State `disentuh` menyelesaikan masalah pengalaman yang sangat nyata, yaitu formulir yang menampilkan tiga pesan galat merah sebelum pengguna sempat mengetik satu huruf pun. Dengan menandai kolom yang sudah pernah kehilangan fokus, pesan galat hanya muncul setelah pengguna benar-benar meninggalkan kolom itu. Ini pola yang dipakai hampir seluruh pustaka formulir.',
+      ),
+      p(
+        'Atribut `noValidate` pada formulir mematikan validasi bawaan peramban, dan itu disengaja di sini. Karena kamu sudah menampilkan pesan galat sendiri per kolom, dialog bawaan peramban justru menampilkan dua pesan untuk satu masalah. Yang perlu diingat, mematikan validasi bawaan berarti kamu bertanggung jawab penuh atas pengalamannya, termasuk mengumumkan galat ke pembaca layar.',
+      ),
+      code(
+        'tsx',
+        `
+        // Kolom yang menghubungkan label, kolom, dan pesan galat dengan benar.
+        function Kolom({ label, nilai, galat, onUbah, onBlur }: KolomProps) {
+          const id = useId();
+          const idGalat = \`\${id}-galat\`;
+
+          return (
+            <div>
+              <label htmlFor={id}>{label}</label>
+              <input
+                id={id}
+                value={nilai}
+                onChange={(e) => onUbah(e.currentTarget.value)}
+                onBlur={onBlur}
+                aria-invalid={galat ? true : undefined}
+                aria-describedby={galat ? idGalat : undefined}
+              />
+              {galat ? (
+                <p id={idGalat} role="alert" className="galat">{galat}</p>
+              ) : null}
+            </div>
+          );
+        }
+        `,
+        { filename: 'src/ui/Kolom.tsx' },
+      ),
+      p(
+        'Tiga atribut di sini yang membuat formulirnya bisa dipakai pengguna pembaca layar. Atribut `htmlFor` dan `id` menghubungkan label ke kolomnya, sehingga mengklik label memfokuskan kolom dan pembaca layar mengumumkan namanya. Atribut `aria-describedby` menghubungkan pesan galat ke kolomnya, sehingga pesannya dibacakan setelah nama kolom. Atribut `role="alert"` membuat pesan yang baru muncul langsung diumumkan.',
+      ),
+      p(
+        'Hook `useId` menghasilkan id yang unik dan stabil, dan ia memang dibuat untuk keperluan ini. Memakai nilai acak biasa akan menghasilkan id berbeda antara render di server dan di klien, dan itu menyebabkan ketidakcocokan hidrasi. Memakai id tetap seperti `nama` akan bentrok kalau komponennya dipakai dua kali di satu halaman.',
+      ),
+      callout(
+        'danger',
+        'Validasi di klien tidak pernah menggantikan validasi di server',
+        'Seluruh pemeriksaan di sub-bab ini adalah pengalaman pengguna, bukan keamanan. Siapa pun bisa mengirim permintaan langsung tanpa lewat formulirmu. Server wajib memeriksa ulang seluruhnya, dan aturan ini mengikat di project ini. Yang dibahas di sini hanya bagaimana memberi tahu pengguna lebih cepat.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut adalah yang paling sering pada formulir React, dan tiga di antaranya tidak melempar apa pun.',
+      ),
+      code(
+        'text',
+        `
+        <input value={nilai.nama} />
+
+        Warning: You provided a \`value\` prop to a form field without an
+        \`onChange\` handler. This will render a read-only field.
+        `,
+        { caption: 'Kolom terkendali tanpa penangan, dan tidak bisa diketik.' },
+      ),
+      p(
+        'Gejalanya sangat jelas, yaitu kolomnya benar-benar tidak bisa diketik sama sekali. Yang sering terjadi adalah `onChange` ada tapi salah nama, misalnya `onchange` dengan huruf kecil semua. Pada project tanpa TypeScript, kesalahan itu tidak menghasilkan error apa pun dan gejalanya persis sama. Ini salah satu alasan paling langsung memakai TypeScript untuk kode React.',
+      ),
+      code(
+        'text',
+        `
+        // Kolom email masih kosong, dan pengguna belum menyentuhnya.
+        // Halaman sudah menampilkan: "Email tidak sah"
+        `,
+        { caption: 'Galat ditampilkan sebelum pengguna sempat mengetik.' },
+      ),
+      p(
+        'Tidak ada error, dan yang rusak adalah pengalamannya. Formulir yang menyambut pengguna dengan tiga pesan merah terasa menghakimi dan membuat sebagian orang meninggalkannya. Penjaga `disentuh` pada studi kasus menutup ini. Pilihan lain yang juga umum adalah menampilkan galat hanya setelah tombol kirim ditekan sekali, dan keduanya sah.',
+      ),
+      code(
+        'text',
+        `
+        onSubmit={async (e) => {
+          const data = new FormData(e.currentTarget);
+          await kirim(data);
+        }}
+
+        // Halaman memuat ulang, dan seluruh isian hilang.
+        `,
+        { caption: '`preventDefault` tidak dipanggil.' },
+      ),
+      p(
+        'Ini kegagalan yang paling merugikan pada formulir panjang, sebab seluruh yang sudah diketik pengguna hilang. Tanpa `preventDefault`, peramban mengirim formulir ke alamat di atribut `action` lalu memuat halaman baru. Panggil sebagai baris pertama, sebelum `await` apa pun, seperti dibahas di Sub-bab 4.5.',
+      ),
+      code(
+        'text',
+        `
+        // Pengiriman gagal karena email sudah terdaftar.
+        // Formulir dikosongkan, dan pengguna harus mengetik ulang semuanya.
+        `,
+        { caption: 'Isian dibuang pada kegagalan.' },
+      ),
+      p(
+        'Ini kesalahan yang paling menyakitkan bagi pengguna sekaligus paling mudah dihindari. Kosongkan formulir hanya setelah pengiriman **berhasil**, dan pada kegagalan pertahankan seluruh isinya sambil menyorot kolom yang bermasalah. Aturan ini sudah ada di baseline frontend project ini, yaitu jangan pernah membuang apa yang sudah diketik pengguna.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Kolom tidak bisa diketik',
+            '`value` diberikan tanpa `onChange`',
+            'Tambahkan `onChange`, dan periksa ejaan namanya',
+          ],
+          [
+            'Pesan galat muncul sebelum pengguna mengetik',
+            'Galat ditampilkan tanpa penjaga',
+            'Tampilkan hanya setelah kolomnya disentuh, atau setelah tombol kirim ditekan',
+          ],
+          [
+            'Halaman memuat ulang saat dikirim',
+            '`preventDefault` tidak dipanggil, atau dipanggil setelah `await`',
+            'Panggil sebagai baris pertama penangan',
+          ],
+          [
+            'Isian hilang setelah pengiriman gagal',
+            'Formulir dikosongkan tanpa memeriksa hasilnya',
+            'Kosongkan hanya setelah berhasil',
+          ],
+          [
+            'Pesan galat tidak dibacakan pembaca layar',
+            'Tidak ada `aria-describedby` dan `role="alert"`',
+            'Hubungkan pesan ke kolomnya, dan tandai sebagai peringatan',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Formulir adalah tempat data pengguna masuk, dan sebagian besar kesalahan di bawah berujung pada pengalaman yang buruk atau data yang salah tersimpan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyimpan pesan galat sebagai state terpisah per kolom',
+            'Tiap kolom punya galatnya sendiri',
+            'Dua sumber kebenaran yang harus dijaga sinkron, dan selalu ada jalur yang lupa mengosongkannya. Hitung galat dari nilainya',
+          ],
+          [
+            'Menampilkan seluruh galat sejak halaman dibuka',
+            'Supaya pengguna tahu apa yang diminta',
+            'Terasa menghakimi dan membuat sebagian orang meninggalkan formulir. Tampilkan setelah kolomnya disentuh',
+          ],
+          [
+            'Mengosongkan formulir pada kegagalan',
+            'Supaya diisi ulang dengan benar',
+            'Kehilangan data yang sudah diketik adalah kegagalan pengalaman yang paling menyakitkan dan paling mudah dihindari',
+          ],
+          [
+            'Menonaktifkan tombol kirim tanpa menjelaskan kenapa',
+            'Supaya tidak bisa mengirim yang salah',
+            'Pengguna tidak tahu apa yang kurang. Sertakan pesan, atau biarkan tombolnya aktif lalu tampilkan galat saat ditekan',
+          ],
+          [
+            'Menaruh pesan galat umum di atas formulir',
+            'Cukup memberi tahu ada yang salah',
+            'Pengguna harus mencari sendiri kolom mana yang bermasalah. Taruh di sebelah kolomnya',
+          ],
+          [
+            'Memakai `id` tetap pada komponen kolom yang dipakai berulang',
+            'Idnya kan sudah unik',
+            'Dua kolom dengan id sama membuat label menunjuk kolom yang salah. Pakai `useId`',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat punya jalan keluar yang sering diabaikan. Tombol kirim yang mati tanpa penjelasan membuat pengguna menekannya berkali-kali lalu menyerah. Dua pilihan yang lebih baik, yaitu membiarkan tombolnya aktif lalu menampilkan seluruh galat saat ditekan sambil memindahkan fokus ke kolom pertama yang bermasalah, atau menonaktifkannya sambil menampilkan ringkasan apa yang masih kurang di sebelahnya.',
+      ),
+      callout(
+        'tip',
+        'Kapan pustaka formulir mulai sepadan',
+        'Untuk formulir dengan tiga sampai lima kolom, bentuk di studi kasus sudah cukup dan tanpa dependensi tambahan. Pustaka mulai sepadan saat ada kolom bersarang, array kolom yang bisa ditambah, validasi yang bergantung antar-kolom, atau formulir bertahap. Pilih setelah kebutuhannya nyata, bukan sebelum itu.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         '`useState` cukup sampai dua-tiga field.',
@@ -1611,7 +3236,7 @@ export const lessons: LessonDraft[] = [
   written(
     'lifting-state',
     'Lifting State Up',
-    12,
+    21,
     'Menaikkan state ke induk terdekat yang membutuhkannya — dan biaya menaikkannya terlalu tinggi.',
     [
       terms(
@@ -1766,6 +3391,226 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman katalog punya panel filter di kiri dan daftar produk di kanan, dan keduanya komponen terpisah. Panel filter menyimpan kata pencarian di statenya sendiri, dan daftar produk tidak punya cara mengetahuinya. Solusi cepat yang sering dipilih adalah menyimpan nilainya di variabel modul, dan itu bekerja sampai ada dua katalog di satu halaman yang saling mengganggu.',
+      ),
+      p(
+        'Jalan keluarnya adalah memindahkan state ke induk terdekat yang dimiliki keduanya, dan itulah yang disebut mengangkat state. Yang perlu diputuskan adalah **seberapa tinggi**, sebab terlalu tinggi punya biayanya sendiri.',
+      ),
+      code(
+        'tsx',
+        `
+        // Induk terdekat yang dimiliki KEDUANYA. Bukan lebih tinggi dari itu.
+        function PanelKatalog() {
+          const [filter, setFilter] = useState<Filter>({ cari: '', kategori: '' });
+
+          return (
+            <div className="katalog">
+              <SidebarFilter nilai={filter} onUbah={setFilter} />
+              <DaftarProduk filter={filter} />
+            </div>
+          );
+        }
+
+        function SidebarFilter({ nilai, onUbah }: SidebarProps) {
+          return (
+            <aside>
+              <input
+                value={nilai.cari}
+                onChange={(e) => onUbah({ ...nilai, cari: e.currentTarget.value })}
+              />
+              <PilihKategori
+                nilai={nilai.kategori}
+                onUbah={(k) => onUbah({ ...nilai, kategori: k })}
+              />
+            </aside>
+          );
+        }
+        `,
+        { filename: 'src/katalog/PanelKatalog.tsx' },
+      ),
+      p(
+        'Pola yang terbentuk di sini punya nama, yaitu komponen terkendali. `SidebarFilter` tidak menyimpan apa pun dan hanya menerima nilai beserta cara mengubahnya. Ini bentuk yang sama dengan kolom formulir terkendali di Sub-bab 4.6, dan keunggulannya sama, yaitu ada tepat satu tempat yang menyimpan kebenaran sehingga tidak mungkin ada dua nilai yang berbeda.',
+      ),
+      p(
+        'Perhatikan `PanelKatalog` adalah induk **terdekat** yang memiliki keduanya, bukan komponen halaman atau komponen aplikasi. Mengangkat lebih tinggi dari yang dibutuhkan menyebabkan seluruh saudara di tingkat itu ikut digambar ulang pada tiap ketikan, dan itu masalah yang dibahas di Sub-bab 4.1. Naikkan tepat sampai induk bersama, lalu berhenti.',
+      ),
+      code(
+        'tsx',
+        `
+        // Kalau jarak antara pemilik dan pemakai terlalu jauh, props berantai
+        // adalah gejala, bukan penyakitnya.
+
+        // BURUK: 'tema' dilewatkan lima tingkat, dan tiga di antaranya
+        // sama sekali tidak memakainya.
+        <Halaman tema={tema}>
+          <Isi tema={tema}>
+            <Panel tema={tema}>
+              <Kartu tema={tema}>
+                <Tombol tema={tema} />
+
+        // Dua jalan keluar, dan yang pertama sering cukup:
+        // 1. Komposisi — kirim elemennya, bukan datanya.
+        <Halaman>
+          <Isi>
+            <Panel>
+              <Kartu>
+                <Tombol tema={tema} />    {/* dibuat di tempat tema tersedia */}
+
+        // 2. Konteks — untuk nilai yang benar-benar dibutuhkan banyak tingkat.
+        `,
+        { caption: 'Komposisi menyelesaikan sebagian besar kasus props berantai.' },
+      ),
+      p(
+        'Jalan keluar pertama sering dilewatkan padahal ia yang paling sederhana. Karena elemen React hanya object seperti dibahas di Bab 6 Frontend Basic, ia bisa dibuat di tempat datanya tersedia lalu dikirim sebagai `children`. Komponen di antaranya tidak perlu tahu apa pun tentang `tema`. Konteks baru diperlukan kalau nilainya dibutuhkan di banyak cabang yang berbeda, dan pembahasannya ada di bab jenis komponen.',
+      ),
+      p(
+        'Ada satu tanda yang layak diperhatikan, yaitu kalau kamu mengangkat state lalu menemukan induknya tidak memakainya sama sekali dan hanya meneruskan, itu berarti kamu mengangkat terlalu tinggi atau seharusnya memakai komposisi. State yang diangkat sebaiknya benar-benar dipakai induknya, minimal untuk meneruskan ke dua anak yang berbeda.',
+      ),
+      callout(
+        'tip',
+        'Urutan yang jarang keliru saat memutuskan letak state',
+        'Mulai dengan menaruhnya di komponen yang memakainya. Kalau ternyata komponen lain membutuhkannya, cari induk terdekat yang memiliki keduanya lalu angkat ke sana. Kalau jaraknya lebih dari dua tingkat, coba komposisi lebih dulu. Kalau nilainya dibutuhkan di banyak cabang yang berbeda, barulah konteks.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Mengangkat state jarang melempar. Yang muncul adalah dua nilai yang tidak cocok, atau tampilan yang berhenti bereaksi.',
+      ),
+      code(
+        'text',
+        `
+        function Sidebar({ nilai, onUbah }) {
+          const [lokal, setLokal] = useState(nilai);   // menyalin props ke state
+          return <input value={lokal} onChange={(e) => setLokal(e.target.value)} />;
+        }
+
+        // Induk mengubah 'nilai'. Sidebar tetap menampilkan yang lama.
+        `,
+        { caption: 'Props disalin ke state, dan salinannya tidak pernah diperbarui.' },
+      ),
+      p(
+        'Ini kesalahan yang paling sering saat mengangkat state setengah jalan. Argumen `useState` hanya dibaca sekali seperti dibahas di Sub-bab 4.1, sehingga perubahan dari induk tidak pernah sampai. Yang lebih buruk, sekarang ada dua nilai yang bisa berbeda dan tidak ada yang tahu mana yang benar. Hapus state lokalnya, dan pakai props apa adanya.',
+      ),
+      code(
+        'text',
+        `
+        <Sidebar nilai={filter} />
+        // onUbah tidak diberikan
+
+        // Kolom tidak bisa diketik. Tidak ada error kalau propsnya opsional.
+        `,
+        { caption: 'Komponen terkendali tanpa cara mengubah nilainya.' },
+      ),
+      p(
+        'Komponen terkendali menuntut dua hal, yaitu nilai dan cara mengubahnya. Memberikan satu tanpa yang lain menghasilkan komponen yang tampil benar dan tidak bisa disentuh. Dengan TypeScript, menandai `onUbah` sebagai wajib membuat kesalahan ini ditolak sebelum dijalankan. Tanpa TypeScript, gejalanya persis sama dengan kolom `value` tanpa `onChange`.',
+      ),
+      code(
+        'text',
+        `
+        function Panel() {
+          const [filter, setFilter] = useState({ cari: '' });
+
+          return <Sidebar onUbah={(cari) => setFilter({ cari })} />;
+          // Field lain di dalam filter hilang setiap kali cari diubah.
+        }
+        `,
+        { caption: 'Object diganti seluruhnya, bukan disebar lalu diubah.' },
+      ),
+      p(
+        'Ini pelanggaran pantangan mutasi versi kebalikannya, yaitu bukan mengubah di tempat melainkan mengganti terlalu banyak. Object baru hanya memuat `cari`, sehingga `kategori` dan seluruh field lain lenyap. Tidak ada error, dan gejalanya berupa filter kategori yang tereset setiap kali pengguna mengetik. Pakai `setFilter((f) => ({ ...f, cari }))`.',
+      ),
+      code(
+        'text',
+        `
+        // Mengetik satu huruf di sidebar menggambar ulang seluruh halaman,
+        // termasuk kepala, kaki, dan tiga panel yang tidak berhubungan.
+        `,
+        { caption: 'State diangkat lebih tinggi daripada yang dibutuhkan.' },
+      ),
+      p(
+        'Tidak ada error, dan gejalanya berupa halaman yang terasa berat. Cara menemukannya adalah menyalakan Highlight updates di React DevTools, yang membuat komponen berkedip saat digambar ulang. Kalau seluruh halaman berkedip untuk perubahan yang hanya menyentuh satu panel, statenya berada terlalu tinggi. Turunkan sampai induk bersama yang sesungguhnya.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Anak tidak mengikuti perubahan dari induk',
+            'Props disalin ke state lokal',
+            'Hapus state lokalnya, pakai props apa adanya',
+          ],
+          [
+            'Komponen tampil benar tapi tidak bisa disentuh',
+            'Nilai diberikan tanpa cara mengubahnya',
+            'Kirim penanganya juga, dan tandai wajib di tipe props',
+          ],
+          [
+            'Field lain hilang saat satu diubah',
+            'Object diganti seluruhnya',
+            'Sebar nilai lamanya, yaitu `{ ...f, cari }`',
+          ],
+          [
+            'Seluruh halaman berkedip untuk perubahan kecil',
+            'State diangkat lebih tinggi daripada yang dibutuhkan',
+            'Turunkan ke induk bersama terdekat',
+          ],
+          [
+            'Props diteruskan lima tingkat tanpa dipakai di tengah',
+            'Jarak antara pemilik dan pemakai terlalu jauh',
+            'Pakai komposisi, atau konteks kalau memang banyak cabang',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Mengangkat state adalah keputusan struktur, dan sebagian besar kesalahan di bawah berasal dari mengangkat terlalu jauh atau setengah jalan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menaruh seluruh state di komponen paling atas',
+            'Supaya bisa dijangkau semua',
+            'Setiap perubahan menggambar ulang seluruh pohon. Angkat tepat sampai induk bersama',
+          ],
+          [
+            'Menyalin props ke state supaya bisa diubah di dalam',
+            'Datanya kan perlu berubah',
+            'Dua sumber kebenaran yang bisa berbeda, dan salinannya tidak mengikuti perubahan induk',
+          ],
+          [
+            'Memakai variabel modul untuk berbagi antar-komponen',
+            'Paling cepat dan bekerja',
+            'Dibagi seluruh instance, sehingga dua panel di satu halaman saling mengganggu. Dan perubahannya tidak memicu penggambaran ulang',
+          ],
+          [
+            'Meneruskan props lima tingkat',
+            'Datanya memang dibutuhkan di bawah',
+            'Tiga komponen di tengah harus tahu sesuatu yang bukan urusannya. Pakai komposisi atau konteks',
+          ],
+          [
+            'Memakai konteks untuk semua state yang dibagi dua komponen',
+            'Supaya tidak perlu meneruskan',
+            'Konteks membuat setiap pembacanya digambar ulang saat nilainya berubah. Untuk dua komponen bersebelahan, mengangkat ke induk lebih tepat',
+          ],
+          [
+            'Mengangkat state lalu induknya hanya meneruskan',
+            'Induknya kan yang memiliki',
+            'Itu tanda seharusnya memakai komposisi. State yang diangkat sebaiknya benar-benar dipakai induknya',
+          ],
+        ],
+      ),
+      p(
+        'Baris ketiga layak diwaspadai karena ia sering dipilih di awal dan biayanya baru terasa jauh kemudian. Variabel modul memang dibagi antar-komponen, dan itu justru masalahnya. Ia dibagi oleh **seluruh** instance di seluruh aplikasi, sehingga dua katalog di satu halaman akan saling menimpa filternya. Ditambah lagi, mengubahnya tidak memicu penggambaran ulang sehingga tampilannya tidak ikut berubah.',
+      ),
+      callout(
+        'info',
+        'Pola terkendali ini akan muncul lagi di seluruh kategori',
+        'Komponen yang menerima nilai beserta cara mengubahnya adalah bentuk yang sama dengan kolom formulir terkendali, dengan komponen pilihan tanggal, dan dengan hampir seluruh komponen pustaka UI. Sekali polanya dikenali, sebagian besar API komponen pihak ketiga menjadi mudah ditebak, sebab mereka memakai bentuk yang sama.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Naikkan ke induk bersama terdekat — tidak lebih tinggi.',
@@ -1805,7 +3650,7 @@ export const lessons: LessonDraft[] = [
   written(
     'derived-state',
     'State Turunan — yang bisa dihitung jangan disimpan',
-    12,
+    21,
     'Sumber bug "dua nilai yang tidak sinkron" — dan cara menghapusnya sepenuhnya.',
     [
       terms(
@@ -1989,6 +3834,223 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman keranjang menyimpan tiga state, yaitu daftar barang, jumlah barang, dan total harga. Ketiganya diperbarui bersama setiap kali ada perubahan. Setelah fitur hapus barang ditambahkan, jumlahnya berkurang dan totalnya tidak, sebab jalur hapus lupa memperbarui yang ketiga. Setelah diperbaiki, fitur ubah jumlah ditambahkan dan masalah yang sama terjadi lagi di jalur yang berbeda.',
+      ),
+      p(
+        'Ini bukan kelalaian melainkan konsekuensi struktur. Dua dari tiga nilai itu bisa disimpulkan sepenuhnya dari yang pertama, sehingga menyimpannya berarti tiga sumber kebenaran yang harus dijaga tetap cocok di setiap jalur perubahan.',
+      ),
+      compare(
+        {
+          title: 'Tiga state yang harus dijaga sinkron',
+          lang: 'tsx',
+          code: `
+          const [barang, setBarang] = useState<Barang[]>([]);
+          const [jumlah, setJumlah] = useState(0);
+          const [totalSen, setTotalSen] = useState(0);
+
+          function hapus(id: string) {
+            const baru = barang.filter((b) => b.id !== id);
+            setBarang(baru);
+            setJumlah(baru.length);
+            setTotalSen(baru.reduce((j, b) => j + b.hargaSen * b.jumlah, 0));
+            // Tiga baris, dan tiap fitur baru harus mengingat ketiganya.
+          }
+          `,
+          notes: ['Empat jalur perubahan berarti dua belas baris yang harus benar semua'],
+        },
+        {
+          title: 'Satu state, dua nilai dihitung',
+          lang: 'tsx',
+          code: `
+          const [barang, setBarang] = useState<Barang[]>([]);
+
+          // Dihitung saat render. Mustahil tidak sinkron.
+          const jumlah = barang.length;
+          const totalSen = barang.reduce((j, b) => j + b.hargaSen * b.jumlah, 0);
+
+          function hapus(id: string) {
+            setBarang(barang.filter((b) => b.id !== id));
+            // Satu baris. Selesai.
+          }
+          `,
+          notes: ['Menambah fitur baru tidak bisa lupa memperbarui apa pun'],
+        },
+      ),
+      p(
+        'Selisihnya bukan jumlah baris melainkan **jumlah keadaan yang tidak masuk akal**. Di kolom kiri, keadaan di mana `barang` berisi dua item sementara `jumlah` bernilai tiga adalah keadaan yang bisa terjadi. Di kolom kanan, keadaan itu tidak bisa ditulis sama sekali. Ini gagasan yang sama dengan membuat keadaan salah menjadi mustahil dari Bab 2 Frontend Basic.',
+      ),
+      p(
+        'Kekhawatiran yang biasanya muncul adalah perhitungan itu berjalan pada tiap render. Untuk `barang.length` dan `reduce` atas beberapa puluh item, biayanya di bawah satu mikrodetik dan tidak akan pernah terukur. Kekhawatiran itu baru relevan untuk perhitungan yang benar-benar mahal atas ribuan baris, dan untuk itu ada `useMemo` yang dibahas di Bab 7. Ukur lebih dulu, sebab hampir selalu jawabannya tidak perlu.',
+      ),
+      code(
+        'tsx',
+        `
+        // Cara mengenali nilai turunan: coba jawab dari mana nilainya berasal.
+        const [barang, setBarang] = useState<Barang[]>([]);
+        const [cari, setCari] = useState('');
+        const [halaman, setHalaman] = useState(1);
+
+        // Semuanya TURUNAN. Tidak satu pun layak jadi state.
+        const terlihat = barang.filter((b) => b.nama.toLowerCase().includes(cari.toLowerCase()));
+        const totalHalaman = Math.max(1, Math.ceil(terlihat.length / 20));
+        const halamanAman = Math.min(halaman, totalHalaman);   // jaga tetap dalam rentang
+        const potongan = terlihat.slice((halamanAman - 1) * 20, halamanAman * 20);
+        const kosong = terlihat.length === 0;
+        const adaFilter = cari.trim() !== '';
+        `,
+        { filename: 'src/keranjang/Daftar.tsx' },
+      ),
+      p(
+        'Baris `halamanAman` menunjukkan pola yang berguna, yaitu menyesuaikan nilai state saat render alih-alih memperbaikinya lewat efek. Kalau pengguna berada di halaman lima lalu menyaring sehingga hanya tersisa satu halaman, membiarkan `halaman` bernilai lima akan menampilkan daftar kosong. Membatasinya saat render menyelesaikannya seketika, sedangkan memperbaikinya lewat efek menghasilkan satu render tambahan dengan tampilan yang salah di antaranya.',
+      ),
+      p(
+        'Aturan untuk mengenali nilai turunan bisa diringkas satu pertanyaan, yaitu bisakah nilai ini dihitung dari state dan props yang sudah ada. Kalau jawabannya ya, ia bukan state. Ada satu pengecualian yang sah, yaitu ketika perhitungannya benar-benar mahal **dan** sudah terbukti lewat pengukuran, dan untuk itu jawabannya tetap bukan state melainkan `useMemo`.',
+      ),
+      callout(
+        'warning',
+        'Menyinkronkan dua state dengan `useEffect` hampir selalu keliru',
+        'Pola yang sering ditulis adalah efek yang mengawasi satu state lalu menyetel state lain. Itu menghasilkan dua render untuk satu perubahan, dan di antara keduanya ada satu render dengan nilai yang belum sinkron. Kalau nilai kedua bisa dihitung dari yang pertama, hitung saat render dan efeknya tidak diperlukan sama sekali. Ini dibahas tuntas di Bab 7.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Nilai turunan yang disimpan sebagai state hampir tidak pernah melempar. Yang muncul adalah dua angka yang tidak cocok, dan itu jenis bug yang paling sulit dipercaya saat dilaporkan.',
+      ),
+      code(
+        'text',
+        `
+        // Keranjang berisi 2 barang.
+        // Badge di kepala halaman menampilkan: 3
+
+        // Tidak ada error. Salah satu jalur lupa memperbarui 'jumlah'.
+        `,
+        { caption: 'Dua sumber kebenaran yang menyimpang.' },
+      ),
+      p(
+        'Gejalanya khas, yaitu dua tempat menampilkan angka berbeda untuk hal yang sama. Yang membuatnya sulit ditelusuri adalah penyebabnya bukan di tempat angkanya salah melainkan di jalur perubahan yang lupa memperbarui. Dengan empat jalur perubahan, kamu harus memeriksa keempatnya. Menghapus state turunannya menyelesaikan seluruh kelas bug ini sekaligus.',
+      ),
+      code(
+        'text',
+        `
+        useEffect(() => {
+          setTotal(barang.reduce((j, b) => j + b.hargaSen, 0));
+        }, [barang]);
+
+        // Bekerja, dan menghasilkan DUA render untuk satu perubahan.
+        // Di antara keduanya, 'total' masih nilai lama.
+        `,
+        { caption: 'Menyinkronkan state dengan efek, dan ada satu render yang salah.' },
+      ),
+      p(
+        'Render pertama terjadi karena `barang` berubah, dan pada render itu `total` masih nilai lama sehingga tampilannya salah sesaat. Efek berjalan setelahnya, menyetel `total`, dan memicu render kedua yang benar. Untuk perhitungan cepat, kedipan itu mungkin tidak terlihat mata. Untuk yang lebih berat, ia terlihat jelas. Hitung saat render, dan kedua masalahnya hilang.',
+      ),
+      code(
+        'text',
+        `
+        const [halaman, setHalaman] = useState(1);
+        // Pengguna di halaman 5, lalu menyaring sehingga tersisa 1 halaman.
+
+        // Daftar kosong. Tidak ada error, dan tidak ada penjelasan bagi pengguna.
+        `,
+        { caption: 'State yang tidak lagi masuk akal setelah state lain berubah.' },
+      ),
+      p(
+        'Nomor halaman adalah state yang sah, sebab ia tidak bisa disimpulkan dari yang lain. Yang tidak sah adalah membiarkannya keluar dari rentang yang mungkin. Membatasinya saat render dengan `Math.min(halaman, totalHalaman)` menyelesaikannya tanpa efek dan tanpa render tambahan. Ini pola yang berguna untuk seluruh state yang rentang sahnya bergantung pada state lain.',
+      ),
+      code(
+        'text',
+        `
+        const [terpilih, setTerpilih] = useState<Barang | null>(null);
+        // Barang yang terpilih dihapus dari daftar.
+
+        // Panel detail masih menampilkan barang yang sudah tidak ada.
+        `,
+        { caption: 'Menyimpan seluruh object alih-alih penandanya.' },
+      ),
+      p(
+        'Menyimpan object utuh sebagai state menciptakan salinan yang bisa basi begitu sumbernya berubah. Simpan **id**-nya saja, lalu cari objectnya saat render dengan `barang.find((b) => b.id === idTerpilih)`. Hasilnya `undefined` kalau barangnya sudah tidak ada, dan itu keadaan yang bisa kamu tangani secara eksplisit. Ini pola yang berlaku untuk seluruh pemilihan, baik baris tabel, tab aktif, maupun item yang sedang disunting.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Dua tempat menampilkan angka berbeda',
+            'Nilai turunan disimpan sebagai state terpisah',
+            'Hapus statenya, hitung saat render',
+          ],
+          [
+            'Tampilan salah sesaat lalu benar',
+            'State disinkronkan lewat efek, sehingga ada dua render',
+            'Hitung saat render, hapus efeknya',
+          ],
+          [
+            'Daftar kosong setelah menyaring',
+            'Nomor halaman keluar dari rentang yang mungkin',
+            'Batasi saat render dengan `Math.min`',
+          ],
+          [
+            'Panel detail menampilkan data yang sudah dihapus',
+            'Object utuh disimpan sebagai state',
+            'Simpan idnya, cari objectnya saat render',
+          ],
+          [
+            'Perhitungan terasa berat pada daftar sangat panjang',
+            'Perhitungan mahal dijalankan tiap render',
+            'Bungkus dengan `useMemo`, setelah diukur',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Nilai turunan adalah sumber bug terbesar di seluruh bab ini, dan hampir seluruhnya bisa dicegah dengan satu pertanyaan sebelum menambahkan state.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyimpan jumlah, total, atau hasil filter sebagai state',
+            'Supaya tidak dihitung ulang tiap render',
+            'Sumber kebenaran kedua yang harus dijaga di setiap jalur perubahan, dan selalu ada yang terlewat',
+          ],
+          [
+            'Menyinkronkan dua state dengan `useEffect`',
+            'Efek memang untuk bereaksi terhadap perubahan',
+            'Dua render untuk satu perubahan, dan satu di antaranya menampilkan nilai yang belum sinkron',
+          ],
+          [
+            'Menyimpan object utuh yang dipilih',
+            'Supaya bisa langsung dipakai',
+            'Salinannya basi begitu sumbernya berubah. Simpan idnya, cari saat render',
+          ],
+          [
+            'Mengoptimalkan perhitungan sebelum mengukur',
+            'Perhitungan di render pasti mahal',
+            '`length` dan `reduce` atas puluhan item tidak akan pernah terukur. Ukur lebih dulu',
+          ],
+          [
+            'Menyimpan hasil pemformatan sebagai state',
+            'Supaya tidak diformat ulang',
+            'Ia terikat pada nilai mentahnya dan harus diperbarui bersama. Format saat menampilkan',
+          ],
+          [
+            'Membiarkan state keluar dari rentang yang mungkin',
+            'Nilainya kan diatur pengguna',
+            'Nomor halaman lima pada daftar satu halaman menghasilkan tampilan kosong. Batasi saat render',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua layak ditegaskan karena ia pola yang paling sering ditulis dan paling sering keliru. Efek dirancang untuk menyinkronkan dengan sesuatu **di luar** React, misalnya jaringan, timer, atau API peramban. Menyinkronkan satu state dengan state lain bukan itu, dan hampir selalu berarti salah satunya seharusnya bukan state. Bab 7 membahas ini dengan judul tersendiri, dan itu menunjukkan seberapa sering ia terjadi.',
+      ),
+      callout(
+        'tip',
+        'Satu pertanyaan sebelum menambahkan `useState`',
+        'Bisakah nilai ini dihitung dari state atau props yang sudah ada. Kalau ya, ia bukan state melainkan variabel biasa di atas `return`. Pertanyaan sepuluh detik itu menghapus sebagian besar bug sinkronisasi sebelum ia sempat ditulis.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Nilai yang bisa dihitung dari state lain tidak boleh disimpan.',
@@ -2029,7 +4091,7 @@ export const lessons: LessonDraft[] = [
   written(
     'usereducer',
     '`useReducer` untuk State yang Rumit',
-    13,
+    25,
     'Ketika beberapa nilai berubah bersama, dan transisinya punya aturan.',
     [
       terms(
@@ -2247,6 +4309,276 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Alur checkout punya empat langkah, tombol maju dan mundur, validasi per langkah, dan kemampuan melompat ke langkah yang sudah pernah dilewati. Ditulis dengan `useState`, hasilnya lima state dan tujuh penangan yang masing-masing menyetel tiga hingga empat state sekaligus. Setelah fitur mundur ditambahkan, muncul keadaan di mana langkahnya mundur tapi penanda langkah selesainya tidak, dan tombol majunya mati padahal seharusnya aktif.',
+      ),
+      p(
+        'Ini gejala yang khas, yaitu beberapa state yang selalu berubah bersama tapi diperbarui di banyak tempat. `useReducer` memindahkan seluruh aturan perubahannya ke satu tempat.',
+      ),
+      code(
+        'tsx',
+        `
+        type Langkah = 'alamat' | 'pengiriman' | 'pembayaran' | 'konfirmasi';
+
+        type Keadaan = {
+          langkah: Langkah;
+          selesai: Set<Langkah>;
+          data: Partial<DataCheckout>;
+          galat: string | null;
+        };
+
+        // Tiap aksi menyatakan APA YANG TERJADI, bukan apa yang harus diubah.
+        type Aksi =
+          | { jenis: 'isi'; bagian: Partial<DataCheckout> }
+          | { jenis: 'maju' }
+          | { jenis: 'mundur' }
+          | { jenis: 'lompat'; ke: Langkah }
+          | { jenis: 'gagal'; pesan: string };
+
+        const URUTAN: Langkah[] = ['alamat', 'pengiriman', 'pembayaran', 'konfirmasi'];
+
+        function reducer(keadaan: Keadaan, aksi: Aksi): Keadaan {
+          switch (aksi.jenis) {
+            case 'isi':
+              return { ...keadaan, data: { ...keadaan.data, ...aksi.bagian }, galat: null };
+
+            case 'maju': {
+              const i = URUTAN.indexOf(keadaan.langkah);
+              if (i >= URUTAN.length - 1) return keadaan;      // sudah di ujung
+              return {
+                ...keadaan,
+                langkah: URUTAN[i + 1],
+                selesai: new Set(keadaan.selesai).add(keadaan.langkah),
+                galat: null,
+              };
+            }
+
+            case 'mundur': {
+              const i = URUTAN.indexOf(keadaan.langkah);
+              if (i <= 0) return keadaan;
+              return { ...keadaan, langkah: URUTAN[i - 1], galat: null };
+            }
+
+            case 'lompat':
+              // Hanya boleh ke langkah yang SUDAH pernah diselesaikan.
+              if (!keadaan.selesai.has(aksi.ke)) return keadaan;
+              return { ...keadaan, langkah: aksi.ke, galat: null };
+
+            case 'gagal':
+              return { ...keadaan, galat: aksi.pesan };
+
+            default:
+              return keadaan;
+          }
+        }
+        `,
+        { filename: 'src/checkout/reducer.ts' },
+      ),
+      p(
+        'Yang berubah bukan jumlah baris melainkan **di mana aturannya tinggal**. Seluruh aturan tentang bagaimana keadaan boleh berpindah kini berada di satu fungsi, dan komponen hanya mengirim aksi. Aturan bahwa lompat hanya boleh ke langkah yang sudah selesai tertulis satu kali, bukan diulang di tiap tempat yang memanggilnya.',
+      ),
+      p(
+        "Bentuk `case 'maju'` yang mengembalikan `keadaan` apa adanya saat sudah di ujung adalah pola yang layak dicontoh. Reducer boleh memutuskan tidak ada yang berubah, dan mengembalikan object yang sama membuat React melewati penggambaran ulang. Ini lebih baik daripada memeriksa syaratnya di komponen, sebab pemeriksaannya menjadi bagian dari aturan bukan bagian dari tampilan.",
+      ),
+      code(
+        'tsx',
+        `
+        export function Checkout() {
+          const [keadaan, kirim] = useReducer(reducer, {
+            langkah: 'alamat',
+            selesai: new Set<Langkah>(),
+            data: {},
+            galat: null,
+          });
+
+          // Komponen hanya menyatakan apa yang terjadi.
+          return (
+            <>
+              <PenandaLangkah
+                aktif={keadaan.langkah}
+                selesai={keadaan.selesai}
+                onLompat={(ke) => kirim({ jenis: 'lompat', ke })}
+              />
+
+              <IsiLangkah
+                langkah={keadaan.langkah}
+                data={keadaan.data}
+                onIsi={(bagian) => kirim({ jenis: 'isi', bagian })}
+              />
+
+              {keadaan.galat ? <PesanGalat pesan={keadaan.galat} /> : null}
+
+              <button onClick={() => kirim({ jenis: 'mundur' })}>Kembali</button>
+              <button onClick={() => kirim({ jenis: 'maju' })}>Lanjut</button>
+            </>
+          );
+        }
+        `,
+        { filename: 'src/checkout/Checkout.tsx' },
+      ),
+      p(
+        'Perhatikan tombol Kembali tidak perlu memeriksa apakah sudah di langkah pertama, sebab reducer yang memutuskan. Kalau nanti aturannya berubah, misalnya mundur dari pembayaran harus mengosongkan data pembayaran, perubahannya satu tempat dan seluruh pemanggil ikut. Dengan `useState`, aturan itu harus diulang di setiap tombol yang bisa memundurkan langkah.',
+      ),
+      p(
+        'Keuntungan lain yang sering menentukan adalah pengujian. Fungsi `reducer` adalah fungsi murni yang menerima keadaan dan aksi lalu mengembalikan keadaan baru, sehingga seluruh aturan alurnya bisa diuji tanpa merender apa pun. Menguji bahwa lompat ke langkah yang belum selesai tidak mengubah apa-apa cukup satu baris pemanggilan, tanpa peramban dan tanpa klik.',
+      ),
+      callout(
+        'tip',
+        'Tanda bahwa `useState` sudah tidak cukup',
+        'Ada tiga atau lebih state yang selalu berubah bersama. Satu penangan menyetel tiga state sekaligus. Aturan tentang apa yang boleh berubah menjadi apa diulang di beberapa tempat. Muncul keadaan yang tidak masuk akal, misalnya sedang memuat sekaligus punya galat. Kalau dua di antaranya benar, `useReducer` biasanya sepadan.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut adalah yang paling sering pada reducer, dan dua di antaranya tidak melempar apa pun.',
+      ),
+      code(
+        'text',
+        `
+        function reducer(keadaan, aksi) {
+          switch (aksi.jenis) {
+            case 'maju':
+              keadaan.langkah = 'pengiriman';    // diubah di tempat
+              return keadaan;
+          }
+        }
+
+        // Tidak ada error. Tampilan tidak berubah sama sekali.
+        `,
+        { caption: 'Reducer mengubah keadaan di tempat lalu mengembalikannya.' },
+      ),
+      p(
+        'Ini pantangan mutasi yang muncul lagi, dan di reducer ia sangat mudah terjadi karena `keadaan` terlihat seperti variabel biasa. React membandingkan rujukan, dan karena objectnya sama persis ia melewati penggambaran ulang. Reducer wajib mengembalikan object **baru** untuk setiap perubahan, dan mengembalikan yang lama hanya kalau memang tidak ada yang berubah.',
+      ),
+      code(
+        'text',
+        `
+        function reducer(keadaan, aksi) {
+          switch (aksi.jenis) {
+            case 'maju':
+              return { ...keadaan, langkah: 'pengiriman' };
+          }
+          // tidak ada default
+        }
+
+        // Aksi yang tidak dikenal membuat keadaan menjadi undefined.
+        TypeError: Cannot read properties of undefined (reading 'langkah')
+        `,
+        { caption: 'Cabang `default` tidak ada, sehingga fungsinya mengembalikan `undefined`.' },
+      ),
+      p(
+        'Fungsi yang jatuh sampai ke bawah tanpa `return` mengembalikan `undefined`, dan React menyimpan itu sebagai keadaan baru. Seluruh pembacaan sesudahnya gagal. Selalu sediakan `default` yang mengembalikan `keadaan` apa adanya, atau lebih baik lagi melempar error yang menyebut jenis aksinya supaya salah ketik langsung ketahuan.',
+      ),
+      code(
+        'text',
+        `
+        case 'maju': {
+          simpanKeServer(keadaan.data);      // efek samping di dalam reducer
+          return { ...keadaan, langkah: 'pengiriman' };
+        }
+
+        // Di StrictMode, simpanKeServer dipanggil DUA KALI.
+        `,
+        { caption: 'Reducer harus murni, dan React memanggilnya lebih dari sekali.' },
+      ),
+      p(
+        'Sama seperti fungsi updater di Sub-bab 4.3, reducer diperlakukan sebagai fungsi murni. React boleh memanggilnya beberapa kali, dan `StrictMode` sengaja memanggilnya dua kali untuk menemukan efek samping. Pemanggilan server, pencatatan, dan penulisan ke penyimpanan semuanya harus berada di luar. Reducer hanya menghitung keadaan baru dari keadaan lama dan aksi.',
+      ),
+      code(
+        'text',
+        `
+        case 'isi':
+          keadaan.selesai.add(keadaan.langkah);    // Set diubah di tempat
+          return { ...keadaan };
+
+        // Object luarnya baru, dan Set-nya masih yang sama.
+        // Komponen yang membaca 'selesai' tidak ikut diperbarui.
+        `,
+        { caption: 'Spread hanya menyalin satu lapis, dan `Set` termasuk lapisan dalam.' },
+      ),
+      p(
+        'Ini bentuk yang paling menipu, sebab object luarnya memang baru sehingga sebagian tampilan ikut diperbarui. Yang tidak berubah adalah rujukan `Set`, sehingga komponen yang menerimanya sebagai props menyimpulkan propnya tidak berubah. Buat `Set` baru dengan `new Set(keadaan.selesai).add(...)`, dan hal yang sama berlaku untuk `Map` dan array bersarang.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Tampilan tidak berubah setelah mengirim aksi',
+            'Reducer mengubah keadaan di tempat',
+            'Kembalikan object baru dengan spread',
+          ],
+          [
+            '`Cannot read properties of undefined`',
+            'Tidak ada cabang `default`',
+            'Kembalikan `keadaan` apa adanya, atau lempar error yang menyebut jenisnya',
+          ],
+          [
+            'Efek samping berjalan dua kali di pengembangan',
+            'Ada pemanggilan server atau pencatatan di dalam reducer',
+            'Pindahkan ke penangan peristiwa atau efek',
+          ],
+          [
+            'Sebagian komponen tidak ikut diperbarui',
+            '`Set`, `Map`, atau array bersarang diubah di tempat',
+            'Buat salinan barunya, misalnya `new Set(lama)`',
+          ],
+          [
+            'Aksi dengan jenis salah ketik diabaikan diam-diam',
+            '`default` mengembalikan keadaan tanpa memberi tahu',
+            'Lempar error di `default`, atau pakai union tipe yang ketat',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        '`useReducer` sering dipakai terlalu dini atau terlalu terlambat, dan keduanya punya biayanya sendiri.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `useReducer` untuk satu boolean',
+            'Katanya lebih terstruktur',
+            'Menambah tipe aksi, fungsi reducer, dan satu lapisan tak langsung untuk hal yang cukup `useState`. Pakai saat ada beberapa state yang berubah bersama',
+          ],
+          [
+            'Menamai aksi dengan apa yang harus diubah',
+            'Lebih langsung',
+            'Nama seperti `setLangkah` membuat reducer sekadar setter berkedok. Namai dengan apa yang terjadi, misalnya `maju`, supaya aturannya bisa tinggal di reducer',
+          ],
+          [
+            'Menaruh pemanggilan server di dalam reducer',
+            'Di sana keadaannya tersedia',
+            'Reducer harus murni dan React boleh memanggilnya dua kali. Kirim aksi, lalu lakukan efeknya di penangan',
+          ],
+          [
+            'Mengubah `Set` atau `Map` di dalam keadaan dengan method pengubah',
+            'Objek luarnya kan sudah disalin',
+            'Spread tidak menyalin lapisan dalam. Buat `Set` atau `Map` baru',
+          ],
+          [
+            'Membuat satu reducer raksasa untuk seluruh halaman',
+            'Semua aturan di satu tempat',
+            'Menjadi ratusan baris dan sulit diuji. Pecah per bagian yang aturannya memang berhubungan',
+          ],
+          [
+            'Melupakan cabang `default`',
+            'Seluruh aksi sudah ditangani',
+            'Salah ketik jenis aksi membuat keadaan menjadi `undefined`, dan seluruh halaman rusak',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua adalah pembeda antara reducer yang berguna dan reducer yang hanya menambah lapisan. Aksi bernama `setLangkah` memindahkan keputusan ke pemanggil, sehingga aturan tentang langkah mana yang boleh dituju tetap tersebar. Aksi bernama `maju` menyerahkan keputusan itu ke reducer, dan di situlah seluruh keuntungannya berada. Namai aksi dengan **peristiwa**, bukan dengan perubahan.',
+      ),
+      callout(
+        'info',
+        'Reducer adalah fungsi murni, dan itu membuatnya mudah diuji',
+        'Karena ia hanya menerima keadaan dan aksi lalu mengembalikan keadaan baru, seluruh aturan alurnya bisa diuji tanpa merender satu komponen pun. Menguji sepuluh kombinasi aksi memakan sepuluh baris dan berjalan dalam milidetik. Ini keuntungan yang sering menentukan pada alur yang aturannya rumit seperti checkout atau wisaya.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         '`useReducer` saat beberapa nilai berubah bersama atau transisinya punya aturan.',
@@ -2287,7 +4619,7 @@ export const lessons: LessonDraft[] = [
   written(
     'empat-keadaan-ui',
     'Empat Keadaan UI',
-    12,
+    22,
     'Loading, kosong, error, sukses — bukan hanya sukses.',
     [
       p(
@@ -2482,6 +4814,222 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman riwayat transaksi diserahkan ke tim penguji, dan tiga laporan masuk di hari pertama. Saat internet mati, halaman menampilkan tulisan belum ada transaksi. Saat filter tanggal diubah menjadi rentang yang kosong, tulisannya sama persis. Dan saat data sedang dimuat, layar putih selama dua detik tanpa satu pun tanda. Ketiganya adalah keadaan yang tidak pernah muncul saat dikembangkan, sebab server lokal selalu cepat dan datanya selalu ada.',
+      ),
+      p(
+        'Empat keadaan itu bukan anjuran melainkan bagian dari baseline frontend project ini. Bentuk di bawah menulis keempatnya secara eksplisit, dan menambahkan satu keadaan kelima yang sering dilupakan.',
+      ),
+      code(
+        'tsx',
+        `
+        type Keadaan<T> =
+          | { status: 'memuat' }
+          | { status: 'memuat-ulang'; data: T }      // sudah ada data, sedang menyegarkan
+          | { status: 'gagal'; galat: Error }
+          | { status: 'kosong' }
+          | { status: 'sukses'; data: T };
+
+        // Union bertanda seperti ini membuat kombinasi yang tidak masuk akal
+        // menjadi MUSTAHIL. Tidak ada keadaan 'memuat sekaligus gagal'.
+        `,
+        { filename: 'src/lib/keadaan.ts' },
+      ),
+      p(
+        'Bentuk ini disebut union bertanda, dan keunggulannya bukan sekadar kerapian. Dengan tiga boolean terpisah, yaitu `memuat`, `galat`, dan `kosong`, ada delapan kombinasi yang bisa ditulis dan hanya empat yang berarti. Dengan union, kombinasi yang tidak masuk akal tidak bisa dibuat sama sekali. Ini gagasan yang sama dengan mengganti boolean bertumpuk pada props di bab sebelumnya.',
+      ),
+      code(
+        'tsx',
+        `
+        export function RiwayatTransaksi({ filter }: { filter: Filter }) {
+          const keadaan = useTransaksi(filter);   // hook yang mengembalikan Keadaan<Transaksi[]>
+          const adaFilter = filter.cari !== '' || filter.dari !== null;
+
+          // Urutan pemeriksaan MENENTUKAN. Gagal sebelum kosong.
+          if (keadaan.status === 'memuat') {
+            return <Skeleton baris={5} />;
+          }
+
+          if (keadaan.status === 'gagal') {
+            const jaringan = keadaan.galat.name === 'ErrorJaringan';
+            return (
+              <PesanGagal
+                pesan={jaringan
+                  ? 'Koneksi bermasalah. Periksa jaringanmu.'
+                  : 'Gagal memuat riwayat. Coba lagi sebentar.'}
+                onCobaLagi={muatUlang}
+              />
+            );
+          }
+
+          if (keadaan.status === 'kosong') {
+            return adaFilter ? (
+              <Kosong
+                pesan="Tidak ada transaksi pada rentang ini"
+                aksi={{ label: 'Hapus filter', jalankan: bersihkanFilter }}
+              />
+            ) : (
+              <Kosong
+                pesan="Belum ada transaksi sama sekali"
+                aksi={{ label: 'Mulai belanja', jalankan: keKatalog }}
+              />
+            );
+          }
+
+          // Di sini TypeScript tahu keadaan.data pasti ada.
+          return (
+            <div aria-busy={keadaan.status === 'memuat-ulang'}>
+              <Tabel data={keadaan.data} />
+            </div>
+          );
+        }
+        `,
+        { filename: 'src/riwayat/RiwayatTransaksi.tsx' },
+      ),
+      p(
+        'Urutan pemeriksaannya bukan selera. Gagal diperiksa sebelum kosong, sebab daftar yang gagal dimuat panjangnya juga nol. Kalau urutannya dibalik, gangguan server akan tampil sebagai belum ada transaksi, dan itu persis laporan pertama dari cerita di awal. Ini kesalahan yang hanya muncul saat server bermasalah, sehingga hampir tidak pernah tertangkap saat pengujian biasa.',
+      ),
+      p(
+        'Keadaan `memuat-ulang` yang membawa data adalah yang paling sering dilupakan. Tanpa itu, mengganti filter akan menampilkan skeleton dan membuang daftar yang sudah ada, sehingga layar berkedip. Dengan memisahkannya, data lama tetap terlihat sambil ditandai `aria-busy`, dan pengguna melihat perubahan bukan kekosongan. Ini pola yang sudah dibahas di Bab 5 Frontend Basic.',
+      ),
+      p(
+        'Dua pesan kosong yang berbeda menutup laporan kedua. Kosong karena filter dan kosong karena belum ada data adalah dua keadaan yang menuntut tindakan berbeda dari pengguna, dan menyatukannya membuat pengguna baru mengira aplikasinya rusak. Tombol aksinya juga berbeda, yaitu hapus filter untuk yang pertama dan mulai belanja untuk yang kedua.',
+      ),
+      callout(
+        'tip',
+        'Tulis keadaan gagal dan kosong LEBIH DULU',
+        'Keduanya paling sering dilewati justru karena paling jarang muncul saat mengembangkan. Kalau kamu menulisnya sebelum jalur suksesnya, keduanya pasti ada dan jalur suksesnya akan menyusul dengan sendirinya. Kalau dibalik, keduanya menjadi tambalan yang bentuknya berbeda-beda antar-halaman.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Keadaan yang tidak ditulis tidak menghasilkan error. Ia menghasilkan layar yang salah, dan empat bentuk di bawah adalah yang paling sering dilaporkan pengguna.',
+      ),
+      code(
+        'text',
+        `
+        // Server sedang mati.
+        // Layar menampilkan: "Belum ada transaksi sama sekali"
+        `,
+        { caption: 'Kekosongan diperiksa sebelum kegagalan.' },
+      ),
+      p(
+        'Pengguna menyimpulkan datanya hilang, dan pada aplikasi keuangan itu bisa menimbulkan kepanikan yang nyata. Yang lebih merugikan bagimu, kamu kehilangan satu-satunya tanda bahwa ada gangguan, sebab tidak ada laporan galat yang masuk. Periksa kegagalan lebih dulu, selalu, dan pastikan keadaan gagal punya wujud yang jelas berbeda dari keadaan kosong.',
+      ),
+      code(
+        'text',
+        `
+        {data.map((d) => <Baris key={d.id} data={d} />)}
+
+        TypeError: Cannot read properties of undefined (reading 'map')
+        `,
+        { caption: 'Data dibaca sebelum keadaan sukses dipastikan.' },
+      ),
+      p(
+        'Dengan union bertanda dan TypeScript, kesalahan ini ditolak sebelum dijalankan sebab `data` hanya ada pada keadaan `sukses` dan `memuat-ulang`. Tanpa union, `data` biasanya berupa `T[] | undefined` dan mudah dipakai tanpa diperiksa. Ini salah satu manfaat union yang paling langsung terasa, yaitu TypeScript memaksa kamu memeriksa statusnya lebih dulu.',
+      ),
+      code(
+        'text',
+        `
+        // Pengguna mengganti filter. Daftar hilang, skeleton muncul 200 ms,
+        // lalu daftar baru muncul. Layar berkedip.
+        `,
+        { caption: 'Skeleton ditampilkan padahal sudah ada data.' },
+      ),
+      p(
+        'Tidak ada error, dan yang rusak adalah pengalamannya. Kedipan ini terasa lebih lambat daripada tidak ada indikator sama sekali, sebab mata menangkap perubahan besar dua kali. Pisahkan `memuat` dari `memuat-ulang`, dan tampilkan skeleton hanya saat benar-benar belum ada apa pun untuk ditampilkan.',
+      ),
+      code(
+        'text',
+        `
+        // Permintaan gagal. Indikator memuat terus berputar.
+        // Tidak ada pesan, dan tidak ada tombol coba lagi.
+        `,
+        { caption: 'Blok `catch` hanya mencetak ke console.' },
+      ),
+      p(
+        'Ini pola yang sudah dibahas di Bab 5 Frontend Basic dan muncul kembali di React dengan bentuk yang sama. Setiap `catch` harus mengubah sesuatu yang **dilihat pengguna**, dan mencetak ke console bukan jawabannya. Kalau keadaan memuat tidak pernah punya jalan keluar pada jalur gagal, pengguna akan menunggu selamanya tanpa tahu apa yang terjadi.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Gangguan server tampil sebagai belum ada data',
+            'Kekosongan diperiksa sebelum kegagalan',
+            'Periksa gagal lebih dulu',
+          ],
+          [
+            "`Cannot read properties of undefined (reading 'map')`",
+            'Data dibaca sebelum status sukses dipastikan',
+            'Pakai union bertanda supaya TypeScript memaksa memeriksa',
+          ],
+          [
+            'Layar berkedip saat filter diganti',
+            'Skeleton ditampilkan walaupun sudah ada data',
+            'Pisahkan `memuat` dari `memuat-ulang`',
+          ],
+          [
+            'Indikator memuat berputar selamanya',
+            '`catch` tidak mengubah keadaan yang terlihat',
+            'Setel keadaan gagal, dan sediakan tombol coba lagi',
+          ],
+          [
+            'Pesan kosong menyesatkan pengguna baru',
+            'Satu pesan untuk dua sebab yang berbeda',
+            'Bedakan kosong karena filter dan kosong karena belum ada data',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Empat keadaan tampilan adalah bagian yang paling sering dianggap penyempurnaan, padahal tiga di antaranya justru yang paling sering dilihat pengguna saat ada masalah.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis jalur sukses lebih dulu, sisanya menyusul',
+            'Itu yang paling penting',
+            'Keadaan lain menjadi tambalan yang bentuknya berbeda-beda antar-halaman, dan sebagian tidak pernah ditulis',
+          ],
+          [
+            'Memakai tiga boolean terpisah untuk keadaan',
+            'Tiap keadaan punya penandanya sendiri',
+            'Delapan kombinasi bisa ditulis dan hanya empat yang berarti. Pakai union bertanda',
+          ],
+          [
+            'Memeriksa kekosongan sebelum kegagalan',
+            'Urutannya terasa alami',
+            'Daftar yang gagal dimuat panjangnya juga nol, sehingga gangguan tampil sebagai kekosongan',
+          ],
+          [
+            'Menampilkan spinner untuk operasi yang biasanya seketika',
+            'Lebih baik ada indikator',
+            'Kedipan terbaca lebih lambat daripada tidak ada indikator. Tunda memunculkannya, atau tahan minimalnya',
+          ],
+          [
+            'Memakai pesan galat yang sama untuk semua kegagalan',
+            'Pengguna tidak peduli detailnya',
+            'Gangguan jaringan bisa pengguna perbaiki sendiri, gangguan server tidak. Bedakan keduanya',
+          ],
+          [
+            'Menguji hanya di jaringan cepat dengan data lengkap',
+            'Alurnya kan sama',
+            'Ketiga keadaan selain sukses hampir tidak pernah muncul. Pakai pembatas jaringan dan data uji yang kosong',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir adalah kebiasaan yang menemukan sebagian besar masalah di sub-bab ini dalam dua menit. Buka DevTools, pilih pembatas jaringan Slow 4G, lalu matikan servernya di tengah pemuatan. Setelah itu, hapus seluruh data uji dan buka halamannya lagi. Dua percobaan itu memaksa ketiga keadaan selain sukses muncul, dan hampir selalu ada satu yang belum ditulis.',
+      ),
+      callout(
+        'info',
+        'Pustaka pengambil data menyediakan keempatnya secara bawaan',
+        'Pustaka seperti TanStack Query mengembalikan `isPending`, `isError`, `error`, dan `data` sekaligus, plus `isFetching` yang membedakan pemuatan pertama dari pemuatan ulang. Bab tentang state management membahasnya. Yang tidak disediakan pustaka mana pun adalah keputusan apa yang ditampilkan untuk tiap keadaan, dan itu tetap pekerjaanmu.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Empat keadaan adalah kewajiban, bukan kemewahan.',
@@ -2523,7 +5071,7 @@ export const lessons: LessonDraft[] = [
   written(
     'praktik-form-filter',
     'Praktik: Form pencarian + filter dengan keempat keadaan',
-    16,
+    27,
     'Menggabungkan state, event, turunan, dan empat keadaan UI menjadi satu fitur utuh.',
     [
       p(
@@ -2802,6 +5350,260 @@ export const lessons: LessonDraft[] = [
         'Fungsi `saring` diuji terpisah, termasuk kasus daftar kosong',
       ),
 
+      divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman daftar produk yang baru kamu bangun bekerja. Sekarang tiga permintaan datang, yaitu filternya harus bisa dibagikan lewat tautan, tombol kembali peramban harus mengembalikan filter sebelumnya, dan memuat ulang halaman tidak boleh mengosongkan pilihan pengguna. Ketiganya tidak bisa diselesaikan `useState`, sebab state React hilang begitu halaman dimuat ulang.',
+      ),
+      p(
+        'Jawabannya bukan menambah state melainkan **memindahkannya**. Alamat halaman adalah tempat penyimpanan yang sudah tersedia, sudah dipahami setiap pengguna, dan sudah terhubung dengan tombol kembali tanpa satu baris kode tambahan.',
+      ),
+      table(
+        ['Jenis nilai', 'Tempatnya', 'Alasannya'],
+        [
+          [
+            'Kata pencarian, filter, urutan, halaman keberapa',
+            '**Alamat halaman**',
+            'Harus bisa dibagikan dan dikembalikan tombol kembali',
+          ],
+          [
+            'Baris mana yang sedang dipilih di tabel',
+            'State komponen',
+            'Tidak berarti apa-apa di tab lain',
+          ],
+          ['Dialog terbuka atau tidak', 'State komponen', 'Kecuali dialognya punya alamat sendiri'],
+          [
+            'Isi kotak pencarian yang sedang diketik',
+            'State komponen',
+            'Alamat baru diperbarui setelah pengguna berhenti mengetik',
+          ],
+          [
+            'Tema terang atau gelap',
+            'Penyimpanan peramban',
+            'Preferensi yang bertahan lintas sesi',
+          ],
+          [
+            'Daftar produk dari server',
+            'Cache pengambil data',
+            'Punya kesegaran dan penanganan gagal sendiri',
+          ],
+        ],
+        'Yang menentukan adalah siapa yang perlu tahu, dan berapa lama ia harus bertahan.',
+      ),
+      code(
+        'tsx',
+        `
+        function DaftarProduk() {
+          const [params, setParams] = useSearchParams();
+
+          // Dibaca dari alamat, bukan disimpan. Satu sumber kebenaran.
+          const cari = params.get('q') ?? '';
+          const kategori = params.get('kategori') ?? '';
+          const urut = (params.get('urut') as Urut) ?? 'terbaru';
+          const halaman = Math.max(1, Number(params.get('halaman') ?? '1') || 1);
+
+          // Kotak pencarian tetap terkendali state lokal supaya ketikan terasa
+          // seketika. Alamat diperbarui setelah pengguna berhenti mengetik.
+          const [ketikan, setKetikan] = useState(cari);
+
+          useEffect(() => {
+            const id = setTimeout(() => {
+              if (ketikan === cari) return;
+              perbarui({ q: ketikan || null, halaman: null });   // reset ke halaman 1
+            }, 400);
+            return () => clearTimeout(id);
+          }, [ketikan, cari]);
+
+          function perbarui(bagian: Record<string, string | null>) {
+            const baru = new URLSearchParams(params);
+            for (const [kunci, nilai] of Object.entries(bagian)) {
+              if (nilai === null || nilai === '') baru.delete(kunci);
+              else baru.set(kunci, nilai);
+            }
+            setParams(baru, { replace: true });   // jangan penuhi riwayat tiap ketikan
+          }
+
+          return (
+            <>
+              <input value={ketikan} onChange={(e) => setKetikan(e.currentTarget.value)} />
+              <PilihKategori nilai={kategori} onUbah={(k) => perbarui({ kategori: k, halaman: null })} />
+              <PilihUrut nilai={urut} onUbah={(u) => perbarui({ urut: u })} />
+              <HasilProduk cari={cari} kategori={kategori} urut={urut} halaman={halaman} />
+            </>
+          );
+        }
+        `,
+        { filename: 'src/produk/DaftarProduk.tsx' },
+      ),
+      p(
+        'Bagian yang paling mudah keliru adalah kotak pencarian. Ia tetap memakai state lokal karena mengetik harus terasa seketika, dan memperbarui alamat pada tiap huruf akan memenuhi riwayat peramban sehingga tombol kembali harus ditekan dua puluh kali. Alamat diperbarui setelah pengguna berhenti mengetik, memakai debounce dari Bab 1 Frontend Basic, dan dengan `replace` supaya tidak menambah entri riwayat.',
+      ),
+      p(
+        'Baris `halaman: null` pada penangan filter menyelesaikan bug yang sangat sering. Kalau pengguna berada di halaman lima lalu mengganti kategori, hasil kategori baru mungkin hanya punya satu halaman sehingga daftarnya kosong. Mereset halaman setiap kali filter berubah adalah aturan yang berlaku di hampir semua daftar berpaginasi, dan menuliskannya di satu fungsi `perbarui` membuatnya tidak mungkin terlewat.',
+      ),
+      p(
+        'Fungsi `perbarui` juga menghapus parameter yang nilainya kosong, dan itu bukan sekadar kerapian. Alamat `?q=&kategori=` dan alamat tanpa parameter menghasilkan halaman yang sama, dan cache peramban maupun CDN menyimpannya sebagai dua entri terpisah. Menjaga alamat tetap kanonik meningkatkan keberhasilan cache dan membuat tautan yang dibagikan lebih bersih.',
+      ),
+      code(
+        'tsx',
+        `
+        // Membaca dari alamat berarti nilainya bisa apa saja.
+        // Perlakukan sebagai masukan dari luar, persis seperti data dari server.
+        const URUT_SAH = ['terbaru', 'termurah', 'termahal'] as const;
+        type Urut = (typeof URUT_SAH)[number];
+
+        const urutMentah = params.get('urut');
+        const urut: Urut = URUT_SAH.includes(urutMentah as Urut)
+          ? (urutMentah as Urut)
+          : 'terbaru';                              // bawaan kalau tidak dikenal
+        `,
+        { caption: 'Siapa pun bisa mengetik apa saja di alamat halaman.' },
+      ),
+      p(
+        'Ini penerapan aturan dari Bab 6 Frontend Basic, yaitu tipe TypeScript hilang saat build sehingga data dari luar tetap harus diperiksa saat berjalan. Alamat halaman adalah data dari luar, sama seperti respons server. Tanpa pemeriksaan ini, `?urut=xyz` akan menghasilkan kelas CSS yang tidak ada, pemanggilan API dengan parameter tidak sah, atau bahkan halaman yang gagal dimuat.',
+      ),
+      callout(
+        'tip',
+        'Pertanyaan yang memutuskan tempat sebuah nilai',
+        'Apakah nilainya perlu bertahan setelah halaman dimuat ulang, sebab kalau ya tempatnya bukan state. Apakah pengguna perlu bisa membagikannya lewat tautan, sebab kalau ya tempatnya alamat halaman. Apakah ia hanya berarti bagi satu pengguna di satu perangkat, sebab kalau ya penyimpanan peramban cocok. Kalau ketiganya tidak, `useState` memang jawabannya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut adalah yang paling sering saat state dipindahkan ke alamat halaman.',
+      ),
+      code(
+        'text',
+        `
+        // Pengguna mengetik "kaos polos", lalu menekan tombol kembali.
+        // Ia harus menekan sepuluh kali untuk kembali ke halaman sebelumnya.
+        `,
+        { caption: 'Alamat diperbarui pada tiap ketikan tanpa `replace`.' },
+      ),
+      p(
+        'Tiap pemanggilan yang menambah entri riwayat membuat tombol kembali harus ditekan sekali lagi. Sepuluh huruf berarti sepuluh entri. Ada dua perbaikan yang dipakai bersama, yaitu menunda pembaruan sampai pengguna berhenti mengetik, dan memakai opsi `replace` supaya entri yang ada digantikan bukan ditambah. Untuk perubahan yang memang berarti navigasi, misalnya berpindah halaman, `replace` justru tidak dipakai.',
+      ),
+      code(
+        'text',
+        `
+        // Alamat: ?urut=xyz
+        <div className={\`daftar daftar-\${urut}\`} />
+
+        // Hasil: class="daftar daftar-xyz"
+        // Tidak ada gaya yang menempel. Tidak ada error.
+        `,
+        { caption: 'Nilai dari alamat dipakai tanpa diperiksa.' },
+      ),
+      p(
+        'Siapa pun bisa mengetik apa saja di bilah alamat, dan tautan lama yang beredar bisa memuat nilai yang sudah tidak didukung. Tanpa pemeriksaan terhadap daftar nilai yang sah, akibatnya bisa berupa gaya yang hilang, pemanggilan API yang gagal, atau pada kasus terburuk nilai yang disisipkan ke tempat yang berbahaya. Perlakukan alamat sebagai masukan yang tidak dipercaya.',
+      ),
+      code(
+        'text',
+        `
+        const halaman = Number(params.get('halaman'));
+        const mulai = (halaman - 1) * 20;
+
+        // Alamat tanpa parameter halaman: Number(null) = 0
+        // mulai = -20, dan slice(-20, 0) menghasilkan array kosong.
+        `,
+        {
+          caption: 'Parameter yang tidak ada menghasilkan `null`, dan `Number(null)` bernilai nol.',
+        },
+      ),
+      p(
+        "Ini jebakan coercion dari Bab 1 Frontend Basic yang muncul di tempat yang tidak diduga. `params.get` mengembalikan `null` untuk parameter yang tidak ada, dan `Number(null)` bernilai nol bukan `NaN`. Akibatnya perhitungan indeks menjadi negatif dan daftarnya kosong tanpa satu pun error. Bentuk yang aman pada studi kasus memakai `?? '1'` lalu `|| 1` untuk menangkap `NaN`, dan `Math.max` untuk menjaga batas bawahnya.",
+      ),
+      code(
+        'text',
+        `
+        const [cari, setCari] = useState(params.get('q') ?? '');
+
+        // Pengguna menekan tombol kembali. Alamat berubah,
+        // dan kotak pencarian tetap menampilkan kata yang lama.
+        `,
+        { caption: 'Nilai dari alamat disalin ke state, dan salinannya tidak mengikuti.' },
+      ),
+      p(
+        'Ini kesalahan menyalin props ke state dari Sub-bab 4.1, muncul kembali dengan alamat sebagai sumbernya. Argumen `useState` hanya dibaca sekali, sehingga perubahan alamat dari tombol kembali tidak pernah sampai. Baca langsung dari alamat sebagai sumber kebenaran, dan pakai state lokal hanya untuk ketikan yang belum sempat dikirim ke alamat.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Tombol kembali harus ditekan berkali-kali',
+            'Tiap ketikan menambah entri riwayat',
+            'Tunda dengan debounce, dan pakai opsi `replace`',
+          ],
+          [
+            'Gaya atau perilaku hilang untuk nilai tertentu di alamat',
+            'Nilai dari alamat dipakai tanpa diperiksa',
+            'Cocokkan terhadap daftar nilai yang sah, dengan bawaan',
+          ],
+          [
+            'Daftar kosong padahal datanya ada',
+            '`Number(null)` bernilai nol, sehingga indeksnya negatif',
+            'Beri bawaan dengan `??`, tangkap `NaN`, dan batasi dengan `Math.max`',
+          ],
+          [
+            'Kotak pencarian tidak mengikuti tombol kembali',
+            'Nilai alamat disalin ke state',
+            'Baca langsung dari alamat sebagai sumber kebenaran',
+          ],
+          [
+            'Daftar kosong setelah mengganti filter',
+            'Nomor halaman tidak direset',
+            'Reset halaman setiap kali filter berubah',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Praktik penutup bab ini menggabungkan seluruh materi, dan kesalahan yang muncul hampir selalu berupa nilai yang disimpan di tempat yang salah.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyimpan filter dan halaman di `useState`',
+            'Itu kan state',
+            'Tautan tidak bisa dibagikan, tombol kembali tidak bekerja, dan memuat ulang mengosongkan pilihan pengguna',
+          ],
+          [
+            'Memperbarui alamat pada tiap ketikan',
+            'Supaya selalu sinkron',
+            'Riwayat penuh dan tombol kembali menjadi tidak berguna. Tunda dan pakai `replace`',
+          ],
+          [
+            'Memercayai nilai dari alamat halaman',
+            'Kita sendiri yang menulisnya',
+            'Siapa pun bisa mengetik apa saja, dan tautan lama bisa memuat nilai yang sudah tidak didukung. Periksa terhadap daftar yang sah',
+          ],
+          [
+            'Menyimpan seluruh state di alamat',
+            'Supaya semuanya bisa dibagikan',
+            'Alamat menjadi panjang dan berisi hal yang tidak berarti bagi orang lain, misalnya baris mana yang sedang disorot. Simpan yang memang layak dibagikan',
+          ],
+          [
+            'Melupakan reset halaman saat filter berubah',
+            'Halamannya kan tidak disentuh',
+            'Hasil filter baru bisa lebih pendek, dan pengguna melihat daftar kosong di halaman lima',
+          ],
+          [
+            'Menguji hanya dengan mengklik, tidak dengan memuat ulang',
+            'Alurnya kan sama',
+            'Seluruh masalah di sub-bab ini hanya muncul saat halaman dimuat ulang atau tautan dibuka langsung. Selalu uji dengan menempelkan alamatnya di tab baru',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir adalah kebiasaan yang menemukan sebagian besar masalah di sub-bab ini dalam satu menit. Setelah menyetel filter, salin alamatnya lalu buka di tab baru. Kalau halamannya tidak menampilkan keadaan yang sama, ada nilai yang seharusnya berada di alamat tapi tersimpan di state. Uji juga tombol kembali setelah beberapa perubahan, sebab itu yang menemukan masalah riwayat yang penuh.',
+      ),
+      callout(
+        'info',
+        'Yang kamu bawa dari bab ini ke bab berikutnya',
+        'State sebagai potret per render, pantangan mutasi, nilai turunan yang dihitung bukan disimpan, empat keadaan tampilan, dan keputusan di mana sebuah nilai layak tinggal. Bab berikutnya membahas hook di luar `useState`, dan yang paling banyak dipakai di sana adalah `useEffect`. Yang perlu dibawa sejak sekarang, sebagian besar pemakaian `useEffect` yang kamu lihat di internet sebenarnya tidak diperlukan, dan alasannya sudah ada di sub-bab tentang nilai turunan.',
+      ),
       divider,
       h2('Rangkuman'),
       ul(

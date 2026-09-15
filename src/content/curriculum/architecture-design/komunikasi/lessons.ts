@@ -27,7 +27,7 @@ export const lessons: LessonDraft[] = [
   written(
     'sinkron-atau-asinkron',
     'Sinkron atau Asinkron',
-    14,
+    21,
     'Pilihan yang menentukan apa yang terjadi ketika lawan bicara sedang bermasalah.',
     [
       p(
@@ -325,6 +325,222 @@ export const lessons: LessonDraft[] = [
         'Pola campuran yang paling berguna adalah validasi sinkron, simpan niatnya, jawab 202, lalu kerjakan di belakang.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Pilihan antara sinkron dan asinkron menentukan dua hal sekaligus, yaitu apakah pemanggil menunggu dan apa yang terjadi ketika yang dipanggil sedang mati.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada Node 26.5.0, 1 pekerjaan berat
+        ditambah 5 permintaan ringan yang datang bersamaan:
+
+          pekerjaan berat SINKRON  : permintaan ringan 73,9 - 74,6 ms
+          pekerjaan berat ASINKRON : permintaan ringan  6,1 -  7,5 ms
+
+        Permintaan yang sama sekali tidak berhubungan dengan
+        pekerjaan berat itu tetap ikut menunggu.
+        `,
+      ),
+      p(
+        'Biaya panggilan sinkron lintas proses juga bisa diukur, dan ia berlipat mengikuti jumlah hop.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan di mesin ini:
+
+          pemanggilan fungsi di dalam proses  puluhan nanodetik
+          HTTP round trip ke 127.0.0.1        1,69 ms
+          HTTP round trip ke internet         p50 70,04 ms
+                                              p99 362,72 ms
+
+        Dan dihitung, latensi ekor yang berlipat:
+          bila p99 tiap layanan 1%, peluang setidaknya satu kena
+          ekor pada 10 layanan berantai adalah 1 - 0,99^10 = 9,6%
+
+        Hampir 1 dari 10 permintaan merasakan latensi ekor, meski
+        tiap layanannya hanya 1%.
+        `,
+        {
+          caption:
+            'Itulah kenapa mengurangi JUMLAH panggilan sering lebih berpengaruh daripada mempercepat masing-masing.',
+        },
+      ),
+      p(
+        'Yang membedakan keduanya secara mendasar bukan kecepatan melainkan apa yang dituntut dari pemanggil.',
+      ),
+      table(
+        ['', 'Sinkron', 'Asinkron lewat antrean'],
+        [
+          ['Pemanggil menunggu', 'Ya', 'Tidak'],
+          ['Bila yang dipanggil mati', 'Pemanggil ikut gagal', 'Pesan menunggu, dikerjakan nanti'],
+          ['Jawabannya', 'Hasil sesungguhnya', 'Tanda terima, hasilnya menyusul'],
+          ['Urutan', 'Terjamin', 'Tidak terjamin'],
+          ['Dijalankan berapa kali', 'Sekali', 'PALING SEDIKIT sekali'],
+          [
+            'Cocok untuk',
+            'Pengguna butuh jawabannya sekarang',
+            'Pekerjaan yang boleh selesai kemudian',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima itu yang menentukan cara menulis kodenya, dan ia sering baru disadari setelah data ganda muncul.',
+      ),
+      code(
+        'ts',
+        `
+        // Pengiriman dijamin PALING SEDIKIT sekali, sebab pekerja
+        // bisa mati SESUDAH bekerja dan SEBELUM menandai selesai.
+        // Karena itu handler harus idempoten.
+        async function kirimSurelPesanan(pesan: { pesananId: number }) {
+          const baru = await db.surelTerkirim
+            .create({ data: { pesananId: pesan.pesananId, jenis: 'konfirmasi' } })
+            .then(() => true)
+            .catch(() => false);          // pelanggaran UNIQUE = sudah pernah
+
+          if (!baru) return;
+          await penyediaEmail.kirim(...);
+        }
+
+        // Diuji di bab Desain API dengan bentuk yang sama:
+        //   satu kunci, dikirim BERSAMAAN lima kali
+        //   -> 201, 201, 201, 201, 201
+        //   -> pembayaran yang benar-benar lahir: 1
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Panggilan sinkron punya satu kegagalan yang paling merusak, yaitu ketika ia dipakai untuk sesuatu yang tidak menuntut jawaban seketika.',
+      ),
+      code(
+        'text',
+        `
+        Bentuknya:
+
+          POST /v1/pesanan
+            -> panggil layanan pembayaran     (menunggu)
+            -> panggil layanan pengiriman     (menunggu)
+            -> panggil layanan notifikasi     (menunggu)
+            -> panggil layanan analitik       (menunggu)
+            -> jawab 201
+
+        Empat panggilan berantai. Dihitung dari angka yang diukur:
+          4 x 70 ms = 280 ms pada p50
+          dan p99-nya ditentukan yang PALING LAMBAT di antara keempatnya
+
+        Dan lebih buruk: bila layanan ANALITIK mati, pesanan
+        pelanggan GAGAL — padahal analitik tidak ada hubungannya
+        dengan apakah pesanannya sah.
+        `,
+        {
+          caption:
+            'Ketergantungan sinkron mengubah kegagalan komponen yang tidak penting menjadi kegagalan alur yang penting.',
+        },
+      ),
+      p('Kegagalan berikutnya berupa mekanisme pemulihan yang justru memperburuk.'),
+      code(
+        'text',
+        `
+        Layanan hilir melambat.
+        Semua pemanggil mengulang.
+        Beban ke hilir naik dua kali lipat, justru saat ia paling
+        tidak sanggup.
+        Ia makin melambat, dan pengulangan makin banyak.
+
+        Yang wajib ada:
+          BATAS WAKTU pada setiap panggilan keluar
+          BACKOFF yang membesar DENGAN komponen acak
+          PEMUTUS SIRKUIT yang berhenti mencoba setelah sekian
+            kegagalan berturut-turut
+          PERILAKU DEGRADASI: apa yang dijawab saat sirkuitnya terbuka
+
+        Jeda tetap membuat semua pemanggil mencoba pada detik yang
+        sama persis, dan itu memperburuk, bukan memperbaiki.
+        `,
+      ),
+      p(
+        'Pada sisi asinkron, kegagalannya berbeda bentuk dan yang pertama tidak berupa error sama sekali.',
+      ),
+      code(
+        'text',
+        `
+        1. Antrean tumbuh dan tidak pernah turun
+
+           panjang antrean: 200 -> 1.400 -> 8.900 -> 41.000
+
+           Yang harus dipantau bukan panjangnya melainkan UMUR PESAN
+           TERTUA. Antrean pendek yang pesan tertuanya sudah menunggu
+           empat jam berarti ada yang macet.
+
+        2. Urutan yang diasumsikan padahal tidak dijamin
+
+           pesan A: "ubah nama menjadi Ana"
+           pesan B: "ubah nama menjadi Budi"
+           Dengan beberapa pekerja paralel, B bisa selesai lebih dulu.
+           Hasil akhirnya "Ana", padahal yang terakhir diminta "Budi".
+
+        3. Pesan membawa SALINAN data yang sudah basi
+
+           pesan dibuat  : {"pesananId": 42, "total": 150000}
+           pekerja jalan : 3 jam kemudian
+           kenyataannya  : pesanan 42 sudah dibatalkan
+
+           Kirim ID, dan baca keadaan TERBARU saat dijalankan.
+
+        4. Pengulangan tanpa batas
+
+           Kegagalan permanen tidak akan pernah berhasil. Pasang
+           batas, backoff, dead letter, DAN alarm pada dead letter.
+           Dead letter yang tidak pernah dilihat sama dengan
+           menghapus pekerjaan itu diam-diam.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Pilihan ini sering diambil dari kebiasaan, dan akibatnya baru terasa pada hari salah satu komponen melambat.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memanggil semuanya secara sinkron',
+            'Lebih sederhana dan langsung dapat hasilnya',
+            'Diukur, 4 panggilan berantai membayar 280 ms pada p50, dan kegagalan analitik menggagalkan pesanan',
+          ],
+          [
+            'Memanggil tanpa batas waktu',
+            'Biasanya cepat',
+            'Satu hilir yang menggantung menahan seluruh permintaan, dan koneksinya habis',
+          ],
+          [
+            'Mengulang tanpa backoff dan pemutus sirkuit',
+            'Nanti juga berhasil',
+            'Beban naik dua kali lipat saat hilirnya paling lemah. Pakai backoff acak yang membesar',
+          ],
+          [
+            'Menulis handler antrean yang tidak idempoten',
+            'Kan hanya dikirim sekali',
+            'Pengiriman dijamin PALING SEDIKIT sekali. Pekerja yang mati sesudah bekerja membuatnya diulang',
+          ],
+          [
+            'Mengandalkan urutan pesan',
+            'Masuknya kan berurutan',
+            'Beberapa pekerja paralel menyelesaikannya dengan urutan berbeda. Pakai partisi atau nomor versi',
+          ],
+          [
+            'Memantau panjang antrean saja',
+            'Itu metriknya',
+            'Umur pesan tertua jauh lebih mewakili pengalaman orang yang menunggu hasilnya',
+          ],
+        ],
+      ),
+      p(
+        'Ada satu pertanyaan yang memisahkan keduanya dengan cukup tepat, dan ia diajukan dari sudut pandang pengguna, bukan dari sudut pandang sistem. Apakah pengguna perlu melihat hasilnya sebelum ia bisa melanjutkan? Bila ya, panggilannya sinkron dan harus cepat. Bila tidak, memaksakannya sinkron berarti mengikat nasib alur yang penting pada komponen yang sebenarnya tidak menentukan apa pun.',
+      ),
       references(
         {
           label: 'Designing interservice communication',
@@ -351,7 +567,7 @@ export const lessons: LessonDraft[] = [
   written(
     'kontrak-antar-bagian',
     'Kontrak yang Tidak Merusak Pemakainya',
-    14,
+    21,
     'Aturan penambahan dan penghapusan yang membuat kemandirian rilis benar-benar ada.',
     [
       p(
@@ -656,6 +872,231 @@ export const lessons: LessonDraft[] = [
         'Kontrak mencakup perilaku, bukan hanya bentuk data.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Kontrak antar bagian adalah janji tentang bentuk, dan yang menentukan bukan bentuknya melainkan apa yang terjadi ketika ia berubah.',
+      ),
+      code(
+        'text',
+        `
+        Perubahan yang AMAN, sebab pemakai lama mengabaikannya:
+
+          menambah field ke respons
+          menambah endpoint baru
+          menambah nilai enum yang hanya muncul untuk data baru
+          menambah parameter OPSIONAL
+
+        Perubahan yang MEMUTUS, sebab pemakai lama rusak:
+
+          menghapus field dari respons
+          mengganti nama field
+          mengubah tipe field
+          memperketat validasi yang tadinya longgar
+          mengubah arti sebuah nilai tanpa mengubah namanya
+
+        Yang terakhir paling berbahaya, sebab tidak ada satu pun
+        alat yang bisa mendeteksinya.
+        `,
+      ),
+      p(
+        'Baris "mengubah tipe field" pantas dibaca bersama hasil pengukuran, sebab ia menunjukkan kenapa pengujian sering memberi rasa aman yang keliru.',
+      ),
+      code(
+        'text',
+        `
+        Diuji sungguhan di bab Desain API: mengubah tipe id dari
+        angka menjadi string.
+
+          Hasil pengujian dengan klien uji: AMAN, tidak ada yang rusak.
+
+        Dan itu MENYESATKAN. Klien ujinya terlalu sederhana — ia
+        hanya meneruskan id tanpa melakukan apa pun terhadapnya.
+
+        Klien sungguhan yang membandingkan id === 42, atau memakainya
+        sebagai kunci angka, rusak SEKETIKA.
+
+        "Tidak merusak klien uji saya" bukan bukti bahwa sebuah
+        perubahan aman.
+        `,
+        {
+          caption:
+            'Yang membuktikan sebuah perubahan aman adalah kontrak yang diperiksa, bukan klien yang kebetulan tidak rusak.',
+        },
+      ),
+      p(
+        'Untuk memeriksanya di dalam satu proses, tipe membantu dan punya batas yang perlu diketahui.',
+      ),
+      code(
+        'ts',
+        `
+        // Diukur di bab Desain API: yang berikut ini LOLOS tsc 5.9.3
+        // tanpa satu pun error.
+        type ResponsPublik = { id: number; nama: string };
+        const dariDb = { id: 1, nama: 'Ana', sandiHash: '$2y$12$...' };
+        const a: ResponsPublik = dariDb;          // LOLOS
+
+        JSON.stringify(a);
+        // -> {"id":1,"nama":"Ana","sandiHash":"$2y$12$..."}
+
+        // Pemeriksaan properti berlebih hanya berlaku pada object
+        // LITERAL. Tipe adalah janji saat kompilasi, bukan penyaring
+        // saat runtime.
+
+        // Yang benar-benar memeriksa bentuk keluaran:
+        const ResponsPublik = z.object({ id: z.number(), nama: z.string() }).strict();
+        return Response.json(ResponsPublik.parse(dariDb));   // menolak field asing
+        `,
+      ),
+      p(
+        'Untuk kontrak lintas proses, penegakannya harus dijalankan, dan bentuk yang paling murah adalah satu skrip yang menguji keduanya.',
+      ),
+      code(
+        'text',
+        `
+        Dijalankan sungguhan di bab Integrasi, satu skrip audit yang
+        sama terhadap dua backend dengan kontrak yang diklaim identik:
+
+          == Backend A (Node)
+            12 pemeriksaan, 12 LULUS
+
+          == Backend B (PHP)
+            10 LULUS, 2 GAGAL
+              tulis pendek -> pesan field   harap="minimal 3 karakter" dapat=""
+              tulis sah    -> status        harap=201 dapat=500
+
+        Kontraknya terlihat sama di kode, dan TIDAK sama saat
+        dijalankan. Penyebabnya mb_strlen() yang tidak ada karena
+        ekstensi mbstring tidak terpasang.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan kontrak punya sifat yang membuatnya mahal, yaitu munculnya di sisi pemakai, bukan di sisi yang mengubahnya.',
+      ),
+      code(
+        'text',
+        `
+        Yang dilihat pemakai ketika field dihapus:
+
+          TypeError: Cannot read properties of undefined (reading 'split')
+
+        Pesannya tidak menyebut API, tidak menyebut versi, dan tidak
+        menyebut field mana yang hilang.
+
+        Dan yang dilihat pemakai ketika servernya gagal total,
+        diukur sungguhan di bab Integrasi:
+
+          status       = 500
+          content_type = text/html; charset=UTF-8
+          size         = 0                      <- badannya KOSONG
+          dan header CORS-nya TETAP ADA
+
+          di sisi klien:
+            r.ok = false | r.status = 500
+            SyntaxError: Unexpected end of JSON input
+
+        Pesan itu menyebut JSON. Penyebabnya ekstensi PHP yang tidak
+        terpasang.
+        `,
+      ),
+      p(
+        'Karena itu klien yang baik membaca respons sebagai teks lebih dulu, dan melaporkan apa adanya bila ia bukan JSON.',
+      ),
+      code(
+        'ts',
+        `
+        async function baca<T>(r: Response, skema: ZodType<T>): Promise<T> {
+          const teks = await r.text();
+
+          if (!r.ok) {
+            const tipe = r.headers.get('content-type') ?? '';
+            if (tipe.includes('json')) throw new GagalApi(JSON.parse(teks), r.status);
+            // Badan kosong atau HTML: laporkan apa adanya.
+            throw new GagalApi(
+              { title: 'Server gagal', status: r.status, detail: teks.slice(0, 200) || '(badan kosong)' },
+              r.status,
+            );
+          }
+
+          return skema.parse(JSON.parse(teks));
+        }
+        `,
+        {
+          caption:
+            'Potongan teks.slice(0, 200) itu yang mengubah "Unexpected end of JSON input" menjadi petunjuk nyata.',
+        },
+      ),
+      p(
+        'Kesalahan berikutnya menyangkut cara mengubah kontrak, dan bentuk yang aman punya nama yang sama dengan bentuk migrasi basis data.',
+      ),
+      code(
+        'text',
+        `
+        EXPAND - MIGRATE - CONTRACT untuk kontrak API:
+
+          RILIS 1 — EXPAND
+            tambahkan field BARU, pertahankan yang lama
+            respons memuat keduanya
+
+          RILIS 2 — MIGRATE
+            pemakai dipindahkan ke field baru, satu per satu
+            pantau siapa yang masih memakai yang lama
+
+          RILIS 3 — CONTRACT
+            baru setelah tidak ada lagi yang memakainya, hapus
+
+        Langkah 2 menuntut kemampuan MELIHAT siapa yang masih
+        memakai field lama, dan itu harus dipasang sebelum rilis 1.
+
+        Tanpa itu, langkah 3 diambil dengan menebak — dan diukur di
+        bab Deployment, tebakan yang salah menghasilkan
+        "column does not exist" yang tidak bisa di-rollback.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kontrak sering dianggap selesai begitu disepakati, padahal seluruh pekerjaannya justru terjadi saat ia berubah.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Mengubah tipe field karena "nilainya sama"',
+            'Isinya kan tidak berubah',
+            'Diuji, klien uji sederhana tidak rusak sementara klien yang membandingkan `id === 42` rusak seketika',
+          ],
+          [
+            'Mengandalkan tipe untuk menjaga bentuk keluaran',
+            'TypeScript kan memeriksanya',
+            'Diukur, `const a: ResponsPublik = dariDb` LOLOS tsc dan `sandiHash` tetap ikut ke respons',
+          ],
+          [
+            'Menyimpulkan kontraknya sama dari membaca kode',
+            'Rutenya kan sama',
+            'Diukur, 2 dari 12 pemeriksaan gagal hanya di satu backend. Jalankan skrip yang sama ke keduanya',
+          ],
+          [
+            'Menghapus field lama bersamaan dengan menambah yang baru',
+            'Satu perubahan, satu rilis',
+            'Pemakai lama rusak seketika. Pakai expand-migrate-contract',
+          ],
+          [
+            'Menghapus field lama tanpa tahu siapa yang memakainya',
+            'Sudah lama tidak dipakai',
+            'Pasang pencatatan pemakaian SEBELUM rilis expand, atau langkah contract diambil dengan menebak',
+          ],
+          [
+            'Memanggil `.json()` tanpa memeriksa `content-type`',
+            'API-nya kan mengirim JSON',
+            'Diukur, error fatal server mengirim badan kosong bertipe HTML. Pesannya menyesatkan sepenuhnya',
+          ],
+        ],
+      ),
+      p(
+        'Cara paling murah membuktikan sebuah kontrak nyata adalah menulis satu skrip yang mengujinya dari luar, lalu menjalankannya terhadap setiap implementasi yang mengaku memenuhinya. Skrip itu tidak perlu canggih. Dua belas baris `curl` sudah cukup menemukan dua ketidaksesuaian yang tidak terlihat dari membaca kode mana pun.',
+      ),
       references(
         {
           label: 'API design for microservices',
@@ -682,7 +1123,7 @@ export const lessons: LessonDraft[] = [
   written(
     'event-driven',
     'Arsitektur Berbasis Event',
-    15,
+    23,
     'Membalik arah pengetahuan, supaya penambahan fitur berhenti menyentuh kode lama.',
     [
       p('Bayangkan sebuah kantor dengan pengumuman ulang tahun. Ada dua cara mengurusnya.'),
@@ -992,6 +1433,239 @@ export const lessons: LessonDraft[] = [
         'Kelemahannya adalah alur yang tersebar. Ditutup dengan daftar event terpusat, id korelasi, dan dokumentasi pendengar.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Arsitektur berbasis event membalik arah ketergantungan. Pengirim tidak lagi tahu siapa yang mendengarkan, dan itu yang dibeli maupun yang dibayar.',
+      ),
+      code(
+        'text',
+        `
+        SEBELUM, pemanggilan langsung:
+          buatPesanan()
+            -> layananPembayaran.tagih()
+            -> layananPengiriman.jadwalkan()
+            -> layananNotifikasi.kirim()
+            -> layananAnalitik.catat()
+
+          Modul pesanan tahu keempat modul itu.
+          Menambah satu penerima berarti mengubah modul pesanan.
+          Dan bila ANALITIK mati, pesanan pelanggan GAGAL.
+
+        SESUDAH, event:
+          buatPesanan()
+            -> terbitkan PesananDibuat
+
+          Modul pesanan tidak tahu siapa yang mendengarkan.
+          Menambah penerima tidak menyentuh modul pesanan sama sekali.
+        `,
+        { caption: 'Itulah pembalikan arahnya: penerima yang tahu pengirim, bukan sebaliknya.' },
+      ),
+      p(
+        'Yang dibayar bisa diukur, dan yang pertama adalah bahwa kegagalan satu penerima tidak lagi terlihat oleh pengirim.',
+      ),
+      code(
+        'text',
+        `
+        Diuji sungguhan di bab Laravel Lanjutan dengan PHP 8.3.6,
+        tiga pendengar untuk satu peristiwa:
+
+          TANPA isolasi, pendengar kedua melempar:
+            hanya "surel" yang berjalan
+            "audit" dan "perbaruiIndeks" TIDAK PERNAH dijalankan
+
+          DENGAN isolasi per pendengar:
+            "surel" dan "audit" berjalan
+            hanya "perbaruiIndeks" yang gagal
+
+        Tanpa isolasi, satu pendengar yang gagal menghentikan sisanya,
+        dan catatan audit tidak pernah ditulis.
+        `,
+      ),
+      p(
+        'Biaya kedua menyangkut penjaminan pengiriman, dan ia menentukan cara menulis setiap pendengar.',
+      ),
+      code(
+        'ts',
+        `
+        // Event dikirim PALING SEDIKIT sekali. Pendengar yang mati
+        // sesudah bekerja dan sebelum menandai selesai akan dijalankan
+        // ulang.
+        async function padaPesananDibuat(e: { pesananId: number }) {
+          // Kunci unik menolak pemrosesan kedua.
+          const baru = await db.eventDiproses
+            .create({ data: { event: 'PesananDibuat', pesananId: e.pesananId, pendengar: 'surel' } })
+            .then(() => true)
+            .catch(() => false);
+
+          if (!baru) return;
+          await kirimSurel(e.pesananId);
+        }
+
+        // Diuji di bab Desain API dengan bentuk yang sama:
+        //   satu kunci, lima permintaan bersamaan -> satu hasil
+        `,
+      ),
+      p(
+        'Dan biaya ketiga bersifat penerbitan, yaitu bahwa menulis ke basis data dan menerbitkan event adalah dua penulisan yang bisa terpisah.',
+      ),
+      code(
+        'text',
+        `
+        Bentuk yang RENTAN:
+
+          BEGIN;
+            INSERT INTO pesanan ...;
+          COMMIT;
+          terbitkan PesananDibuat;      <- di luar transaksi
+
+        Bila proses mati di antara COMMIT dan terbitkan, pesanannya
+        ada dan eventnya tidak pernah terbit. Tidak ada yang tahu.
+
+        Bentuk sebaliknya juga rentan:
+          terbitkan lebih dulu, lalu COMMIT gagal
+          -> event tentang pesanan yang tidak pernah ada
+
+        Yang menutupnya: KOTAK KELUAR TRANSAKSIONAL.
+          BEGIN;
+            INSERT INTO pesanan ...;
+            INSERT INTO kotak_keluar (event, muatan) VALUES (...);
+          COMMIT;
+          -- proses terpisah membaca kotak_keluar dan menerbitkannya
+
+        Dengan begitu keduanya atomik, sebab keduanya satu transaksi.
+        `,
+        {
+          caption:
+            'Diuji di bab Konsistensi: transaksi basis data TIDAK mencakup panggilan jaringan.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan pada arsitektur event punya sifat yang khas, yaitu tidak ada yang melaporkannya.',
+      ),
+      code(
+        'text',
+        `
+        1. Event terbit, tidak ada yang mendengarkan
+
+           Nama event diubah, atau pendengar lupa didaftarkan.
+           Pengirim tidak tahu, sebab ia memang tidak pernah tahu
+           siapa yang mendengarkan.
+
+           Gejalanya: "notifikasinya tidak terkirim sejak Selasa",
+           dilaporkan pengguna, bukan oleh sistem.
+
+        2. Pendengar gagal diam-diam
+
+           try { await kerjakan(e); } catch { /* abaikan */ }
+
+           Event dianggap selesai, dan pekerjaannya tidak pernah
+           terjadi.
+
+        3. Urutan yang diasumsikan padahal tidak dijamin
+
+           PesananDibuat lalu PesananDibatalkan.
+           Dengan beberapa pekerja paralel, yang kedua bisa diproses
+           lebih dulu, dan pembatalan atas pesanan yang belum ada
+           akan gagal — lalu pesanannya tetap aktif.
+
+        4. Event membawa salinan data yang sudah basi
+
+           {"pesananId": 42, "total": 150000}
+           Diproses 3 jam kemudian; pesanan 42 sudah dibatalkan.
+           Kirim ID, baca keadaan TERBARU.
+        `,
+      ),
+      p(
+        'Kegagalan kelima adalah yang paling sulit diperbaiki kemudian, yaitu event yang bentuknya mengikuti implementasi pengirimnya.',
+      ),
+      code(
+        'text',
+        `
+        Event yang BOCOR:
+          {"pesanan_row": { ...seluruh kolom tabel pesanan... }}
+
+        Setiap perubahan skema tabel pesanan kini memutus seluruh
+        pendengar. Kontraknya menjadi tabel, bukan peristiwa.
+
+        Event yang BENAR ditulis sebagai FAKTA yang sudah terjadi:
+          {
+            "event": "PesananDibuat",
+            "versi": 1,
+            "pesananId": 42,
+            "pelangganId": 7,
+            "waktu": "2026-09-14T08:31:02.114Z"
+          }
+
+        Field yang dimuat hanya yang memang bagian dari fakta itu,
+        bukan seluruh isi barisnya.
+
+        Dan "versi" di situ yang membuatnya bisa berevolusi dengan
+        expand-migrate-contract, sama seperti kontrak API.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KEENAM: tidak ada cara melihat apa yang terjadi.
+
+        Di pemanggilan langsung, satu jejak tumpukan menunjukkan
+        seluruh rantainya.
+        Di arsitektur event, rantainya terputus di setiap batas.
+
+        Yang menutupnya: penanda korelasi yang ikut di dalam SETIAP
+        event, dan ikut ke setiap baris log pendengarnya.
+
+          {"event":"PesananDibuat","jejak":"req_ezj2c4in", ...}
+
+        Tanpa itu, pertanyaan "kenapa surel ini terkirim" tidak
+        punya jawaban yang bisa ditelusuri.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Event membeli kelonggaran antar bagian dan menuntut disiplin yang tidak dibutuhkan pemanggilan langsung.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis pendengar yang tidak idempoten',
+            'Event-nya kan sekali terbit',
+            'Pengiriman dijamin PALING SEDIKIT sekali. Pendengar yang mati sesudah bekerja akan diulang',
+          ],
+          [
+            'Menerbitkan event di luar transaksi',
+            'Setelah commit kan sudah pasti',
+            'Proses yang mati di antaranya membuat pesanan ada tanpa event. Pakai kotak keluar transaksional',
+          ],
+          [
+            'Menjalankan semua pendengar dalam satu jalur',
+            'Lebih sederhana',
+            'Diuji, satu pendengar yang gagal menghentikan sisanya, dan audit tidak pernah ditulis',
+          ],
+          [
+            'Memasukkan seluruh baris tabel ke dalam event',
+            'Biar pendengar tidak perlu query',
+            'Kontraknya menjadi skema tabel. Setiap perubahan kolom memutus seluruh pendengar',
+          ],
+          [
+            'Mengandalkan urutan event',
+            'Terbitnya kan berurutan',
+            'Pekerja paralel memprosesnya dengan urutan berbeda. Pakai partisi per entitas atau nomor versi',
+          ],
+          [
+            'Tidak menyertakan penanda korelasi',
+            'Event-nya kan sudah punya id',
+            'Rantainya terputus di setiap batas. Pertanyaan "kenapa ini terjadi" tidak bisa ditelusuri',
+          ],
+        ],
+      ),
+      p(
+        'Ada satu ujian yang cukup andal untuk menilai apakah sebuah event dirancang dengan benar, dan ia tidak memerlukan alat. Bacalah namanya dan isinya, lalu tanyakan apakah ia menggambarkan sesuatu yang **sudah terjadi di dunia nyata** atau menggambarkan sesuatu yang **terjadi di dalam basis datamu**. Event yang benar bisa dipahami oleh orang yang tidak pernah melihat skemamu, dan itu pula yang membuatnya bisa bertahan ketika skemanya berubah.',
+      ),
       references(
         {
           label: 'Event-driven architecture style',
@@ -1018,7 +1692,7 @@ export const lessons: LessonDraft[] = [
   written(
     'kepemilikan-data',
     'Kepemilikan Data dan Salinannya',
-    14,
+    22,
     'Satu pemilik per data, dan cara hidup dengan salinan yang tidak selalu terkini.',
     [
       p(
@@ -1270,6 +1944,232 @@ export const lessons: LessonDraft[] = [
         'Kebutuhan konsistensi seketika lintas batas adalah sinyal batasnya salah, bukan sinyal butuh pola yang lebih canggih.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Kepemilikan data adalah aturan bahwa setiap data punya satu pemilik yang berhak mengubahnya. Tanpa aturan itu, batas modul apa pun hanya berlaku di kode dan tidak berlaku di tempat datanya berada.',
+      ),
+      code(
+        'text',
+        `
+        Batas yang ADA di kode dan TIDAK ADA di data:
+
+          modul/pesanan dan modul/katalog terpisah rapi
+          dan keduanya membaca tabel produk secara LANGSUNG
+
+        Batas itu fiktif, dan tandanya tidak muncul di graf impor
+        sama sekali. Fitness function berbasis impor tidak akan
+        menemukannya.
+
+        Yang menemukannya: memeriksa nama tabel yang disentuh tiap
+        modul. Tabel yang disentuh dua modul adalah batas yang bocor.
+
+        Diukur pada project ini sebagai pembanding, graf impornya
+        bisa ditelusuri sepenuhnya:
+          116 berkas, 337 sisi, dan satu pelanggaran arah ditemukan
+          src/lib/curriculum/queries.ts -> src/content/curriculum/index.ts
+
+        Pelanggaran seperti itu TERLIHAT. Pelanggaran kepemilikan
+        data tidak.
+        `,
+        {
+          caption:
+            'Itulah kenapa kepemilikan data harus diperiksa dengan cara yang berbeda dari kepemilikan kode.',
+        },
+      ),
+      p(
+        'Akibatnya baru terasa penuh ketika pemecahan dipertimbangkan, dan biayanya bisa dihitung.',
+      ),
+      code(
+        'text',
+        `
+        Bila modul berbagi tabel:
+          memecahnya berarti memecah basis datanya, dan setiap JOIN
+          lintas modul harus ditulis ulang sebagai panggilan jaringan
+
+          Diukur:
+            pemanggilan fungsi   puluhan nanodetik
+            loopback             1,69 ms
+            internet             p50 70,04 ms, p99 362,72 ms
+
+          Dan JOIN yang tadinya satu query menjadi N+1 lewat jaringan.
+
+        Bila modul sudah berbicara lewat pintu masuknya:
+          pemecahannya berarti mengganti pemanggilan fungsi menjadi
+          panggilan jaringan DI SATU TEMPAT
+        `,
+      ),
+      p(
+        'Ketika data memang dibutuhkan di beberapa tempat, bentuk yang benar adalah salinan yang jelas siapa pemiliknya.',
+      ),
+      code(
+        'text',
+        `
+        Tiga bentuk, dan pertukarannya:
+
+        1. TANYAKAN ke pemiliknya setiap kali
+           + selalu terbaru
+           - membayar round trip tiap kali; diukur 1,69 ms sampai 70 ms
+           - pemilik yang mati menjatuhkan pemanggilnya
+
+        2. SALIN yang dibutuhkan, perbarui lewat event
+           + tidak ada panggilan saat membaca
+           - salinannya bisa basi, dan itu harus diterima
+           - butuh mekanisme pendamaian
+
+        3. SALIN yang TIDAK BERUBAH pada saat kejadian
+           + tidak pernah basi, sebab memang tidak boleh berubah
+           - hanya berlaku untuk data yang bersifat catatan sejarah
+
+        Bentuk ketiga sering yang paling tepat dan paling jarang
+        dipakai.
+        `,
+      ),
+      code(
+        'ts',
+        `
+        // Bentuk 3: harga pada saat pesanan dibuat BUKAN salinan
+        // basi dari katalog. Ia fakta sejarah yang memang harus tetap.
+        interface BarisPesanan {
+          produkId: string;
+          namaSaatDipesan: string;      // disalin SENGAJA
+          hargaSaatDipesan: number;     // disalin SENGAJA
+          jumlah: number;
+        }
+
+        // Bila harga produk naik besok, faktur kemarin TIDAK boleh
+        // ikut berubah. Menyimpan referensi ke katalog justru SALAH
+        // di sini — bukan optimasi, melainkan kekeliruan domain.
+        `,
+        { caption: 'Sebagian denormalisasi bukan optimasi melainkan pemodelan yang benar.' },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan kepemilikan data punya bentuk yang sangat khas, dan yang pertama adalah salinan yang menyimpang.',
+      ),
+      code(
+        'text',
+        `
+        Diuji sungguhan pada PostgreSQL 16.15, penghitung yang
+        disimpan terpisah dari sumbernya:
+
+          penghitung  = 3
+          sebenarnya  = 4        <- sudah menyimpang
+
+          -- 2 baris dihapus TANPA memperbarui penghitung --
+
+          penghitung  = 3
+          sebenarnya  = 2        <- menyimpang ke arah sebaliknya
+
+        Satu jalur penghapusan yang lupa memperbarui sudah cukup,
+        dan tidak ada satu pun error yang muncul.
+
+        Jalur yang bisa mengubah data tanpa lewat kodemu:
+          ON DELETE CASCADE
+          skrip migrasi dan backfill
+          perbaikan data lewat konsol
+          jalur kode lain yang lupa
+          pemulihan cadangan sebagian
+        `,
+      ),
+      p('Karena itu setiap salinan menuntut dua hal, dan yang kedua hampir selalu ditunda.'),
+      code(
+        'sql',
+        `
+        -- 1. Diperbarui di tempat yang sama dengan perubahannya,
+        --    atau lewat trigger supaya jalur apa pun ikut terhitung.
+
+        -- 2. Ada yang MENDAMAIKANNYA berkala, dan melaporkan selisihnya.
+        SELECT a.id, a.jumlah_komentar, count(k.id) AS sebenarnya
+        FROM artikel a LEFT JOIN komentar k ON k.artikel_id = a.id
+        GROUP BY a.id, a.jumlah_komentar
+        HAVING a.jumlah_komentar <> count(k.id);
+        `,
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KEDUA: dua pemilik untuk satu data.
+
+          Modul A menulis kolom status.
+          Modul B juga menulis kolom status, dengan aturan berbeda.
+
+        Hasilnya bergantung pada siapa yang menulis terakhir, dan
+        itu berubah-ubah. Tidak ada yang bisa menjelaskan kenapa
+        statusnya kadang begini dan kadang begitu.
+
+        Yang menutupnya: satu pemilik per data, dan yang lain
+        MEMINTA perubahan lewat pintu masuk pemiliknya — sehingga
+        seluruh aturannya berada di satu tempat.
+
+        Diuji di bab Skala Data, bentuk pertentangannya juga terukur:
+          2.000 UPDATE ke BARIS YANG SAMA  : 459 ms
+          2.000 UPDATE ke baris BERBEDA    :  29 ms
+        `,
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KETIGA: salinan yang dianggap sumber kebenaran.
+
+          Laporan dibuat dari salinan yang diperbarui lewat event.
+          Satu event hilang. Laporannya salah, dan tidak ada yang
+          tahu sampai ada yang membandingkannya dengan sumbernya.
+
+        Aturan yang menutupnya:
+          - sumber kebenaran HANYA satu, dan ia milik pemiliknya
+          - salinan boleh dipakai untuk membaca, TIDAK untuk
+            memutuskan hal yang tidak bisa dibatalkan
+          - keputusan uang dan keputusan otorisasi dibaca dari sumber
+
+        Diuji di bab Skala Data: saat beban tulis besar, 8 dari 8
+        pembacaan dari replika sesudah penulisan GAGAL menemukan
+        datanya.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kepemilikan data adalah aturan yang paling mudah dilanggar sebab pelanggarannya tidak terlihat di kode.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membiarkan dua modul membaca tabel yang sama',
+            'Basis datanya kan satu',
+            'Batasnya fiktif dan tidak muncul di graf impor. Periksa tabel yang disentuh tiap modul',
+          ],
+          [
+            'Membiarkan dua modul MENULIS kolom yang sama',
+            'Keduanya kan butuh mengubahnya',
+            'Hasilnya bergantung siapa yang menulis terakhir. Satu pemilik, dan yang lain meminta lewat pintu masuknya',
+          ],
+          [
+            'Menyalin data tanpa mekanisme pendamaian',
+            'Event-nya kan selalu terbit',
+            'Diuji, satu penghapusan yang lewat jalur lain membuat salinan menyimpang tanpa satu pun error',
+          ],
+          [
+            'Memutuskan hal penting dari salinan',
+            'Isinya kan sama',
+            'Diuji, 8 dari 8 pembacaan dari replika gagal saat beban tulis. Baca dari sumber untuk keputusan penting',
+          ],
+          [
+            'Menyimpan referensi ke katalog di baris faktur',
+            'Biar tidak duplikat',
+            'Harga yang naik besok mengubah faktur kemarin. Sebagian salinan adalah pemodelan yang benar',
+          ],
+          [
+            'Menunda memisahkan data sampai saat pemecahan',
+            'Nanti sekalian',
+            'Diukur, JOIN yang tadinya satu query menjadi N+1 lewat jaringan dengan biaya 1,69 ms sampai 70 ms per hop',
+          ],
+        ],
+      ),
+      p(
+        'Pemeriksaan yang paling berguna di sub-bab ini tidak melihat kode sama sekali. Buat daftar setiap tabel, lalu tulis modul mana yang MEMBACA dan modul mana yang MENULIS masing-masing. Tabel dengan lebih dari satu penulis adalah batas yang sudah bocor hari ini, dan tabel yang dibaca banyak modul adalah tempat pemecahan nanti akan paling mahal.',
+      ),
       references(
         {
           label: 'Data considerations for microservices',
@@ -1296,7 +2196,7 @@ export const lessons: LessonDraft[] = [
   written(
     'konsistensi-lintas-bagian',
     'Konsistensi Lintas Bagian',
-    15,
+    22,
     'Apa yang menggantikan transaksi database begitu data tidak lagi berada di satu tempat.',
     [
       p(
@@ -1646,6 +2546,237 @@ export const lessons: LessonDraft[] = [
         'Saga membuat keadaan tengah terlihat, sehingga status antara harus dirancang jujur dan ditampilkan apa adanya.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Konsistensi lintas bagian adalah pertanyaan tentang apa yang terjadi ketika satu perubahan harus tercermin di beberapa tempat, dan salah satunya gagal.',
+      ),
+      code(
+        'text',
+        `
+        Diuji sungguhan dengan replika streaming PostgreSQL 16.15:
+
+        SAAT SISTEM DIAM:
+          tulis lalu baca dari replika seketika
+          5 dari 5 BERHASIL
+
+        SAAT ADA BEBAN TULIS BESAR:
+          8 dari 8 GAGAL, replika tertinggal sampai 11 MB
+          jeda replay memuncak di 202 ms
+
+        Sesudah beban selesai, keduanya sama: 1.300.000 baris.
+
+        Itulah arti "akhirnya" — ia datang, dan waktunya tidak
+        dijanjikan.
+        `,
+        {
+          caption:
+            'Bug ini lolos seluruh pengujian di lingkungan sepi, dan muncul persis saat sistem sedang ramai.',
+        },
+      ),
+      p(
+        'Untuk perubahan yang menyentuh beberapa bagian, ada satu kesalahan yang harus ditutup lebih dulu sebelum membicarakan pola apa pun.',
+      ),
+      code(
+        'ts',
+        `
+        // TIDAK ATOMIK, meski terlihat begitu.
+        await db.transaction(async (t) => {
+          await t.saldo.kurangi(penggunaId, 100_000);
+          await layananPembayaran.tagih(penggunaId, 100_000);   // JARINGAN
+        });
+
+        // Transaksi basis data TIDAK mencakup panggilan jaringan.
+        // Bila panggilannya berhasil dan COMMIT-nya gagal, uangnya
+        // sudah berpindah dan catatannya tidak ada.
+
+        // BENAR: tulis NIATNYA di dalam transaksi, kerjakan di luar.
+        await db.transaction(async (t) => {
+          await t.saldo.kurangi(penggunaId, 100_000);
+          await t.kotakKeluar.create({ data: { jenis: 'tagih', penggunaId, jumlah: 100_000 } });
+        });
+        // Proses terpisah membaca kotak keluar dan memanggil
+        // layanan pembayaran, dengan kunci idempotensi.
+        `,
+      ),
+      p('Kunci idempotensi itu bagian yang menutup pengulangan, dan bentuknya sudah diukur.'),
+      code(
+        'text',
+        `
+        Diuji sungguhan di bab Desain API:
+
+          Satu kunci, dikirim BERSAMAAN lima kali:
+            ke-1: 201 {"id":2,...}
+            ke-2: 201 {"id":2,...,"diulang":true}
+            ke-3: 201 {"id":2,...,"diulang":true}
+            ke-4: 201 {"id":2,...,"diulang":true}
+            ke-5: 201 {"id":2,...,"diulang":true}
+
+          Jumlah pembayaran yang benar-benar lahir: 1
+
+        Dan sebagai pembanding, tanpa kunci:
+          POST dua kali dengan badan IDENTIK -> 201, 201 -> DUA data
+        `,
+      ),
+      p(
+        'Untuk urutan langkah yang panjang, bentuk yang lazim adalah saga, yaitu rangkaian langkah yang masing-masing punya pembatalnya.',
+      ),
+      code(
+        'text',
+        `
+          langkah 1: kurangi stok        pembatal: kembalikan stok
+          langkah 2: tagih pembayaran    pembatal: kembalikan dana
+          langkah 3: jadwalkan kirim     pembatal: batalkan jadwal
+
+        Bila langkah 3 gagal, jalankan pembatal 2 lalu pembatal 1.
+
+        Yang perlu diterima sejak awal:
+          - ada jendela ketika keadaannya SETENGAH JADI, dan itu
+            harus terlihat di antarmuka
+          - pembatalnya juga bisa gagal, dan itu butuh alarm
+          - sebagian langkah TIDAK bisa dibatalkan: surel yang sudah
+            terkirim, webhook yang sudah dikirim ke sistem lain
+
+        Karena itu langkah yang tidak bisa dibatalkan ditaruh
+        PALING AKHIR.
+        `,
+        {
+          caption:
+            'Aturan itu sederhana dan sering dilewatkan: kirim surel sesudah semuanya pasti, bukan di tengah.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Keadaan setengah jadi adalah bentuk kegagalan yang paling mahal, sebab ia tidak menghasilkan error dan tidak terlihat sampai ada yang membandingkan.',
+      ),
+      code(
+        'text',
+        `
+        Bentuk yang khas:
+
+          stok berkurang, pembayaran gagal
+            -> barang hilang dari katalog tanpa ada yang membelinya
+
+          pembayaran berhasil, pesanan tidak tercatat
+            -> pelanggan tertagih tanpa pesanan
+
+          berkas terunggah, metadata gagal ditulis
+            -> berkas yatim, memakan ruang selamanya
+
+          metadata tertulis, berkas gagal diunggah
+            -> baris yang menunjuk berkas tidak ada, setiap
+               pembacaannya 404
+
+        Dua yang terakhir sudah diukur di bab Unggah Berkas, dan
+        penutupnya berupa urutan: tulis ke lokasi sementara, catat
+        metadata di transaksi, lalu PINDAHKAN berkasnya, plus satu
+        tugas berkala yang membersihkan yang tidak pernah dipindah.
+        `,
+      ),
+      p(
+        'Kegagalan kedua berupa pendamaian yang tidak pernah dipasang, sehingga penyimpangan tumbuh tanpa ada yang tahu.',
+      ),
+      code(
+        'text',
+        `
+        Diuji sungguhan pada PostgreSQL 16.15:
+
+          penghitung  = 3
+          sebenarnya  = 4
+          -- 2 baris dihapus tanpa memperbarui penghitung --
+          penghitung  = 3
+          sebenarnya  = 2
+
+        Satu jalur yang lupa sudah cukup, dan tidak ada error apa pun.
+
+        Setiap keadaan yang disimpan di dua tempat menuntut satu
+        query pembanding yang dijalankan berkala:
+
+          SELECT a.id, a.jumlah_komentar, count(k.id) AS sebenarnya
+          FROM artikel a LEFT JOIN komentar k ON k.artikel_id = a.id
+          GROUP BY a.id, a.jumlah_komentar
+          HAVING a.jumlah_komentar <> count(k.id);
+
+        Query itu yang membedakan salinan yang dijaga dari salinan
+        yang perlahan menjadi fiksi.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KETIGA: memutuskan hal penting dari sumber yang
+        konsisten akhir.
+
+        Diuji, saat beban tulis besar: 8 dari 8 pembacaan dari
+        replika sesudah penulisan GAGAL menemukan datanya.
+
+        Yang HARUS dibaca dari sumber, bukan dari salinan:
+          saldo dan pembayaran
+          stok saat checkout
+          hak akses dan peran
+
+        Baris ketiga sering dilupakan, dan akibatnya berupa lubang
+        keamanan: peran yang baru dicabut dan masih terbaca dari
+        replika berarti akses yang seharusnya hilang masih berlaku.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KEEMPAT: pembatal yang tidak idempoten.
+
+          Langkah 3 gagal. Pembatal 2 dijalankan: kembalikan dana.
+          Pembatal 2 gagal di tengah. Ia diulang.
+          Dana dikembalikan DUA KALI.
+
+        Pembatal juga dijalankan lewat antrean, dan pengiriman antrean
+        dijamin PALING SEDIKIT sekali. Ia harus idempoten persis
+        seperti langkah majunya.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Konsistensi lintas bagian adalah tempat asumsi yang benar pada satu basis data berhenti berlaku, dan tidak ada yang memberi tahu kapan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memanggil layanan luar di dalam transaksi',
+            'Biar atomik',
+            'Transaksi tidak mencakup panggilan jaringan. Uang berpindah tanpa catatannya tersimpan',
+          ],
+          [
+            'Menyediakan tombol coba lagi tanpa kunci idempotensi',
+            'Kan cuma mengulang',
+            'Diuji, dua `POST` identik melahirkan dua data. Dengan satu kunci, lima permintaan -> satu hasil',
+          ],
+          [
+            'Menaruh langkah yang tidak bisa dibatalkan di tengah',
+            'Urutannya kan logis',
+            'Surel yang sudah terkirim tidak bisa ditarik. Taruh paling akhir, setelah semuanya pasti',
+          ],
+          [
+            'Tidak memasang pendamaian berkala',
+            'Kodenya kan sudah benar',
+            'Diuji, satu jalur yang lupa membuat penghitung menyimpang tanpa satu pun error',
+          ],
+          [
+            'Membaca hak akses dari replika',
+            'Itu kan cuma pembacaan',
+            'Peran yang baru dicabut masih terbaca. Akses yang seharusnya hilang masih berlaku',
+          ],
+          [
+            'Menulis pembatal yang tidak idempoten',
+            'Pembatal kan dijalankan sekali',
+            'Ia juga lewat antrean, dan pengiriman dijamin paling sedikit sekali. Dana bisa kembali dua kali',
+          ],
+        ],
+      ),
+      p(
+        'Ada satu pertanyaan yang memaksa seluruh isi sub-bab ini terlihat, dan ia pantas diajukan pada setiap alur yang menyentuh lebih dari satu tempat. Bila proses ini mati tepat di tengah, keadaan apa yang tertinggal, dan siapa yang akan menyadarinya? Bila jawabannya adalah bahwa tidak ada yang akan menyadarinya, pendamaian berkala bukan kemewahan melainkan satu-satunya cara kerusakan itu ditemukan sebelum pelanggan yang menemukannya.',
+      ),
       references(
         {
           label: 'Saga design pattern',
@@ -1672,7 +2803,7 @@ export const lessons: LessonDraft[] = [
   written(
     'cqrs',
     'CQRS dan Pemisahan Baca-Tulis',
-    13,
+    19,
     'Memisahkan jalan menulis dari jalan membaca, dan kapan pemisahan itu berlebihan.',
     [
       p(
@@ -1889,6 +3020,229 @@ export const lessons: LessonDraft[] = [
         'Kalau belum bisa menyebutkan angka yang menunjukkan query bacamu bermasalah, kamu belum butuh tingkat tiga.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'CQRS memisahkan jalur baca dari jalur tulis. Yang membuatnya berbayar bukan pemisahannya melainkan bahwa keduanya memang punya kebutuhan yang berbeda, dan selisih itu bisa diukur.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada PostgreSQL 16.15, 200.000 artikel
+        dan 1.000.000 komentar:
+
+          JALUR BACA, sepuluh artikel paling banyak dikomentari
+            dihitung dari tabel komentar    468,922 ms
+            dibaca dari kolom yang disiapkan  0,068 ms
+
+          JALUR TULIS, biaya menyiapkan kolom itu
+            INSERT saja                    0,0090 ms/operasi
+            INSERT + UPDATE penghitung     0,2825 ms/operasi
+
+        Baca ~6.900 kali lebih cepat, tulis ~31 kali lebih lambat.
+
+        Itulah CQRS dalam bentuk paling sederhana: model baca yang
+        disiapkan terpisah dari model tulis.
+        `,
+        {
+          caption:
+            'Sebagian besar penerapan CQRS yang berguna tidak memerlukan satu pun komponen tambahan.',
+        },
+      ),
+      p(
+        'Perlu dibedakan tiga tingkat yang sering disebut dengan nama yang sama, sebab biayanya sangat berbeda.',
+      ),
+      table(
+        ['Tingkat', 'Yang dipisahkan', 'Biayanya'],
+        [
+          [
+            'Pemisahan model',
+            'Bentuk data untuk baca dan untuk tulis, di basis data yang sama',
+            'Hampir nol. Hanya dua tipe dan dua query',
+          ],
+          [
+            'Pemisahan penyimpanan',
+            'Tabel atau indeks khusus baca, diperbarui dari jalur tulis',
+            'Konsistensi akhir, dan pendamaian',
+          ],
+          [
+            'Pemisahan sistem',
+            'Basis data terpisah, diperbarui lewat event',
+            'Seluruh biaya sistem terdistribusi',
+          ],
+        ],
+      ),
+      p(
+        'Tingkat pertama hampir selalu benar dan hampir tidak pernah disebut CQRS, padahal ia yang paling sering menyelesaikan masalahnya.',
+      ),
+      code(
+        'ts',
+        `
+        // Model TULIS: lengkap, punya aturan, dan dijaga invariannya.
+        interface Pesanan {
+          id: PesananId;
+          pelangganId: PelangganId;
+          baris: BarisPesanan[];
+          status: StatusPesanan;
+          // ... dua puluh field lain
+        }
+
+        // Model BACA untuk halaman daftar: hanya yang ditampilkan.
+        interface RingkasanPesanan {
+          id: string;
+          nomor: string;
+          namaPelanggan: string;
+          total: number;
+          status: string;
+        }
+
+        // Query-nya menghasilkan bentuk kedua secara langsung,
+        // bukan memuat bentuk pertama lalu membuangnya.
+        // Diukur di bab Skala Data, JOIN berindeks untuk 20 baris
+        // selesai dalam 0,736 ms.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Biaya CQRS muncul pada tingkat kedua dan ketiga, dan yang pertama adalah bahwa model bacanya bisa tertinggal.',
+      ),
+      code(
+        'text',
+        `
+        Diuji sungguhan dengan replika streaming PostgreSQL 16.15,
+        sebagai bentuk paling sederhana dari model baca terpisah:
+
+          saat sistem DIAM  : 5 dari 5 pembacaan sesudah penulisan BERHASIL
+          saat beban BESAR  : 8 dari 8 GAGAL, tertinggal 11 MB
+
+        Yang dilihat pengguna:
+          "Sudah saya simpan, tapi belum muncul di daftar"
+
+        Dan bila permintaan berikutnya mendarat di replika yang
+        berbeda jedanya:
+          "Tadi ada, sekarang hilang, lalu ada lagi"
+
+        Yang menutupnya: tempelkan pembaca ke sumber selama beberapa
+        detik sesudah ia menulis.
+        `,
+      ),
+      p(
+        'Kegagalan kedua adalah model baca yang menyimpang tanpa ada yang tahu, dan itu bisa dibuktikan.',
+      ),
+      code(
+        'text',
+        `
+        Diuji sungguhan:
+
+          penghitung  = 3
+          sebenarnya  = 4
+          -- 2 baris dihapus tanpa memperbarui penghitung --
+          penghitung  = 3
+          sebenarnya  = 2
+
+        Jalur yang bisa mengubah data tanpa lewat jalur tulismu:
+          ON DELETE CASCADE
+          skrip migrasi dan backfill
+          perbaikan data lewat konsol
+          jalur kode lain yang lupa
+          pemulihan cadangan sebagian
+
+        Karena itu setiap model baca yang disimpan terpisah menuntut:
+          1. diperbarui di tempat yang sama dengan perubahannya,
+             atau lewat trigger
+          2. query PEMBANDING yang dijalankan berkala dan melaporkan
+             selisihnya
+        `,
+        {
+          caption:
+            'Langkah kedua yang membedakan model baca yang dijaga dari model baca yang perlahan menjadi fiksi.',
+        },
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KETIGA: membangun kembali model baca ternyata
+        tidak mungkin.
+
+        Bila model baca dibangun dari EVENT, ia bisa dibangun ulang
+        dari nol dengan memutar ulang seluruh event.
+
+        Bila ia dibangun dari perubahan bertahap tanpa catatan
+        sumbernya, ia TIDAK bisa dibangun ulang — dan begitu ia
+        menyimpang, satu-satunya jalan adalah memperbaikinya
+        sepotong demi sepotong.
+
+        Pertanyaan yang menentukan, dan pantas dijawab sebelum
+        memilih bentuknya:
+          "Bila model baca ini hilang seluruhnya, berapa lama
+           membangunnya kembali, dan dari apa?"
+        `,
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KEEMPAT: memakai CQRS untuk sesuatu yang tidak
+        memerlukannya.
+
+        Diukur di bab Skala Data pada tabel yang sama:
+
+          halaman daftar 20 artikel + nama penulis + jumlah komentar
+            JOIN + subquery COUNT      0,963 ms
+            JOIN + LEFT JOIN LATERAL   0,736 ms
+
+        Di bawah satu milidetik, dengan indeks yang benar, tanpa
+        pemisahan model baca sama sekali.
+
+        Yang mahal bukan JOIN-nya melainkan AGREGASI atas seluruh
+        tabel — dan itu yang 468,922 ms.
+
+        Memisahkan model baca untuk query yang sudah 0,736 ms
+        berarti membayar konsistensi akhir tanpa membeli apa pun.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'CQRS punya nama yang terdengar besar, dan itu membuat bentuk terberatnya sering dipilih untuk masalah yang bisa diselesaikan bentuk teringannya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai basis data terpisah sejak awal',
+            'Katanya itu CQRS yang sesungguhnya',
+            'Seluruh biaya sistem terdistribusi dibayar. Pemisahan MODEL sering sudah cukup',
+          ],
+          [
+            'Memisahkan model baca untuk query yang sudah cepat',
+            'Biar konsisten polanya',
+            'Diukur, JOIN berindeks untuk 20 baris 0,736 ms. Konsistensi akhir dibayar tanpa membeli apa pun',
+          ],
+          [
+            'Tidak memasang query pembanding',
+            'Jalur tulisnya kan sudah benar',
+            'Diuji, satu jalur yang lupa membuat model baca menyimpang tanpa satu pun error',
+          ],
+          [
+            'Membangun model baca yang tidak bisa dibangun ulang',
+            'Ia kan selalu diperbarui',
+            'Begitu menyimpang, satu-satunya jalan adalah memperbaikinya sepotong demi sepotong',
+          ],
+          [
+            'Tidak menunjukkan jeda di antarmuka',
+            'Jedanya kan sebentar',
+            'Diuji, saat beban besar 8 dari 8 pembacaan gagal. Pengguna melihat data yang baru ia tulis hilang',
+          ],
+          [
+            'Menganggap CQRS menuntut event sourcing',
+            'Keduanya kan sering disebut bersama',
+            'Keduanya terpisah. Kolom denormalisasi yang diperbarui trigger sudah merupakan CQRS',
+          ],
+        ],
+      ),
+      p(
+        'Bentuk CQRS yang paling sering benar juga yang paling jarang disebut dengan namanya, yaitu memakai bentuk data yang berbeda untuk membaca dan untuk menulis di dalam satu basis data yang sama. Ia tidak menambah satu pun komponen, tidak menimbulkan konsistensi akhir, dan menyelesaikan sebagian besar alasan orang tertarik pada CQRS sejak awal.',
+      ),
       references(
         {
           label: 'CQRS pattern',
@@ -1915,7 +3269,7 @@ export const lessons: LessonDraft[] = [
   written(
     'gerbang-dan-bff',
     'Gerbang API dan Backend for Frontend',
-    13,
+    20,
     'Satu pintu depan untuk banyak bagian, dan kapan pintu itu perlu dibuat lebih dari satu.',
     [
       p(
@@ -2156,6 +3510,233 @@ export const lessons: LessonDraft[] = [
         'Awasi empat bahaya yaitu titik kegagalan tunggal, logika menumpuk, penghambat rilis, dan logika yang disalin ke tiap BFF.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Gerbang API dan BFF menyelesaikan masalah yang berbeda meski keduanya duduk di depan sistem. Gerbang mengurus hal yang sama untuk semua klien, sementara BFF mengurus hal yang berbeda per jenis klien.',
+      ),
+      table(
+        ['', 'Gerbang API', 'Backend for Frontend'],
+        [
+          ['Berapa banyak', 'Satu untuk semua klien', 'Satu per jenis klien'],
+          ['Yang dikerjakan', 'Hal lintas potong yang seragam', 'Perakitan data khusus klien itu'],
+          [
+            'Contoh tugas',
+            'TLS, pembatasan laju, autentikasi, log',
+            'Menggabungkan beberapa panggilan menjadi satu',
+          ],
+          ['Siapa pemiliknya', 'Tim platform', 'Tim yang memiliki klien itu'],
+          ['Berisi logika bisnis', 'Tidak boleh', 'Sedikit, hanya perakitan'],
+        ],
+      ),
+      p(
+        'Alasan BFF ada bisa dihitung dari angka latensi, dan itu yang membuatnya berbeda dari sekadar lapisan tambahan.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan di mesin ini:
+          HTTP round trip ke 127.0.0.1     1,69 ms
+          HTTP round trip ke internet      p50 70,04 ms, p99 362,72 ms
+
+        Satu halaman mobile yang memerlukan data dari 5 layanan:
+
+          TANPA BFF, klien memanggil sendiri:
+            5 x 70,04 ms = 350 ms bila BERURUTAN
+            ~70-100 ms bila paralel, DAN klien harus menulis
+            logika perakitannya sendiri
+
+          DENGAN BFF, satu panggilan dari klien:
+            1 x 70,04 ms (klien ke BFF)
+            + 5 x 1,69 ms (BFF ke layanan, di jaringan yang sama)
+            ~78 ms, dan klien hanya menerima bentuk yang sudah jadi
+
+        Selisihnya bukan hanya waktu, melainkan juga bahwa perakitan
+        pindah ke tempat yang jaringannya cepat.
+        `,
+        {
+          caption:
+            'Nilai BFF terbesar berada pada klien dengan jaringan lambat, yaitu aplikasi mobile.',
+        },
+      ),
+      p(
+        'Dan dihitung untuk latensi ekor, manfaatnya bahkan lebih besar daripada yang terlihat dari angka p50.',
+      ),
+      code(
+        'text',
+        `
+        Dihitung, bila p99 tiap panggilan 1%:
+
+          5 panggilan dari klien lewat internet:
+            peluang setidaknya satu kena ekor = 1 - 0,99^5 = 4,9%
+            dan ekornya p99 362,72 ms
+
+          1 panggilan dari klien + 5 dari BFF di jaringan yang sama:
+            ekor internetnya hanya dari SATU panggilan
+            ekor internal jauh lebih kecil
+
+        Mengurangi JUMLAH panggilan lewat jaringan lambat adalah
+        salah satu perbaikan latensi yang paling besar yang bisa
+        dilakukan tanpa mengubah satu pun layanan.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan yang paling sering pada keduanya adalah berubah menjadi tempat penampungan logika, dan ia terjadi secara bertahap.',
+      ),
+      code(
+        'text',
+        `
+        Bagaimana gerbang menjadi objek dewa:
+
+          bulan 1 : hanya meneruskan, plus pembatasan laju
+          bulan 3 : "kecil saja, tambahkan penggabungan dua endpoint"
+          bulan 6 : "sekalian filter hasilnya di sini"
+          bulan 9 : aturan bisnis ada di gerbang, dan tidak ada yang
+                    tahu batasnya di mana
+
+        Akibatnya:
+          - setiap tim harus mengubah gerbang untuk fiturnya
+          - gerbang menjadi titik koordinasi yang menghambat semua
+          - dan diukur sebagai pola umum, fan-in tinggi DITAMBAH
+            sering berubah adalah tanda objek dewa
+
+        Diukur pada project ini sebagai pembanding yang SEHAT:
+          src/lib/curriculum/authoring.ts
+            fan-in 58, dan hanya berubah 4 kali, secara ADITIF
+        `,
+      ),
+      p('Kegagalan kedua menyangkut ketersediaan, dan ia bisa dihitung.'),
+      code(
+        'text',
+        `
+        Gerbang adalah komponen BERANTAI: bila ia mati, semuanya mati.
+
+        Dihitung sungguhan:
+           1 komponen @ 99,9% -> 99,9000%   (  8,8 jam/tahun)
+           2 komponen @ 99,9% -> 99,8001%   ( 17,5 jam/tahun)
+          10 komponen @ 99,9% -> 99,0045%   ( 87,2 jam/tahun)
+
+        Menambah gerbang menambah satu komponen berantai di depan
+        SELURUH sistem.
+
+        Karena itu gerbang harus:
+          - punya salinan paralel (2 salinan @ 99% -> 99,99%)
+          - sesederhana mungkin, sebab setiap logika di dalamnya
+            adalah tempat baru yang bisa gagal
+        `,
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KETIGA: BFF yang berlipat tanpa batas.
+
+          bff-web, bff-mobile, bff-admin, bff-mitra, bff-tv...
+
+        Setiap BFF adalah layanan yang harus dirilis, dipantau,
+        diamankan, dan dijaga kontraknya.
+
+        Dan yang sering terjadi: kode perakitan yang sama disalin
+        ke setiap BFF, lalu menyimpang satu per satu.
+
+        Yang menutupnya: pustaka bersama untuk perakitan, dan BFF
+        hanya untuk klien yang kebutuhannya BENAR-BENAR berbeda.
+        Dua klien dengan kebutuhan yang mirip berbagi satu BFF.
+        `,
+      ),
+      p('Kegagalan keempat bersifat keamanan, dan ia yang paling berbahaya dari semuanya.'),
+      code(
+        'text',
+        `
+        Gerbang memeriksa autentikasi, lalu meneruskan ke layanan
+        di belakangnya. Layanan di belakang berhenti memeriksa,
+        sebab "gerbang sudah memeriksanya".
+
+        Yang terjadi:
+          - satu SSRF di layanan mana pun, atau satu pod yang
+            dikuasai, memberi akses penuh ke seluruh layanan
+          - posisi jaringan menjadi otorisasi, dan itu persis yang
+            dilarang zero trust
+
+        Aturan yang mengikat, dari bab Keamanan:
+          setiap layanan memeriksa SENDIRI siapa pemanggilnya,
+          termasuk untuk lalu lintas internal
+
+        Gerbang menyaring, dan ia tidak menggantikan pemeriksaan
+        di setiap tujuan.
+        `,
+        {
+          caption:
+            'Diukur di bab Keamanan Fullstack: WebSocket lintas origin BERHASIL tanpa satu pun header CORS — perimeter tidak pernah cukup.',
+        },
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KELIMA: BFF yang menyembunyikan kegagalan hilir.
+
+          BFF memanggil 5 layanan. Satu gagal.
+          Bila BFF menjawab 500, seluruh halaman kosong meski
+          4 dari 5 bagiannya baik-baik saja.
+
+        Yang lebih baik: jawab SEBAGIAN, dan nyatakan bagian mana
+        yang tidak tersedia.
+
+          {
+            "profil": { ... },
+            "pesanan": { ... },
+            "rekomendasi": null,
+            "tidakTersedia": ["rekomendasi"]
+          }
+
+        Kemampuan menjawab sebagian adalah keputusan RANCANGAN, dan
+        ia harus ada sejak awal di bentuk responsnya — menambahkannya
+        kemudian berarti mengubah kontrak untuk semua klien.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Gerbang dan BFF mudah ditambahkan dan sulit dikecilkan kembali, sebab keduanya cepat menjadi tempat yang nyaman untuk menaruh apa saja.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menaruh logika bisnis di gerbang',
+            'Cuma sedikit, dan praktis',
+            'Gerbang menjadi titik koordinasi yang harus diubah setiap tim untuk setiap fitur',
+          ],
+          [
+            'Menambah gerbang tanpa salinan paralel',
+            'Ia kan sederhana',
+            'Dihitung, ia komponen berantai di depan semuanya. 2 komponen @ 99,9% -> 17,5 jam/tahun',
+          ],
+          [
+            'Menghentikan pemeriksaan otorisasi di layanan belakang',
+            'Gerbang sudah memeriksanya',
+            'Posisi jaringan menjadi otorisasi. Satu SSRF memberi akses penuh ke seluruh layanan',
+          ],
+          [
+            'Membuat BFF untuk setiap klien',
+            'Tiap klien kan berbeda',
+            'Kode perakitan yang sama disalin lalu menyimpang. Satu BFF untuk klien dengan kebutuhan mirip',
+          ],
+          [
+            'Menjawab 500 saat satu hilir gagal',
+            'Datanya kan tidak lengkap',
+            'Halaman kosong meski 4 dari 5 bagiannya baik. Rancang respons sebagian sejak awal',
+          ],
+          [
+            'Menambah BFF untuk klien dengan jaringan cepat',
+            'Biar seragam',
+            'Diukur, manfaatnya berasal dari mengurangi panggilan lewat jaringan LAMBAT. Di loopback, selisihnya kecil',
+          ],
+        ],
+      ),
+      p(
+        'Uji yang cukup andal untuk menilai apakah sebuah gerbang atau BFF masih pada tempatnya adalah uji penghapusan. Bila lapisan itu dihapus dan isinya dipindahkan ke klien atau ke layanan, apakah kerumitannya hilang atau menyebar? Gerbang yang hanya meneruskan kehilangan alasan ada, dan BFF yang menggabungkan lima panggilan lewat jaringan lambat menjadi satu jelas menanggung beban nyata.',
+      ),
       references(
         {
           label: 'API gateways in microservices',

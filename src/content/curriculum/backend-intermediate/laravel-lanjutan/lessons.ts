@@ -27,7 +27,7 @@ export const lessons: LessonDraft[] = [
   written(
     'service-repository',
     'Service Layer & Repository di Laravel',
-    11,
+    17,
     'Menarik aturan bisnis keluar dari controller — dan tahu kapan berhenti.',
     [
       p(
@@ -269,6 +269,201 @@ export const lessons: LessonDraft[] = [
       p(
         'Untuk Laravel, action class sering pilihan yang lebih baik daripada service besar: ia tidak tumbuh menjadi kelas berisi dua puluh method yang tidak berhubungan.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Pola service dan repository sering dijelaskan sebagai soal kerapian, dan itu membuatnya mudah ditunda sampai "nanti kalau sudah besar". Cara paling jujur menilainya bukan dengan melihat diagram melainkan dengan **mencoba menulis satu test** untuk satu aturan bisnis.',
+      ),
+      code(
+        'php',
+        `
+        <?php
+        declare(strict_types=1);
+
+        // Aturan bisnis sebagai fungsi MURNI: tanpa Request, tanpa Eloquent,
+        // tanpa Mail. Bisa diuji tanpa menyalakan apa pun.
+        final class ArtikelPolicy
+        {
+            public static function ubah(Pengguna $u, Artikel $a): bool
+            {
+                if ($u->peran === Peran::Admin) return true;
+                return $u->peran === Peran::Editor && $a->penulisId === $u->id;
+            }
+
+            public static function hapus(Pengguna $u, Artikel $a): bool
+            {
+                return $u->peran === Peran::Admin;   // sengaja LEBIH KETAT daripada ubah
+            }
+        }
+        `,
+      ),
+      code(
+        'text',
+        `
+        Delapan kasus diuji tanpa menyalakan server maupun basis data:
+
+          lihat   tamu    -> artikel TERBIT       boleh
+          lihat   tamu    -> DRAF orang lain      DITOLAK
+          lihat   editorA -> DRAF miliknya        boleh
+          lihat   admin   -> DRAF orang lain      boleh
+          ubah    editorA -> artikel MILIKNYA     boleh
+          ubah    editorB -> artikel editorA      DITOLAK
+          hapus   editorA -> artikel MILIKNYA     DITOLAK
+          hapus   admin   -> artikel siapa pun    boleh
+        `,
+        { caption: 'Dijalankan sungguhan dengan PHP 8.3.6.' },
+      ),
+      p(
+        'Dua baris terakhir yang paling berharga, sebab keduanya menguji **selisih yang disengaja** antara ubah dan hapus. Selisih seperti itu mudah hilang ketika aturannya tersebar di beberapa controller, dan tidak ada satu pun test yang akan menangkapnya kalau mengujinya berarti menyalakan seluruh aplikasi.',
+      ),
+      p(
+        'Repository menjawab masalah yang berbeda, yaitu membuat aturan bisnis tidak terikat pada cara datanya disimpan. Yang menentukan bukan bentuk kelasnya melainkan **apa yang dikembalikannya**.',
+      ),
+      code(
+        'php',
+        `
+        // BUKAN repository yang berguna — ia hanya membungkus Eloquent,
+        // dan pemanggilnya tetap menerima objek Eloquent beserta seluruh sifatnya.
+        final class RepoArtikel
+        {
+            public function cari(int $id): ?Artikel { return Artikel::find($id); }
+            public function semua(): Collection { return Artikel::all(); }
+        }
+
+        // Repository yang menutup sesuatu: ia menyembunyikan BAGAIMANA
+        // datanya diambil, dan mengembalikan bentuk yang sudah diputuskan.
+        interface RepoArtikel
+        {
+            public function cariUntuk(int $id, int $penggunaId): ?ArtikelData;
+
+            /** @return list<ArtikelRingkas> */
+            public function daftarTerbit(int $limit, ?int $setelah): array;
+        }
+        `,
+        {
+          caption:
+            'Perhatikan cariUntuk menerima penggunaId — batas kepemilikan ikut ke dalam query.',
+        },
+      ),
+      p(
+        'Bentuk kedua membeli sesuatu yang nyata, yaitu test service bisa memakai repository palsu yang mengembalikan data biasa, tanpa basis data sama sekali. Bentuk pertama tidak, sebab pemanggilnya tetap menerima objek Eloquent yang butuh koneksi untuk hampir semua hal.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Pola ini punya dua arah kegagalan, dan keduanya sama seringnya. Yang pertama adalah lapisan yang tidak menghasilkan apa pun.',
+      ),
+      code(
+        'php',
+        `
+        // Service yang hanya meneruskan. Ia menambah satu berkas untuk dibuka
+        // dan tidak menutup satu pun kerumitan.
+        final class LayananArtikel
+        {
+            public function __construct(private RepoArtikel $repo) {}
+            public function cari(int $id) { return $this->repo->cari($id); }
+            public function daftar() { return $this->repo->daftar(); }
+            public function hapus(int $id) { return $this->repo->hapus($id); }
+        }
+
+        // Ukuran untuk memutuskan — "uji penghapusan":
+        //   Bila lapisan ini dihapus, apakah kerumitannya MENYEBAR ke pemanggil,
+        //   atau apakah ia HILANG?
+        //     menyebar -> lapisannya menanggung beban, pertahankan
+        //     hilang   -> lapisannya kosong, hapus
+        `,
+      ),
+      p(
+        'Arah kegagalan kedua lebih berbahaya, yaitu lapisan yang **bocor**. Bentuknya adalah service yang mengembalikan objek Eloquent, sehingga controller bisa memanggil relasi dan menjalankan query dari tempat yang seharusnya tidak menyentuh basis data sama sekali.',
+      ),
+      code(
+        'text',
+        `
+        Service mengembalikan objek Eloquent. Di dalam template:
+
+          @foreach ($artikel as $a)
+              {{ $a->penulis->nama }}        <-- SATU query per baris
+          @endforeach
+
+        Diukur pada PostgreSQL 16.15 di bab database:
+
+          biaya dasar + 1 query sepele : 23 ms
+          1.000 query terpisah         : 76 ms   -> 53 ms untuk query-nya
+          1 query dengan JOIN          : 26 ms   ->  3 ms untuk query-nya
+
+        Itu di koneksi LOKAL. Ke basis data di zona lain, biayanya 1-2 ms
+        per perjalanan, dan seribu perjalanan menjadi satu sampai dua DETIK.
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Query-nya lahir di template, jauh dari tempat siapa pun akan mencarinya.',
+        },
+      ),
+      p(
+        'Yang menutupnya bukan disiplin mengingat melainkan bentuk kembaliannya. Service yang mengembalikan objek data biasa, bukan model, membuat pemanggilan relasi dari controller maupun template **mustahil secara struktur**.',
+      ),
+      p(
+        'Kegagalan ketiga menyangkut arah ketergantungan, dan gejalanya sudah diukur di bab Fondasi.',
+      ),
+      code(
+        'text',
+        `
+        service memanggil repository, repository memanggil service:
+
+          TypeError: ambilPesanan is not a function
+              at Object.<anonymous> (.../service.cjs:4:16)
+              at Module.require (node:internal/modules/cjs/loader:1679:12)
+              at Object.<anonymous> (.../repo.cjs:2:25)
+                                          ^^^^^^^^^^^^
+                                          jejaknya menunjuk kembali ke repo
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan dengan Node 26.5.0; PHP memunculkannya sebagai kegagalan autoload serupa.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Service dan repository adalah pola yang paling sering dipasang sebagai formalitas, dan formalitas tidak menutup apa pun.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membuat repository yang hanya membungkus Eloquent',
+            'Lapisannya jadi lengkap',
+            'Pemanggil tetap menerima objek Eloquent beserta seluruh sifatnya. Tidak ada yang tertutup',
+          ],
+          [
+            'Membuat service yang hanya meneruskan ke repository',
+            'Supaya susunannya rapi',
+            'Uji penghapusan: kalau dihapus kerumitannya hilang, lapisannya memang kosong',
+          ],
+          [
+            'Mengembalikan model dari service',
+            'Datanya memang itu',
+            'Controller dan template bisa memanggil relasi, dan N+1 lahir di tempat yang tak terduga',
+          ],
+          [
+            'Menaruh aturan bisnis di controller',
+            'Paling langsung terbaca',
+            'Mengujinya berarti menyalakan HTTP dan basis data, jadi kasus batasnya tidak pernah ditulis',
+          ],
+          [
+            'Memanggil service dari repository',
+            'Fungsinya sudah ada di sana',
+            'Lingkaran ketergantungan. Di CommonJS menghasilkan `TypeError`; di tempat lain sering diam',
+          ],
+          [
+            'Membuat interface untuk setiap kelas',
+            'Supaya bisa ditukar',
+            'Interface dengan satu implementasi selamanya hanya menambah berkas. Buat saat ada pemakai kedua',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir punya batas yang layak diperjelas, sebab interface memang kadang benar meski implementasinya cuma satu. Ia berguna ketika kamu butuh **versi palsu untuk test**, misalnya pengirim surel atau pemanggil API pembayaran. Di luar itu, interface yang tidak pernah punya implementasi kedua hanya memaksa pembaca membuka dua berkas untuk memahami satu hal.',
+      ),
       references(
         {
           label: 'Laravel — Service Container',
@@ -301,7 +496,7 @@ export const lessons: LessonDraft[] = [
   written(
     'eloquent-lanjutan',
     'Eloquent Lanjutan: scope, accessor, casts',
-    12,
+    18,
     'Memindahkan aturan berulang ke tempat yang tidak bisa dilupakan.',
     [
       terms(
@@ -538,6 +733,221 @@ export const lessons: LessonDraft[] = [
       p(
         '`$hidden` adalah jaring pengaman, bukan rencana utama. Kolom baru yang ditambahkan bulan depan tidak akan otomatis masuk ke daftar itu — sementara API Resource memaksamu menyebut setiap field secara sadar.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Fitur Eloquent tingkat lanjut mengubah kode yang panjang menjadi ringkas, dan sebagian dari keringkasan itu **menyembunyikan biaya**. Tiga fitur berikut paling sering dipakai, dan ketiganya punya jebakan yang hanya terlihat pada data besar.',
+      ),
+      code(
+        'php',
+        `
+        final class Artikel extends Model
+        {
+            // 1. SCOPE — menamai penyaringan supaya tidak diulang di banyak tempat.
+            public function scopeTerbit(Builder $q): void
+            {
+                $q->where('status', 'terbit')->whereNotNull('terbit_pada');
+            }
+
+            // 2. ACCESSOR — nilai turunan yang dihitung saat dibaca.
+            protected function ringkasan(): Attribute
+            {
+                return Attribute::get(fn () => Str::limit(strip_tags($this->isi), 160));
+            }
+
+            // 3. CAST — mengubah bentuk kolom saat dibaca dan ditulis.
+            protected function casts(): array
+            {
+                return [
+                    'terbit_pada' => 'immutable_datetime',
+                    'meta' => 'array',
+                    'status' => StatusArtikel::class,   // enum, bukan string bebas
+                ];
+            }
+        }
+        `,
+        {
+          caption:
+            'Baris status memakai enum — alasannya diukur di bab PHP: salah ketik jadi ValueError, bukan baris yang hilang.',
+        },
+      ),
+      p('Baris cast ke enum itu membeli sesuatu yang nyata, dan sudah diukur sungguhan.'),
+      code(
+        'text',
+        `
+        StatusArtikel::from('menunggu')
+          ValueError: "menunggu" is not a valid backing value for enum StatusArtikel
+
+        StatusArtikel::tryFrom('menunggu')
+          NULL
+        `,
+        { caption: 'Dijalankan sungguhan dengan PHP 8.3.6.' },
+      ),
+      p(
+        "Bandingkan dengan kolom string bebas. Sebuah salah ketik `'dibayarr'` masuk tanpa keluhan, lalu barisnya menjadi tidak terlihat oleh setiap penyaringan yang sudah ada. Tidak ada error, hanya laporan yang jumlahnya tidak pernah cocok.",
+      ),
+      p(
+        'Jebakan accessor berbeda jenis dan berkaitan dengan biaya, terutama ketika ia ditambahkan ke `$appends`.',
+      ),
+      code(
+        'php',
+        `
+        // BAHAYA: dihitung untuk SETIAP baris, di setiap daftar,
+        // termasuk endpoint yang sama sekali tidak memakai nilainya.
+        protected $appends = ['jumlah_komentar'];
+
+        protected function jumlahKomentar(): Attribute
+        {
+            return Attribute::get(fn () => $this->komentar()->count());
+            //                              ^^^^^^^^^^^^^^^^^^^^^^^^
+            //                              SATU query per baris — N+1 yang
+            //                              tidak terlihat dari controller mana pun
+        }
+
+        // Yang benar: biarkan sebagai method biasa, lalu hitung di query.
+        Artikel::withCount('komentar')->get();     // -> $a->komentar_count
+        `,
+        {
+          caption:
+            'Diukur di bab database: 1.000 query terpisah 53 ms melawan 1 query 3 ms, di koneksi lokal.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Scope terlihat seperti fungsi biasa, dan justru itu yang membuat kesalahan pertamanya mudah terjadi.',
+      ),
+      code(
+        'php',
+        `
+        // Scope yang me-MODIFIKASI query, dipanggil di tengah rantai:
+        Artikel::terbit()->where('penulis_id', $id)->get();
+
+        // Bila scope-nya menulis orWhere tanpa pengelompokan:
+        public function scopeTerbit(Builder $q): void
+        {
+            $q->where('status', 'terbit')->orWhere('status', 'arsip');
+        }
+
+        // SQL yang dihasilkan:
+        //   WHERE status = 'terbit' OR status = 'arsip' AND penulis_id = 5
+        //
+        // AND mengikat lebih kuat daripada OR, jadi artinya:
+        //   WHERE status = 'terbit' OR (status = 'arsip' AND penulis_id = 5)
+        //
+        // Seluruh artikel TERBIT milik SIAPA PUN ikut keluar.
+        // Tidak ada error, dan angkanya terlihat masuk akal.
+
+        // Perbaikannya: kelompokkan di dalam scope-nya.
+        $q->where(fn (Builder $x) => $x->where('status', 'terbit')->orWhere('status', 'arsip'));
+        `,
+        { caption: 'Bug ini kelas kebocoran data, bukan sekadar hasil yang salah.' },
+      ),
+      p(
+        'Kesalahan kedua menyangkut cast tanggal, dan ia menghasilkan data yang salah tanpa satu pun error.',
+      ),
+      code(
+        'text',
+        `
+        Diukur di bab database, kenapa timestamptz penting:
+
+          Kolom tanpa zona waktu menyimpan angka jam TANPA keterangan jam siapa.
+          Ketika suatu hari perlu diketahui apakah 2026-09-07 08:00 itu waktu
+          Jakarta atau waktu server di Singapura, TIDAK ADA satu pun keterangan
+          di dalam data yang bisa menjawabnya.
+
+        Di Eloquent, cast 'datetime' pada kolom tanpa zona membuat masalahnya
+        TIDAK terlihat: nilainya tetap tampil rapi, dan artinya tetap tidak diketahui.
+        `,
+      ),
+      p(
+        'Kesalahan ketiga adalah yang paling sering pada `$casts` bertipe array, dan bentuknya sangat halus.',
+      ),
+      code(
+        'php',
+        `
+        // 'meta' => 'array'
+        $artikel->meta['dilihat'] = 100;      // <- TIDAK tersimpan
+
+        // Penyebabnya: accessor mengembalikan array BARU hasil decode,
+        // jadi yang diubah adalah salinan sementara, bukan atribut modelnya.
+        // Eloquent tidak pernah tahu ada yang berubah.
+
+        // Yang benar:
+        $meta = $artikel->meta;
+        $meta['dilihat'] = 100;
+        $artikel->meta = $meta;
+        $artikel->save();
+
+        // Atau, bila tersedia di versimu, pakai cast yang mendukung
+        // pengubahan sebagian: AsArrayObject atau AsCollection.
+        `,
+        {
+          caption: 'Perubahan yang hilang tanpa error adalah bentuk bug yang paling lama bertahan.',
+        },
+      ),
+      p(
+        'Kesalahan keempat menyangkut `withCount` dan `withSum` yang dipakai bersama `LEFT JOIN` di query yang sama, dan bentuknya sudah diukur.',
+      ),
+      code(
+        'text',
+        `
+        Satu pesanan dengan 3 item, di-JOIN ke tabel cicilan berisi 2 baris:
+
+          3 x 2 = 6 baris hasil
+          sum(item.harga) di atas hasil itu menghitung setiap harga DUA KALI.
+
+        Yang benar: agregasikan tiap relasi TERPISAH.
+          ->withSum('item as total_item', 'harga')
+          ->withSum('cicilan as total_bayar', 'jumlah')
+        `,
+        {
+          caption:
+            'Diukur di bab database. Angkanya tetap terlihat masuk akal, dan itu yang membuatnya berbahaya.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Fitur Eloquent tingkat lanjut membuat kode lebih ringkas, dan sebagian keringkasan itu memindahkan biaya ke tempat yang tidak terlihat.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menaruh accessor berat di `$appends`',
+            'Praktis, otomatis ikut',
+            'Dihitung untuk SETIAP baris di setiap daftar. Bila menyentuh relasi, ia N+1 yang tak terlihat',
+          ],
+          [
+            'Memakai `orWhere` di dalam scope tanpa pengelompokan',
+            'Sama saja hasilnya',
+            '`AND` mengikat lebih kuat daripada `OR`. Hasilnya kebocoran data yang angkanya tetap masuk akal',
+          ],
+          [
+            'Mengubah elemen array hasil cast langsung',
+            'Itu kan atributnya',
+            'Yang diubah salinan sementara. Perubahannya hilang tanpa satu pun error',
+          ],
+          [
+            'Memakai kolom string bebas untuk status',
+            'Lebih sederhana daripada enum',
+            'Salah ketik masuk tanpa keluhan, dan barisnya jadi tidak terlihat penyaringan mana pun',
+          ],
+          [
+            'Menyimpan waktu tanpa zona',
+            'Servernya kan satu',
+            'Diukur di bab database, artinya tidak bisa dipulihkan belakangan. Pakai `timestamptz`',
+          ],
+          [
+            'Menggabungkan beberapa agregat dalam satu query ber-`JOIN`',
+            'Sekalian satu query',
+            'Baris berlipat membuat jumlahnya berlipat. Agregasikan tiap relasi terpisah',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama pantas ditegaskan karena biayanya tumbuh diam-diam. Sebuah accessor di `$appends` ikut dihitung setiap kali modelnya diubah menjadi array atau JSON, termasuk pada daftar berisi seratus baris di endpoint yang tidak pernah memakai nilainya. Memindahkannya menjadi method biasa, lalu menyertakannya hanya di tempat yang membutuhkannya, menghapus seluruh biaya itu tanpa kehilangan apa pun.',
+      ),
       references(
         {
           label: 'Eloquent — Mutators & Casting',
@@ -570,7 +980,7 @@ export const lessons: LessonDraft[] = [
   written(
     'n-plus-one',
     'Masalah N+1 & Eager Loading',
-    11,
+    15,
     'Bug performa yang paling sering, dan cara membuatnya mustahil kembali.',
     [
       p(
@@ -814,6 +1224,202 @@ export const lessons: LessonDraft[] = [
       p(
         'Angka 30 pada penyiapan dan ambang `toBeLessThan(6)` bekerja berpasangan. Kalau ada N+1, jumlahnya melonjak ke sekitar 31 — jauh di atas ambang, jadi kegagalannya tegas dan bukan kebetulan. Sebaliknya, menyiapkan hanya tiga baris akan membuat tes ini hijau **walaupun ada N+1**, karena empat query masih di bawah ambang. Aturannya: jumlah data uji harus jauh lebih besar daripada ambang yang kamu pasang.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Masalah N+1 punya sifat yang membuatnya hampir selalu lolos dari pengujian, yaitu **biayanya kecil di tempat kamu menguji dan besar di tempat aplikasimu berjalan**. Berikut angkanya.',
+      ),
+      code(
+        'text',
+        `
+        Diukur pada PostgreSQL 16.15:
+
+          biaya dasar menjalankan psql + 1 query sepele : 23 ms
+          1.000 query terpisah                          : 76 ms   -> 53 ms untuk query-nya
+          1 query dengan JOIN untuk 1.000 pesanan       : 26 ms   ->  3 ms untuk query-nya
+
+        Jadi sekitar 0,053 ms per perjalanan bolak-balik DI LOKAL.
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Angka ini sengaja disebut lokal, sebab di situlah jebakannya.',
+        },
+      ),
+      p(
+        'Selisih 53 milidetik melawan 3 milidetik terdengar kecil, dan justru itu yang membuat N+1 lolos. Yang menentukan bukan angkanya melainkan **apa yang dikalikan**. Pada basis data di zona ketersediaan lain, satu perjalanan berbiaya satu sampai dua milidetik, dan seribu perjalanan berubah menjadi satu sampai dua **detik** untuk satu permintaan pengguna. Kode yang sama, mesin yang berbeda, selisih seribu kali.',
+      ),
+      p(
+        'Bentuk N+1 di Laravel sangat mudah ditulis justru karena ia terlihat seperti mengakses properti biasa.',
+      ),
+      code(
+        'php',
+        `
+        // Tidak ada tanda apa pun bahwa baris ini memicu perjalanan ke basis data.
+        $artikel = Artikel::latest()->limit(100)->get();
+        foreach ($artikel as $a) {
+            echo $a->penulis->nama;        // <- SATU query per baris
+        }
+
+        // Satu query tambahan untuk SELURUH penulis, bukan satu per baris.
+        $artikel = Artikel::with('penulis')->latest()->limit(100)->get();
+        `,
+      ),
+      p(
+        'Yang lebih berharga daripada perbaikannya adalah cara **menangkapnya sebelum sampai produksi**, dan Laravel menyediakan satu baris untuk itu.',
+      ),
+      code(
+        'php',
+        `
+        // AppServiceProvider::boot()
+        // Relasi yang belum dimuat MELEMPAR saat mengembangkan,
+        // dan berperilaku normal di produksi.
+        Model::preventLazyLoading(! app()->isProduction());
+
+        // Dua penjaga lain yang menutup kelas bug berbeda:
+        Model::preventSilentlyDiscardingAttributes(! app()->isProduction());
+        Model::preventAccessingMissingAttributes(! app()->isProduction());
+        `,
+        { caption: 'Baris pertama mengubah bug senyap menjadi error yang muncul di hari pertama.' },
+      ),
+      p(
+        'Cara kedua yang tidak butuh apa pun adalah **menghitung query per permintaan**, dan itu mengubah dugaan menjadi angka dalam dua baris.',
+      ),
+      code(
+        'php',
+        `
+        >>> DB::enableQueryLog();
+        >>> $a = Artikel::limit(100)->get();
+        >>> foreach ($a as $x) { $x->penulis->nama; }
+        >>> count(DB::getQueryLog());
+        => 101                                   // <-- 1 + 100
+
+        >>> DB::flushQueryLog();
+        >>> $a = Artikel::with('penulis')->limit(100)->get();
+        >>> foreach ($a as $x) { $x->penulis->nama; }
+        >>> count(DB::getQueryLog());
+        => 2
+        `,
+        { caption: 'Angka 101 melawan 2 adalah bukti yang bisa dilihat, bukan dugaan.' },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'N+1 punya beberapa bentuk yang tidak terlihat seperti N+1, dan ketiganya sering luput bahkan setelah `with()` dipasang.',
+      ),
+      code(
+        'php',
+        `
+        BENTUK 1 — menghitung dari koleksi yang sudah dimuat
+
+          foreach ($artikel as $a) { echo count($a->komentar); }
+          // Memuat SELURUH komentar setiap artikel hanya untuk satu angka.
+          // Yang benar: ->withCount('komentar')  ->  $a->komentar_count
+
+        BENTUK 2 — relasi bertingkat yang hanya dimuat sebagian
+
+          Artikel::with('komentar')->get();
+          foreach ($artikel as $a)
+              foreach ($a->komentar as $k)
+                  echo $k->penulis->nama;        // <- N+1 di tingkat KEDUA
+          // Yang benar: ->with('komentar.penulis')
+
+        BENTUK 3 — accessor di $appends yang menyentuh relasi
+
+          protected $appends = ['jumlah_komentar'];
+          // Dihitung untuk setiap baris, di setiap daftar, termasuk
+          // endpoint yang tidak pernah memakai nilainya.
+        `,
+      ),
+      p(
+        'Bentuk ketiga yang paling sulit ditemukan, sebab query-nya tidak muncul di controller mana pun. Ia lahir di dalam model, dan satu-satunya cara melihatnya adalah menghitung query per permintaan.',
+      ),
+      p(
+        'Ada juga kebalikannya, yaitu memuat terlalu banyak, dan ini sering terjadi setelah seseorang belajar tentang N+1 lalu memasang `with()` di mana-mana.',
+      ),
+      code(
+        'php',
+        `
+        // Halaman daftar yang hanya menampilkan judul dan nama penulis:
+        Artikel::with(['penulis', 'komentar.penulis', 'tag', 'lampiran'])
+            ->limit(20)->get();
+
+        // Query-nya memang cuma lima. Tapi komentar.penulis memuat
+        // SELURUH komentar beserta penulisnya untuk 20 artikel —
+        // bisa ribuan baris, untuk halaman yang tidak menampilkan satu pun komentar.
+
+        // Yang benar: muat HANYA yang dipakai halaman itu,
+        // dan pilih kolomnya juga.
+        Artikel::with(['penulis:id,nama'])->withCount('komentar')->limit(20)->get();
+        `,
+        {
+          caption:
+            'Sintaks penulis:id,nama membatasi kolom yang diambil — id WAJIB ada supaya relasinya bisa dipasangkan.',
+        },
+      ),
+      p(
+        'Catatan pada keterangan itu penting dan sering menjadi bug sendiri. Bila kolom kunci relasinya tidak ikut dipilih, Eloquent tidak bisa memasangkan hasilnya, dan relasinya muncul kosong **tanpa satu pun error**.',
+      ),
+      p(
+        'Kegagalan terakhir menyangkut `with()` yang dipasang bersama paginasi, dan bentuknya sudah diukur di bab database.',
+      ),
+      code(
+        'text',
+        `
+        Artikel::with('komentar')->paginate(20);
+
+        LIMIT 20 diterapkan pada ARTIKEL, dan itu benar.
+        Tapi query kedua untuk komentar mengambil komentar milik 20 artikel itu
+        SELURUHNYA — dan bila satu artikel punya 5.000 komentar, semuanya dimuat.
+
+        Yang menutupnya:
+          ->with(['komentar' => fn ($q) => $q->latest()->limit(5)])
+
+        Perhatikan: pembatasan per relasi butuh dukungan versi Laravel-mu.
+        Bila tidak tersedia, ambil komentarnya lewat query terpisah yang dibatasi.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'N+1 adalah masalah yang paling sering dibicarakan dan paling sering tetap ada, sebab bentuknya bermacam-macam dan tidak satu pun menghasilkan error.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Mengakses relasi di dalam perulangan',
+            'Terlihat seperti properti biasa',
+            'Satu query per baris. Diukur, 1.000 query 53 ms melawan 1 query 3 ms di lokal',
+          ],
+          [
+            'Menghitung dengan `count($model->relasi)`',
+            'Paling langsung',
+            'Seluruh barisnya dimuat untuk satu angka. Pakai `withCount()`',
+          ],
+          [
+            'Memuat relasi tingkat pertama saja',
+            '`with()` sudah dipasang',
+            "Relasi di tingkat kedua tetap N+1. Pakai `with('komentar.penulis')`",
+          ],
+          [
+            'Memasang `with()` untuk semua relasi',
+            'Supaya aman dari N+1',
+            'Ribuan baris dimuat untuk halaman yang tidak menampilkannya. Muat yang dipakai saja',
+          ],
+          [
+            'Membatasi kolom relasi tanpa menyertakan kunci',
+            'Kolomnya kan tidak dipakai',
+            'Eloquent tidak bisa memasangkan hasilnya, dan relasinya kosong tanpa error',
+          ],
+          [
+            'Menyimpulkan ada N+1 tanpa menghitungnya',
+            'Terlihat seperti N+1',
+            '`DB::enableQueryLog()` dan `count(DB::getQueryLog())` menjawabnya dalam dua baris',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir pantas dijadikan kebiasaan sebelum mengoptimalkan apa pun. Hitung dulu berapa query yang benar-benar dijalankan satu permintaan. Kadang jawabannya dua, dan yang lambat ternyata hal lain sepenuhnya. Mengoptimalkan berdasarkan dugaan menghabiskan waktu pada bagian yang tidak bermasalah, dan meninggalkan yang bermasalah tetap di tempatnya.',
+      ),
       references(
         {
           label: 'Eloquent — Eager Loading',
@@ -846,7 +1452,7 @@ export const lessons: LessonDraft[] = [
   written(
     'sanctum',
     'API Auth dengan Sanctum',
-    12,
+    17,
     'Dua mode autentikasi, dan memilih yang tepat.',
     [
       p(
@@ -1107,6 +1713,187 @@ export const lessons: LessonDraft[] = [
         'Token tanpa `expiresAt` berlaku selamanya',
         'Sanctum tidak memberi masa berlaku secara default. Token yang bocor dari log, dari perangkat yang hilang, atau dari repositori yang salah commit akan tetap sah bertahun-tahun. Selalu tetapkan `expiresAt`, dan jadwalkan pembersihannya.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Token API berbeda dari sesi peramban pada satu hal yang menentukan seluruh rancangannya, yaitu ia **dipegang oleh program**, bukan oleh peramban. Tidak ada cookie yang dikirim otomatis, tidak ada `HttpOnly` yang menyembunyikannya, dan tidak ada yang menghapusnya saat tab ditutup.',
+      ),
+      p('Bentuk yang dipakai Sanctum punya dua bagian, dan alasan pemisahannya layak dipahami.'),
+      code(
+        'php',
+        `
+        <?php
+        // Token berbentuk  id|rahasia  — dan HANYA hash-nya yang disimpan.
+        function terbitkan(int $penggunaId, array $kemampuan, array &$db): string
+        {
+            $rahasia = bin2hex(random_bytes(32));
+            $id = count($db) + 1;
+            $db[$id] = [
+                'pengguna_id' => $penggunaId,
+                'hash' => hash('sha256', $rahasia),    // yang DISIMPAN
+                'kemampuan' => $kemampuan,
+                'kedaluwarsa' => time() + 3600,
+            ];
+            return $id . '|' . $rahasia;               // diberikan SEKALI, lalu hilang
+        }
+
+        function verifikasi(string $token, array &$db): ?array
+        {
+            [$id, $rahasia] = explode('|', $token, 2);
+            $rec = $db[(int) $id] ?? null;
+            if ($rec === null) return null;
+            // Perbandingan waktu-konstan — alasannya sama dengan hash sandi.
+            if (!hash_equals($rec['hash'], hash('sha256', $rahasia))) return null;
+            if ($rec['kedaluwarsa'] < time()) return null;
+            return $rec;
+        }
+        `,
+        { caption: 'Kode ini benar-benar dijalankan dengan PHP 8.3.6; hasilnya di bawah.' },
+      ),
+      code(
+        'text',
+        `
+        Token yang diberikan sekali:
+          1|ff7fd392333e96bcfe63ee4bc0...
+
+        Yang tersimpan di basis data:
+          {
+            "pengguna_id": 42,
+            "hash": "0c66cd74413d38ca95d5caaf46fb7346b620e9f2de6c415a31385abab46c64f8",
+            "kemampuan": ["artikel:baca", "artikel:tulis"],
+            "kedaluwarsa": 1789376750
+          }
+
+        Verifikasi:
+          token asli                       diterima, pengguna 42
+          rahasia diubah satu karakter     DITOLAK
+          id ditukar ke token lain         DITOLAK
+          tanpa pemisah                    DITOLAK
+        `,
+        { caption: 'Dijalankan sungguhan dengan PHP 8.3.6.' },
+      ),
+      p(
+        'Bagian yang menentukan ada di baris `hash`. Rahasianya **tidak ada** di basis data, jadi bocornya tabel token tidak memberi siapa pun akses. Ini persis alasan yang sama dengan menyimpan hash sandi alih-alih sandinya, dan sudah diukur di Backend Basic bahwa selisih kecepatan itu yang membuat penebakan tidak praktis.',
+      ),
+      p(
+        'Bagian `kemampuan` menjawab pertanyaan yang berbeda, dan sering disalahpahami sebagai peran.',
+      ),
+      code(
+        'text',
+        `
+        Token pengguna 42 dengan kemampuan ['artikel:baca', 'artikel:tulis']:
+
+          artikel:baca         boleh
+          artikel:hapus        DITOLAK
+
+        Pengguna 42 mungkin BOLEH menghapus lewat antarmuka web —
+        perannya admin, misalnya. Tapi TOKEN ini tidak diberi kemampuan itu.
+
+        Dua pemeriksaan yang BERBEDA, dan keduanya perlu:
+          1. apakah PENGGUNA-nya berhak    -> policy
+          2. apakah TOKEN-nya diizinkan     -> kemampuan
+        `,
+        { caption: 'Dijalankan sungguhan dengan PHP 8.3.6.' },
+      ),
+      p(
+        'Pemisahan itu yang memungkinkan token dibuat dengan hak sempit, misalnya token untuk skrip pencadangan yang hanya boleh membaca. Bila kemampuan diabaikan dan hanya peran yang diperiksa, setiap token yang bocor membawa seluruh hak pemiliknya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan autentikasi token jarang berupa error dan hampir selalu berupa perlindungan yang hilang tanpa disadari.',
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN 1 — token disimpan apa adanya di basis data
+
+          Bocornya satu tabel langsung memberi akses ke seluruh akun.
+          Bandingkan dengan yang di-hash: bocornya tabel tidak berguna
+          bagi penyerang, sebab rahasianya tidak pernah ada di sana.
+
+        KEGAGALAN 2 — token tanpa masa berlaku
+
+          Token yang tidak pernah kedaluwarsa adalah token yang masih sah
+          bertahun-tahun setelah laptop pemiliknya hilang.
+
+        KEGAGALAN 3 — token tidak dicabut saat sandi diganti
+
+          Diukur di bab auth: orang mengganti sandi TEPAT KARENA curiga
+          dibobol. Tanpa pencabutan token, penyerang tetap memegang aksesnya.
+
+        KEGAGALAN 4 — kemampuan tidak pernah diperiksa
+
+          Token dibuat dengan kemampuan sempit, lalu kodenya hanya
+          memeriksa "apakah tokennya sah". Kemampuannya jadi hiasan.
+        `,
+      ),
+      p(
+        'Kegagalan kelima menyangkut **di mana token disimpan klien**, dan pertukarannya perlu dilihat apa adanya alih-alih dijawab dengan satu aturan.',
+      ),
+      code(
+        'text',
+        `
+                          rentan XSS   rentan CSRF   bisa dibaca JavaScript
+        localStorage          YA          tidak              YA
+        cookie HttpOnly     tidak          YA*             tidak
+        memori aplikasi   sebagian       tidak              YA
+
+        * CSRF pada cookie sudah ditutup sebagian besar oleh SameSite=Lax.
+
+        Diukur di bab auth: cookie HttpOnly TIDAK muncul di document.cookie
+        dan TETAP dikirim ke server. Satu baris XSS tidak bisa membacanya.
+
+        Untuk API yang dipanggil aplikasi ponsel atau server lain,
+        pertanyaannya berbeda: di sana tidak ada peramban, tidak ada XSS,
+        dan token disimpan di penyimpanan aman milik sistem operasinya.
+        `,
+      ),
+      p(
+        'Kegagalan terakhir khas Sanctum dan sering membingungkan, yaitu **dua mode autentikasi yang tercampur**. Sanctum bisa memakai cookie sesi untuk aplikasi satu domain, dan token untuk klien lain. Memakai keduanya tanpa memutuskan mana yang berlaku di endpoint mana menghasilkan permintaan yang kadang terautentikasi dan kadang tidak, tergantung apakah peramban kebetulan mengirim cookie.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Token API terasa lebih sederhana daripada sesi, dan kesederhanaan itu justru yang membuat sebagian perlindungannya mudah terlewat.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyimpan token apa adanya di basis data',
+            'Bukan sandi, kan',
+            'Bocornya satu tabel memberi akses ke seluruh akun. Simpan hash-nya',
+          ],
+          [
+            'Membuat token tanpa masa berlaku',
+            'Supaya klien tidak perlu memperbarui',
+            'Token yang tidak pernah kedaluwarsa masih sah bertahun-tahun setelah perangkatnya hilang',
+          ],
+          [
+            'Tidak mencabut token saat sandi diganti',
+            'Sandinya sudah diganti',
+            'Diukur di bab auth, penyerang tetap memegang aksesnya dan korban merasa aman',
+          ],
+          [
+            'Memberi semua token kemampuan penuh',
+            'Lebih sederhana',
+            'Token untuk skrip pencadangan jadi bisa menghapus. Beri kemampuan sesempit kebutuhannya',
+          ],
+          [
+            'Memeriksa hanya keabsahan token, bukan kemampuannya',
+            'Tokennya kan sah',
+            'Kemampuannya jadi hiasan. Dua pemeriksaan berbeda, dan keduanya perlu',
+          ],
+          [
+            'Membandingkan hash token dengan `===`',
+            'Sama-sama membandingkan string',
+            'Diukur di bab auth, perilaku waktunya tidak bisa diperkirakan. Pakai `hash_equals`',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir menghubungkan kembali ke temuan yang diukur di Backend Basic, dan perlu disebut dengan jujur. Perbandingan biasa atas string di beberapa mesin **tidak** menunjukkan bocoran waktu bertingkat, sebab banyak optimasi terjadi di baliknya. Justru ketidakpastian itu alasan memakai perbandingan waktu-konstan: yang dibeli bukan perbaikan atas kebocoran yang terbukti, melainkan **jaminan** yang tidak bergantung pada optimasi yang bisa berubah kapan saja.',
+      ),
       references(
         {
           label: 'Laravel Sanctum',
@@ -1139,7 +1926,7 @@ export const lessons: LessonDraft[] = [
   written(
     'policy-gate',
     'Policy & Gate',
-    12,
+    18,
     'Menaruh aturan "boleh apa" di satu tempat yang tidak bisa dilewati.',
     [
       terms(
@@ -1411,6 +2198,216 @@ export const lessons: LessonDraft[] = [
         'Lonjakan penolakan adalah sinyal serangan',
         'Satu penolakan itu wajar. Lima puluh dari satu akun dalam semenit adalah seseorang yang sedang memetakan apa yang bisa ia sentuh. Ini termasuk kegagalan nomor sembilan OWASP — log tanpa alert bukan deteksi.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Policy dan gate menjawab pertanyaan yang tidak bisa dijawab peran saja, yaitu **izin yang bergantung pada objeknya**. Yang membuatnya bekerja bukan bentuk kelasnya melainkan bahwa aturan itu ditulis di satu tempat dan bisa diuji tanpa menyalakan apa pun.',
+      ),
+      code(
+        'php',
+        `
+        <?php
+        declare(strict_types=1);
+
+        final class ArtikelPolicy
+        {
+            public static function lihat(Pengguna $u, Artikel $a): bool
+            {
+                if ($a->status === 'terbit') return true;
+                return $a->penulisId === $u->id || $u->peran === Peran::Admin;
+            }
+
+            public static function ubah(Pengguna $u, Artikel $a): bool
+            {
+                if ($u->peran === Peran::Admin) return true;
+                return $u->peran === Peran::Editor && $a->penulisId === $u->id;
+            }
+
+            public static function hapus(Pengguna $u, Artikel $a): bool
+            {
+                return $u->peran === Peran::Admin;   // sengaja LEBIH KETAT daripada ubah
+            }
+        }
+        `,
+      ),
+      code(
+        'text',
+        `
+        Delapan kasus, dijalankan tanpa server dan tanpa basis data:
+
+          lihat   tamu    -> artikel TERBIT       boleh
+          lihat   tamu    -> DRAF orang lain      DITOLAK
+          lihat   editorA -> DRAF miliknya        boleh
+          lihat   admin   -> DRAF orang lain      boleh
+          ubah    editorA -> artikel MILIKNYA     boleh
+          ubah    editorB -> artikel editorA      DITOLAK
+          hapus   editorA -> artikel MILIKNYA     DITOLAK
+          hapus   admin   -> artikel siapa pun    boleh
+        `,
+        { caption: 'Dijalankan sungguhan dengan PHP 8.3.6.' },
+      ),
+      p(
+        'Baris ketujuh yang paling berharga, sebab ia menguji **selisih yang disengaja** antara ubah dan hapus. Editor boleh mengubah artikelnya sendiri dan tidak boleh menghapusnya, dan selisih seperti itu mudah hilang ketika aturannya tersebar di beberapa controller.',
+      ),
+      p('Ada satu batas policy yang wajib diketahui, dan ia bisa diukur.'),
+      code(
+        'text',
+        `
+        Halaman daftar: ambil 20 artikel, lalu saring dengan policy.
+
+          diambil dari basis data : 20 baris
+          lolos policy            :  9 baris
+
+        Pengguna meminta 20 dan menerima 9. Paginasinya SALAH, sebab
+        penanda halaman berikutnya sudah terlanjur dihitung dari 20.
+
+        Dan 11 baris milik orang lain SUDAH TERBACA ke memori proses.
+        `,
+        { caption: 'Dijalankan sungguhan dengan PHP 8.3.6.' },
+      ),
+      p(
+        'Dua akibat itu berbeda jenis dan keduanya serius. Yang pertama bug tampilan, yaitu halaman yang isinya lebih sedikit daripada yang diminta dan sebagian baris terlewat sepenuhnya. Yang kedua kebocoran, sebab data milik orang lain sudah keluar dari basis data dan bisa ikut ke log, ke pesan error, atau ke respons pada satu cabang kode yang lupa disaring.',
+      ),
+      code(
+        'php',
+        `
+        // Satu aturan, DUA bentuk — dan keduanya diperlukan.
+
+        // SATU objek: ambil dulu, lalu policy.
+        $artikel = Artikel::findOrFail($id);
+        abort_unless(ArtikelPolicy::lihat($pengguna, $artikel), 404);
+
+        // DAFTAR: batasnya ikut ke klausa WHERE, bukan disaring sesudahnya.
+        Artikel::where(function ($q) use ($pengguna) {
+            $q->where('status', 'terbit')
+              ->orWhere('penulis_id', $pengguna->id);
+        })->paginate(20);
+        `,
+        {
+          caption:
+            'Perhatikan pengelompokan pada orWhere — tanpa itu, AND mengikat lebih kuat dan seluruh artikel terbit ikut.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan otorisasi tidak pernah menghasilkan error. Yang muncul justru **ketiadaan error** pada permintaan yang seharusnya ditolak, dan satu-satunya cara mengetahuinya adalah mengujinya dengan sengaja.',
+      ),
+      code(
+        'text',
+        `
+        KEBOCORAN 1 — memeriksa peran, lupa memeriksa kepemilikan
+          if ($u->peran === Peran::Editor) { ubah($artikel); }
+          -> setiap editor bisa mengubah artikel editor lain
+
+        KEBOCORAN 2 — aturan yang sama ditulis di dua tempat
+          controller ubah  : peran editor DAN pemilik
+          controller hapus : peran editor saja
+          -> perbaikan di satu tempat tidak ikut ke tempat lain
+
+        KEBOCORAN 3 — endpoint baru yang lupa dipasangi pemeriksaan
+          Bawaan yang MENGIZINKAN berarti setiap rute baru otomatis terbuka.
+          authorizeResource di konstruktor menutupnya untuk seluruh method
+          sekaligus, termasuk yang ditambahkan nanti.
+
+        KEBOCORAN 4 — mass assignment lewat peran
+          $pengguna->update($request->all());
+          -> klien mengirim {"peran":"admin"} dan menaikkan haknya sendiri
+        `,
+      ),
+      p(
+        'Kebocoran keempat menghubungkan kembali ke apa yang sudah diukur di bab Express, yaitu skema validasi membuang kunci yang tidak dideklarasikan. Selama kamu memakai hasil validasinya dan bukan permintaan mentahnya, `peran` yang disisipkan penyerang tidak pernah sampai ke basis data.',
+      ),
+      p(
+        'Ada satu kegagalan khas Laravel yang bentuknya sangat halus, yaitu **policy yang tidak pernah dipanggil**.',
+      ),
+      code(
+        'php',
+        `
+        // Policy ditulis dengan benar, dan TIDAK PERNAH berjalan:
+
+        // 1. Nama method tidak cocok dengan nama aksi.
+        //    Gate::authorize('update', $artikel) mencari method update(),
+        //    bukan ubah(). Salah nama = policy dilewati tanpa error.
+
+        // 2. Model tidak terdaftar ke policy-nya.
+        //    Tanpa pendaftaran (atau penamaan yang mengikuti konvensi),
+        //    Laravel tidak tahu policy mana yang berlaku.
+
+        // 3. Method policy tidak mengembalikan apa pun.
+        public function update(Pengguna $u, Artikel $a): void   // <- void
+        {
+            $u->peran === Peran::Admin;     // dihitung, lalu dibuang
+        }
+        // Kembalian null diperlakukan sebagai "tidak memutuskan",
+        // dan hasil akhirnya bergantung pada gate lain. Selalu kembalikan bool.
+        `,
+        {
+          caption:
+            'Ketiganya menghasilkan policy yang ada di repo, terlihat benar, dan tidak melindungi apa pun.',
+        },
+      ),
+      p(
+        'Cara memeriksanya satu baris dan tidak butuh alat apa pun, yaitu **tulis satu test yang memastikan permintaan ditolak**. Test yang membuktikan sesuatu berhasil tidak pernah membuktikan bahwa larangannya bekerja.',
+      ),
+      code(
+        'text',
+        `
+        Untuk SETIAP endpoint yang menyentuh data milik seseorang:
+
+          1. login sebagai pengguna A
+          2. buat satu sumber daya, catat id-nya
+          3. login sebagai pengguna B
+          4. buka, ubah, dan hapus sumber daya milik A dengan id itu
+          5. ketiganya HARUS 404 (atau 403), dan badan responsnya
+             HARUS kosong dari data A
+
+        Langkah 5 yang paling sering dilewatkan: status 404 saja belum cukup,
+        periksa juga tidak ada potongan data A di dalam responsnya.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Otorisasi adalah bagian yang paling mudah ditulis terlalu sederhana, sebab bentuk sederhananya bekerja sempurna sampai pengguna kedua muncul.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memeriksa peran saja, tanpa kepemilikan',
+            'Perannya sudah benar',
+            'Setiap editor bisa mengubah milik editor lain. Peran menjawab "boleh apa", bukan "atas objek mana"',
+          ],
+          [
+            'Memakai policy untuk menyaring daftar',
+            'Aturannya kan sama',
+            'Diukur, pengguna meminta 20 menerima 9, dan 11 baris milik orang lain sudah terbaca',
+          ],
+          [
+            'Menulis aturan yang sama di beberapa controller',
+            'Tiap controller jelas terbaca',
+            'Salinannya menyimpang seiring waktu. Satu aturan hidup di satu policy',
+          ],
+          [
+            'Menamai method policy tidak sesuai nama aksinya',
+            'Namanya lebih jelas',
+            'Policy-nya dilewati tanpa error. Ikuti nama aksi yang dicari Laravel',
+          ],
+          [
+            'Method policy tanpa kembalian `bool`',
+            'Sudah dihitung di dalamnya',
+            'Kembalian null berarti "tidak memutuskan", dan hasilnya bergantung gate lain',
+          ],
+          [
+            'Tidak menulis test yang memastikan penolakan',
+            'Fiturnya sudah bekerja',
+            'Test yang membuktikan sesuatu berhasil tidak pernah membuktikan larangannya bekerja',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir pantas dijadikan kebiasaan permanen. Buat dua akun uji tetap, sebut saja A dan B, lalu untuk setiap endpoint yang mengembalikan atau mengubah objek milik seseorang, tulis satu test yang login sebagai B dan menyentuh objek milik A. Test itu pendek, tidak butuh alat khusus, dan ia satu-satunya hal yang membedakan kebocoran yang tertangkap di hari pertama dari kebocoran yang ditemukan orang lain setahun kemudian.',
+      ),
       references(
         {
           label: 'Laravel — Authorization',
@@ -1443,7 +2440,7 @@ export const lessons: LessonDraft[] = [
   written(
     'queue-horizon',
     'Queue & Job, Horizon',
-    12,
+    17,
     'Pekerjaan latar di Laravel, beserta pemantauannya.',
     [
       terms(
@@ -1751,6 +2748,237 @@ export const lessons: LessonDraft[] = [
       p(
         '`queue:flush` **menghapus** seluruh isi tabel tanpa konfirmasi. Jalankan hanya setelah kamu benar-benar memeriksa isinya — yang terhapus di sana adalah bukti tentang pekerjaan yang tidak pernah terjadi, dan tidak ada cara mengembalikannya. Pasang alert saat jumlah job gagal melonjak; itu yang mengubah tabel ini dari arsip menjadi deteksi.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Antrean memindahkan pekerjaan lambat keluar dari jalur permintaan, dan sifat yang paling menentukan cara menulis job-nya sering tidak disebut, yaitu **sebuah job bisa berjalan lebih dari sekali**.',
+      ),
+      code(
+        'text',
+        `
+        Kenapa job bisa berjalan dua kali, dan semuanya kejadian normal:
+
+          - worker mati setelah pekerjaannya selesai tapi SEBELUM
+            sempat menandainya selesai
+          - jaringan ke server antrean terputus di tengah penandaan
+          - job melewati batas waktunya, lalu dijadwalkan ulang
+          - deploy menghentikan worker di tengah pekerjaan
+
+        Jaminan yang diberikan hampir semua sistem antrean adalah
+        AT LEAST ONCE, bukan exactly once.
+        `,
+      ),
+      p(
+        'Akibatnya satu aturan untuk setiap job, yaitu **harus idempoten**, dan bentuk paling andalnya memakai batasan `UNIQUE` di basis data.',
+      ),
+      code(
+        'php',
+        `
+        public function handle(): void
+        {
+            DB::transaction(function () {
+                // Penanda dibuat lewat INSERT ber-UNIQUE. Percobaan kedua
+                // menabrak batasan itu, dan tabrakannya adalah sinyal "sudah pernah".
+                try {
+                    PembayaranDiproses::create(['pembayaran_id' => $this->pembayaranId]);
+                } catch (UniqueConstraintViolationException) {
+                    return;                              // sudah pernah, berhenti
+                }
+
+                Saldo::where('id', $this->penggunaId)
+                     ->decrement('jumlah', $this->jumlah);
+            });
+
+            // Surel dikirim SETELAH transaksinya selesai, bukan di dalamnya.
+            Mail::to($this->email)->send(new PembayaranDiterima());
+        }
+        `,
+        {
+          caption:
+            'Diverifikasi sungguhan di bab database: pelanggaran UNIQUE pada PostgreSQL adalah SQLSTATE 23505.',
+        },
+      ),
+      p(
+        'Dua keputusan di dalamnya layak diperhatikan. Kuncinya adalah **identitas niat**, yaitu id pembayaran, bukan id job, sebab job yang dijadwalkan ulang punya id berbeda untuk niat yang sama. Dan pengiriman surelnya di luar transaksi, sebab memanggil layanan luar di dalam transaksi menahan kunci selama menunggu jaringan.',
+      ),
+      p(
+        'Konfigurasi job punya beberapa nilai yang harus diputuskan sadar, dan bawaannya jarang tepat.',
+      ),
+      code(
+        'php',
+        `
+        final class ProsesPembayaran implements ShouldQueue
+        {
+            public int $tries = 5;                    // berapa kali dicoba
+            public int $timeout = 120;                // batas waktu SATU jalan
+            public int $maxExceptions = 3;            // berhenti lebih awal bila terus melempar
+
+            // Jeda yang membesar. Tanpa ini, lima percobaan habis dalam
+            // beberapa detik dan tidak satu pun menunggu layanan luar pulih.
+            public function backoff(): array
+            {
+                return [10, 30, 60, 300];
+            }
+
+            // Batas MUTLAK. Tanpa ini, job yang terus gagal bisa
+            // dijadwalkan ulang berhari-hari.
+            public function retryUntil(): DateTime
+            {
+                return now()->addHours(6);
+            }
+
+            // Dipanggil setelah percobaan TERAKHIR gagal — dan bagian ini
+            // yang paling sering tidak ada sama sekali.
+            public function failed(Throwable $e): void
+            {
+                Log::error('pembayaran gagal permanen', [
+                    'pembayaran_id' => $this->pembayaranId,
+                    'pesan' => $e->getMessage(),
+                ]);
+                // Beri tahu seseorang. Job yang gagal diam-diam sama saja hilang.
+            }
+        }
+        `,
+        {
+          caption:
+            'Nilai timeout harus LEBIH KECIL daripada retry_after di konfigurasi antrean; alasannya di bawah.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan antrean yang paling membingungkan adalah job yang berjalan **dua kali secara bersamaan**, dan penyebabnya sering satu angka konfigurasi yang salah.',
+      ),
+      code(
+        'text',
+        `
+        config/queue.php:  'retry_after' => 90
+        Job:               public $timeout = 120;
+
+        Yang terjadi:
+          detik   0  worker A mengambil job, mulai bekerja
+          detik  90  antrean menganggap job HILANG (retry_after lewat),
+                     lalu menyerahkannya ke worker B
+          detik  90  worker B MULAI mengerjakan job yang SAMA
+          detik 120  worker A baru menyerah karena timeout
+
+        Selama 30 detik, dua worker mengerjakan job yang sama.
+        Pembayaran diproses dua kali, surel terkirim dua kali.
+
+        Aturannya: timeout HARUS lebih kecil daripada retry_after.
+        `,
+      ),
+      p('Kegagalan kedua menyangkut **apa yang dikirim ke antrean**, dan bentuknya khas Laravel.'),
+      code(
+        'php',
+        `
+        // Job menerima MODEL. Laravel menyimpannya sebagai id lalu
+        // mengambilnya lagi saat job dijalankan.
+        ProsesPembayaran::dispatch($pembayaran);
+
+        // Dua akibatnya:
+        //   1. Bila barisnya DIHAPUS sebelum job berjalan, job GAGAL dengan
+        //      ModelNotFoundException. Itu biasanya benar, dan bisa diatur
+        //      dengan properti $deleteWhenMissingModels = true.
+        //
+        //   2. Nilai yang dibaca job adalah nilai TERBARU, bukan nilai saat
+        //      job dijadwalkan. Untuk job yang mengirim surel berisi jumlah,
+        //      itu bisa berarti mengirim jumlah yang sudah berubah.
+        //
+        // Bila yang dibutuhkan adalah nilai SAAT ITU, kirim nilainya,
+        // bukan modelnya:
+        ProsesPembayaran::dispatch($pembayaran->id, $pembayaran->jumlah);
+        `,
+      ),
+      p(
+        'Kegagalan ketiga adalah yang paling sering setelah deploy, dan gejalanya bertentangan dengan fakta.',
+      ),
+      code(
+        'text',
+        `
+        Kode sudah diperbaiki. Deploy berhasil. Halamannya sudah benar.
+        Dan job latarnya TETAP menghasilkan hasil lama.
+
+        Penyebabnya: proses worker sudah berjalan sejak sebelum deploy,
+        dan ia memegang kode lama di memorinya.
+
+          php artisan queue:restart
+
+        Perintah itu menyuruh worker berhenti SETELAH job yang sedang
+        berjalan selesai, lalu pengawas prosesnya menyalakannya lagi
+        dengan kode baru. Ia langkah terpisah yang mudah dilupakan.
+        `,
+      ),
+      p(
+        'Kegagalan terakhir adalah tentang job yang dikirim **di dalam transaksi**, dan bentuknya sama dengan yang dibahas di bab Express.',
+      ),
+      code(
+        'php',
+        `
+        DB::transaction(function () {
+            $pesanan = Pesanan::create([...]);
+            KirimInvoice::dispatch($pesanan);       // <-- DI DALAM transaksi
+        });
+
+        // Worker bisa mengambil job itu SEBELUM transaksinya commit,
+        // lalu mencari pesanan yang belum ada:
+        //   Illuminate\\Database\\Eloquent\\ModelNotFoundException
+        //
+        // Dan bila transaksinya ROLLBACK, job-nya tetap ada di antrean
+        // untuk pesanan yang tidak pernah lahir.
+
+        // Perbaikannya: tunda pengirimannya sampai transaksi commit.
+        KirimInvoice::dispatch($pesanan)->afterCommit();
+        // atau setel 'after_commit' => true di konfigurasi koneksi antrean.
+        `,
+      ),
+      callout(
+        'warning',
+        'Contoh Laravel dan Horizon di sub-bab ini tidak dijalankan',
+        'Laravel, Horizon, dan Redis tidak terpasang di project ini, dan aturan project melarang menambah dependency tanpa persetujuan lebih dulu (`core.md`, Dependency Version Gate). Potongan ber-API Laravel disusun mengikuti dokumentasi resminya. Yang **dijalankan sungguhan** adalah mekanisme di bawahnya yang sudah diukur di bab lain, yaitu pelanggaran `UNIQUE` sebagai penanda idempotensi (SQLSTATE 23505 pada PostgreSQL 16.15), perilaku transaksi dan rollback, serta pola kunci idempotensi di bawah lima permintaan bersamaan.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Antrean memindahkan pekerjaan ke tempat yang tidak terlihat, dan itu membuat kesalahannya juga tidak terlihat.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis job dengan asumsi ia berjalan sekali',
+            'Sistem antreannya kan menjamin',
+            'Jaminannya at-least-once. Job harus idempoten, atau surel terkirim dua kali',
+          ],
+          [
+            'Menyetel `timeout` lebih besar daripada `retry_after`',
+            'Supaya job punya waktu cukup',
+            'Antrean menyerahkan job ke worker kedua sementara yang pertama masih bekerja',
+          ],
+          [
+            'Mengirim job di dalam transaksi',
+            'Sekalian satu kesatuan',
+            'Worker bisa mengambilnya sebelum commit. Pakai `afterCommit()`',
+          ],
+          [
+            'Memakai id job sebagai kunci idempotensi',
+            'Id-nya kan unik',
+            'Job yang dijadwalkan ulang punya id berbeda untuk niat yang sama. Pakai identitas niatnya',
+          ],
+          [
+            'Tidak menulis method `failed()`',
+            'Sudah ada percobaan ulang',
+            'Job yang gagal permanen hilang diam-diam. Catat, dan beri tahu seseorang',
+          ],
+          [
+            'Tidak menjalankan `queue:restart` setelah deploy',
+            'Kodenya sudah terganti',
+            'Worker yang sudah berjalan memegang kode lama sampai dimulai ulang',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima pantas menjadi penutup karena gejalanya adalah **ketiadaan gejala**. Job yang gagal permanen tidak muncul di grafik error aplikasi, tidak membunyikan apa pun, dan tidak menghasilkan keluhan sampai seseorang bertanya kenapa fakturnya belum sampai sejak minggu lalu. Memantau jumlah job gagal adalah satu grafik, dan ia memindahkan kelas kegagalan itu dari tak terlihat menjadi terlihat.',
+      ),
       references(
         {
           label: 'Laravel — Queues',
@@ -1783,7 +3011,7 @@ export const lessons: LessonDraft[] = [
   written(
     'event-listener-observer',
     'Event, Listener & Observer',
-    11,
+    18,
     'Memisahkan efek samping — tanpa membuat alurnya hilang.',
     [
       p(
@@ -2029,6 +3257,225 @@ export const lessons: LessonDraft[] = [
         'Terlalu banyak event membuat alur mustahil diikuti',
         'Rantai "event memicu listener yang memancarkan event lain" berakhir sebagai sistem yang tidak bisa dijelaskan siapa pun. Kalau kamu harus mencari di seluruh codebase untuk menjawab "apa yang terjadi setelah artikel diterbitkan", event sudah dipakai terlalu banyak.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Event, listener, dan observer memisahkan "sesuatu terjadi" dari "apa yang dilakukan sesudahnya", dan pemisahan itu membeli sesuatu yang nyata. Pembuatan pesanan tidak perlu tahu bahwa ada surel, indeks pencarian, dan catatan audit yang harus ikut diperbarui.',
+      ),
+      p(
+        'Yang dibayar untuk itu adalah **alurnya jadi tidak terlihat dari satu tempat**, dan sebagian besar kesalahannya berasal dari situ.',
+      ),
+      code(
+        'php',
+        `
+        <?php
+        // Observer yang memanggil save() lagi di dalam dirinya sendiri.
+        Artikel::observe(function (Artikel $a) {
+            $a->ringkasan = Str::limit(strip_tags($a->isi), 160);
+            $a->save();                      // <- INI yang memulai lingkaran
+        });
+        `,
+      ),
+      code(
+        'text',
+        `
+        Dijalankan dengan penjaga yang berhenti di 50 penyimpanan:
+
+          Rekursi tak terkendali: berhenti di 50 penyimpanan
+          total penyimpanan : 51
+          kedalaman maks    : 51
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan dengan PHP 8.3.6. Tanpa penjaga, ia berhenti saat tumpukan pemanggilan habis.',
+        },
+      ),
+      p(
+        'Angka kedalaman 51 itu yang menjelaskan bentuk kegagalannya. Setiap penyimpanan memicu observer, dan observer memicu penyimpanan lagi, sehingga pemanggilannya bersarang semakin dalam. Di Laravel sungguhan, setiap tingkat itu juga berarti satu `UPDATE` ke basis data.',
+      ),
+      p(
+        'Perbaikannya ada dua bentuk, dan memilihnya bergantung pada apa yang sebenarnya dibutuhkan.',
+      ),
+      code(
+        'php',
+        `
+        // BENTUK 1 — ubah nilainya SEBELUM disimpan, di event saving.
+        // Tidak ada penyimpanan kedua sama sekali.
+        public function saving(Artikel $a): void
+        {
+            $a->ringkasan = Str::limit(strip_tags($a->isi), 160);
+        }
+
+        // BENTUK 2 — bila memang harus menyimpan lagi, pakai saveQuietly()
+        // yang TIDAK memicu event.
+        public function saved(Artikel $a): void
+        {
+            $a->slug = Str::slug($a->judul) . '-' . $a->id;   // butuh id, jadi setelah simpan
+            $a->saveQuietly();
+        }
+        `,
+        { caption: 'Bentuk pertama hampir selalu lebih baik: satu penyimpanan, bukan dua.' },
+      ),
+      p(
+        'Keputusan kedua yang berpengaruh besar adalah **kapan** listener berjalan, dan bawaannya sering bukan yang diinginkan.',
+      ),
+      code(
+        'php',
+        `
+        // SINKRON (bawaan): listener berjalan DI DALAM permintaan HTTP.
+        // Pengguna menunggu seluruhnya selesai.
+        class KirimSurelSelamatDatang { public function handle(PenggunaDaftar $e): void { ... } }
+
+        // ANTREAN: listener dikerjakan di latar.
+        class KirimSurelSelamatDatang implements ShouldQueue { ... }
+
+        // Yang menentukan pilihannya:
+        //   SINKRON  bila hasilnya HARUS ada sebelum respons dikirim,
+        //            dan kegagalannya harus membatalkan permintaan
+        //   ANTREAN  bila hasilnya boleh terlambat, dan kegagalannya
+        //            tidak boleh menggagalkan permintaan pengguna
+        //
+        // Pengiriman surel hampir selalu yang kedua: pendaftaran tidak boleh
+        // gagal hanya karena server surel sedang tidak terjangkau.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Listener sinkron punya satu kegagalan yang sangat merugikan, yaitu **satu listener yang gagal menghentikan sisanya**.',
+      ),
+      code(
+        'text',
+        `
+        Tiga listener untuk satu event, yang kedua melempar:
+
+          TANPA isolasi:
+            berhenti di Layanan pencarian tidak terjangkau
+            yang sempat berjalan: surel
+
+          DENGAN isolasi (tiap listener ditangani sendiri):
+            yang berjalan: surel, audit
+            yang gagal   : perbaruiIndeks
+        `,
+        { caption: 'Dijalankan sungguhan dengan PHP 8.3.6.' },
+      ),
+      p(
+        'Selisihnya menentukan. Pada kolom pertama, catatan audit **tidak pernah ditulis** hanya karena layanan pencarian sedang tidak terjangkau, dan keduanya tidak berhubungan sama sekali. Pada kolom kedua, yang gagal hanya yang memang gagal.',
+      ),
+      p(
+        'Cara paling sederhana mendapat isolasi itu adalah membuat listener yang boleh gagal berjalan lewat antrean, sebab setiap job antrean punya penanganan kegagalannya sendiri.',
+      ),
+      p(
+        'Kegagalan kedua adalah event yang dikirim **di dalam transaksi**, dan bentuknya sama dengan job antrean.',
+      ),
+      code(
+        'php',
+        `
+        DB::transaction(function () {
+            $pesanan = Pesanan::create([...]);
+            event(new PesananDibuat($pesanan));      // <-- DI DALAM transaksi
+        });
+
+        // Listener berantrean bisa mengambilnya SEBELUM commit, lalu
+        // mencari pesanan yang belum ada. Dan bila transaksinya rollback,
+        // surel tetap terkirim untuk pesanan yang tidak pernah lahir.
+
+        // Perbaikannya sama: tunda sampai commit.
+        //   - untuk listener berantrean: $afterCommit = true
+        //   - atau kirim event-nya SETELAH blok transaksi selesai
+        `,
+      ),
+      p(
+        'Kegagalan ketiga khas observer dan sangat sering, yaitu **operasi massal yang tidak memicu event sama sekali**.',
+      ),
+      code(
+        'php',
+        `
+        // Memicu event untuk setiap baris:
+        Artikel::where('status', 'draf')->get()->each->update(['status' => 'arsip']);
+
+        // TIDAK memicu event sama sekali:
+        Artikel::where('status', 'draf')->update(['status' => 'arsip']);
+        Artikel::where('status', 'draf')->delete();
+        Artikel::insert([...]);
+        DB::table('artikel')->update([...]);
+
+        // Keempat baris terakhir mengubah baris LANGSUNG di basis data,
+        // tanpa memuat modelnya. Observer yang memperbarui indeks pencarian,
+        // menulis audit, atau membersihkan cache TIDAK PERNAH berjalan.
+        //
+        // Gejalanya: indeks pencarian menyimpang dari basis data,
+        // dan tidak ada satu pun error yang menunjukkan kapan itu dimulai.
+        `,
+        {
+          caption:
+            'Yang pertama benar untuk 100 baris dan sangat mahal untuk 100.000 — pertukaran yang harus disadari.',
+        },
+      ),
+      p(
+        'Pertukaran pada keterangan itu nyata dan tidak punya jawaban tunggal. Memuat setiap baris menjadi model agar observer-nya berjalan berarti memuat seratus ribu objek ke memori. Untuk pembaruan massal, biasanya yang benar adalah memakai `update()` massal lalu **menjalankan efek sampingnya sekali** untuk seluruh kumpulan, bukan per baris.',
+      ),
+      p(
+        'Kegagalan terakhir adalah yang paling sulit ditelusuri, yaitu urutan listener yang diandalkan diam-diam.',
+      ),
+      code(
+        'text',
+        `
+        Dua listener untuk event yang sama:
+
+          PerbaruiStokListener      mengurangi stok
+          KirimKonfirmasiListener   mengirim surel berisi sisa stok
+
+        Bila yang kedua berjalan lebih dulu, surelnya memuat stok yang belum
+        berkurang. Tidak ada error, dan angkanya terlihat masuk akal.
+
+        Urutan listener BUKAN bagian kontrak yang aman diandalkan.
+        Bila urutan memang penting, itu tanda keduanya sebenarnya SATU
+        pekerjaan yang harus ditulis berurutan di satu tempat.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Event dan observer membuat kode terasa rapi, dan sebagian kerapian itu didapat dengan menyembunyikan alurnya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memanggil `save()` di dalam observer `saved`',
+            'Nilainya perlu diperbarui',
+            'Diuji sungguhan, rekursi mencapai kedalaman 51 sebelum dihentikan. Pakai `saving` atau `saveQuietly`',
+          ],
+          [
+            'Menjalankan pengiriman surel secara sinkron',
+            'Supaya pasti terkirim',
+            'Pendaftaran gagal hanya karena server surel tidak terjangkau. Pakai antrean',
+          ],
+          [
+            'Membiarkan listener sinkron tanpa isolasi',
+            'Errornya kan akan terlihat',
+            'Diuji sungguhan, satu yang gagal menghentikan sisanya. Catatan audit tidak pernah ditulis',
+          ],
+          [
+            'Mengirim event di dalam transaksi',
+            'Sekalian satu kesatuan',
+            'Listener bisa berjalan sebelum commit, dan tetap berjalan bila transaksinya batal',
+          ],
+          [
+            'Memakai `update()` massal lalu mengira observer berjalan',
+            'Datanya kan berubah',
+            'Pembaruan massal tidak memuat model, jadi observer tidak pernah berjalan',
+          ],
+          [
+            'Mengandalkan urutan listener',
+            'Urutannya kan sudah benar',
+            'Urutan bukan bagian kontrak. Bila urutan penting, keduanya sebenarnya satu pekerjaan',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima pantas ditegaskan karena akibatnya menumpuk pelan-pelan dan sangat sulit dipulihkan. Indeks pencarian yang menyimpang dari basis data tidak menghasilkan error apa pun; ia hanya membuat sebagian data tidak bisa ditemukan. Ketika akhirnya ketahuan, tidak ada catatan tentang kapan penyimpangannya dimulai, dan satu-satunya jalan adalah membangun ulang seluruh indeksnya.',
+      ),
       references(
         {
           label: 'Laravel — Events',
@@ -2061,7 +3508,7 @@ export const lessons: LessonDraft[] = [
   written(
     'task-scheduling',
     'Task Scheduling',
-    9,
+    15,
     'Pekerjaan berkala yang terdefinisi di kode, bukan di crontab server.',
     [
       terms(
@@ -2251,6 +3698,220 @@ export const lessons: LessonDraft[] = [
         'Tugas terjadwal yang berhenti berjalan tidak menimbulkan error apa pun',
         'Ia hanya... tidak terjadi. Cron mati, `schedule:run` dihapus dari server baru, atau kunci `withoutOverlapping` tersangkut — dan tidak ada yang tahu sampai seseorang menyadari laporan bulanan tidak pernah datang. Pemantauan berbasis heartbeat menutupnya: yang dipantau adalah **ketiadaan** sinyal.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Tugas terjadwal punya satu pertanyaan yang menentukan seluruh rancangannya dan hampir selalu tidak ditanyakan, yaitu **apa yang terjadi bila jalan sebelumnya belum selesai**.',
+      ),
+      code(
+        'text',
+        `
+        Tugas yang memakan 5 menit, dijadwalkan setiap 1 menit:
+
+          menit  tanpa penguncian        dengan withoutOverlapping
+              1  1 jalan bersamaan       MULAI
+              2  2 jalan bersamaan       dilewati (yang lama masih jalan)
+              3  3 jalan bersamaan       dilewati
+              4  4 jalan bersamaan       dilewati
+              5  5 jalan bersamaan       dilewati
+              6  5 jalan bersamaan       MULAI
+              7  5 jalan bersamaan       dilewati
+              8  5 jalan bersamaan       dilewati
+              9  5 jalan bersamaan       dilewati
+             10  5 jalan bersamaan       dilewati
+        `,
+        { caption: 'Dijalankan sungguhan dengan PHP 8.3.6.' },
+      ),
+      p(
+        'Angka lima di kolom tengah itu bukan puncak sementara melainkan **keadaan tetap**. Selama tugasnya lebih lama daripada jedanya, akan selalu ada lima salinan berjalan bersamaan, masing-masing membaca dan menulis data yang sama. Bila tugasnya mengirim surel pengingat, setiap pengguna menerima lima surel. Bila ia memproses pembayaran, setiap pembayaran diproses lima kali.',
+      ),
+      code(
+        'php',
+        `
+        // Satu baris yang menutupnya.
+        Schedule::command('laporan:harian')
+            ->hourly()
+            ->withoutOverlapping(minutes: 30);   // <- batas kunci, bukan selamanya
+
+        // Angka 30 itu penting. Kunci yang dipasang TANPA batas waktu
+        // akan menggantung selamanya bila prosesnya mati di tengah,
+        // dan tugas itu TIDAK PERNAH berjalan lagi sampai ada yang
+        // menghapus kuncinya dengan tangan.
+        `,
+        {
+          caption:
+            'Kunci tanpa batas waktu menukar satu masalah dengan masalah lain yang lebih sunyi.',
+        },
+      ),
+      p(
+        'Keputusan kedua menyangkut **di mana** tugasnya berjalan, dan ini yang paling sering salah pada aplikasi yang berjalan di lebih dari satu server.',
+      ),
+      code(
+        'text',
+        `
+        Tiga server, masing-masing menjalankan scheduler:
+
+          server A  menit 03:00  -> menjalankan laporan:harian
+          server B  menit 03:00  -> menjalankan laporan:harian
+          server C  menit 03:00  -> menjalankan laporan:harian
+
+        Laporan yang sama dibuat TIGA kali, dan surelnya terkirim tiga kali.
+
+        Yang menutupnya:
+          ->onOneServer()
+
+        Ia memakai kunci di penyimpanan BERSAMA — biasanya Redis atau
+        basis data — sehingga hanya satu server yang mendapatkannya.
+        Tanpa penyimpanan bersama, perintah itu TIDAK berfungsi,
+        dan itu bagian yang sering tidak disadari.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Tugas terjadwal punya satu kelas kegagalan yang khas, yaitu **kegagalan yang tidak dilihat siapa pun**.',
+      ),
+      code(
+        'text',
+        `
+        Tugas berjalan pukul 03:00, gagal, dan:
+
+          - tidak ada pengguna yang menunggu jawabannya
+          - tidak ada permintaan HTTP yang mencatatnya
+          - keluarannya masuk ke /dev/null bila tidak diarahkan
+          - grafik error aplikasi tetap datar
+
+        Yang ditemukan seminggu kemudian: laporan mingguan yang kosong,
+        atau pengguna yang bertanya kenapa pengingatnya tidak pernah datang.
+
+        Tiga hal yang mengubahnya jadi terlihat, dan ketiganya murah:
+
+          ->emailOutputOnFailure('tim@contoh.id')
+          ->appendOutputTo(storage_path('logs/jadwal.log'))
+          ->onFailure(fn () => Log::error('laporan:harian gagal'))
+
+        Plus satu yang sering dilupakan: pemantauan "heartbeat" —
+        layanan luar yang MEMBUNYIKAN alarm bila tugasnya TIDAK melapor
+        pada waktunya. Tanpa itu, tugas yang berhenti dijadwalkan
+        sama sekali tidak menghasilkan sinyal apa pun.
+        `,
+      ),
+      p(
+        'Baris terakhir menutup kelas kegagalan yang tidak bisa ditutup pencatatan, yaitu tugas yang **tidak pernah berjalan**. Catatan error hanya muncul bila tugasnya berjalan dan gagal. Bila scheduler-nya sendiri mati, tidak ada yang gagal, dan tidak ada yang tercatat.',
+      ),
+      p('Kegagalan kedua menyangkut zona waktu, dan bentuknya sangat halus.'),
+      code(
+        'text',
+        `
+        Schedule::command('laporan:harian')->dailyAt('00:30');
+
+        Pukul 00:30 menurut SIAPA?
+
+          - zona waktu aplikasi (config/app.php)
+          - zona waktu server
+          - zona waktu pengguna
+
+        Ketiganya bisa berbeda. Laporan "harian" yang berjalan 00:30 waktu UTC
+        mencakup rentang yang berbeda dari yang diharapkan pembacanya di Jakarta.
+
+        Dan dua kali setahun, di zona yang memakai waktu musim panas,
+        pukul 02:30 bisa TIDAK PERNAH TERJADI atau TERJADI DUA KALI.
+        Tugas yang dijadwalkan di jam itu ikut hilang atau berjalan dua kali.
+
+        Yang lebih aman: jadwalkan dalam UTC, lalu hitung rentangnya
+        secara eksplisit di dalam perintahnya.
+        `,
+      ),
+      p(
+        'Kegagalan ketiga adalah tugas yang membaca data sambil mengubahnya, dan bentuknya sudah diukur di bab database.',
+      ),
+      code(
+        'php',
+        `
+        // BAHAYA: chunk() bergerak berdasarkan OFFSET, dan OFFSET-nya
+        // bergeser setiap kali baris diubah sehingga tidak lagi cocok.
+        Pesanan::where('status', 'baru')->chunk(500, function ($potongan) {
+            foreach ($potongan as $p) $p->update(['status' => 'diproses']);
+        });
+        // Sebagian baris TERLEWAT — tanpa satu pun error.
+
+        // AMAN: chunkById bergerak berdasarkan id terakhir, bukan OFFSET.
+        Pesanan::where('status', 'baru')->chunkById(500, function ($potongan) {
+            foreach ($potongan as $p) $p->update(['status' => 'diproses']);
+        });
+        `,
+        {
+          caption:
+            'Ini bentuk Eloquent dari keyset pagination; diukur di bab database, OFFSET 250000 membaca 250.020 baris.',
+        },
+      ),
+      p(
+        'Kegagalan terakhir menyangkut tugas yang berjalan **jauh lebih lama daripada yang diperkirakan** karena datanya tumbuh.',
+      ),
+      code(
+        'text',
+        `
+        Tugas pembersihan yang ditulis saat tabelnya berisi 10.000 baris:
+
+          DELETE FROM log WHERE dibuat_pada < now() - interval '90 days';
+
+        Setahun kemudian tabelnya berisi 50 juta baris, dan satu perintah itu
+        mengunci tabelnya selama beberapa menit. Setiap permintaan yang
+        menyentuh tabel log ikut menunggu.
+
+        Yang benar: kerjakan bertahap dalam potongan, dengan jeda.
+
+          do {
+              $n = DB::table('log')
+                  ->where('dibuat_pada', '<', now()->subDays(90))
+                  ->limit(10000)
+                  ->delete();
+              usleep(100_000);          // beri napas untuk permintaan lain
+          } while ($n > 0);
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Tugas terjadwal ditulis sekali lalu dilupakan, dan justru sifat itu yang membuat kesalahannya bertahan lama.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Tidak memakai `withoutOverlapping`',
+            'Tugasnya kan cepat',
+            'Diuji sungguhan, tugas 5 menit dengan jeda 1 menit menghasilkan 5 salinan berjalan bersamaan',
+          ],
+          [
+            'Memasang kunci tanpa batas waktu',
+            'Supaya benar-benar tidak tumpang tindih',
+            'Kunci menggantung selamanya bila prosesnya mati, dan tugasnya tidak pernah berjalan lagi',
+          ],
+          [
+            'Menjalankan scheduler di semua server',
+            'Supaya tidak ada yang terlewat',
+            'Tugas yang sama berjalan beberapa kali. Pakai `onOneServer()` dengan penyimpanan bersama',
+          ],
+          [
+            'Tidak mengarahkan keluaran dan kegagalannya',
+            'Errornya akan terlihat di log',
+            'Tugas malam yang gagal tidak dilihat siapa pun sampai ada yang mengeluh seminggu kemudian',
+          ],
+          [
+            'Memakai `chunk()` sambil mengubah kolom penyaringnya',
+            'Namanya memang untuk memproses banyak',
+            'Sebagian baris terlewat karena OFFSET-nya bergeser. Pakai `chunkById()`',
+          ],
+          [
+            'Menghapus data lama dalam satu perintah',
+            'Satu query lebih cepat',
+            'Pada tabel besar ia mengunci tabelnya berkeping-keping. Kerjakan bertahap dengan jeda',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat pantas ditegaskan karena ia yang membedakan tugas terjadwal dari kode lain di aplikasimu. Kode yang dijalankan permintaan pengguna punya seseorang yang menunggu jawabannya, dan kegagalannya langsung terasa. Tugas malam tidak punya siapa pun, jadi satu-satunya yang memberi tahu adalah pemantauan yang kamu pasang sendiri. Tanpa itu, kegagalannya ditemukan oleh akibatnya, dan akibat biasanya ditemukan jauh terlambat.',
+      ),
       references(
         {
           label: 'Laravel — Task Scheduling',
@@ -2283,7 +3944,7 @@ export const lessons: LessonDraft[] = [
   written(
     'caching-optimasi',
     'Caching & Optimasi Query',
-    12,
+    19,
     'Membuat cepat dengan cara yang benar, bukan dengan menutupi.',
     [
       terms(
@@ -2517,6 +4178,224 @@ export const lessons: LessonDraft[] = [
       p(
         'Baris kedua dari bawah adalah kesalahan yang sangat sering: `->get()->count()` mengambil **seluruh baris** ke memori PHP hanya untuk menghitungnya.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Cache dipasang untuk mengurangi beban, dan bentuk yang paling sering ditulis pertama kali justru menghasilkan lonjakan beban tepat pada saat paling tidak diinginkan. Namanya **cache stampede**, dan berikut ukurannya.',
+      ),
+      code(
+        'text',
+        `
+        50 permintaan bersamaan, cache KOSONG:
+
+          tanpa penggabungan    hitung ulang:  50   waktu dinding: 122 ms
+          dengan penggabungan   hitung ulang:   1   waktu dinding: 121 ms
+
+        50 permintaan bersamaan, cache SUDAH terisi:
+
+          tanpa penggabungan    hitung ulang:   0   waktu dinding:   0 ms
+          dengan penggabungan   hitung ulang:   0   waktu dinding:   0 ms
+        `,
+        { caption: 'Dijalankan sungguhan dengan Node 26.5.0; mekanismenya identik di Laravel.' },
+      ),
+      p(
+        'Waktu dindingnya nyaris sama, yaitu 122 melawan 121 milidetik, dan itu bagian yang harus dibaca dengan benar. Yang dihemat **bukan latensi** melainkan **beban**. Lima puluh perhitungan menjadi satu, dan pada perhitungan yang berupa query laporan berat, selisih itu adalah selisih antara basis data yang santai dan basis data yang tumbang.',
+      ),
+      p('Di Laravel, bentuk yang menutupnya memakai kunci atom yang dilihat seluruh proses.'),
+      code(
+        'php',
+        `
+        function laporanHarian(string $tanggal): array
+        {
+            $kunci = "laporan:v1:harian:{$tanggal}";
+
+            $ada = Cache::get($kunci);
+            if ($ada !== null) return $ada;
+
+            // Hanya SATU proses yang mendapat kunci ini. Sisanya gagal
+            // mendapatkannya, lalu menunggu sebentar dan membaca cache-nya.
+            $gembok = Cache::lock("{$kunci}:gembok", 30);
+
+            if ($gembok->get()) {
+                try {
+                    $nilai = hitungLaporanBerat($tanggal);      // query berat
+                    Cache::put($kunci, $nilai, now()->addMinutes(10));
+                    return $nilai;
+                } finally {
+                    $gembok->release();
+                }
+            }
+
+            // Proses lain sedang menghitung. Tunggu sampai selesai,
+            // lalu baca hasilnya — jangan ikut menghitung.
+            $gembok->block(10);
+            $gembok->release();
+            return Cache::get($kunci) ?? hitungLaporanBerat($tanggal);
+        }
+        `,
+        {
+          caption:
+            'Baris terakhir adalah jaring pengaman: bila penunggunya kehabisan waktu, ia tetap menjawab.',
+        },
+      ),
+      p(
+        'Perlu satu catatan jujur. Kunci atom seperti itu **butuh penyimpanan yang mendukungnya**, biasanya Redis atau basis data. Pada driver cache berbasis berkas atau array, jaminannya tidak ada, dan pola di atas berubah menjadi hiasan tanpa efek.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan cache yang paling berbahaya bukan lambat melainkan **menyajikan data milik orang yang salah**, dan ia tidak menghasilkan satu pun error.',
+      ),
+      code(
+        'php',
+        `
+        // Kunci yang TIDAK memuat identitas pemiliknya.
+        Cache::remember("pesanan:{$id}", 300, fn () => Pesanan::findOrFail($id));
+
+        // Pengguna A membuka /pesanan/4211  -> disimpan sebagai "pesanan:4211"
+        // Pengguna B membuka /pesanan/4211  -> dilayani dari cache,
+        //                                      TANPA satu pun pemeriksaan kepemilikan
+        //
+        // Bentuk ini melewati SELURUH otorisasi, sebab query-nya tidak
+        // pernah dijalankan lagi. Diukur di bab auth: syarat pemilik
+        // seharusnya ada DI DALAM query — dan cache menghapus query itu.
+        `,
+      ),
+      p(
+        'Aturannya, **kunci cache harus memuat segala sesuatu yang mempengaruhi hasilnya**, termasuk identitas pemanggil bila hasilnya berbeda per orang. Ini bentuk penyimpanan dari aturan `Vary` pada caching HTTP.',
+      ),
+      code(
+        'php',
+        `
+        // Kunci yang memuat SELURUH hal yang mempengaruhi hasilnya.
+        $kunci = implode(':', [
+            'pesanan', 'v1',           // versi skema — supaya perubahan bentuk
+                                       // tidak menyajikan data lama
+            $pengguna->id,             // hasilnya berbeda per pengguna
+            $id,
+        ]);
+
+        // Untuk data yang SAMA bagi semua orang, id pengguna tidak perlu —
+        // dan justru tidak boleh, sebab itu membuat cache-nya tidak pernah kena.
+        `,
+      ),
+      p(
+        'Kegagalan kedua adalah invalidasi yang terlewat, dan gejalanya berupa data basi yang muncul acak.',
+      ),
+      code(
+        'text',
+        `
+        Data yang sama tersimpan di beberapa kunci:
+
+          pesanan:v1:42:4211              satu pesanan
+          pesanan:v1:42:daftar:hal1       daftar halaman 1
+          pesanan:v1:42:ringkasan         ringkasan jumlah dan total
+          laporan:v1:2026-09              laporan bulanan yang memuatnya
+
+        Mengubah SATU pesanan membuat keempatnya basi.
+        Menghapus hanya yang pertama menghasilkan daftar yang tidak cocok
+        dengan isinya, dan itu terlihat seperti bug data.
+
+        Tiga pendekatan, dari yang paling sederhana:
+
+          1. TTL pendek      biarkan basi sebentar, dan terima itu secara sadar
+          2. Cache tag       Cache::tags(['pesanan:42'])->flush() —
+                             TIDAK didukung driver berkas maupun basis data
+          3. Versi entitas   sertakan versi di kunci; menaikkan satu angka
+                             membuat SELURUH kunci lama tidak pernah kena lagi
+        `,
+      ),
+      p(
+        'Pendekatan ketiga sering paling praktis justru karena ia tidak butuh dukungan driver apa pun. Menaikkan satu angka versi membuat seluruh kunci lama menjadi tidak terjangkau sekaligus, dan entri lamanya hilang sendiri saat masa berlakunya habis.',
+      ),
+      p('Kegagalan ketiga menyangkut apa yang terjadi ketika cache-nya **mati**.'),
+      code(
+        'php',
+        `
+        // BAHAYA: kegagalan cache menjadi kegagalan aplikasi.
+        $nilai = Cache::get($kunci);        // Redis mati -> melempar
+
+        // Yang benar: cache adalah OPTIMASI, bukan ketergantungan.
+        try {
+            $nilai = Cache::get($kunci);
+        } catch (Throwable $e) {
+            Log::warning('cache tidak terjangkau', ['kunci' => $kunci]);
+            $nilai = null;
+        }
+        `,
+        {
+          caption:
+            'Perlu jujur: tanpa cache, basis datanya menerima beban penuh — siapkan batas lajunya.',
+        },
+      ),
+      p(
+        'Catatan pada keterangan itu bukan formalitas. Aplikasi yang selama ini berjalan karena sembilan puluh persen permintaannya dilayani cache akan mengirim seluruh beban itu ke basis data pada detik cache-nya mati. Bertahan tanpa cache berarti menyiapkan batas laju dan menerima bahwa sebagian permintaan ditolak, bukan berpura-pura bebannya sama.',
+      ),
+      p(
+        'Kegagalan terakhir menyangkut perintah optimasi yang sering dijalankan tanpa memahami akibatnya.',
+      ),
+      code(
+        'text',
+        `
+        php artisan config:cache
+
+        Setelah perintah ini, Laravel BERHENTI membaca berkas .env sama sekali
+        dan hanya memakai nilai yang tersimpan di cache.
+
+        Akibatnya: memanggil env() DI LUAR berkas config/ mengembalikan null
+        di produksi, meski variabelnya jelas ada.
+
+        Aturannya: env() HANYA boleh dipanggil di dalam berkas config/,
+        dan seluruh kode lain membaca lewat config().
+
+        Perintah lain yang perlu dikenali gejalanya:
+          route:cache   -> rute baru menghasilkan 404; GAGAL bila ada closure di rute
+          view:clear    -> perubahan Blade tidak muncul
+          optimize:clear-> membersihkan semuanya sekaligus
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Cache adalah optimasi yang paling mudah dipasang dan paling sulit dipastikan benar, sebab kesalahannya berupa data yang salah, bukan error.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai pola periksa-lalu-hitung tanpa kunci',
+            'Itu cara cache bekerja',
+            'Diukur, 50 permintaan bersamaan menghasilkan 50 perhitungan. Pakai kunci atom',
+          ],
+          [
+            'Kunci cache tidak memuat identitas pemanggil',
+            'Kuncinya sudah unik per data',
+            'Data satu pengguna tersaji ke pengguna lain, dan seluruh otorisasi terlewati',
+          ],
+          [
+            'Menghapus satu kunci saat data berubah',
+            'Itu kunci datanya',
+            'Data yang sama tersimpan di beberapa kunci. Pakai versi per entitas',
+          ],
+          [
+            'Memakai cache tag pada driver berkas',
+            'Sintaksnya tersedia',
+            'Tag tidak didukung driver berkas maupun basis data. Ia diam-diam tidak berfungsi',
+          ],
+          [
+            'Membiarkan kegagalan cache menjadi kegagalan aplikasi',
+            'Errornya kan nyata',
+            'Cache adalah optimasi. Tangkap, catat, lalu lanjut tanpa cache',
+          ],
+          [
+            'Memanggil `env()` di luar berkas `config/`',
+            'Nilainya kan dari `.env`',
+            'Setelah `config:cache`, hasilnya `null` di produksi. Pakai `config()`',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat pantas ditegaskan karena bentuk kegagalannya paling menipu. Sintaks cache tag tetap bisa ditulis dan tidak menghasilkan error pada driver yang tidak mendukungnya; ia hanya **tidak melakukan apa-apa**. Kode pembersihannya terlihat ada, terlihat benar, dan tidak pernah membersihkan satu pun entri. Periksa driver yang benar-benar dipakai di produksi sebelum mengandalkan fitur apa pun yang bergantung padanya.',
+      ),
       references(
         {
           label: 'Laravel — Cache',
@@ -2549,7 +4428,7 @@ export const lessons: LessonDraft[] = [
   written(
     'notification-mail',
     'Notification & Mail',
-    10,
+    16,
     'Mengirim pesan lewat beberapa saluran, tanpa membuat permintaan menunggu.',
     [
       terms(
@@ -2783,6 +4662,223 @@ export const lessons: LessonDraft[] = [
       p(
         'Opsi `--rest=1` menyuruh worker beristirahat satu detik di antara job, sehingga laju pengirimannya tertahan di tingkat yang aman. Perhatikan pembatasan ini **tidak bisa** dilakukan di jalur `default` tanpa ikut memperlambat semua job lain — dan itulah alasan pemisahan jalurnya diperlukan, bukan sekadar kerapian.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Notifikasi terlihat sebagai fitur sederhana sampai satu pertanyaan diajukan, yaitu **apa yang terjadi ketika pengirimannya gagal**. Jawabannya menentukan apakah pendaftaran pengguna ikut gagal hanya karena server surel sedang tidak terjangkau.',
+      ),
+      code(
+        'php',
+        `
+        // SINKRON (bawaan): pengiriman terjadi DI DALAM permintaan HTTP.
+        Mail::to($pengguna)->send(new SelamatDatang($pengguna));
+
+        // Yang dialami pengguna bila server surel lambat 8 detik:
+        //   halaman pendaftaran berputar 8 detik, lalu berhasil
+        //
+        // Yang dialami bila server surel TIDAK TERJANGKAU:
+        //   pendaftaran GAGAL, padahal akunnya sudah terbuat
+        //   -> pengguna mencoba lagi -> "email sudah terdaftar"
+        //   -> dan ia tidak pernah menerima surel verifikasinya
+
+        // ANTREAN: pengiriman dikerjakan di latar.
+        final class SelamatDatang extends Mailable implements ShouldQueue { ... }
+        Mail::to($pengguna)->queue(new SelamatDatang($pengguna));
+        `,
+        {
+          caption:
+            'Aturan yang bisa dipegang: apa pun yang memanggil layanan luar tidak boleh ada di jalur permintaan.',
+        },
+      ),
+      p(
+        'Setelah dipindahkan ke antrean, seluruh sifat antrean ikut berlaku, termasuk yang paling menentukan, yaitu **job bisa berjalan lebih dari sekali**.',
+      ),
+      code(
+        'text',
+        `
+        Jaminan hampir semua sistem antrean adalah AT LEAST ONCE.
+
+        Untuk surel, akibat berjalan dua kali:
+          - pengguna menerima dua surel yang sama
+          - untuk surel berisi tautan sekali pakai, tautan pertama
+            bisa sudah tidak berlaku saat ia membuka yang kedua
+
+        Yang menutupnya sama dengan job lain: penanda idempotensi
+        berbasis IDENTITAS NIAT, bukan id job.
+
+          try {
+              SurelTerkirim::create([
+                  'penerima' => $email,
+                  'jenis' => 'verifikasi',
+                  'referensi' => $tokenId,        // identitas NIAT
+              ]);
+          } catch (UniqueConstraintViolationException) {
+              return;                              // sudah pernah dikirim
+          }
+        `,
+        {
+          caption:
+            'Diverifikasi di bab database: pelanggaran UNIQUE pada PostgreSQL adalah SQLSTATE 23505.',
+        },
+      ),
+      p(
+        'Keputusan kedua menyangkut **apa yang dibawa** notifikasi, dan ini sumber kebocoran yang sering terlewat.',
+      ),
+      code(
+        'php',
+        `
+        // BAHAYA: seluruh objek dikirim ke antrean, lalu dimuat lagi saat berjalan.
+        SelamatDatang::dispatch($pengguna);
+
+        // Dua akibatnya:
+        //   1. Muatan job disimpan di penyimpanan antrean, dan bila
+        //      objeknya diserialisasi penuh, kolom sensitif ikut ke sana.
+        //      Laravel menyimpan MODEL sebagai id saja — tapi objek biasa
+        //      diserialisasi APA ADANYA.
+        //
+        //   2. Nilai yang dibaca job adalah nilai TERBARU, bukan nilai saat
+        //      job dijadwalkan. Surel berisi "saldo Anda Rp X" bisa
+        //      memuat angka yang sudah berubah.
+
+        // Bila yang dibutuhkan nilai SAAT ITU, kirim nilainya:
+        SelamatDatang::dispatch($pengguna->id, $saldoSaatIni);
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Pengiriman surel punya satu kelas kegagalan yang tidak muncul di log aplikasi sama sekali, yaitu **surel yang terkirim dan tidak pernah sampai**.',
+      ),
+      code(
+        'text',
+        `
+        Aplikasi melaporkan BERHASIL. Pengguna melaporkan tidak menerima apa pun.
+
+        Kemungkinannya, dan tidak satu pun terlihat dari aplikasimu:
+
+          - masuk folder spam
+          - ditolak penyedia penerima karena domainmu belum punya
+            SPF, DKIM, dan DMARC yang benar
+          - alamatnya salah ketik, dan pantulannya masuk ke kotak
+            yang tidak pernah dibuka siapa pun
+          - penyedia surelmu membatasi laju, dan sisanya dibuang diam-diam
+
+        Yang mengubahnya jadi terlihat:
+          - webhook dari penyedia untuk peristiwa terkirim, dibuka, dan DIPANTULKAN
+          - catat setiap pengiriman beserta id pesannya, supaya bisa dicocokkan
+          - pantau tingkat pantulan; lonjakan berarti ada yang rusak
+        `,
+      ),
+      p(
+        'Kegagalan kedua menyangkut alamat penerima di lingkungan selain produksi, dan akibatnya bisa sangat memalukan.',
+      ),
+      code(
+        'text',
+        `
+        Basis data staging disalin dari produksi, lengkap dengan alamat
+        surel pelanggan sungguhan. Lalu sebuah pengujian menjalankan
+        pengiriman massal.
+
+        Ribuan pelanggan sungguhan menerima surel uji coba.
+
+        Yang menutupnya, dan dipasang SEBELUM basis data disalin:
+
+          - di staging dan lokal, arahkan SELURUH surel ke satu kotak uji
+          - atau pakai driver 'log' yang menulis ke berkas alih-alih mengirim
+          - dan acak alamat surel saat menyalin basis data produksi
+
+        Ketiganya murah. Yang mahal adalah tidak memasangnya.
+        `,
+      ),
+      p(
+        'Kegagalan ketiga menyangkut isi surel yang memuat data, dan bentuknya sama dengan kebocoran pada respons API.',
+      ),
+      code(
+        'php',
+        `
+        // Template surel menerima MODEL, lalu memanggil relasinya.
+        // Dua masalah sekaligus:
+        //   1. N+1 di dalam render surel — dan pada pengiriman massal,
+        //      itu berarti N+1 dikalikan jumlah penerima
+        //   2. seluruh kolom terjangkau template, termasuk yang
+        //      ditambahkan orang lain bulan depan
+
+        // Yang benar: kirim bentuk yang SUDAH diputuskan.
+        new RingkasanBulanan(
+            nama: $pengguna->nama,
+            totalPesanan: $ringkasan->total,
+            tautanRincian: $tautan,
+        );
+        `,
+        {
+          caption:
+            'Ini bentuk surel dari aturan yang sama dengan API Resource: daftar izin, bukan daftar larangan.',
+        },
+      ),
+      p(
+        'Kegagalan terakhir menyangkut tautan di dalam surel, dan ini yang paling sering menjadi lubang keamanan.',
+      ),
+      code(
+        'text',
+        `
+        Tautan reset sandi yang dikirim lewat surel:
+
+          HARUS: acak dan panjang, sekali pakai, berumur pendek
+          HARUS: menghapus seluruh sesi lain saat sandinya benar-benar diganti
+          JANGAN: memuat id pengguna yang bisa ditebak
+          JANGAN: berlaku berhari-hari
+
+        Dan pesannya harus SAMA baik alamatnya terdaftar maupun tidak:
+
+          "Bila alamat itu terdaftar, tautan pemulihan sudah kami kirim"
+
+        Diukur di bab auth: pesan yang membedakan keduanya adalah alat
+        enumerasi yang identik dengan pesan login yang membedakan
+        "email tidak terdaftar" dari "sandi salah".
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Notifikasi adalah fitur yang paling sering dinyatakan selesai setelah surel pertamanya sampai ke kotak masuk sendiri.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Mengirim surel secara sinkron di jalur permintaan',
+            'Supaya pasti terkirim',
+            'Pendaftaran gagal hanya karena server surel tidak terjangkau. Pakai antrean',
+          ],
+          [
+            'Tidak memasang penanda idempotensi pada job surel',
+            'Antreannya kan menjamin',
+            'Jaminannya at-least-once. Pengguna menerima surel yang sama dua kali',
+          ],
+          [
+            'Mengirim model ke template surel',
+            'Datanya memang di situ',
+            'N+1 di dalam render, dikalikan jumlah penerima. Kirim bentuk yang sudah diputuskan',
+          ],
+          [
+            'Menyalin basis data produksi ke staging apa adanya',
+            'Supaya datanya realistis',
+            'Satu pengujian mengirim surel ke ribuan pelanggan sungguhan. Acak alamatnya saat menyalin',
+          ],
+          [
+            'Menganggap "berhasil dikirim" berarti "sampai"',
+            'Tidak ada error',
+            'Spam, pantulan, dan penolakan penyedia tidak terlihat dari aplikasimu. Pasang webhook pantulan',
+          ],
+          [
+            'Membedakan pesan reset sandi untuk alamat tak terdaftar',
+            'Supaya pengguna tahu salah ketik',
+            'Alat enumerasi yang identik dengan pesan login. Jawab sama untuk keduanya',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat pantas ditegaskan karena kerusakannya tidak bisa ditarik kembali. Surel yang sudah terkirim tidak bisa dibatalkan, dan penerimanya adalah pelanggan sungguhan yang tidak tahu apa-apa tentang lingkungan staging. Perlindungannya harus dipasang **sebelum** basis data pertama kali disalin, bukan sesudah kejadian pertama, sebab kejadian pertama itulah yang paling mahal.',
+      ),
       references(
         {
           label: 'Laravel — Notifications',
@@ -2815,7 +4911,7 @@ export const lessons: LessonDraft[] = [
   written(
     'testing-pest',
     'Testing dengan Pest',
-    13,
+    19,
     'Tes yang membuktikan hal yang tidak boleh terjadi.',
     [
       terms(
@@ -3096,6 +5192,226 @@ export const lessons: LessonDraft[] = [
       p(
         'Cakupan mengukur baris yang **dijalankan**, bukan perilaku yang **diperiksa**. Tes yang memanggil endpoint dan hanya memastikan statusnya `200` menaikkan angka tanpa menangkap satu bug pun.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Nilai sebuah test tidak diukur dari jumlahnya melainkan dari **apa yang bisa gagal karenanya**. Cara paling cepat menilai suite test adalah bertanya, bila sebuah bug nyata disisipkan ke kode, berapa banyak test yang berubah merah?',
+      ),
+      p(
+        'Berikut satu aturan bisnis yang sama, diuji dengan tiga cara yang biayanya sangat berbeda.',
+      ),
+      code(
+        'php',
+        `
+        // CARA 1 — lewat HTTP sungguhan. Butuh basis data terisi,
+        // surel dicegah terkirim, dan antrean dijalankan sinkron.
+        $r = $this->postJson('/api/pesanan', ['produk_id' => 1, 'jumlah' => 6]);
+        $r->assertOk()->assertJsonPath('diskon', 0.05);
+
+        // CARA 2 — lewat service, dengan repository palsu.
+        $pesanan = (new LayananPesanan($repoPalsu))->buat(1, 6);
+        expect($pesanan->diskon)->toBe(0.05);
+
+        // CARA 3 — fungsi murni.
+        expect(Diskon::untuk(6))->toBe(0.05);
+        `,
+      ),
+      p(
+        'Ketiganya menguji hal yang sama, dan hanya cara ketiga yang bisa menguji **seluruh batasnya** tanpa biaya. Bagian yang paling penting justru di batas, sebab di situlah kesalahan `>=` melawan `>` bersembunyi.',
+      ),
+      code(
+        'php',
+        `
+        // Enam nilai ini yang benar-benar menangkap bug, dan menulisnya
+        // lewat HTTP berarti enam permintaan beserta seluruh persiapannya.
+        it('menghitung diskon di setiap batas', function (int $jumlah, float $harap) {
+            expect(Diskon::untuk($jumlah))->toBe($harap);
+        })->with([
+            [0, 0.0],
+            [5, 0.0],
+            [6, 0.05],      // <- batas bawah
+            [11, 0.05],
+            [12, 0.10],     // <- batas atas
+            [100, 0.10],
+        ]);
+        `,
+        {
+          caption:
+            'Delapan kasus policy di sub-bab otorisasi dijalankan sungguhan dengan cara ini, memakai PHP 8.3.6.',
+        },
+      ),
+      p(
+        'Yang menentukan bukan memilih satu cara melainkan **membagi porsinya**. Uji aturan bisnis pada tingkat termurah yang masih menjangkaunya, lalu sediakan sedikit test yang melewati seluruh jalur untuk membuktikan sambungannya benar.',
+      ),
+      table(
+        ['Tingkat', 'Yang dibuktikannya', 'Biayanya'],
+        [
+          [
+            'Fungsi murni',
+            'Aturan bisnis benar di seluruh batasnya',
+            'Milidetik, tanpa persiapan apa pun',
+          ],
+          [
+            'Service dengan repo palsu',
+            'Urutan langkah dan penanganan error benar',
+            'Perlu menyiapkan pengganti',
+          ],
+          [
+            'HTTP dengan basis data sungguhan',
+            'Rute, middleware, validasi, dan query tersambung',
+            'Paling lambat, dan paling mudah rapuh',
+          ],
+          [
+            'Test otorisasi dua akun',
+            'Data pengguna lain benar-benar tertutup',
+            'Murah, dan hampir tidak pernah ditulis',
+          ],
+        ],
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Test punya beberapa kegagalan yang lebih merugikan daripada tidak punya test sama sekali, sebab ia memberi rasa aman yang tidak berdasar.',
+      ),
+      code(
+        'php',
+        `
+        // KEGAGALAN 1 — test yang tidak bisa merah.
+        it('membuat pesanan', function () {
+            $r = $this->postJson('/api/pesanan', ['produk_id' => 1, 'jumlah' => 6]);
+            expect($r)->not->toBeNull();              // SELALU benar
+            expect($r->status())->toBeGreaterThan(0); // SELALU benar
+        });
+        // Hijau meski endpoint-nya menjawab 500 untuk semua permintaan.
+
+        // KEGAGALAN 2 — assertion yang dilonggarkan supaya berhenti gagal.
+        $r->assertJsonStructure(['id']);
+        // Lolos untuk { "id": null }, { "id": "error" }, dan { "id": {} }.
+
+        // KEGAGALAN 3 — menguji implementasi, bukan perilaku.
+        $repoPalsu->shouldHaveReceived('cari')->once();
+        // Merah saat kode dirapikan tanpa perilakunya berubah sama sekali.
+        `,
+      ),
+      p(
+        'Cara memeriksa apakah sebuah test benar-benar bisa merah hanya satu, dan ia memakan beberapa detik, yaitu **rusakkan kodenya dengan sengaja lalu jalankan test-nya**. Test yang tetap hijau setelah aturan diskonnya diubah dari `0.05` menjadi `0.5` bukan test melainkan hiasan.',
+      ),
+      p(
+        'Kegagalan berikutnya adalah test yang hijau dan merah bergantian tanpa kode berubah, dan penyebabnya hampir selalu satu dari empat hal.',
+      ),
+      code(
+        'text',
+        `
+        SUMBER TEST YANG TIDAK STABIL
+
+        1. Keadaan yang dibagi antar-test
+           Test A membuat baris, test B menghitung jumlah baris.
+           Urutan jalannya berubah, dan B gagal.
+           -> pakai basis data yang dibersihkan per test, dan siapkan
+              datanya sendiri di setiap test
+
+        2. Waktu
+           expect($pesanan->dibuat_pada->toDateString())->toBe('2026-09-14')
+           -> gagal tepat tengah malam, dan hanya di zona waktu tertentu
+           -> bekukan waktunya, atau bandingkan rentang
+
+        3. Urutan yang tidak dijamin
+           expect($daftar[0]->nama)->toBe('Rina')
+           -> diukur di bab database: urutan untuk nilai SERI tidak dijanjikan,
+              dan percobaan yang sama berbeda hasilnya antara PostgreSQL dan SQLite
+           -> urutkan di query dengan kolom unik, atau bandingkan sebagai himpunan
+
+        4. Berjalan bersamaan tanpa isolasi
+           Dua berkas test memakai basis data yang sama.
+           -> satu basis data per proses, atau jalankan berurutan
+        `,
+      ),
+      p(
+        'Nomor tiga menghubungkan langsung ke pengukuran di Backend Basic. Diuji sungguhan pada PostgreSQL, sebuah `ORDER BY` tanpa pemecah seri membuat satu baris tidak pernah muncul di halaman mana pun, sementara percobaan yang sama pada SQLite kebetulan stabil. Test yang bergantung pada kebetulan itu akan merah di mesin lain.',
+      ),
+      p(
+        'Ada satu jebakan khas testing Laravel yang menyangkut basis data, dan ia bisa menyembunyikan bug sungguhan.',
+      ),
+      code(
+        'text',
+        `
+        Menjalankan test dengan SQLite di memori padahal produksinya PostgreSQL:
+
+          + jauh lebih cepat
+          - perilakunya BERBEDA pada hal-hal yang justru penting
+
+        Yang berbeda, dan sudah diukur di bab database:
+
+          urutan untuk nilai SERI   SQLite kebetulan stabil, PostgreSQL tidak
+          penegakan foreign key     SQLite perlu diaktifkan; bawaannya mati
+          tipe kolom                SQLite sangat longgar; PostgreSQL menolak
+                                    "invalid input syntax for type integer"
+          transaksi DDL             PostgreSQL membatalkan migrasi utuh, MySQL tidak
+
+        Akibatnya: test hijau di SQLite, dan bug-nya menunggu di produksi.
+        Untuk suite yang menyentuh basis data, pakai mesin yang SAMA
+        dengan produksi.
+        `,
+      ),
+      p(
+        'Terakhir, jalur yang paling sering **tidak pernah diuji**, dan biasanya itu yang paling sering rusak di produksi.',
+      ),
+      code(
+        'text',
+        `
+        Untuk setiap endpoint, jalur yang wajib punya test:
+
+          200/201  jalur sukses                     <- hampir selalu ada
+          400      badan tidak bisa diurai          <- sering tidak ada
+          401      tanpa token                      <- sering tidak ada
+          403/404  milik pengguna LAIN              <- hampir tidak pernah ada
+          409      konflik keadaan                  <- sering tidak ada
+          422      validasi gagal, per field        <- kadang ada
+
+        Baris keempat yang paling penting: itu satu-satunya test yang
+        menangkap IDOR, dan ia butuh DUA akun untuk ditulis.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p('Test adalah bagian yang paling mudah ditulis banyak dan paling sulit ditulis berguna.'),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menguji seluruh aturan lewat HTTP',
+            'Lebih menyerupai pemakaian nyata',
+            'Setiap kasus batas butuh permintaan dan persiapan sendiri, jadi kasus batasnya tidak pernah ditulis',
+          ],
+          [
+            'Menulis assertion yang selalu benar',
+            'Test-nya hijau',
+            'Test yang tidak bisa merah tidak membuktikan apa pun. Rusakkan kodenya dan pastikan ia merah',
+          ],
+          [
+            'Memakai SQLite untuk test padahal produksinya PostgreSQL',
+            'Jauh lebih cepat',
+            'Perilaku urutan, foreign key, dan tipe kolom berbeda. Bug-nya menunggu di produksi',
+          ],
+          [
+            'Melonggarkan assertion supaya berhenti gagal',
+            'Test-nya rewel',
+            'Yang hilang justru kemampuannya menangkap bug. Perbaiki penyebabnya',
+          ],
+          [
+            'Menguji berapa kali sebuah method dipanggil',
+            'Membuktikan alurnya benar',
+            'Merah saat kode dirapikan tanpa perilaku berubah. Uji hasilnya, bukan caranya',
+          ],
+          [
+            'Tidak menguji akses ke data pengguna lain',
+            'Fiturnya sudah bekerja',
+            'Itu satu-satunya test yang menangkap IDOR, dan ia butuh dua akun',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua bisa dijadikan kebiasaan yang murah dan menutup seluruh kelas masalahnya. Setelah menulis sebuah test dan melihatnya hijau, ubah satu angka di kode yang diujinya lalu jalankan lagi. Bila ia tetap hijau, test itu tidak menguji apa yang kamu kira. Langkah itu memakan beberapa detik dan membedakan suite yang menjaga dari suite yang hanya menghabiskan waktu CI.',
+      ),
       references(
         {
           label: 'Pest — Writing Tests',
@@ -3128,7 +5444,7 @@ export const lessons: LessonDraft[] = [
   written(
     'file-storage',
     'File Storage & S3-compatible',
-    10,
+    15,
     'Menyimpan berkas di luar server aplikasi.',
     [
       terms(
@@ -3394,6 +5710,206 @@ export const lessons: LessonDraft[] = [
         'Bersihkan unggahan yang tidak pernah diselesaikan lewat job terjadwal.',
         'Terapkan kebijakan retensi untuk berkas ekspor yang memuat data pribadi.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Unggahan berkas adalah endpoint yang paling sering menjadi jalan masuk penyerang, dan alasannya bukan kerumitan melainkan bahwa semua yang dikirim klien terasa seperti keterangan yang bisa dipercaya. Nama berkas, ekstensi, dan `Content-Type` ketiganya **dikendalikan pengirim**.',
+      ),
+      p('Satu-satunya yang bisa diperiksa server adalah **isi berkasnya**, dan berikut hasilnya.'),
+      code(
+        'text',
+        `
+        Tiga berkas diuji, SEMUANYA berekstensi .png dan diklaim image/png:
+
+          asli.png       magic byte = image/png       diterima
+          jahat.png      magic byte = TIDAK DIKENAL   DITOLAK   <- isinya <?php ... ?>
+          polyglot.png   magic byte = image/png       diterima
+        `,
+        { caption: 'Dijalankan sungguhan dengan Node 26.5.0; mekanismenya identik di PHP.' },
+      ),
+      p(
+        'Baris kedua menunjukkan apa yang dibeli. Skrip PHP yang diberi nama `.png` dan dikirim dengan `Content-Type: image/png` tetap **ditolak**, sebab isinya tidak dimulai dengan tanda PNG.',
+      ),
+      p('Baris ketiga menunjukkan batasnya, dan bagian ini yang sering tidak disebut.'),
+      code(
+        'text',
+        `
+        polyglot.png — SEKALIGUS gambar sah dan kode:
+
+          8 byte pertama : 89 50 4e 47 0d 0a 1a 0a      <- tanda PNG yang sah
+          isinya juga    : "<?php system($_GET[\\"c\\"]); ?>"
+
+        Magic byte-nya LOLOS, dan berkasnya tetap memuat kode.
+        `,
+        { caption: 'Dijalankan sungguhan. Pemeriksaan magic byte SAJA tidak cukup.' },
+      ),
+      p(
+        'Karena itu perlindungannya berlapis, dan di Laravel tiap lapisnya punya bentuknya sendiri.',
+      ),
+      code(
+        'php',
+        `
+        $data = $request->validate([
+            // 1. Batas ukuran, dalam kilobyte. Ini lapis pertama.
+            //    Batas PHP (upload_max_filesize, post_max_size) juga harus disetel —
+            //    validasi Laravel berjalan SETELAH berkasnya diterima PHP.
+            'gambar' => ['required', 'file', 'max:2048', 'mimetypes:image/png,image/jpeg'],
+        ]);
+
+        // 2. mimetypes memeriksa isi lewat finfo, BUKAN ekstensi maupun
+        //    Content-Type dari klien. Aturan 'mimes' memeriksa EKSTENSI —
+        //    dan ekstensi dikendalikan pengirim.
+
+        // 3. Nama dibuat SERVER, disk-nya bukan public.
+        $jalur = $request->file('gambar')->store('unggahan', 'private');
+        //                                        ^^^^^^^^^ nama acak dibuat Laravel
+
+        // 4. Nama asli boleh DISIMPAN sebagai metadata untuk ditampilkan,
+        //    dan tidak pernah dipakai sebagai nama berkas di disk.
+        Berkas::create([
+            'jalur' => $jalur,
+            'nama_asli' => $request->file('gambar')->getClientOriginalName(),
+        ]);
+        `,
+        {
+          caption:
+            'Perbedaan mimes dan mimetypes itu menentukan: yang pertama memeriksa ekstensi, yang kedua isi.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Nama berkas dari klien adalah sumber kegagalan tersendiri, dan menyaringnya dengan pola tidak pernah cukup.',
+      ),
+      code(
+        'text',
+        `
+        Lima nama diuji terhadap pola /^[A-Za-z0-9._-]{1,100}$/ :
+
+          "laporan.pdf"                  lolos pola
+          "../../etc/passwd"             DITOLAK pola
+          "a .png"                       DITOLAK pola
+          "CON.png"                      lolos pola      <- MASALAH
+          "xxxxx...(300 karakter).png"   DITOLAK pola
+        `,
+        { caption: 'Dijalankan sungguhan dengan Node 26.5.0.' },
+      ),
+      p(
+        'Baris `CON.png` lolos pola dan tetap bermasalah, sebab `CON` adalah nama perangkat yang dipesan di Windows, bersama `PRN`, `AUX`, `NUL`, dan `COM1` sampai `LPT9`. Daftar seperti ini tidak akan pernah lengkap, dan itulah kenapa pola bukan jawabannya. Jawabannya adalah **tidak memakai nama dari klien sama sekali**.',
+      ),
+      p(
+        'Kegagalan kedua adalah yang paling berbahaya di ekosistem PHP, yaitu berkas yang disimpan di tempat yang bisa dieksekusi server.',
+      ),
+      code(
+        'text',
+        `
+        Disk 'public' di Laravel memetakan storage/app/public ke public/storage.
+        Berkas di sana DILAYANI server web.
+
+        Bila server-nya dikonfigurasi menjalankan .php di folder mana pun,
+        berkas polyglot yang berhasil diunggah menjadi jalan masuk langsung.
+
+        Yang menutupnya, berlapis:
+          - simpan di disk 'private' (storage/app), DI LUAR webroot
+          - layani lewat controller yang memeriksa kewenangan,
+            bukan lewat tautan langsung
+          - kirim dengan Content-Disposition: attachment
+            dan X-Content-Type-Options: nosniff
+          - pastikan konfigurasi server web TIDAK menjalankan skrip
+            di folder unggahan
+        `,
+      ),
+      p(
+        'Baris ketiga menghubungkan kembali ke header keamanan yang dibahas di bab Express. Tanpa `nosniff`, peramban bisa menebak sendiri tipe isi sebuah berkas dan memperlakukan unggahan sebagai HTML, meski servermu menyebutnya gambar.',
+      ),
+      p(
+        'Kegagalan ketiga menyangkut **kapan** ukurannya diperiksa, dan di PHP ini punya bentuk khusus.',
+      ),
+      code(
+        'text',
+        `
+        Validasi Laravel berjalan SETELAH PHP menerima seluruh berkasnya.
+
+        Jadi 'max:2048' TIDAK mencegah seseorang mengirim berkas 2 GB;
+        ia hanya menolaknya setelah 2 GB itu selesai diterima dan ditulis
+        ke direktori sementara.
+
+        Yang benar-benar membatasi ada di konfigurasi PHP:
+
+          upload_max_filesize = 2M
+          post_max_size       = 8M
+          max_file_uploads    = 5
+
+        Dan satu jebakan: bila post_max_size terlampaui, PHP mengosongkan
+        $_POST SEPENUHNYA. Validasi Laravel melihat permintaan KOSONG,
+        lalu melaporkan "field wajib diisi" — pesan yang sama sekali
+        tidak menjelaskan apa yang sebenarnya terjadi.
+        `,
+      ),
+      p(
+        'Jebakan terakhir itu sering menghabiskan waktu berjam-jam, sebab pesannya menyesatkan sepenuhnya. Gejalanya adalah formulir yang melaporkan field kosong padahal pengguna jelas mengisinya, dan penyebabnya adalah berkas yang terlalu besar.',
+      ),
+      p(
+        'Kegagalan terakhir tidak berhubungan dengan keamanan melainkan ketersediaan, dan sudah diukur di bab Express.',
+      ),
+      code(
+        'text',
+        `
+        Pengolahan gambar adalah pekerjaan CPU berat. Bila dijalankan
+        di dalam permintaan, permintaan lain ikut menunggu.
+
+        Diukur sungguhan pada Node 26.5.0, 1 pekerjaan berat + 5 permintaan ringan:
+
+          versi SINKRON  : permintaan ringan 73,9 - 74,6 ms   <- ikut menunggu
+          versi ASINKRON : permintaan ringan  6,1 -  7,5 ms
+
+        Untuk pengolahan gambar sungguhan, pindahkan ke antrean:
+          unggah -> simpan mentah -> 202 Accepted -> proses di worker ->
+          perbarui statusnya
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Unggahan berkas mengumpulkan hampir semua jenis kesalahan sekaligus, mulai dari keamanan sampai ketersediaan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai aturan `mimes` alih-alih `mimetypes`',
+            'Namanya mirip',
+            '`mimes` memeriksa EKSTENSI yang dikendalikan pengirim. `mimetypes` memeriksa isinya',
+          ],
+          [
+            'Mengandalkan pemeriksaan isi saja',
+            'Isinya sudah diperiksa',
+            'Diuji sungguhan, polyglot dengan header PNG sah tetap memuat kode. Encode ulang gambarnya',
+          ],
+          [
+            'Memakai nama berkas dari klien setelah "dibersihkan"',
+            'Polanya sudah ketat',
+            'Diuji, `CON.png` lolos pola dan tetap bermasalah. Biarkan Laravel membuat namanya',
+          ],
+          [
+            'Menyimpan unggahan di disk `public`',
+            'Supaya mudah diakses',
+            'Berkasnya dilayani server web. Simpan di disk private, layani lewat controller berwenang',
+          ],
+          [
+            'Mengandalkan `max:2048` sebagai batas sebenarnya',
+            'Batasnya sudah ada',
+            'Validasi berjalan setelah PHP menerima seluruh berkas. Batas nyatanya di `php.ini`',
+          ],
+          [
+            'Mengolah gambar di dalam permintaan',
+            'Supaya langsung jadi',
+            'Diukur, permintaan lain naik dari 6 ms menjadi 74 ms. Pindahkan ke antrean',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima pantas ditegaskan karena ia sumber bug yang gejalanya paling menyesatkan. Ketika `post_max_size` terlampaui, PHP mengosongkan seluruh data permintaan, dan validasi melaporkan "field wajib diisi" untuk field yang jelas diisi pengguna. Yang perlu dilakukan bukan memperbaiki validasinya melainkan memeriksa batas di `php.ini`, dan menambahkan pemeriksaan khusus yang mengenali keadaan itu lalu menjawab `413` dengan pesan yang jujur.',
+      ),
       references(
         {
           label: 'Laravel — File Storage',
@@ -3426,7 +5942,7 @@ export const lessons: LessonDraft[] = [
   written(
     'praktik-api-blog-laravel',
     'Praktik: API blog lengkap beserta testnya',
-    15,
+    25,
     'API yang sama dengan Bab 2.14, dibangun dengan Laravel.',
     [
       p(
@@ -3657,6 +6173,228 @@ export const lessons: LessonDraft[] = [
         'Tes menghitung query untuk mencegah N+1 kembali',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'API blog Laravel yang siap dipakai berbeda dari yang siap demo pada hal-hal yang tidak terlihat di jalur sukses, dan seluruhnya sudah diukur sepanjang tiga kategori terakhir. Berikut kesepuluhnya bertemu dalam satu sumber daya.',
+      ),
+      code(
+        'php',
+        `
+        final class ArtikelController extends Controller
+        {
+            public function __construct(private readonly LayananArtikel $layanan)
+            {
+                // 1. Otorisasi terpasang untuk SELURUH method sekaligus,
+                //    jadi method baru tidak bisa lupa dipasangi.
+                $this->authorizeResource(Artikel::class, 'artikel');
+            }
+
+            public function index(DaftarArtikelRequest $request)
+            {
+                $q = $request->validated();
+
+                $artikel = Artikel::query()
+                    // 2. Batas kepemilikan di QUERY, bukan disaring sesudahnya.
+                    //    Diukur: menyaring dengan policy membuat pengguna
+                    //    meminta 20 dan menerima 9.
+                    ->where(function ($w) use ($request) {
+                        $w->where('status', 'terbit')
+                          ->orWhere('penulis_id', $request->user()?->id ?? -1);
+                    })
+                    ->with(['penulis:id,nama'])        // 3. menutup N+1, kolom dipilih
+                    ->withCount('komentar')            // 4. tanpa memuat ribuan baris
+                    ->orderBy('terbit_pada', 'desc')
+                    ->orderBy('id', 'desc')            // 5. pengurut UNIK di akhir
+                    ->cursorPaginate($q['limit']);     // 6. keyset, bukan OFFSET
+
+                return ArtikelResource::collection($artikel);
+            }
+
+            public function store(BuatArtikelRequest $request)
+            {
+                // 7. Hasil VALIDASI, bukan $request->all() — menutup mass assignment.
+                // 8. penulis_id dari SESI, tidak pernah dari badan permintaan.
+                $artikel = $this->layanan->buat(
+                    $request->user()->id,
+                    $request->validated(),
+                );
+
+                return ArtikelResource::make($artikel)
+                    ->response()
+                    ->setStatusCode(201)
+                    ->header('Location', route('artikel.show', $artikel));  // 9.
+            }
+
+            public function destroy(Artikel $artikel)
+            {
+                $this->layanan->hapus($artikel);
+                return response()->noContent();       // 10. idempoten: 204 dua kali
+            }
+        }
+        `,
+        {
+          caption:
+            'Tidak ada satu pun try/catch: seluruh error dilempar dan ditangani di exception handler.',
+        },
+      ),
+      p(
+        'Sepuluh keputusan bertanda itu masing-masing menjawab pengukuran yang sudah dilakukan. `cursorPaginate` dipakai karena `OFFSET 250000` terbukti membaca 250.020 baris untuk memberi dua puluh. Pengurut berakhir pada kolom unik karena tanpa itu satu baris terbukti tidak pernah muncul di halaman mana pun. Batas kepemilikan ada di query karena menyaring dengan policy terbukti membuat pengguna menerima sembilan baris dari dua puluh yang diminta.',
+      ),
+      p(
+        'Aturan bisnisnya tinggal di service, dan di sanalah transaksi serta pengurangan stok yang aman berada.',
+      ),
+      code(
+        'php',
+        `
+        final class LayananArtikel
+        {
+            public function buat(int $penulisId, array $data): Artikel
+            {
+                return DB::transaction(function () use ($penulisId, $data) {
+                    $artikel = Artikel::create([
+                        ...$data,
+                        'penulis_id' => $penulisId,
+                        'status' => 'draf',            // status TIDAK pernah dari klien
+                    ]);
+
+                    // Job dicatat sebagai BARIS di transaksi yang sama, bukan
+                    // dikirim ke antrean — supaya tidak lahir dari transaksi yang batal.
+                    Outbox::create([
+                        'jenis' => 'indeks-artikel',
+                        'muatan' => ['id' => $artikel->id],
+                    ]);
+
+                    return $artikel;
+                });
+                // Pengiriman notifikasi SENGAJA di luar transaksi: memanggil
+                // layanan luar di dalamnya menahan kunci selama menunggu jaringan.
+            }
+        }
+        `,
+        {
+          caption:
+            'Baris status draf itu menutup jalur di mana klien menerbitkan artikel tanpa melewati peninjauan.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Yang memisahkan siap pakai dari siap demo adalah jalur yang tidak nyaman, dan seluruhnya bisa diuji dalam satu berkas perintah. Setiap angka harapan di bawah berasal dari respons yang benar-benar dijalankan di kategori ini.',
+      ),
+      code(
+        'text',
+        `
+        #!/bin/bash
+        # uji-artikel.sh — jalankan sebelum menyatakan endpoint selesai.
+        A=http://localhost:8000/api/v1/artikel
+        H="Content-Type: application/json"
+        J="Accept: application/json"          # <-- TANPA ini, Laravel MENGALIHKAN
+        T="Authorization: Bearer $TOKEN"
+
+        p() { printf '%-42s %s\\n' "$1" "$(curl -s -o /dev/null -w '%{http_code}' "\${@:2}")"; }
+
+        echo "== KONTRAK =="
+        p "buat, valid                   (201)" -X POST "$A" -H "$H" -H "$J" -H "$T" -d '{"judul":"Uji","isi":"x"}'
+        p "buat, judul kosong            (422)" -X POST "$A" -H "$H" -H "$J" -H "$T" -d '{"judul":"   ","isi":"x"}'
+        p "buat, JSON rusak              (400)" -X POST "$A" -H "$H" -H "$J" -H "$T" -d '{judul:"x"}'
+        p "buat, tanpa token             (401)" -X POST "$A" -H "$H" -H "$J"        -d '{"judul":"x","isi":"y"}'
+        p "daftar kosong                 (200)" -H "$J" -H "$T" "$A?urut=terbaru&cursor=zzz"
+        p "alamat tidak ada              (404)" -H "$J" -H "$T" "$A/tidakada"
+
+        echo "== KEAMANAN =="
+        p "urut tidak dikenal            (422)" -H "$J" -H "$T" "$A?urut=harga"
+        p "draf MILIK ORANG LAIN         (404)" -H "$J" -H "$T" "$A/4211"
+        p "ubah artikel orang lain       (404)" -X PATCH "$A/4211" -H "$H" -H "$J" -H "$T" -d '{"judul":"x"}'
+        p "hapus artikel orang lain      (404)" -X DELETE "$A/4211" -H "$J" -H "$T"
+        p "buat, menyisipkan penulis_id  (201)" -X POST "$A" -H "$H" -H "$J" -H "$T" \\
+            -d '{"judul":"x","isi":"y","penulis_id":1,"status":"terbit"}'
+        echo "   ^ periksa RESPONSNYA: penulis_id HARUS id pemanggil, status HARUS draf"
+
+        echo "== KETERSEDIAAN =="
+        p "limit berlebihan              (422)" -H "$J" -H "$T" "$A?limit=1000000"
+        p "unggah melebihi batas         (413)" -X POST "$A/1/gambar" -H "$J" -H "$T" \\
+            -F "gambar=@besar.png"
+
+        echo "== IDEMPOTENSI =="
+        p "hapus pertama                 (204)" -X DELETE "$A/1" -H "$J" -H "$T"
+        p "hapus kedua                   (204)" -X DELETE "$A/1" -H "$J" -H "$T"
+        `,
+        {
+          caption:
+            'Header Accept: application/json itu wajib — tanpanya Laravel menjawab 302, bukan 422.',
+        },
+      ),
+      p(
+        'Empat baris di daftar itu paling mudah salah dibaca. Baris penyisipan field memang menjawab `201`, dan yang membuktikan perlindungannya bekerja adalah **isi responsnya**, yaitu `penulis_id` adalah id pemanggil dan `status`-nya tetap draf. Tiga baris "milik orang lain" harus `404`, bukan `403`, sebab `403` mengakui bahwa artikel bernomor itu ada. Baris daftar kosong memang `200`, sebab alamatnya ada dan berhasil dilayani. Dan baris hapus kedua harus tetap `204`, sebab keadaan yang diminta pengguna sudah tercapai.',
+      ),
+      p(
+        'Terakhir, satu kelas kegagalan yang penyebabnya bukan kode sama sekali, dan bentuknya ditemui sendiri saat menyusun materi ini.',
+      ),
+      code(
+        'text',
+        `
+        Build project ini sendiri gagal:
+
+          Failed to build /kelas/... (attempt 1 of 3) because it took more
+          than 60 seconds. Retrying again shortly.
+
+        Dugaan pertama : isinya terlalu berat.
+        Diukur         : seluruh highlighting 427 halaman = 5.785 ms, dan
+                         halaman yang timeout 60 DETIK hanya butuh 30 MILIDETIK.
+        Penyebab nyata : 3 proses build berebut ~1,1 GB memori tersisa, tanpa swap.
+                         Dengan 1 proses: 506 halaman dalam 15,9 detik.
+
+        Pelajarannya berlaku untuk API juga: sebelum menyimpulkan
+        endpoint-nya lambat, ukur dulu apakah endpoint-nya yang lambat.
+        `,
+        {
+          caption:
+            'Ditelusuri sungguhan saat menyusun materi ini, memakai disiplin diagnose project.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Praktik menggabungkan seluruh materi kategori ini, jadi kesalahannya adalah kesalahan yang sudah dibahas terpisah dan baru bertemu sekarang.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyatakan selesai setelah jalur sukses berjalan',
+            'Fiturnya sudah bekerja',
+            'Jalur 400, 401, 404, 409, 413, dan 422 justru yang paling sering rusak di produksi',
+          ],
+          [
+            'Mengambil `penulis_id` dari badan permintaan',
+            'Kliennya tahu siapa penulisnya',
+            'Klien bisa mengirim id siapa pun. Identitas hanya boleh dari sesi atau token',
+          ],
+          [
+            'Menyaring daftar dengan policy',
+            'Aturannya kan sama',
+            'Diukur, pengguna meminta 20 menerima 9, dan 11 baris milik orang lain sudah terbaca',
+          ],
+          [
+            'Memakai `paginate()` untuk daftar yang bisa sangat panjang',
+            'Itu cara paginasi yang biasa',
+            'Diukur, `OFFSET 250000` membaca 250.020 baris untuk memberi 20. Pakai `cursorPaginate`',
+          ],
+          [
+            'Mengirim job di dalam transaksi',
+            'Sekalian satu kesatuan',
+            'Worker bisa mengambilnya sebelum commit, dan job tetap ada bila transaksinya batal. Pakai outbox',
+          ],
+          [
+            'Menguji API tanpa header `Accept: application/json`',
+            'Endpointnya kan API',
+            'Laravel menjawab 302 alih-alih 422, dan itu terlihat seperti endpoint tidak merespons',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama pantas menjadi penutup kategori ini. Sebuah endpoint dinyatakan selesai bukan ketika ia mengembalikan data yang benar, melainkan ketika setiap jalur kegagalannya sudah dijalankan sekali dan menghasilkan status serta pesan yang memang dirancang. Berkas perintah di atas menutup seluruhnya dalam beberapa detik, dan ia tetap berguna berbulan-bulan kemudian ketika seseorang mengubah sesuatu dan ingin tahu apakah ada yang kembali rusak.',
+      ),
       references(
         {
           label: 'Laravel — Deployment',

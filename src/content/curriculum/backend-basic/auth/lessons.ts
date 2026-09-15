@@ -30,7 +30,7 @@ export const lessons: LessonDraft[] = [
   written(
     'auth-vs-authz',
     'Beda Autentikasi dan Otorisasi',
-    8,
+    14,
     'Dua pertanyaan berbeda yang sering dijawab sebagai satu.',
     [
       p(
@@ -182,6 +182,162 @@ export const lessons: LessonDraft[] = [
       p(
         'Tombol yang tidak ditampilkan, menu yang disembunyikan, dan halaman yang tidak ditautkan **tidak menjaga apa pun**. Siapa pun bisa memanggil endpoint-nya langsung dengan `curl`. Antarmuka mengatur kenyamanan; server yang mengatur kewenangan.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Beda autentikasi dan otorisasi paling mudah dipahami lewat satu kebocoran yang benar-benar sering terjadi, yaitu aplikasi yang autentikasinya sempurna dan otorisasinya tidak ada sama sekali. Semua pengguna harus masuk, tidak ada yang bisa melewatinya, dan setiap pengguna tetap bisa membaca data siapa pun.',
+      ),
+      code(
+        'text',
+        `
+        Dua pesanan di basis data:
+
+          id   | pelanggan_id | total  | catatan
+          -----+--------------+--------+------------------------------
+          4211 |            7 | 890000 | Alamat Rina, Jl. Merdeka 12
+          4212 |            9 | 125000 | Alamat Budi, Jl. Sudirman 4
+
+        Budi (pelanggan_id 9) SUDAH LOGIN, lalu membuka /pesanan/4211:
+
+          RENTAN : SELECT * FROM pesanan WHERE id = ?
+                   -> {"id":4211,"pelanggan_id":7,"total":890000,
+                       "catatan":"Alamat Rina, Jl. Merdeka 12"}
+
+          AMAN   : SELECT * FROM pesanan WHERE id = ? AND pelanggan_id = ?
+                   -> null   -> dijawab 404
+        `,
+        { caption: 'Dijalankan sungguhan dengan node:sqlite bawaan Node 26.5.0.' },
+      ),
+      p(
+        'Budi berhasil melewati autentikasi, dan memang seharusnya begitu, sebab ia pengguna yang sah. Yang tidak ada adalah pertanyaan kedua, yaitu **apakah ia berhak atas baris ini**. Autentikasi menjawab "siapa kamu", otorisasi menjawab "boleh apa", dan yang pertama tidak pernah menyiratkan yang kedua.',
+      ),
+      p(
+        'Perbedaan itu perlu ditegaskan karena ia menentukan letak kodenya. Autentikasi terjadi **sekali** di pintu masuk, sedangkan otorisasi harus terjadi **pada setiap sumber daya yang disentuh**. Satu middleware yang memeriksa token di depan semua rute sudah cukup untuk yang pertama, dan tidak menyumbang apa pun untuk yang kedua.',
+      ),
+      table(
+        ['Pertanyaan', 'Autentikasi', 'Otorisasi'],
+        [
+          ['Menjawab apa', '"Siapa kamu?"', '"Boleh melakukan apa terhadap objek ini?"'],
+          ['Kapan dijalankan', 'Sekali, di pintu masuk', 'Setiap kali sebuah sumber daya disentuh'],
+          ['Di mana kodenya', 'Satu middleware di depan', 'Di lapisan data, ikut ke dalam query'],
+          [
+            'Gejala bila hilang',
+            'Siapa pun bisa masuk',
+            'Setiap yang masuk bisa membaca milik siapa pun',
+          ],
+          [
+            'Terlihat saat pengujian biasa?',
+            'Ya, langsung gagal',
+            '**Tidak** — fiturnya bekerja sempurna',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir yang membuat kebocoran otorisasi bertahan lama. Halaman menampilkan data yang benar untuk pemiliknya, test lulus, dan tidak ada satu pun yang salah kecuali kalau ada yang iseng mengganti angka di alamat.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan otorisasi tidak pernah menghasilkan error. Yang muncul justru **ketiadaan error** pada permintaan yang seharusnya ditolak. Karena itu satu-satunya cara mengetahuinya adalah mengujinya dengan sengaja.',
+      ),
+      code(
+        'text',
+        `
+        Uji yang wajib ada untuk SETIAP endpoint yang mengembalikan data milik seseorang:
+
+          1. login sebagai pengguna A
+          2. buat satu sumber daya, catat id-nya
+          3. login sebagai pengguna B
+          4. buka sumber daya milik A dengan id itu
+          5. HARUS 404 (atau 403), dan badan responsnya HARUS kosong dari data A
+
+        Langkah 5 yang paling sering dilewatkan. Status 404 saja belum cukup —
+        periksa juga bahwa tidak ada potongan data A di dalam responsnya.
+        `,
+      ),
+      p(
+        'Ada satu bentuk perbaikan yang terlihat benar dan sebenarnya tidak, yaitu memeriksa kepemilikan **setelah** datanya diambil.',
+      ),
+      code(
+        'text',
+        `
+        const baris = ambil(4211);                       // tanpa syarat pemilik
+        const boleh = baris.pelanggan_id === penggunaLogin;
+        if (!boleh) return res.status(404).json({ error: 'Tidak ditemukan' });
+
+        Yang benar-benar terjadi, diukur:
+
+          data sudah TERBACA ke memori proses :
+            {"id":4211,"pelanggan_id":7,"total":890000,"catatan":"Alamat...
+          baru kemudian ditolak              : ditolak
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Penolakannya benar, tapi datanya sudah keluar dari database.',
+        },
+      ),
+      p(
+        'Bentuk ini menutup satu jalur dan membiarkan yang lain terbuka. Data milik orang lain sudah berada di dalam proses, jadi ia bisa ikut masuk ke log, ke pesan error yang dicetak lengkap dengan objeknya, ke jejak tumpukan yang dikirim sistem pemantauan, atau ke respons yang lupa disaring pada satu cabang kode. Menaruh syarat kepemilikan **di dalam query** menutup semuanya sekaligus, sebab datanya tidak pernah keluar dari database.',
+      ),
+      p('Kesalahan ketiga yang sama seringnya adalah menganggap antarmuka sebagai kontrol akses.'),
+      code(
+        'ts',
+        `
+        // Ini BUKAN kontrol akses. Ia hanya kerapian tampilan.
+        {pengguna.peran === 'admin' && <button onClick={hapusSemua}>Hapus semua</button>}
+
+        // Yang bisa dilakukan siapa pun tanpa alat khusus:
+        //   - memanggil endpointnya langsung dengan curl
+        //   - menghapus kondisinya lewat DevTools, lalu mengeklik tombolnya
+        //   - membaca bundel JavaScript dan menemukan seluruh alamat endpoint
+        //
+        // Bundel frontend SELALU bisa dibaca siapa pun. Tidak ada satu pun
+        // keputusan keamanan yang boleh tinggal di sana.
+        `,
+        { caption: 'Menyembunyikan tombol menyembunyikan tombolnya, bukan kemampuannya.' },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Hampir semua kesalahan di sini berasal dari satu asumsi yang tidak pernah diucapkan, yaitu bahwa pengguna yang sudah masuk adalah pengguna yang bisa dipercaya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memeriksa token di satu middleware lalu merasa selesai',
+            'Semua rute sudah terlindungi',
+            'Itu autentikasi. Setiap pengguna sah tetap bisa membaca data pengguna sah lainnya',
+          ],
+          [
+            'Menyembunyikan tombol untuk peran tertentu',
+            'Penggunanya tidak akan bisa mengaksesnya',
+            'Endpointnya tetap bisa dipanggil langsung. Bundel frontend selalu terbaca',
+          ],
+          [
+            'Memeriksa kepemilikan setelah data diambil',
+            'Hasil akhirnya sama-sama ditolak',
+            'Diuji sungguhan, datanya sudah masuk ke proses dan bisa bocor lewat log atau pesan error',
+          ],
+          [
+            'Mengirim id pengguna dari klien',
+            'Kliennya tahu siapa dirinya',
+            'Klien bisa mengirim id siapa pun. Identitas hanya boleh berasal dari sesi atau token di server',
+          ],
+          [
+            'Memberi izin secara bawaan, lalu menolak yang berbahaya',
+            'Lebih sedikit yang harus ditulis',
+            'Setiap endpoint baru otomatis terbuka. Bawaan harus menolak, izin diberikan eksplisit',
+          ],
+          [
+            'Menguji hanya sebagai satu pengguna',
+            'Fiturnya sudah jalan',
+            'Kebocoran otorisasi hanya terlihat dengan dua akun. Uji A membuka milik B',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat pantas ditegaskan karena bentuknya sangat mudah ditulis tanpa sadar. Sebuah endpoint yang menerima `pelangganId` dari badan permintaan atau dari query string menyerahkan keputusan identitas kepada pemanggil, dan pemanggil tidak pernah terikat aturan apa pun. Identitas pengguna hanya boleh dibaca dari sesi atau token yang sudah diverifikasi server, dan nilai itu tidak pernah boleh bisa ditimpa oleh apa pun yang dikirim klien.',
+      ),
       references(
         {
           label: 'Authorization Cheat Sheet',
@@ -214,7 +370,7 @@ export const lessons: LessonDraft[] = [
   written(
     'hashing-password',
     'Hashing Password',
-    12,
+    18,
     'Menyimpan password sehingga database yang dicuri pun tidak membocorkannya.',
     [
       p(
@@ -425,6 +581,168 @@ export const lessons: LessonDraft[] = [
         'Hash tidak boleh pernah keluar dari server',
         'Jangan pernah menyertakan kolom hash di respons API, di log, atau di pesan error. Ini alasan lain kenapa `SELECT *` yang langsung dikirim ke klien berbahaya — dan kenapa `$hidden` di model Laravel harus memuat `password`.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Alasan sandi tidak boleh di-hash dengan SHA-256 sering dijelaskan dengan kalimat "terlalu cepat", dan kalimat itu benar tapi tidak memberi gambaran seberapa. Berikut angkanya, diukur di satu mesin biasa.',
+      ),
+      code(
+        'text',
+        `
+        HASH CEPAT — yang TIDAK boleh dipakai untuk sandi
+
+          MD5                             0,0009 ms/hash    1.170.031 hash/detik
+          SHA-1                           0,0008 ms/hash    1.212.523 hash/detik
+          SHA-256                         0,0008 ms/hash    1.270.049 hash/detik
+          SHA-256 + salt                  0,0008 ms/hash    1.228.039 hash/detik
+
+        HASH ADAPTIF — yang memang dirancang untuk sandi
+
+          scrypt N=2^14 (bawaan Node)    28,6949 ms/hash           35 hash/detik
+          scrypt N=2^15                  69,3542 ms/hash           14 hash/detik
+          scrypt N=2^16                 141,1268 ms/hash            7 hash/detik
+          PBKDF2-SHA256 600.000 iterasi 102,1614 ms/hash           10 hash/detik
+        `,
+        { caption: 'Dijalankan sungguhan dengan node:crypto pada Node 26.5.0.' },
+      ),
+      p(
+        'Selisih antara SHA-256 dan scrypt di mesin ini sekitar **36.000 kali**. Artinya, bila basis datamu bocor, penyerang yang memakai satu mesin biasa bisa menguji 1,27 juta tebakan per detik terhadap hash SHA-256, dan hanya 35 tebakan per detik terhadap hash scrypt. Dengan perangkat keras khusus, angka pertama naik berkali-kali lipat lagi sementara angka kedua naik jauh lebih sedikit, sebab scrypt sengaja dirancang boros memori.',
+      ),
+      p(
+        'Baris keempat di tabel itu yang paling sering disalahpahami. Menambahkan salt ke SHA-256 **tidak memperlambat apa pun**, yaitu 1.228.039 melawan 1.270.049 hash per detik, selisihnya hanya derau pengukuran. Salt mengerjakan pekerjaan yang berbeda, yaitu memastikan dua orang bersandi sama menghasilkan hash berbeda sehingga tabel pelangi tidak bisa dipakai. Ia tidak pernah dimaksudkan untuk memperlambat penebakan, dan tidak melakukannya.',
+      ),
+      table(
+        ['Yang dikerjakan', 'Salt', 'Faktor biaya (N, iterasi)'],
+        [
+          ['Menggagalkan tabel pelangi', 'Ya', 'Tidak'],
+          ['Menggagalkan penebakan massal', 'Tidak', 'Ya'],
+          ['Membuat dua sandi sama jadi hash berbeda', 'Ya', 'Tidak'],
+          ['Bisa disimpan terbuka bersama hash-nya', 'Ya', 'Ya — memang harus'],
+        ],
+      ),
+      p(
+        'Bahwa salt boleh disimpan terbuka sering mengejutkan. Ia memang bukan rahasia, sebab tugasnya hanya membuat setiap hash unik. Yang harus dirahasiakan adalah sandi aslinya, dan itu tidak pernah disimpan di mana pun.',
+      ),
+      code(
+        'ts',
+        `
+        import { scryptSync, randomBytes, timingSafeEqual } from 'node:crypto';
+
+        // Faktor biayanya disimpan BERSAMA hash-nya, supaya sandi lama tetap bisa
+        // diverifikasi ketika suatu hari faktornya dinaikkan.
+        const OPSI = { N: 2 ** 14, r: 8, p: 1, maxmem: 128 * 1024 * 1024 };
+
+        export function buatHash(sandi: string): string {
+          const garam = randomBytes(16);
+          const turunan = scryptSync(sandi, garam, 64, OPSI);
+          return \`scrypt$\${OPSI.N}$\${garam.toString('hex')}$\${turunan.toString('hex')}\`;
+        }
+
+        export function cocok(sandi: string, tersimpan: string): boolean {
+          const [, n, garamHex, hashHex] = tersimpan.split('$');
+          const hash = Buffer.from(hashHex, 'hex');
+          const uji = scryptSync(sandi, Buffer.from(garamHex, 'hex'), hash.length, {
+            ...OPSI,
+            N: Number(n),          // pakai N yang TERSIMPAN, bukan N yang sekarang
+          });
+          return timingSafeEqual(hash, uji);
+        }
+        `,
+        {
+          caption:
+            'Menyimpan N di dalam string hash itu yang memungkinkan faktor biayanya dinaikkan belakangan.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Perbandingan hash punya satu jebakan yang menghasilkan error sungguhan, dan errornya justru berguna.',
+      ),
+      code(
+        'text',
+        `
+        timingSafeEqual(Buffer.from('pendek'), Buffer.from('jauh-lebih-panjang'));
+
+          RangeError: Input buffers must have the same byte length
+        `,
+        { caption: 'Dijalankan sungguhan dengan node:crypto.' },
+      ),
+      p(
+        'Node menolak membandingkan dua buffer berbeda panjang karena perbandingan waktu-konstan memang tidak bisa dilakukan di situ, dan menyamarkannya akan memberi rasa aman palsu. Yang harus dilakukan adalah memeriksa panjangnya lebih dulu sebagai cabang terpisah, seperti pada fungsi `cocok` di atas.',
+      ),
+      p(
+        'Perlu satu catatan jujur tentang perbandingan waktu-konstan di JavaScript, sebab pengukurannya tidak sepolos yang biasa diceritakan.',
+      ),
+      code(
+        'text',
+        `
+        Membandingkan dua string 64 karakter dengan operator === :
+
+          beda di karakter ke-1                         3,23 ns
+          cocok 8 karakter pertama                      0,79 ns
+          cocok 32 karakter pertama                     0,59 ns
+          cocok 63 karakter pertama                     0,59 ns
+          cocok SELURUHNYA                              0,62 ns
+
+        timingSafeEqual pada masukan yang sama:
+
+          beda di karakter ke-1                        70,87 ns
+          cocok 63 karakter pertama                    71,02 ns
+          cocok SELURUHNYA                             78,50 ns
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Hasilnya TIDAK menunjukkan bocoran bertingkat yang biasa digambarkan.',
+        },
+      ),
+      p(
+        'Angka operator `===` di atas tidak naik seiring banyaknya karakter yang cocok, dan itu berlawanan dengan gambaran umum tentang perbandingan yang berhenti di karakter pertama yang berbeda. Penyebabnya, mesin JavaScript melakukan banyak hal di balik layar, mulai dari memeriksa panjang lebih dulu, menyamakan string identik menjadi satu objek, sampai membandingkan beberapa byte sekaligus. Jadi pada JavaScript, kamu **tidak bisa memperkirakan** apakah sebuah perbandingan bocor atau tidak.',
+      ),
+      p(
+        'Ketidakpastian itulah alasan memakai `timingSafeEqual`, bukan bukti bahwa `===` pasti bocor. Perhatikan bahwa angka `timingSafeEqual` memang rata di ketiga kasus, yaitu 70,87 sampai 78,50 nanodetik, dan kerataan itulah yang dijaminnya. Untuk membandingkan hash sandi, token sesi, kunci API, dan tanda tangan webhook, jaminan yang bisa dipegang jauh lebih berharga daripada perilaku yang kebetulan aman hari ini dan bisa berubah pada pembaruan mesin JavaScript berikutnya.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Penyimpanan sandi adalah bagian yang paling mudah ditulis salah dengan kode yang terlihat sangat meyakinkan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai SHA-256 dengan salt',
+            'Sudah di-hash dan sudah di-salt',
+            'Diukur, 1,2 juta tebakan per detik. Salt tidak memperlambat apa pun — pakai algoritma adaptif',
+          ],
+          [
+            'Menambah putaran SHA-256 sendiri, misalnya sepuluh ribu kali',
+            'Jadi lambat juga, kan',
+            'Lambat di CPU biasa, tetap sangat cepat di perangkat keras khusus. Pakai yang memang dirancang untuk ini',
+          ],
+          [
+            'Menyimpan salt di berkas konfigurasi, satu untuk semua',
+            'Rahasianya jadi terjaga',
+            'Salt tidak rahasia dan harus BERBEDA per pengguna. Yang satu untuk semua kehilangan seluruh gunanya',
+          ],
+          [
+            'Membandingkan hash dengan `===`',
+            'Sama-sama membandingkan string',
+            'Diukur, perilaku waktunya tidak bisa diperkirakan di JavaScript. Pakai `timingSafeEqual`',
+          ],
+          [
+            'Menyimpan faktor biaya di konfigurasi, bukan di hash-nya',
+            'Satu tempat, lebih rapi',
+            'Menaikkan faktornya membuat seluruh sandi lama tidak bisa diverifikasi lagi',
+          ],
+          [
+            'Memaksa sandi rumit dan diganti tiap 90 hari',
+            'Terdengar lebih aman',
+            'Menghasilkan sandi yang ditulis di kertas dan pola `Sandi1!`, `Sandi2!`. Panjang minimum lebih berpengaruh',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir sudah berubah dari saran lama, dan perubahannya berdasar pengamatan atas perilaku manusia. Aturan yang mewajibkan huruf besar, angka, dan simbol menghasilkan sandi yang sulit diingat manusia tetapi tidak sulit ditebak mesin, sedangkan pemaksaan penggantian berkala menghasilkan variasi berurutan yang mudah diprediksi. Yang benar-benar berpengaruh adalah **panjang minimum yang layak**, menolak sandi yang sudah diketahui bocor, dan mewajibkan faktor kedua untuk akun berhak tinggi.',
+      ),
       references(
         {
           label: 'Password Storage Cheat Sheet',
@@ -457,7 +775,7 @@ export const lessons: LessonDraft[] = [
   written(
     'session-cookie',
     'Session-based Auth',
-    12,
+    20,
     'Autentikasi dengan sesi di server dan cookie di browser.',
     [
       p(
@@ -665,6 +983,188 @@ export const lessons: LessonDraft[] = [
         'API murni token tidak butuh mesin CSRF',
         'Kalau autentikasimu memakai header `Authorization` tanpa cookie ambient, tidak ada yang bisa ditumpangi permintaan lintas situs — browser tidak menyertakan header itu secara otomatis. Jangan memasang token CSRF di tempat yang tidak punya cookie; fokuskan usaha pada endpoint yang memang memakai auth berbasis cookie.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Atribut cookie sering disalin dari contoh tanpa diketahui apa yang sebenarnya dilakukannya. Berikut pengukurannya, memakai server yang mengirim tiga cookie sekaligus dan peramban sungguhan yang membacanya.',
+      ),
+      code(
+        'text',
+        `
+        Yang dikirim server:
+
+          Set-Cookie: sesi=rahasia-abc123; HttpOnly; SameSite=Lax; Path=/; Max-Age=3600
+          Set-Cookie: tema=gelap; SameSite=Lax; Path=/; Max-Age=3600
+          Set-Cookie: analitik=xyz; Path=/; Max-Age=3600
+
+        Yang terlihat oleh JavaScript di halaman (document.cookie):
+
+          tema=gelap
+          analitik=xyz
+
+        Yang DIKIRIM peramban kembali ke server pada permintaan berikutnya:
+
+          sesi=rahasia-abc123; tema=gelap; analitik=xyz
+        `,
+        { caption: 'Dijalankan sungguhan: server Node 26.5.0, dibaca Chrome for Testing 149.' },
+      ),
+      p(
+        'Dua daftar itu berbeda, dan perbedaannya persis satu baris. Cookie `sesi` **tidak terlihat sama sekali** oleh JavaScript di halaman, tetapi **tetap dikirim** ke server pada setiap permintaan. Itulah seluruh isi janji `HttpOnly`, dan ia menjawab satu ancaman yang sangat konkret.',
+      ),
+      p(
+        'Ancamannya adalah XSS. Ketika penyerang berhasil menjalankan satu baris JavaScript di halamanmu, hal pertama yang dicarinya adalah `document.cookie`. Tanpa `HttpOnly`, satu baris itu cukup untuk mengambil sesi dan memakainya dari komputer mana pun. Dengan `HttpOnly`, token sesinya tidak pernah ada di tempat yang bisa dijangkau JavaScript.',
+      ),
+      table(
+        ['Atribut', 'Yang dijaminnya', 'Ancaman yang ditutupnya'],
+        [
+          [
+            '`HttpOnly`',
+            'Tidak terlihat JavaScript, tetap dikirim ke server',
+            'Pencurian sesi lewat XSS',
+          ],
+          [
+            '`Secure`',
+            'Hanya dikirim lewat HTTPS',
+            'Penyadapan di jaringan yang tidak terenkripsi',
+          ],
+          [
+            '`SameSite=Lax`',
+            'Tidak ikut pada permintaan lintas-situs, kecuali navigasi biasa',
+            'Sebagian besar bentuk CSRF',
+          ],
+          [
+            '`SameSite=Strict`',
+            'Tidak pernah ikut lintas-situs sama sekali',
+            'CSRF, dengan biaya pengalaman pengguna',
+          ],
+          ['`Path`', 'Hanya dikirim pada jalur tertentu', 'Mengurangi tempat token beredar'],
+          ['`Max-Age`', 'Kedaluwarsa otomatis di peramban', 'Sesi yang menggantung selamanya'],
+        ],
+      ),
+      p(
+        'Baris `SameSite=Strict` perlu penjelasan karena biayanya nyata. Dengan `Strict`, pengguna yang mengeklik tautan ke aplikasimu dari surel atau dari situs lain akan tiba dalam keadaan **belum masuk**, sebab cookie-nya tidak ikut pada navigasi itu. Untuk aplikasi biasa, `Lax` adalah titik yang tepat. `Strict` masuk akal untuk hal yang memang tidak pernah dituju dari luar, misalnya panel administrasi internal.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan sesi jarang berupa error dan hampir selalu berupa perilaku yang salah. Yang paling berbahaya adalah **session fixation**, yaitu id sesi yang tidak berubah setelah login.',
+      ),
+      code(
+        'text',
+        `
+        Alur serangannya, dan semua langkahnya adalah perilaku yang sah:
+
+          1. penyerang membuka situsmu, menerima id sesi  A1B2C3
+          2. penyerang mengirim korban tautan berisi id itu, misalnya lewat
+             parameter yang diterima aplikasi, atau lewat subdomain yang
+             bisa menulis cookie untuk domain induknya
+          3. korban membuka tautannya, lalu LOGIN dengan sandinya sendiri
+          4. server menandai sesi A1B2C3 sebagai "sudah login sebagai korban"
+          5. penyerang memakai A1B2C3 yang sejak awal dipegangnya
+
+        Tidak ada satu pun error di sepanjang alur itu.
+        `,
+      ),
+      p(
+        'Perbaikannya satu baris dan mudah dilupakan, yaitu **membuat id sesi baru tepat setelah login berhasil**. Setelah itu, id lama yang dipegang penyerang tidak lagi menunjuk apa pun.',
+      ),
+      code(
+        'ts',
+        `
+        // Urutan yang benar, dan urutannya menentukan.
+        async function login(req, res) {
+          const pengguna = await periksaKredensial(req.body.email, req.body.sandi);
+          if (!pengguna) return res.status(401).json({ error: 'Email atau sandi salah' });
+
+          // 1. Buang id sesi LAMA sebelum menyimpan apa pun tentang pengguna.
+          await sesi.regenerate(req);
+
+          // 2. Baru setelah id-nya baru, tandai sebagai sudah login.
+          req.sesi.penggunaId = pengguna.id;
+
+          // 3. Hal yang sama berlaku saat KELUAR: hancurkan, jangan sekadar kosongkan.
+          //    Mengosongkan isinya meninggalkan id yang masih sah.
+          res.json({ ok: true });
+        }
+
+        async function logout(req, res) {
+          await sesi.destroy(req);                  // BUKAN req.sesi = {}
+          res.clearCookie('sesi', { path: '/' });
+          res.status(204).end();
+        }
+        `,
+        {
+          caption:
+            'Regenerasi setelah login dan penghancuran saat keluar adalah dua sisi dari satu aturan.',
+        },
+      ),
+      p(
+        'Kegagalan kedua muncul dari konsekuensi memakai cookie, yaitu **peramban mengirimkannya secara otomatis pada setiap permintaan ke domain itu**, termasuk permintaan yang dipicu situs lain. Itu tepat yang dimanfaatkan CSRF.',
+      ),
+      code(
+        'text',
+        `
+        Halaman jahat yang dibuka korban di tab lain:
+
+          <form action="https://bank.contoh.id/transfer" method="POST">
+            <input name="ke" value="rekening-penyerang">
+            <input name="jumlah" value="10000000">
+          </form>
+          <script>document.forms[0].submit()</script>
+
+        Peramban korban mengirim formulir itu BESERTA cookie sesinya,
+        sebab cookie memang dikirim otomatis ke domain tujuannya.
+        Server melihat permintaan yang terautentikasi dengan sempurna.
+        `,
+      ),
+      p(
+        'Perlindungannya berlapis dan yang pertama sudah hampir cukup. `SameSite=Lax` membuat cookie tidak ikut pada pengiriman formulir lintas-situs seperti di atas, dan itu menutup bentuk yang paling umum. Lapisan keduanya adalah token anti-CSRF, yaitu nilai acak yang harus disertakan di badan atau header permintaan, dan yang tidak bisa dibaca situs lain karena terhalang aturan asal-sama.',
+      ),
+      p(
+        'Satu catatan penting yang sering membuat orang memasang perlindungan di tempat yang salah. API yang autentikasinya memakai **header** `Authorization`, bukan cookie, secara alami tidak rentan CSRF, sebab situs lain tidak bisa membuat peramban korban mengirimkan header itu. Memasang token anti-CSRF di API seperti itu menambah kerumitan tanpa menutup apa pun.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Sesi berbasis cookie punya banyak bagian kecil yang masing-masing sepele dan bersama-sama menentukan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyimpan token sesi di `localStorage`',
+            'Lebih mudah diakses dari JavaScript',
+            'Justru itu masalahnya. Satu XSS langsung membacanya. Cookie `HttpOnly` tidak bisa dibaca sama sekali',
+          ],
+          [
+            'Lupa `HttpOnly`',
+            'Cookie-nya kan sudah acak',
+            'Diukur, tanpa `HttpOnly` nilainya muncul di `document.cookie` dan satu baris XSS cukup mengambilnya',
+          ],
+          [
+            'Tidak membuat id sesi baru setelah login',
+            'Sesinya kan sudah ada',
+            'Membuka session fixation. Id yang dipegang penyerang menjadi sesi korban setelah korban login',
+          ],
+          [
+            'Logout dengan mengosongkan isi sesi',
+            'Datanya sudah hilang',
+            'Id-nya masih sah dan masih bisa dipakai. Hancurkan sesinya di penyimpanan',
+          ],
+          [
+            'Menyimpan sesi di memori proses',
+            'Paling cepat',
+            'Restart menghapus semua sesi, dan beberapa proses tidak saling melihat. Pakai penyimpanan bersama',
+          ],
+          [
+            'Memasang token anti-CSRF di API berbasis header',
+            'Lebih aman kan',
+            'API tanpa cookie tidak rentan CSRF. Perlindungannya menambah kerumitan tanpa menutup apa pun',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama layak diperjelas karena `localStorage` sering dipilih justru untuk menghindari kerumitan cookie. Pertukarannya perlu dilihat apa adanya. Token di `localStorage` kebal CSRF tetapi terbuka penuh terhadap XSS, sedangkan cookie `HttpOnly` kebal terhadap XSS tetapi butuh perlindungan CSRF. Karena XSS jauh lebih sering ditemukan daripada CSRF pada aplikasi modern, dan karena `SameSite=Lax` sudah menutup sebagian besar CSRF tanpa kode tambahan, cookie `HttpOnly` biasanya pilihan yang lebih baik.',
+      ),
       references(
         {
           label: 'Session Management Cheat Sheet',
@@ -697,7 +1197,7 @@ export const lessons: LessonDraft[] = [
   written(
     'jwt',
     'Token-based Auth & JWT beserta batasnya',
-    13,
+    20,
     'Token bertanda tangan, kegunaannya, dan harga yang dibayar.',
     [
       p(
@@ -881,6 +1381,159 @@ export const lessons: LessonDraft[] = [
         'Pilih karena kebutuhannya',
         'JWT sering dipilih karena terdengar modern, lalu tim menghabiskan waktu membangun ulang pencabutan yang sudah gratis pada sesi. Untuk aplikasi web satu domain, sesi biasanya lebih sederhana **dan** lebih aman.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Hal pertama yang harus dipahami tentang JWT bukan cara membuatnya melainkan **apa yang bisa dibaca siapa pun**. Berikut satu token sungguhan beserta isinya, dibongkar tanpa kunci apa pun.',
+      ),
+      code(
+        'text',
+        `
+        Token:
+          eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0MiIsInBlcmFuIjoidXNlciIs...
+
+        Dibongkar tanpa rahasia, tanpa alat khusus:
+          header  : {"alg":"HS256","typ":"JWT"}
+          payload : {"sub":"42","peran":"user","iat":1789367409,"exp":1789368309}
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan dengan node:crypto. Cukup Buffer.from(bagian, "base64url").',
+        },
+      ),
+      p(
+        'Base64url adalah **pengkodean, bukan enkripsi**. Siapa pun yang memegang tokennya bisa membaca seluruh isinya, termasuk pengguna itu sendiri, termasuk setiap perantara yang pernah menyentuhnya. Tanda tangannya menjamin isi itu **tidak diubah**, dan sama sekali tidak menjamin isinya **tidak terbaca**.',
+      ),
+      p(
+        'Konsekuensinya satu aturan yang tidak boleh ditawar, yaitu jangan pernah menaruh apa pun yang bersifat rahasia di dalam payload. Tidak ada nomor identitas, tidak ada alamat, tidak ada hasil pemeriksaan internal, dan tentu tidak ada kunci apa pun. Yang pantas ada di sana hanyalah identitas yang memang sudah diketahui pemiliknya beserta keterangan masa berlaku.',
+      ),
+      code(
+        'ts',
+        `
+        // Verifikasi yang LENGKAP. Setiap baris menutup satu serangan nyata.
+        function verifikasi(tok: string, algDiizinkan = ['HS256']) {
+          const [hb, pb, sb] = tok.split('.');
+          if (!hb || !pb || sb === undefined) throw new Error('Bentuk token tidak sah');
+
+          const header = JSON.parse(Buffer.from(hb, 'base64url').toString());
+
+          // 1. ALGORITMA DARI DAFTAR MILIK KITA, bukan dari header token.
+          //    Header itu dikirim pemanggil dan bisa berisi apa saja.
+          if (!algDiizinkan.includes(header.alg)) {
+            throw new Error('Algoritma tidak diizinkan: ' + header.alg);
+          }
+
+          // 2. Tanda tangan dibandingkan dengan waktu-konstan.
+          const harap = createHmac('sha256', RAHASIA).update(hb + '.' + pb).digest();
+          const ada = Buffer.from(sb, 'base64url');
+          if (harap.length !== ada.length || !timingSafeEqual(harap, ada)) {
+            throw new Error('Tanda tangan tidak cocok');
+          }
+
+          // 3. Masa berlaku WAJIB ada dan WAJIB diperiksa.
+          const payload = JSON.parse(Buffer.from(pb, 'base64url').toString());
+          if (typeof payload.exp !== 'number') throw new Error('Klaim exp wajib ada');
+          if (payload.exp < Math.floor(Date.now() / 1000)) throw new Error('Token kedaluwarsa');
+
+          return payload;
+        }
+        `,
+        { caption: 'Fungsi ini benar-benar dijalankan terhadap ketiga serangan di bawah.' },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Tiga serangan berikut dijalankan sungguhan terhadap dua versi verifikasi, yaitu versi lengkap di atas dan versi yang hanya **mengurai** payload tanpa memeriksa apa pun. Versi kedua itu bukan karangan, melainkan bentuk yang sering muncul ketika seseorang memakai fungsi `decode` alih-alih `verify`.',
+      ),
+      code(
+        'text',
+        `
+        SERANGAN 1 — payload diubah, tanda tangan lama dibiarkan
+          urai saja        -> peran = admin   <- LOLOS, jadi admin
+          verifikasi penuh -> Tanda tangan tidak cocok
+
+        SERANGAN 2 — alg diganti "none", tanda tangan diisi asal
+          percaya header   -> LOLOS, peran = admin
+          allow-list alg   -> Algoritma tidak diizinkan: none
+
+        SERANGAN 3 — token ASLI yang sudah kedaluwarsa satu jam
+          urai saja        -> peran = user    <- LOLOS
+          verifikasi penuh -> Token kedaluwarsa
+        `,
+        { caption: 'Ketiganya dijalankan sungguhan dengan node:crypto pada Node 26.5.0.' },
+      ),
+      p(
+        'Serangan kedua layak diperhatikan tersendiri karena ia menunjukkan kesalahan yang bentuknya sangat halus. Pustaka JWT yang membaca `alg` **dari dalam token** lalu memilih cara verifikasi berdasarkan nilai itu menyerahkan keputusan keamanan kepada pihak yang dicurigai. Yang benar adalah server menentukan sendiri algoritma yang diterimanya, dan menolak token apa pun yang menyebut algoritma lain.',
+      ),
+      p(
+        'Bentuk lain dari serangan yang sama bernama **algorithm confusion**, dan ia lebih berbahaya lagi. Ketika sebuah sistem memakai kunci publik dan privat, penyerang bisa mengganti `alg` dari `RS256` menjadi `HS256`, lalu menandatangani token dengan **kunci publik** yang memang terbuka untuk siapa pun. Verifikasi yang percaya pada `alg` akan memeriksanya sebagai HMAC memakai kunci publik itu, dan tanda tangannya cocok.',
+      ),
+      p(
+        'Serangan ketiga menunjukkan hal yang lebih sederhana dan sama seringnya, yaitu masa berlaku yang tidak pernah diperiksa. Token yang sudah lewat satu jam tetap dianggap sah, dan itu menghapus satu-satunya mekanisme pembatasan yang dimiliki JWT.',
+      ),
+      p(
+        'Masa berlaku membawa persoalan yang melekat pada JWT dan tidak punya jawaban yang rapi, yaitu **pencabutan**.',
+      ),
+      code(
+        'text',
+        `
+        Sesi (server menyimpan)          JWT (server tidak menyimpan)
+        ---------------------------      ------------------------------------------
+        Logout   : hapus barisnya        Logout   : tokennya TETAP SAH sampai exp
+        Ganti     : hapus semua baris     Ganti    : token lama tetap bisa dipakai
+          sandi     milik pengguna itu     sandi
+        Blokir    : hapus barisnya        Blokir   : tetap bisa masuk sampai exp
+          akun
+
+        Jadi "logout" pada JWT murni hanya berarti klien MEMBUANG tokennya
+        sendiri. Server tidak punya cara menolaknya.
+        `,
+      ),
+      p(
+        'Karena itu sistem nyata jarang memakai JWT murni. Yang lazim adalah token akses berumur sangat pendek, misalnya lima sampai lima belas menit, dipasangkan dengan refresh token yang **disimpan** di server sehingga bisa dicabut. Dengan begitu, jendela terburuk setelah pencabutan hanya selama sisa umur token akses.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'JWT terasa sederhana karena membuatnya sederhana. Yang tidak sederhana adalah memverifikasinya dengan benar.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai fungsi `decode`, bukan `verify`',
+            'Sama-sama mengembalikan payload',
+            'Diuji sungguhan, payload yang diubah penyerang lolos dan perannya menjadi admin',
+          ],
+          [
+            'Menerima algoritma yang disebut di dalam token',
+            'Tokennya kan menyebutkan sendiri',
+            'Diuji sungguhan, `alg: none` lolos. Server harus punya daftar algoritma sendiri',
+          ],
+          [
+            'Tidak memeriksa `exp`',
+            'Tanda tangannya sudah benar',
+            'Diuji sungguhan, token yang lewat satu jam tetap diterima. Masa berlaku wajib diperiksa',
+          ],
+          [
+            'Menaruh data sensitif di payload',
+            'Sudah ditandatangani',
+            'Diuji sungguhan, payload terbaca tanpa kunci apa pun. Tanda tangan mencegah perubahan, bukan pembacaan',
+          ],
+          [
+            'Memakai token akses berumur panjang supaya nyaman',
+            'Pengguna tidak perlu login ulang',
+            'Tidak ada cara mencabutnya. Logout dan blokir akun jadi tidak berlaku sampai masa berlakunya habis',
+          ],
+          [
+            'Memakai JWT untuk sesi aplikasi web biasa',
+            'Terdengar lebih modern',
+            'Sesi berbasis cookie lebih sederhana dan bisa dicabut seketika. JWT unggul saat lintas-layanan',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir pantas jadi penutup karena ia keputusan yang paling sering diambil dari alasan yang keliru. JWT lahir untuk kasus yang sangat spesifik, yaitu ketika penerima token **berbeda pihak** dengan penerbitnya, misalnya beberapa layanan yang perlu memverifikasi identitas tanpa menghubungi satu server pusat. Untuk satu aplikasi web dengan satu basis data, keunggulan itu tidak berlaku sama sekali, sementara seluruh kerumitannya tetap ada.',
+      ),
       references(
         {
           label: 'RFC 7519 — JSON Web Token',
@@ -913,7 +1566,7 @@ export const lessons: LessonDraft[] = [
   written(
     'refresh-token',
     'Refresh Token & Rotasi',
-    11,
+    19,
     'Memperpendek umur token tanpa memaksa pengguna login terus.',
     [
       p(
@@ -1107,6 +1760,197 @@ export const lessons: LessonDraft[] = [
         'Simpan hash refresh token, bukan tokennya',
         'Alasannya sama persis dengan password: kalau tabel token bocor, penyerang mendapat hash yang tidak bisa dipakai. Karena refresh token adalah nilai acak berentropi tinggi, SHA-256 sudah cukup di sini — tidak perlu algoritma lambat seperti argon2.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Refresh token menjawab satu pertanyaan yang tidak punya jawaban baik pada JWT murni, yaitu bagaimana memberi pengguna sesi yang panjang tanpa memberi penyerang token yang sah berbulan-bulan. Jawabannya bukan memperpanjang masa berlaku melainkan **memutar tokennya**, dan yang membuat pola ini bekerja adalah bagian yang sering dilewatkan, yaitu deteksi pemakaian ulang.',
+      ),
+      code(
+        'ts',
+        `
+        // Refresh token disimpan sebagai HASH, persis seperti sandi. Alasannya sama:
+        // bocornya basis data tidak langsung berarti bocornya seluruh sesi.
+        const hash = (t: string) => createHash('sha256').update(t).digest('hex');
+
+        function tukar(token: string) {
+          const rec = db.get(hash(token));
+          if (!rec) return { ok: false, alasan: 'Token tidak dikenal' };
+          if (keluargaDicabut.has(rec.keluarga)) {
+            return { ok: false, alasan: 'Keluarga token sudah dicabut' };
+          }
+
+          // INTI POLANYA. Token yang SUDAH PERNAH dipakai berarti ada salinan
+          // yang beredar — entah di tangan pengguna, entah di tangan pencuri.
+          // Karena tidak ada cara membedakan keduanya, keduanya dicabut.
+          if (rec.dipakai) {
+            keluargaDicabut.add(rec.keluarga);
+            return { ok: false, alasan: 'REUSE TERDETEKSI — seluruh keluarga token dicabut' };
+          }
+
+          rec.dipakai = true;
+          return { ok: true, ...terbitkan(rec.penggunaId, rec.keluarga) };
+        }
+        `,
+        { caption: 'Kode ini benar-benar dijalankan; hasil ketiga skenarionya ada di bawah.' },
+      ),
+      code(
+        'text',
+        `
+        Alur normal — token diputar setiap kali dipakai:
+          tukar ke-1: BERHASIL, token baru diterbitkan
+          tukar ke-2: BERHASIL, token baru diterbitkan
+          tukar ke-3: BERHASIL, token baru diterbitkan
+
+        Penyerang memakai token ke-1 yang dicurinya sejak awal:
+          penyerang : REUSE TERDETEKSI — seluruh keluarga token dicabut
+
+        Akibatnya bagi pengguna yang SAH:
+          pengguna  : Keluarga token sudah dicabut
+        `,
+        { caption: 'Dijalankan sungguhan dengan node:crypto pada Node 26.5.0.' },
+      ),
+      p(
+        'Baris terakhir itu bukan cacat melainkan **harga yang memang dibayar**. Pengguna yang sah dipaksa login ulang, dan itu terjadi tepat ketika ada bukti bahwa tokennya beredar di dua tempat. Alternatifnya jauh lebih buruk, yaitu membiarkan penyerang ikut memegang sesi yang terus diperbarui selama berbulan-bulan tanpa satu pun tanda.',
+      ),
+      p(
+        'Konsep **keluarga token** yang muncul di kode itu yang membuat pencabutannya menyeluruh. Setiap kali sebuah token ditukar, token penggantinya mewarisi penanda keluarga yang sama. Jadi satu deteksi pemakaian ulang mencabut seluruh rantai sejak login pertama, bukan hanya satu token.',
+      ),
+      table(
+        ['Token akses', 'Refresh token'],
+        [
+          ['Umur 5–15 menit', 'Umur berhari-hari sampai berminggu-minggu'],
+          ['Dikirim pada SETIAP permintaan', 'Dikirim HANYA ke endpoint pembaruan'],
+          ['Tidak disimpan server (bila JWT)', '**Wajib** disimpan server, sebagai hash'],
+          ['Tidak bisa dicabut', 'Bisa dicabut seketika'],
+          ['Boleh di memori aplikasi klien', 'Cookie `HttpOnly` dengan `Path` dibatasi'],
+        ],
+      ),
+      p(
+        'Baris terakhir memuat detail yang sering dianggap kosmetik. Membatasi `Path` refresh token ke endpoint pembaruannya saja berarti peramban **tidak mengirimkannya** pada permintaan biasa. Dengan begitu, token yang paling berharga tidak ikut melintas ratusan kali sehari, dan tidak ikut tercatat di log perantara mana pun.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Pola ini punya satu kegagalan yang muncul justru pada aplikasi yang berjalan normal, dan penyebabnya bukan penyerang melainkan **beberapa permintaan yang berjalan bersamaan**.',
+      ),
+      code(
+        'text',
+        `
+        Aplikasi memuat tiga bagian halaman sekaligus. Token akses baru kedaluwarsa.
+
+          permintaan A  -> 401  -> memanggil /refresh dengan token R1
+          permintaan B  -> 401  -> memanggil /refresh dengan token R1   (bersamaan)
+          permintaan C  -> 401  -> memanggil /refresh dengan token R1   (bersamaan)
+
+        Yang terjadi:
+          A berhasil, R1 ditandai dipakai, R2 diterbitkan
+          B memakai R1 yang SUDAH dipakai  -> REUSE TERDETEKSI
+          C sama                           -> seluruh keluarga dicabut
+
+        Pengguna yang tidak melakukan apa-apa tiba-tiba terlempar ke halaman login.
+        `,
+      ),
+      p(
+        'Ini bug nyata yang sering dilaporkan sebagai "kadang tiba-tiba logout sendiri", dan penyebabnya bukan keamanan melainkan perlombaan. Perbaikannya ada di dua sisi, dan keduanya diperlukan.',
+      ),
+      code(
+        'ts',
+        `
+        // SISI KLIEN — hanya satu pembaruan yang boleh berjalan pada satu waktu.
+        let pembaruanBerjalan: Promise<string> | null = null;
+
+        async function ambilTokenSegar(): Promise<string> {
+          // Permintaan kedua dan ketiga IKUT menunggu promise yang sama,
+          // alih-alih memanggil /refresh lagi.
+          pembaruanBerjalan ??= panggilRefresh().finally(() => {
+            pembaruanBerjalan = null;
+          });
+          return pembaruanBerjalan;
+        }
+
+        // SISI SERVER — beri tenggang singkat untuk token yang BARU SAJA ditukar,
+        // supaya permintaan yang terlanjur terkirim tidak dianggap serangan.
+        const TENGGANG_DETIK = 10;
+
+        if (rec.dipakai) {
+          const usiaPemakaian = (Date.now() - rec.dipakaiPada) / 1000;
+          if (usiaPemakaian <= TENGGANG_DETIK && rec.penggantiToken) {
+            // Kembalikan token pengganti yang SAMA, jangan terbitkan yang baru.
+            return { ok: true, token: rec.penggantiToken };
+          }
+          keluargaDicabut.add(rec.keluarga);
+          return { ok: false, alasan: 'REUSE TERDETEKSI' };
+        }
+        `,
+        {
+          caption:
+            'Tenggang sepuluh detik itu pertukaran sadar: sedikit longgar, ditukar dengan logout palsu yang hilang.',
+        },
+      ),
+      p(
+        'Perlu disebut jujur bahwa tenggang itu **melonggarkan** deteksi. Penyerang yang memakai token curian dalam sepuluh detik pertama setelah pemiliknya menukarkannya tidak akan terdeteksi. Pertukarannya masuk akal karena jendela sepuluh detik itu sangat sempit, sedangkan logout palsu yang dihasilkan tanpa tenggang terjadi setiap hari dan membuat pengguna kehilangan kepercayaan.',
+      ),
+      p(
+        'Kelompok kegagalan kedua adalah pencabutan yang tidak lengkap. Ada beberapa peristiwa yang **wajib** mencabut seluruh token seorang pengguna, dan melewatkan satu saja meninggalkan lubang.',
+      ),
+      code(
+        'text',
+        `
+        Peristiwa yang WAJIB mencabut seluruh refresh token milik pengguna:
+
+          ganti sandi          -> yang paling sering dilupakan, dan paling penting:
+                                  orang mengganti sandi TEPAT KARENA curiga dibobol
+          keluar dari semua perangkat
+          akun dinonaktifkan atau dihapus
+          peran atau izin berubah   -> token lama membawa izin lama
+          deteksi pemakaian ulang   -> seluruh keluarga
+
+        Ganti sandi yang TIDAK mencabut sesi lain berarti penyerang tetap
+        memegang sesinya, dan korban merasa sudah aman.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Pola dua token mudah dipasang setengah, dan setengahnya sering justru bagian yang memberi perlindungannya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memutar token tanpa deteksi pemakaian ulang',
+            'Tokennya sudah berganti-ganti',
+            'Rotasi tanpa deteksi hampir tidak menambah apa pun. Yang memberi perlindungan adalah deteksinya',
+          ],
+          [
+            'Menyimpan refresh token apa adanya di basis data',
+            'Bukan sandi, kan',
+            'Bocornya basis data langsung berarti bocornya seluruh sesi. Simpan hash-nya, seperti sandi',
+          ],
+          [
+            'Tidak mencabut sesi lain saat sandi diganti',
+            'Sandinya sudah diganti',
+            'Penyerang tetap memegang sesinya. Orang mengganti sandi justru karena curiga dibobol',
+          ],
+          [
+            'Membiarkan beberapa permintaan memanggil `/refresh` bersamaan',
+            'Masing-masing memang butuh token',
+            'Diuraikan di atas, deteksi reuse ikut terpicu dan pengguna sah terlempar ke login',
+          ],
+          [
+            'Memberi refresh token masa berlaku sangat panjang tanpa batas mutlak',
+            'Pengguna tidak perlu login ulang',
+            'Sesi yang bisa diperpanjang selamanya tidak pernah berakhir. Beri batas mutlak sejak login pertama',
+          ],
+          [
+            'Mengirim refresh token pada setiap permintaan',
+            'Sekalian saja',
+            'Token paling berharga jadi melintas ratusan kali sehari. Batasi dengan `Path`',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima memuat perbedaan yang layak dipegang, yaitu antara masa berlaku yang **bergulir** dan batas **mutlak**. Masa berlaku bergulir memperpanjang sesi setiap kali dipakai, dan tanpa batas mutlak ia berarti sesi yang tidak pernah berakhir selama penggunanya aktif. Batas mutlak sejak login pertama, misalnya tiga puluh hari, memastikan setiap sesi punya akhir yang pasti, berapa pun seringnya dipakai.',
+      ),
       references(
         {
           label: 'RFC 6749 §1.5 — Refresh Token',
@@ -1139,7 +1983,7 @@ export const lessons: LessonDraft[] = [
   written(
     'otorisasi-role-policy',
     'Otorisasi: role, permission, policy',
-    12,
+    19,
     'Menyusun aturan "siapa boleh apa" supaya tetap terkelola.',
     [
       terms(
@@ -1344,6 +2188,180 @@ export const lessons: LessonDraft[] = [
         'Lonjakan penolakan adalah sinyal serangan',
         'Satu penolakan itu wajar — seseorang salah klik. Lima puluh penolakan dari satu akun dalam semenit adalah seseorang yang sedang memetakan apa yang bisa ia sentuh. Log tanpa alert hanyalah arsip; pasang peringatan untuk pola ini.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Otorisasi hampir selalu dimulai dengan pemeriksaan peran di dalam handler, dan bentuk itu bertahan sampai muncul kebutuhan pertama yang tidak bisa dijawabnya, yaitu **izin yang bergantung pada objeknya**, bukan hanya pada penggunanya.',
+      ),
+      code(
+        'ts',
+        `
+        // Tingkat 1 — peran saja. Cukup untuk "siapa boleh masuk ke halaman ini".
+        if (req.pengguna.peran !== 'admin') return res.status(403).json({ error: 'Tidak berhak' });
+
+        // Pertanyaan yang TIDAK bisa dijawab bentuk di atas:
+        //   - "editor boleh mengubah artikel MILIKNYA SENDIRI"
+        //   - "anggota tim boleh melihat pesanan TIM-nya, bukan tim lain"
+        //   - "penulis boleh menghapus komentar di artikelnya, bukan di artikel lain"
+        //
+        // Semuanya bergantung pada HUBUNGAN antara pengguna dan objek tertentu.
+        `,
+      ),
+      p(
+        'Jawaban untuk pertanyaan seperti itu bernama **policy**, yaitu fungsi yang menerima pengguna dan objeknya lalu menjawab boleh atau tidak. Yang membuatnya bekerja bukan bentuk fungsinya melainkan bahwa ia **satu-satunya tempat** aturan itu ditulis.',
+      ),
+      code(
+        'ts',
+        `
+        // domain/policy/artikel.ts — tanpa req, tanpa res, tanpa HTTP.
+        // Karena murni, ia bisa diuji tanpa menyalakan apa pun.
+        export const artikelPolicy = {
+          lihat(pengguna: Pengguna, artikel: Artikel): boolean {
+            if (artikel.status === 'terbit') return true;
+            return artikel.penulisId === pengguna.id || pengguna.peran === 'admin';
+          },
+          ubah(pengguna: Pengguna, artikel: Artikel): boolean {
+            if (pengguna.peran === 'admin') return true;
+            return pengguna.peran === 'editor' && artikel.penulisId === pengguna.id;
+          },
+          hapus(pengguna: Pengguna, artikel: Artikel): boolean {
+            // Sengaja LEBIH KETAT daripada ubah: menghapus tidak bisa dibatalkan.
+            return pengguna.peran === 'admin';
+          },
+        };
+
+        // Testnya tidak butuh server maupun basis data, dan justru kasus yang
+        // TIDAK nyaman yang paling penting diuji:
+        //   ubah(editorA, artikelMilikEditorB)  -> false
+        //   ubah(editorA, artikelMilikEditorA)  -> true
+        //   hapus(editorA, artikelMilikEditorA) -> false   <- lebih ketat, disengaja
+        //   lihat(tamu, artikelDraf)            -> false
+        `,
+        {
+          caption:
+            'Menaruh aturan di fungsi murni membuat empat baris uji di atas mungkin ditulis sama sekali.',
+        },
+      ),
+      p(
+        'Perlu ditegaskan satu hal yang membedakan policy yang berguna dari policy yang memberi rasa aman palsu. Policy bekerja pada objek yang **sudah diambil**, dan itu berarti ia sendiri tidak cukup untuk daftar. Untuk daftar, batasnya harus ikut ke dalam query, sebagaimana sudah diukur pada sub-bab IDOR.',
+      ),
+      code(
+        'ts',
+        `
+        // SATU objek: ambil dulu, lalu policy. Objeknya dibatasi pemiliknya di query
+        // supaya datanya tidak pernah keluar dari database untuk yang tidak berhak.
+        const artikel = await repo.cari(id);
+        if (!artikel || !artikelPolicy.lihat(req.pengguna, artikel)) {
+          return res.status(404).json({ error: 'Tidak ditemukan' });
+        }
+
+        // DAFTAR: policy TIDAK BISA dipakai di sini. Menyaring seribu baris di
+        // aplikasi berarti seribu baris sudah terbaca, dan paginasinya jadi salah
+        // karena jumlah baris sebelum dan sesudah penyaringan berbeda.
+        const daftar = await repo.daftarUntuk(req.pengguna);
+        // -> WHERE status = 'terbit' OR penulis_id = $1
+        `,
+        { caption: 'Satu aturan, dua bentuk: policy untuk satu objek, klausa WHERE untuk daftar.' },
+      ),
+      p(
+        'Bagian tentang paginasi di komentar itu sering baru disadari setelah bug-nya muncul. Ketika penyaringan dilakukan setelah data diambil, sebuah halaman berisi dua puluh baris bisa menyusut menjadi tiga setelah disaring, sementara penanda halaman berikutnya sudah terlanjur dihitung dari dua puluh. Pengguna melihat halaman yang isinya sedikit dan sebagian barisnya terlewat sepenuhnya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan otorisasi tidak menghasilkan error, jadi satu-satunya cara mengetahuinya adalah menulis uji yang memang mencarinya. Berikut bentuk kebocoran yang paling sering lolos.',
+      ),
+      code(
+        'text',
+        `
+        KEBOCORAN 1 — memeriksa peran, lupa memeriksa kepemilikan
+          if (pengguna.peran === 'editor') { ubah(artikel); }
+          -> setiap editor bisa mengubah artikel editor lain
+
+        KEBOCORAN 2 — aturan yang sama ditulis di dua tempat
+          handler ubah  : peran editor DAN pemilik
+          handler hapus : peran editor saja      <- salah satu akan menyimpang
+          -> perbaikan di satu tempat tidak ikut ke tempat lain
+
+        KEBOCORAN 3 — endpoint baru yang lupa dipasangi pemeriksaan
+          Bawaan yang MENGIZINKAN berarti setiap rute baru otomatis terbuka.
+          Bawaan yang MENOLAK berarti rute yang lupa dipasangi akan gagal keras,
+          dan kegagalan keras itu ketahuan di hari pertama.
+
+        KEBOCORAN 4 — mass assignment lewat peran
+          await db.pengguna.update({ id, ...req.body });
+          -> klien mengirim {"peran":"admin"} dan menaikkan haknya sendiri
+        `,
+      ),
+      p(
+        'Kebocoran keempat menghubungkan kembali ke apa yang sudah diukur di bab Express, yaitu `z.object()` membuang kunci yang tidak dideklarasikan. Selama kamu memakai hasil parsing dan bukan `req.body`, `peran` yang disisipkan penyerang tidak pernah sampai ke basis data.',
+      ),
+      p(
+        'Prinsip hak minimum berlaku untuk **setiap identitas**, bukan hanya untuk pengguna manusia, dan bagian ini yang paling sering dilewatkan sepenuhnya.',
+      ),
+      code(
+        'text',
+        `
+        Identitas yang semuanya butuh hak minimum:
+
+          pengguna aplikasi   -> peran dan policy, seperti di atas
+          akun database       -> aplikasi yang tidak pernah membuat tabel TIDAK PERLU
+                                 terhubung sebagai pemilik skema
+          service account     -> layanan pengirim surel tidak perlu membaca tabel pesanan
+          kunci API           -> satu kunci per klien, dengan izin sesempit kebutuhannya
+          token CI/CD         -> hanya izin yang dibutuhkan pipeline-nya
+
+        Diuji sungguhan di bab database: injeksi lewat ORDER BY berhasil
+        MENGHAPUS sebuah tabel. Dengan akun database yang hanya berhak membaca
+        dan menulis baris, perintah DROP itu akan gagal di tingkat izin
+        meski celah injeksinya tetap ada.
+        `,
+      ),
+      p(
+        'Contoh terakhir itu menunjukkan kenapa lapisan tidak bisa saling menggantikan. Query berparameter menutup celahnya, dan hak minimum membatasi kerusakan bila suatu hari ada celah lain yang terlewat. Keduanya murah, dan yang kedua sering tidak dipasang sama sekali karena "lebih repot saat mengembangkan".',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Otorisasi adalah bagian yang paling mudah ditulis terlalu sederhana, sebab bentuk sederhananya bekerja sempurna sampai pengguna kedua muncul.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memeriksa peran saja, tanpa kepemilikan',
+            'Perannya sudah benar',
+            'Setiap editor bisa mengubah milik editor lain. Peran menjawab "boleh apa", bukan "boleh atas objek mana"',
+          ],
+          [
+            'Menulis aturan yang sama di beberapa handler',
+            'Tiap handler jelas terbaca',
+            'Salinan-salinannya menyimpang seiring waktu. Satu aturan hidup di satu fungsi policy',
+          ],
+          [
+            'Memakai policy untuk menyaring daftar',
+            'Aturannya kan sama',
+            'Seluruh baris terbaca lebih dulu, dan paginasinya jadi salah. Daftar disaring di klausa `WHERE`',
+          ],
+          [
+            'Bawaan mengizinkan, lalu menolak yang berbahaya',
+            'Lebih sedikit yang ditulis',
+            'Setiap endpoint baru otomatis terbuka. Bawaan menolak membuat yang terlewat gagal keras',
+          ],
+          [
+            'Terhubung ke database sebagai pemilik skema',
+            'Supaya tidak ada yang menghalangi',
+            'Diuji di bab database, satu celah injeksi cukup untuk menghapus tabel. Hak minimum membatasi kerusakannya',
+          ],
+          [
+            'Tidak mencatat penolakan akses',
+            'Kan memang ditolak',
+            'Lonjakan penolakan adalah tanda paling awal seseorang sedang menjelajah. Tanpa catatan, ia tak terlihat',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir pantas ditegaskan karena nilainya baru terasa saat dibutuhkan. Satu penolakan akses adalah kejadian biasa, misalnya pengguna membuka tautan lama. Tiga ratus penolakan dalam lima menit dari satu akun, terhadap tiga ratus id yang berurutan, adalah seseorang yang sedang mencoba IDOR satu per satu. Yang membedakan keduanya bukan peristiwanya melainkan polanya, dan pola hanya terlihat kalau setiap peristiwanya dicatat beserta aktor, tindakan, objek, dan waktunya.',
+      ),
       references(
         {
           label: 'Authorization Cheat Sheet',
@@ -1376,7 +2394,7 @@ export const lessons: LessonDraft[] = [
   written(
     'idor',
     'IDOR — kenapa ID dari klien bukan bukti kewenangan',
-    11,
+    17,
     'Kerentanan paling umum di API, dan yang paling mudah dilewatkan.',
     [
       p(
@@ -1588,6 +2606,164 @@ export const lessons: LessonDraft[] = [
         'Jadikan ini tes wajib untuk setiap sumber daya',
         'Setiap kali kamu menambahkan entitas baru yang punya pemilik, salin tes ini dan sesuaikan. Aturan yang dijaga tes bertahan; aturan yang dijaga ingatan akan terlewat pada endpoint kesepuluh — dan endpoint kesepuluh itulah yang bocor.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'IDOR adalah kerentanan yang paling banyak ditemukan pada program bug bounty, dan alasannya bukan karena sulit dicegah melainkan karena **tidak menghasilkan gejala apa pun**. Fiturnya bekerja, testnya lulus, dan yang bocor hanya terlihat kalau ada yang sengaja mencobanya.',
+      ),
+      code(
+        'text',
+        `
+        Dua pesanan milik dua orang berbeda:
+
+          id   | pelanggan_id | total  | catatan
+          -----+--------------+--------+------------------------------
+          4211 |            7 | 890000 | Alamat Rina, Jl. Merdeka 12
+          4212 |            9 | 125000 | Alamat Budi, Jl. Sudirman 4
+
+        Budi (pelanggan_id 9), SUDAH LOGIN, mengganti angka di alamat
+        menjadi /pesanan/4211:
+
+          RENTAN : SELECT * FROM pesanan WHERE id = ?
+            {"id":4211,"pelanggan_id":7,"total":890000,
+             "catatan":"Alamat Rina, Jl. Merdeka 12"}
+
+          AMAN   : SELECT * FROM pesanan WHERE id = ? AND pelanggan_id = ?
+            null    -> dijawab 404
+
+        Dan pesanan Budi sendiri tetap terbaca:
+            {"id":4212,"pelanggan_id":9,"total":125000,
+             "catatan":"Alamat Budi, Jl. Sudirman 4"}
+        `,
+        { caption: 'Dijalankan sungguhan dengan node:sqlite bawaan Node 26.5.0.' },
+      ),
+      p(
+        'Perbedaan antara kedua query itu hanya satu klausa, dan klausa itu yang memindahkan pemeriksaan kepemilikan **ke dalam basis data**. Selama syaratnya ada di sana, tidak ada satu pun jalur kode di atasnya yang bisa lupa memeriksanya, sebab barisnya memang tidak pernah kembali.',
+      ),
+      p(
+        'Bentuk perbaikan yang terlihat setara dan sebenarnya tidak adalah memeriksa kepemilikan setelah barisnya diambil.',
+      ),
+      code(
+        'text',
+        `
+        const baris = ambil(4211);                          // tanpa syarat pemilik
+        if (baris.pelanggan_id !== penggunaLogin) return res.status(404)...
+
+        Yang benar-benar terukur:
+
+          data sudah TERBACA ke memori proses :
+            {"id":4211,"pelanggan_id":7,"total":890000,"catatan":"Alamat...
+          baru kemudian ditolak              : ditolak
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Penolakannya berhasil, datanya sudah keluar dari database.',
+        },
+      ),
+      p(
+        'Setelah baris itu berada di dalam proses, ada banyak jalan ia bisa bocor tanpa siapa pun berniat membocorkannya. Ia bisa ikut tercetak ke log saat sebuah pesan error mencetak objeknya, ikut ke jejak tumpukan yang dikirim sistem pemantauan, ikut ke respons pada satu cabang kode yang lupa disaring, atau ikut ke cache yang menyimpan hasil query berdasarkan id saja. Menaruh syaratnya di dalam query menutup semua jalan itu sekaligus.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Ada satu "perbaikan" yang sangat sering dipakai dan sama sekali tidak memperbaiki, yaitu mengganti id berurutan dengan UUID.',
+      ),
+      code(
+        'text',
+        `
+        CREATE TABLE berkas (id TEXT PRIMARY KEY, pemilik_id INTEGER, nama TEXT);
+        INSERT INTO berkas VALUES ('9f1c2b7a-4d3e-4a11-9c2f-0b7e6d5a4c31', 7, 'ktp-rina.pdf');
+
+        SELECT * FROM berkas WHERE id = '9f1c2b7a-4d3e-4a11-9c2f-0b7e6d5a4c31';
+          {"id":"9f1c2b7a-...","pemilik_id":7,"nama":"ktp-rina.pdf"}
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Query-nya tetap tidak menyebut pemilik, jadi tetap terbuka.',
+        },
+      ),
+      p(
+        'UUID memang membuat penebakan acak menjadi tidak praktis, dan itu manfaat yang nyata. Yang tidak dilakukannya adalah menutup akses bagi siapa pun yang **sudah memegang** nilainya, dan nilai seperti itu beredar di banyak tempat. Ia muncul di riwayat peramban, di header `Referer` yang terkirim ke situs pihak ketiga, di log server dan log proxy, di tautan yang dibagikan lewat pesan, dan di tangkapan layar. Keamanan yang bergantung pada nilai yang beredar seperti itu bukan kontrol akses melainkan penundaan.',
+      ),
+      p(
+        'IDOR juga tidak hanya soal baris basis data, dan bentuk-bentuk berikut sering luput karena tidak melibatkan query sama sekali.',
+      ),
+      code(
+        'text',
+        `
+        Referensi objek yang SEMUANYA butuh pemeriksaan kepemilikan:
+
+          /berkas/laporan-q3.pdf          berkas di penyimpanan
+          /faktur/2026-09/INV-4211.pdf    berkas yang dibuat per pengguna
+          /ekspor/status/8821             id pekerjaan latar
+          /notifikasi/9931/baca           id notifikasi
+          cache key "pesanan:4211"        kunci cache yang tidak memuat pemilik
+          antrean pesan { pesananId: 4211 }  payload job yang dipercaya apa adanya
+
+        Baris terakhir sering dilewatkan sepenuhnya: pekerjaan latar yang membaca
+        id dari antrean dan langsung memprosesnya tanpa memeriksa siapa pemiliknya.
+        Antrean milik sendiri BUKAN alasan untuk mempercayai isinya.
+        `,
+      ),
+      p(
+        'Pilihan antara `404` dan `403` juga bagian dari perbaikannya, dan keduanya benar untuk situasi yang berbeda. Menjawab `403` berarti mengakui bahwa objek bernomor itu **ada**, dan untuk sebagian data keberadaannya sendiri sudah merupakan keterangan. Bahwa ada faktur bernomor tertentu, atau ada berkas bernama tertentu, bisa cukup berarti bagi penyerang.',
+      ),
+      code(
+        'text',
+        `
+        Pakai 404 bila keberadaan objeknya sendiri bersifat rahasia:
+          /faktur/:id   /berkas/:id   /pesanan/:id   /dokumen/:id
+
+        Pakai 403 bila keberadaannya memang publik dan hanya aksinya yang dibatasi:
+          /artikel/:id/hapus  -> artikelnya publik, yang dibatasi adalah menghapusnya
+          /tim/:id/undang     -> timnya diketahui, yang dibatasi adalah mengundang
+
+        Yang penting: KONSISTEN. Bila sebagian endpoint menjawab 403 dan
+        sebagian 404 untuk situasi yang sama, selisihnya sendiri jadi bocoran.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'IDOR bertahan di produksi bukan karena sulit dipahami melainkan karena tidak pernah muncul pada pengujian yang biasa dilakukan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Mengambil baris berdasarkan id saja',
+            'Penggunanya sudah login',
+            'Diuji sungguhan, pengguna lain membacanya utuh hanya dengan mengganti angka di alamat',
+          ],
+          [
+            'Memeriksa kepemilikan setelah baris diambil',
+            'Hasilnya sama-sama ditolak',
+            'Diuji sungguhan, datanya sudah masuk ke proses dan bisa bocor lewat log, cache, atau pesan error',
+          ],
+          [
+            'Mengganti id berurutan dengan UUID',
+            'Tidak bisa ditebak lagi',
+            'Diuji sungguhan, tetap terbuka bagi siapa pun yang memegang nilainya. UUID memperlambat, bukan menutup',
+          ],
+          [
+            'Melupakan referensi selain baris database',
+            'Yang penting datanya aman',
+            'Berkas, id pekerjaan, kunci cache, dan payload antrean semuanya referensi objek yang sama rentannya',
+          ],
+          [
+            'Mempercayai payload dari antrean sendiri',
+            'Antreannya kan milik kita',
+            'Pesan bisa berasal dari permintaan pengguna. Job harus memeriksa kepemilikan seperti endpoint',
+          ],
+          [
+            'Menguji hanya dengan satu akun',
+            'Fiturnya sudah bekerja',
+            'IDOR hanya terlihat dengan dua akun. Uji A membuka objek milik B pada SETIAP endpoint',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir bisa diubah menjadi kebiasaan yang murah dan menangkap hampir semuanya. Buat dua akun uji tetap, sebut saja A dan B, lalu untuk setiap endpoint yang mengembalikan atau mengubah objek milik seseorang, tulis satu uji yang login sebagai B dan menyentuh objek milik A. Uji itu pendek, tidak butuh alat khusus, dan ia satu-satunya hal yang membedakan kebocoran yang tertangkap di hari pertama dari kebocoran yang ditemukan orang lain setahun kemudian.',
+      ),
       references(
         {
           label: 'Insecure Direct Object Reference Prevention Cheat Sheet',
@@ -1620,7 +2796,7 @@ export const lessons: LessonDraft[] = [
   written(
     'rate-limit-login',
     'Rate Limit Login & Pesan Error Generik',
-    11,
+    18,
     'Membuat penebakan password tidak sepadan dengan usahanya.',
     [
       p(
@@ -1856,6 +3032,194 @@ export const lessons: LessonDraft[] = [
       p(
         'Pasang alert untuk lonjakan kegagalan login, lonjakan penolakan otorisasi, dan permintaan yang cocok dengan pola injeksi. Log yang tidak ada yang membaca bukan deteksi — ia arsip.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman login membocorkan keterangan lewat dua jalur yang sama pentingnya, yaitu **pesannya** dan **waktunya**. Yang pertama mudah diperbaiki dan sering sudah diperbaiki. Yang kedua jarang disadari, dan berikut ukurannya.',
+      ),
+      code(
+        'text',
+        `
+        VERSI RENTAN — keluar lebih awal ketika emailnya tidak ada
+
+          email TIDAK terdaftar      median     0,0 ms
+          email ada, sandi SALAH     median    28,7 ms
+          email ada, sandi BENAR     median    30,0 ms
+
+        VERSI AMAN — SELALU menghitung hash, meski emailnya tidak ada
+
+          email TIDAK terdaftar      median    28,4 ms
+          email ada, sandi SALAH     median    28,5 ms
+          email ada, sandi BENAR     median    28,2 ms
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan dengan scrypt pada Node 26.5.0, median dari 12 pengukuran.',
+        },
+      ),
+      p(
+        'Selisih 28 milidetik pada versi rentan bukan angka yang samar. Ia jauh lebih besar daripada derau jaringan biasa, dan penyerang yang mengirim satu permintaan per alamat email bisa memilah daftar sejuta alamat menjadi "terdaftar" dan "tidak terdaftar" tanpa pernah menebak satu sandi pun. Daftar hasilnya kemudian dipakai untuk hal-hal yang jauh lebih merugikan, mulai dari penipuan bersasar sampai penebakan sandi yang terfokus.',
+      ),
+      p('Penyebabnya terlihat begitu alurnya ditulis berdampingan.'),
+      code(
+        'ts',
+        `
+        // RENTAN: cabang pertama keluar tanpa mengerjakan apa pun yang mahal.
+        function loginRentan(email: string, sandi: string) {
+          const tersimpan = db.get(email);
+          if (!tersimpan) return { ok: false, pesan: 'Email tidak terdaftar' };  // 0 ms
+          if (!cocok(sandi, tersimpan)) return { ok: false, pesan: 'Sandi salah' }; // 28 ms
+          return { ok: true };
+        }
+
+        // AMAN: hash SELALU dihitung, dan pesannya identik.
+        // HASH_UMPAN dibuat sekali saat boot dari nilai acak — ia tidak pernah cocok
+        // dengan sandi apa pun, dan biayanya sama persis dengan hash sungguhan.
+        const HASH_UMPAN = buatHash(randomBytes(32).toString('hex'));
+
+        function loginAman(email: string, sandi: string) {
+          const tersimpan = db.get(email) ?? HASH_UMPAN;
+          const benar = cocok(sandi, tersimpan);
+          if (!db.has(email) || !benar) return { ok: false, pesan: 'Email atau sandi salah' };
+          return { ok: true };
+        }
+        `,
+        {
+          caption:
+            'Perhatikan pemeriksaan db.has ditaruh SESUDAH cocok(), supaya hash-nya tetap dihitung.',
+        },
+      ),
+      code(
+        'text',
+        `
+        Pesan yang dikembalikan keduanya:
+
+          rentan, email tak ada  : Email tidak terdaftar
+          rentan, sandi salah    : Sandi salah
+          aman,   email tak ada  : Email atau sandi salah
+          aman,   sandi salah    : Email atau sandi salah
+        `,
+        { caption: 'Dijalankan sungguhan. Dua pesan identik, dan dua waktu yang juga identik.' },
+      ),
+      p(
+        'Perlu disebut bahwa pesan yang identik saja tidak cukup, dan itu tepat yang ditunjukkan versi rentan. Ia bisa saja memakai pesan yang sama untuk keduanya dan tetap membocorkan seluruhnya lewat selisih 28 milidetik. Dua perbaikan itu harus dipasang bersama.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Pembatasan laju punya satu keputusan yang menentukan apakah ia melindungi atau justru menjadi senjata, yaitu **backoff** atau **penguncian keras**. Berikut simulasi penyerang yang menebak sandi satu akun, dengan backoff eksponensial.',
+      ),
+      code(
+        'text',
+        `
+          t=   0s  percobaan ke- 1  diproses, jeda berikutnya   0s
+          t=   0s  percobaan ke- 2  diproses, jeda berikutnya   0s
+          t=   0s  percobaan ke- 3  diproses, jeda berikutnya   1s
+          t=   1s  percobaan ke- 4  diproses, jeda berikutnya   2s
+          t=   3s  percobaan ke- 5  diproses, jeda berikutnya   4s
+          t=   7s  percobaan ke- 6  diproses, jeda berikutnya   8s
+          t=  15s  percobaan ke- 7  diproses, jeda berikutnya  16s
+          t=  31s  percobaan ke- 8  diproses, jeda berikutnya  32s
+          t=  63s  percobaan ke- 9  diproses, jeda berikutnya  60s
+          t= 123s  percobaan ke-10  diproses, jeda berikutnya 120s
+          t= 243s  percobaan ke-11  diproses, jeda berikutnya 300s
+          t= 543s  percobaan ke-12  diproses, jeda berikutnya 300s
+
+        Berapa tebakan yang muat dalam 24 jam:
+          dengan backoff : 298 tebakan
+          tanpa backoff  : dibatasi kecepatan jaringan saja, mudah ratusan ribu
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Tiga percobaan pertama sengaja tanpa jeda, supaya salah ketik biasa tidak terhukum.',
+        },
+      ),
+      p(
+        'Angka 298 tebakan per hari itu yang membuat penebakan sandi menjadi tidak praktis, dan perhatikan bahwa tiga percobaan pertama tetap berjalan tanpa jeda sama sekali. Pengguna yang salah mengetik sandinya sekali atau dua kali tidak merasakan apa pun, sementara penyerang yang mencoba ke sepuluh sudah menunggu dua menit.',
+      ),
+      p('Sekarang alternatifnya, dan kenapa ia memindahkan masalah alih-alih menyelesaikannya.'),
+      code(
+        'text',
+        `
+        PENGUNCIAN KERAS: "5 kali gagal, akun dikunci 30 menit"
+
+        Yang bisa dilakukan penyerang dengan aturan itu:
+
+          1. ambil daftar email pelanggan (atau tebak dari pola email perusahaan)
+          2. kirim 5 percobaan asal untuk SETIAP email
+          3. seluruh pengguna terkunci, dan tidak satu pun sandinya perlu ditebak
+
+        Serangan berpindah dari pencurian akun menjadi penolakan layanan,
+        dan tombolnya justru disediakan oleh perlindungan yang kita pasang.
+        `,
+      ),
+      p(
+        'Karena itu backoff lebih disukai, sebab ia memperlambat penyerang **tanpa memberinya kemampuan mengunci korban**. Penguncian keras masih punya tempat, yaitu sebagai lapisan terakhir dengan ambang yang jauh lebih tinggi dan disertai jalan pemulihan mandiri lewat surel.',
+      ),
+      p(
+        'Pembatasan laju juga harus dipasang pada **dua sumbu sekaligus**, dan memasang satu saja meninggalkan lubang yang besar.',
+      ),
+      code(
+        'text',
+        `
+        HANYA per IP:
+          -> credential stuffing dari botnet ribuan IP lolos sepenuhnya,
+             sebab tiap IP hanya mencoba beberapa kali
+
+        HANYA per akun:
+          -> penyerang menebak SATU sandi yang sangat umum terhadap
+             SEJUTA akun berbeda. Tiap akun hanya kena satu percobaan,
+             jadi backoff per akun tidak pernah menyala. Ini namanya
+             password spraying, dan ia berhasil dengan mengejutkan sering
+
+        Yang benar: keduanya, plus batas global untuk endpoint login itu sendiri.
+        `,
+      ),
+      p(
+        'Endpoint lain yang sering dilupakan padahal sama rentannya adalah pendaftaran, permintaan reset sandi, pengiriman ulang kode verifikasi, dan pemeriksaan ketersediaan nama pengguna. Yang terakhir itu bahkan tidak butuh sandi sama sekali untuk membocorkan siapa saja yang sudah terdaftar.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Perlindungan login mudah dipasang setengah, dan setengahnya sering adalah bagian yang menutup kebocoran.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai pesan berbeda untuk email salah dan sandi salah',
+            'Lebih membantu pengguna',
+            'Memberitahu penyerang email mana yang terdaftar. Pakai satu pesan untuk keduanya',
+          ],
+          [
+            'Menyamakan pesannya, tapi keluar lebih awal saat email tak ada',
+            'Pesannya sudah sama',
+            'Diukur, selisihnya 0,0 ms melawan 28,7 ms. Waktunya membocorkan apa yang pesannya sembunyikan',
+          ],
+          [
+            'Mengunci akun setelah beberapa kali gagal',
+            'Penyerang jadi berhenti',
+            'Penyerang bisa mengunci akun siapa pun dengan 5 tebakan asal. Pakai backoff bertingkat',
+          ],
+          [
+            'Membatasi laju hanya per IP',
+            'Penyerangnya kan dari satu tempat',
+            'Botnet ribuan IP lolos sepenuhnya. Batasi per akun juga',
+          ],
+          [
+            'Membatasi laju hanya per akun',
+            'Yang diserang kan akunnya',
+            'Password spraying satu sandi ke sejuta akun tidak pernah menyalakan batas per akun',
+          ],
+          [
+            'Memberi pesan berbeda pada reset sandi untuk email tak terdaftar',
+            'Supaya pengguna tahu salah ketik',
+            'Bocoran yang sama persis, lewat pintu lain. Jawab identik: "Bila terdaftar, tautan sudah dikirim"',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir melengkapi seluruh bagian ini, sebab perbaikan di halaman login jadi sia-sia bila halaman reset sandi membocorkan hal yang sama. Bentuk yang benar untuk reset adalah selalu menjawab dengan kalimat yang sama, misalnya "Bila alamat itu terdaftar, tautan pemulihan sudah kami kirim", dan mengirim surelnya hanya bila memang ada. Tokennya sendiri harus acak, berumur pendek, sekali pakai, dan mencabut seluruh sesi lain begitu sandinya benar-benar diganti.',
+      ),
       references(
         {
           label: 'Authentication Cheat Sheet',
@@ -1888,7 +3252,7 @@ export const lessons: LessonDraft[] = [
   written(
     'praktik-register-login',
     'Praktik: Register/login di Express dan Laravel',
-    14,
+    20,
     'Membangun alur autentikasi lengkap di kedua stack.',
     [
       p(
@@ -2227,6 +3591,216 @@ export const lessons: LessonDraft[] = [
         'Penolakan otorisasi tercatat di log, dan ada alert untuk lonjakannya',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Pendaftaran dan login yang siap dipakai berbeda dari versi latihan pada hal-hal yang tidak terlihat di jalur sukses. Delapan di antaranya sudah diukur sepanjang bab ini, dan berikut bagaimana kedelapannya bertemu dalam satu alur.',
+      ),
+      code(
+        'ts',
+        `
+        // service/auth.ts — tanpa req, tanpa res, tanpa status code.
+        import { scryptSync, randomBytes, timingSafeEqual, randomUUID } from 'node:crypto';
+
+        const OPSI = { N: 2 ** 14, r: 8, p: 1, maxmem: 128 * 1024 * 1024 };
+
+        // Dibuat SEKALI saat boot. Biayanya sama persis dengan hash sungguhan,
+        // dan ia tidak akan pernah cocok dengan sandi apa pun.
+        const HASH_UMPAN = buatHash(randomBytes(32).toString('hex'));
+
+        export async function daftar(email: string, sandi: string) {
+          const hash = buatHash(sandi);
+          try {
+            return await repo.buatPengguna({ email, sandiHash: hash });
+          } catch (e) {
+            // 1. Email ganda TIDAK boleh dibedakan dari pendaftaran berhasil,
+            //    sebab selisihnya membocorkan siapa yang sudah terdaftar.
+            //    Yang benar: kirim surel yang isinya BERBEDA, responsnya SAMA.
+            if (kodeUnikDilanggar(e)) {
+              await surel.kirimPemberitahuanPercobaanDaftar(email);
+              return null;           // pemanggil tetap menjawab 201
+            }
+            throw e;
+          }
+        }
+
+        export async function login(email: string, sandi: string) {
+          const pengguna = await repo.cariPenggunaByEmail(email);
+
+          // 2. Hash SELALU dihitung, bahkan ketika emailnya tidak ada.
+          //    Tanpa ini, selisihnya 0,0 ms melawan 28,7 ms — terukur di sub-bab
+          //    rate limit, dan cukup untuk memilah sejuta alamat.
+          const benar = cocok(sandi, pengguna?.sandiHash ?? HASH_UMPAN);
+
+          if (!pengguna || !benar) return null;
+          return pengguna;
+        }
+        `,
+        { caption: 'Dua bagian ini dijalankan sungguhan sebagai loginAman di sub-bab rate limit.' },
+      ),
+      p(
+        'Bagian pendaftaran itu memuat keputusan yang sering mengejutkan, yaitu **tidak memberitahu bahwa email sudah terdaftar**. Terasa tidak ramah, dan memang ada biayanya bagi pengguna. Tapi pesan "email sudah terdaftar" adalah alat enumerasi yang sama persis dengan pesan login yang membedakan email dan sandi. Jalan tengah yang dipakai layanan besar adalah menjawab sama untuk keduanya, lalu mengirim surel yang isinya berbeda, yaitu tautan verifikasi untuk yang baru dan pemberitahuan "ada yang mencoba mendaftar dengan alamat Anda" untuk yang sudah ada.',
+      ),
+      code(
+        'ts',
+        `
+        // controller — tipis, dan seluruh keputusan status code ada di sini.
+        ruteAuth.post('/daftar', validasi('body', SkemaDaftar), async (req, res) => {
+          await daftar(req.konteks.body.email, req.konteks.body.sandi);
+          // Jawaban yang SAMA, ada atau tidak ada emailnya.
+          res.status(201).json({ pesan: 'Periksa surel Anda untuk melanjutkan' });
+        });
+
+        ruteAuth.post('/login', validasi('body', SkemaLogin), async (req, res) => {
+          const pengguna = await login(req.konteks.body.email, req.konteks.body.sandi);
+          if (!pengguna) {
+            // 3. Satu pesan untuk dua sebab yang berbeda.
+            return res.status(401).json({ error: 'Email atau sandi salah' });
+          }
+
+          // 4. Id sesi BARU sebelum menandai sudah login — menutup session fixation.
+          await sesi.regenerate(req);
+          req.sesi.penggunaId = pengguna.id;
+          res.json({ id: pengguna.id, email: pengguna.email });   // 5. field DIPILIH
+        });
+        `,
+        {
+          caption:
+            'Baris res.json menyebut field satu per satu, jadi kolom baru di tabel tidak pernah ikut bocor.',
+        },
+      ),
+      p('Skema validasinya sendiri memuat satu keputusan yang sering ditulis terbalik.'),
+      code(
+        'ts',
+        `
+        const SkemaDaftar = z.object({
+          email: z.email(),
+          // Panjang minimum yang layak, TANPA mewajibkan simbol dan angka.
+          // Aturan rumit menghasilkan "Sandi1!" dan sandi yang ditulis di kertas.
+          sandi: z.string().min(12, 'Minimal 12 karakter').max(200),
+        });
+
+        // Batas atas 200 itu bukan kerewelan melainkan kontrol ketersediaan:
+        // scrypt atas masukan sepanjang satu megabyte menahan utasnya, dan
+        // di bab Express sudah diukur apa akibatnya bagi permintaan lain.
+        `,
+        {
+          caption:
+            'Batas atas pada panjang sandi adalah perlindungan DoS, bukan pembatasan pengguna.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Alur yang paling sering ditulis setengah benar adalah **ganti sandi**, dan yang terlewat bukan penggantian sandinya melainkan apa yang harus terjadi sesudahnya.',
+      ),
+      code(
+        'ts',
+        `
+        export async function gantiSandi(penggunaId: string, lama: string, baru: string) {
+          const pengguna = await repo.cariPengguna(penggunaId);
+
+          // 1. Verifikasi sandi LAMA. Tanpa ini, siapa pun yang menemukan
+          //    laptop terbuka bisa mengunci pemiliknya dari akunnya sendiri.
+          if (!cocok(lama, pengguna.sandiHash)) throw new SandiSalah();
+
+          await repo.simpanSandi(penggunaId, buatHash(baru));
+
+          // 2. INI yang paling sering dilupakan, dan justru yang paling penting.
+          //    Orang mengganti sandi TEPAT KARENA curiga akunnya dibobol.
+          //    Tanpa dua baris ini, penyerang tetap memegang sesinya.
+          await sesi.hancurkanSemuaKecuali(penggunaId, sesiSaatIni);
+          await refreshToken.cabutSemua(penggunaId);
+
+          // 3. Beri tahu lewat jalur yang TIDAK dikuasai penyerang.
+          await surel.kirimPemberitahuanGantiSandi(pengguna.email);
+        }
+        `,
+        {
+          caption:
+            'Langkah 2 adalah pembeda antara ganti sandi yang mengamankan dan yang hanya terasa mengamankan.',
+        },
+      ),
+      p(
+        'Langkah ketiga layak diperhatikan. Pemberitahuan lewat surel berguna justru ketika penyerangnyalah yang mengganti sandinya, sebab itu satu-satunya kesempatan pemilik sah mengetahui bahwa akunnya diambil alih. Karena itu pemberitahuannya dikirim ke alamat **lama** ketika alamat surel ikut diubah.',
+      ),
+      p(
+        'Bagian terakhir yang memisahkan siap pakai dari latihan adalah menguji jalur yang tidak nyaman. Kedelapan baris berikut menutup seluruh kebocoran yang diukur di bab ini.',
+      ),
+      code(
+        'text',
+        `
+        #!/bin/bash
+        # uji-auth.sh — jalankan sebelum menyatakan autentikasi selesai.
+        A=http://localhost:3000/v1/auth
+        H="Content-Type: application/json"
+
+        kode() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
+        waktu() { curl -s -o /dev/null -w '%{time_total}' "$@"; }
+
+        echo "daftar baru              -> $(kode -X POST $A/daftar -H "$H" -d '{"email":"baru@c.id","sandi":"sandi-panjang-aman"}')"
+        echo "daftar email SAMA        -> $(kode -X POST $A/daftar -H "$H" -d '{"email":"baru@c.id","sandi":"sandi-panjang-aman"}')"
+        echo "   ^ kedua baris HARUS sama. Beda berarti enumerasi."
+
+        echo "login sandi benar        -> $(kode -X POST $A/login -H "$H" -d '{"email":"baru@c.id","sandi":"sandi-panjang-aman"}')"
+        echo "login sandi salah        -> $(kode -X POST $A/login -H "$H" -d '{"email":"baru@c.id","sandi":"salah"}')"
+        echo "login email tak ada      -> $(kode -X POST $A/login -H "$H" -d '{"email":"tidakada@c.id","sandi":"salah"}')"
+        echo "   ^ dua baris terakhir HARUS 401 dengan badan yang sama persis."
+
+        echo "waktu email tak ada      -> $(waktu -X POST $A/login -H "$H" -d '{"email":"tidakada@c.id","sandi":"x"}')s"
+        echo "waktu email ada          -> $(waktu -X POST $A/login -H "$H" -d '{"email":"baru@c.id","sandi":"x"}')s"
+        echo "   ^ selisihnya harus KECIL. Diukur di bab ini: 0,0 vs 28,7 ms = bocor."
+
+        echo "sandi terlalu pendek     -> $(kode -X POST $A/login -H "$H" -d '{"email":"a@c.id","sandi":"x"}')"
+        echo "tanpa badan              -> $(kode -X POST $A/login -H "$H")"
+        `,
+        {
+          caption:
+            'Dua baris waktu di tengah itu yang paling sering tidak pernah diperiksa siapa pun.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Autentikasi adalah bagian yang paling sering dinyatakan selesai terlalu cepat, sebab jalur suksesnya memang cepat selesai dan terlihat meyakinkan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyatakan selesai setelah bisa daftar dan login',
+            'Fiturnya sudah bekerja',
+            'Enumerasi, kebocoran waktu, session fixation, dan pencabutan sesi semuanya belum diuji',
+          ],
+          [
+            'Menjawab "email sudah terdaftar" saat mendaftar',
+            'Lebih membantu pengguna',
+            'Alat enumerasi yang sama persis dengan pesan login. Jawab sama, bedakan isi surelnya',
+          ],
+          [
+            'Mengganti sandi tanpa mencabut sesi lain',
+            'Sandinya sudah diganti',
+            'Penyerang tetap memegang sesinya, dan korban merasa sudah aman',
+          ],
+          [
+            'Mengganti sandi tanpa meminta sandi lama',
+            'Penggunanya kan sudah login',
+            'Siapa pun yang menemukan perangkat terbuka bisa mengunci pemiliknya dari akunnya sendiri',
+          ],
+          [
+            'Tidak membatasi panjang maksimum sandi',
+            'Makin panjang makin aman',
+            'scrypt atas masukan sangat panjang menahan utasnya. Batas atas adalah kontrol ketersediaan',
+          ],
+          [
+            'Menulis autentikasi sendiri untuk project produksi',
+            'Sudah paham cara kerjanya',
+            'Memahami mekanismenya justru yang membuatmu bisa menilai pustaka. Untuk produksi, pakai yang sudah teruji',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir pantas menjadi penutup bab ini, dan ia tidak membatalkan seluruh isi bab. Menulis autentikasi sendiri adalah cara terbaik memahami apa yang sebenarnya dilindungi, dan pemahaman itu yang membuatmu bisa menilai apakah sebuah pustaka memasang perlindungannya dengan benar. Untuk project yang dipakai orang lain, pakailah pustaka yang sudah teruji, lalu **periksa sendiri** delapan hal yang diukur di bab ini, sebab pustaka pun bisa dipasang dengan konfigurasi yang membatalkan perlindungannya.',
+      ),
       references(
         {
           label: 'Authentication Cheat Sheet',

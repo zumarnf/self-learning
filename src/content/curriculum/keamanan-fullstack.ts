@@ -32,7 +32,30 @@ const batasAplikasiWeb = defineChapter({
     { category: 'backend-basic', chapter: 'nodejs-express-basic' },
   ],
   stackVersions: ['CSP Level 3', 'Fetch Standard', 'OWASP Cheat Sheet Series'],
-  reviewedAt: '2026-08-24',
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (Node 26.5.0, Chrome for Testing 149
+  // lewat CDP, openssl, curl 8.5.0):
+  //   - lima muatan yang melanggar SEMUA aturan validasi React diterima server 201,
+  //     termasuk harga Rp1 dari field tersembunyi dan field peran yang tidak ada di formulir
+  //   - XSS: innerHTML + <img onerror> BERJALAN (window.__XSS = 2 dari dua jalur),
+  //     textContent menyimpan isi yang sama sebagai teks dengan 0 elemen anak
+  //   - CSP: skrip inline tanpa nonce DIBLOKIR, dengan nonce berjalan, dan
+  //     style-src 'self' ikut memblokir atribut style sehingga latar jadi transparan
+  //   - frame-ancestors 'none' memblokir pembingkaian, pesan Chrome direkam apa adanya
+  //   - SameSite diukur untuk empat cara sekaligus: Lax hanya meloloskan navigasi GET
+  //     teratas; Strict tidak meloloskan apa pun; None tanpa Secure TIDAK PERNAH TERPASANG
+  //   - CORS: JS hanya membaca cache-control dan content-type tanpa Expose-Headers,
+  //     dan preflight OPTIONS hanya muncul untuk PATCH + header kustom
+  //   - TLS: DEPTH_ZERO_SELF_SIGNED_CERT ditolak, rejectUnauthorized:false diterima,
+  //     ERR_TLS_CERT_ALTNAME_INVALID untuk nama yang salah, koneksi TLSv1.3
+  //
+  // DUA HASIL YANG SENGAJA DILAPORKAN KARENA MELAWAN DUGAAN AWAL:
+  //   - <script> yang disisipkan lewat innerHTML TIDAK berjalan, sementara <img onerror>
+  //     berjalan. Materinya memakai itu untuk membongkar keyakinan bahwa memblokir kata
+  //     "script" sudah cukup.
+  //   - SameSite=Lax (bawaan Chrome modern) sudah menutup CSRF lewat form POST lintas
+  //     situs, bentuk yang paling sering diajarkan. Yang tersisa adalah endpoint GET
+  //     yang mengubah keadaan, dan materinya menggeser penekanannya ke sana.
+  reviewedAt: '2026-09-14',
   lessons: lessonsBatasAplikasiWeb,
   quiz: [
     q(
@@ -100,7 +123,27 @@ const identitasKewenangan = defineChapter({
   ],
   prerequisites: [{ category: 'backend-basic', chapter: 'auth-dasar' }],
   stackVersions: ['RFC 6749', 'RFC 7636', 'RFC 9700', 'RFC 6238', 'OWASP ASVS 5'],
-  reviewedAt: '2026-08-24',
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (PHP 8.3.6, Node 26.5.0):
+  //   - biaya hash: sha256 2.395.136/detik, bcrypt cost=10 20/detik, cost=12 5/detik;
+  //     dua pengguna bersandi sama menghasilkan hash sha256 IDENTIK dan hash bcrypt berbeda
+  //   - password_needs_rehash: true untuk cost 8 terhadap target 12, false untuk 12
+  //   - TOTP ditulis ulang dari RFC 6238 dengan crypto.createHmac: kode berubah tiap
+  //     30 detik, toleransi satu langkah menerima t-30 dan menolak t-120
+  //   - PKCE S256: verifier 43 karakter, penukaran DITOLAK tanpa verifier yang benar
+  //   - rotasi refresh token: pemakaian token lama TERDETEKSI dan 3 token sekeluarga dicabut
+  //   - koneksi node:sqlite hanya-baca menolak UPDATE, DELETE, DROP, dan CREATE yang
+  //     semuanya sudah berhasil dirakit sebagai injeksi
+  //
+  // SATU HASIL YANG SENGAJA DILAPORKAN KARENA MELAWAN DUGAAN AWAL:
+  //   - Perbaikan "hitung hash palsu supaya waktunya seragam" MEMPERBURUK kebocoran
+  //     enumerasi: tanpa perbaikan selisihnya 28,05 ms; dengan patokan dihitung tiap
+  //     permintaan 28,58 ms (scrypt berjalan DUA KALI); baru dengan patokan yang dihitung
+  //     sekali saat boot selisihnya 0,37 ms. Dipakai sebagai bukti bahwa kontrol keamanan
+  //     harus diukur, bukan dinilai dari penalaran saja.
+  //
+  // Pemeriksaan sandi bocor lewat k-anonymity TIDAK dijalankan — memerlukan panggilan ke
+  // layanan luar. Mekanismenya dijelaskan dan dinyatakan tidak dieksekusi di materi.
+  reviewedAt: '2026-09-14',
   lessons: lessonsIdentitasKewenangan,
   quiz: [
     q(
@@ -183,7 +226,27 @@ const dataRahasiaJejak = defineChapter({
     { category: 'backend-intermediate', chapter: 'keamanan-backend' },
   ],
   stackVersions: ['OWASP ASVS 5', 'Zod 4', 'Prisma 6', 'Laravel 12'],
-  reviewedAt: '2026-08-24',
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (Node 26.5.0, zod 4.4.3, Chrome 149, git):
+  //   - zod: empat nilai berbahaya LOLOS pemeriksaan bentuk, lalu DITOLAK setelah
+  //     aturan tambahan dipasang; .strict() melaporkan unrecognized_keys sementara
+  //     perilaku bawaan membuang field asing tanpa laporan
+  //   - prototype pollution: JSON.parse sendiri aman, dan fungsi merge buatan sendiri
+  //     membuat SETIAP objek polos memiliki peran admin
+  //   - berkas HTML yang diunggah dan disajikan apa adanya BERJALAN di origin aplikasi;
+  //     berkas yang sama dengan Content-Disposition + nosniff hanya terunduh
+  //   - basename(): menutup ../ dan TIDAK menutup CON.png, a.php.png, spasi sebelum
+  //     ekstensi, maupun byte nol yang memotong nama
+  //   - git: kredensial tetap terbaca dari riwayat dan dari objek blob sesudah berkasnya
+  //     dikeluarkan dan git status bersih
+  //   - redaksi log: kunci berhuruf besar tertangkap, rahasia di teks bebas lolos
+  //   - log injection: masukan berisi baris baru menyisipkan baris palsu pada log yang
+  //     digabung string, dan tetap satu baris pada JSON.stringify
+  //
+  // SATU HASIL YANG SENGAJA DILAPORKAN KARENA MELAWAN DUGAAN AWAL:
+  //   - z.string().url() MENERIMA 'javascript:alert(1)'. Itu skema URL yang sah menurut
+  //     spesifikasi, dan sekaligus vektor XSS langsung bila nilainya dipasang di href.
+  //     Materinya memakai itu untuk memisahkan "bentuknya benar" dari "aman dipakai di sini".
+  reviewedAt: '2026-09-14',
   lessons: lessonsDataRahasiaJejak,
   quiz: [
     q(

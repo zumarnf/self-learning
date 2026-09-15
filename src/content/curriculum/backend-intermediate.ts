@@ -20,7 +20,35 @@ const desainApi = defineChapter({
   ],
   prerequisites: [{ category: 'backend-basic', chapter: 'nodejs-express-basic' }],
   stackVersions: ['RFC 9457', 'OpenAPI 3.1'],
-  reviewedAt: '2026-08-05',
+  // 2026-09-14: revisi studi kasus, error, dan kesalahan umum
+  // (plans/revisi-studi-kasus-error-kesalahan/) — ketiga bagian berjudul tetap ditambahkan
+  // di seluruh 11 sub-bab.
+  //
+  // Seluruh respons HTTP yang dijadikan contoh dihasilkan sungguhan oleh server node:http
+  // + node:sqlite pada Node 26.5.0, bukan diketik ulang. Yang diukur:
+  //   - kontrak error RFC 9457 lengkap: 400 / 409 / 422 dengan application/problem+json,
+  //     daftar errors per field, dan requestId di header maupun badan
+  //   - ETag: 200 dengan 44 byte -> 304 dengan 0 byte
+  //   - lost update lewat If-Match: penyunting A 200, penyunting B 412, dan tanpa
+  //     If-Match sama sekali -> 428
+  //   - idempotency key: LIMA permintaan bersamaan dengan satu kunci menghasilkan
+  //     SATU pembayaran; tiga kunci berbeda menghasilkan tiga
+  //   - 202 Accepted + Location + Retry-After + kemajuan 0/34/68/100
+  //   - paginasi di node:sqlite 200.000 baris: OFFSET 0,01 -> 1,51 ms sementara keyset
+  //     rata di 0,01 ms
+  //   - allow-list ORDER BY: injeksi ditolak 422 dan jumlah baris tabel tetap utuh
+  //
+  // DUA HASIL YANG SENGAJA DILAPORKAN SEBAGAI PELAJARAN TENTANG CARA MENGUJI:
+  //   - Uji "mengubah tipe id angka -> string" tercatat AMAN, dan itu MENYESATKAN:
+  //     klien ujinya terlalu sederhana. Materinya memakai hasil itu untuk menjelaskan
+  //     kenapa "tidak merusak klien uji saya" bukan bukti sebuah perubahan aman.
+  //   - Percobaan urutan-seri pada node:sqlite TIDAK menunjukkan baris terlewat,
+  //     sementara pada PostgreSQL 16.15 (bab database) ia terlewat. Materinya memakai
+  //     selisih itu untuk menegaskan bahwa urutan nilai seri tidak pernah dijanjikan.
+  //
+  // Contoh OpenAPI TIDAK dijalankan — tidak ada pustaka OpenAPI di project ini dan
+  // Dependency Version Gate (core.md) berlaku. Dinyatakan lewat callout di sub-bab itu.
+  reviewedAt: '2026-09-14',
   lessons: lessonsDesainApi,
   quiz: [
     q(
@@ -85,7 +113,32 @@ const expressLanjut = defineChapter({
   ],
   prerequisites: [{ category: 'backend-basic', chapter: 'nodejs-express-basic' }],
   stackVersions: ['Express 5', 'Prisma 6', 'BullMQ 5', 'Vitest 4'],
-  reviewedAt: '2026-08-05',
+  // 2026-09-14: revisi studi kasus, error, dan kesalahan umum
+  // (plans/revisi-studi-kasus-error-kesalahan/) — ketiga bagian berjudul tetap ditambahkan
+  // di seluruh 14 sub-bab.
+  //
+  // BATAS KEJUJURAN: Express, Prisma, BullMQ, Redis, dan Socket.IO tidak terpasang, dan
+  // Dependency Version Gate (core.md) berlaku. Potongan ber-API mereka disusun dari
+  // dokumentasi resmi dan dinyatakan tidak dieksekusi lewat callout di sub-bab queue-bullmq
+  // dan socketio. Yang dijalankan sungguhan adalah mekanisme di bawahnya.
+  //
+  // Yang BENAR-BENAR dieksekusi untuk bab ini:
+  //   - CORS di peramban sungguhan (server node:http + Chrome for Testing 149):
+  //     asal diizinkan BERHASIL; tanpa header CORS DIBLOKIR (TypeError: Failed to fetch);
+  //     Allow-Origin:* BERHASIL untuk permintaan sederhana; * + credentials DIBLOKIR
+  //   - validasi magic byte: skrip PHP bernama .png DITOLAK, dan polyglot ber-header PNG sah
+  //     TETAP DITERIMA — dipakai untuk menjelaskan kenapa magic byte saja tidak cukup
+  //   - nama berkas: "CON.png" LOLOS pola regex dan tetap bermasalah (nama perangkat Windows)
+  //   - cache stampede: 50 permintaan bersamaan -> 50 perhitungan tanpa penggabungan,
+  //     1 dengan penggabungan; waktu dinding 122 vs 121 ms, jadi yang dihemat BEBAN bukan latensi
+  //   - enam error tsc 5.9.3 pada mode strict, termasuk exhaustiveness lewat never
+  //
+  // TEMUAN YANG MELAWAN DUGAAN, diukur dan dipakai sebagai inti sub-bab TypeScript:
+  //   `const a: ResponsPublik = dariDb` LOLOS tsc tanpa error, dan saat dijalankan
+  //   JSON.stringify(a) tetap mengeluarkan sandiHash serta catatanInternal secara utuh.
+  //   Pemeriksaan properti berlebih hanya berlaku pada object literal, bukan pada variabel.
+  //   Jadi tipe TIDAK PERNAH menjadi kontrol keamanan — materinya menyatakan itu tegas.
+  reviewedAt: '2026-09-14',
   lessons: lessonsExpressLanjutan,
   quiz: [
     q(
@@ -150,7 +203,34 @@ const laravelLanjut = defineChapter({
   ],
   prerequisites: [{ category: 'backend-basic', chapter: 'php-laravel-basic' }],
   stackVersions: ['Laravel 12', 'PHP 8.3+', 'Pest 3'],
-  reviewedAt: '2026-08-05',
+  // 2026-09-14: revisi studi kasus, error, dan kesalahan umum
+  // (plans/revisi-studi-kasus-error-kesalahan/) — ketiga bagian berjudul tetap ditambahkan
+  // di seluruh 13 sub-bab.
+  //
+  // BATAS KEJUJURAN: Laravel, Horizon, Redis, dan Pest tidak terpasang, dan Dependency
+  // Version Gate (core.md) berlaku. Potongan ber-API Laravel disusun dari dokumentasi resmi
+  // dan dinyatakan tidak dieksekusi lewat callout di sub-bab queue-horizon. Yang dijalankan
+  // sungguhan adalah PHP 8.3.6 yang memang terpasang, plus pengukuran dari bab lain.
+  //
+  // Yang BENAR-BENAR dieksekusi dengan PHP 8.3.6 untuk bab ini:
+  //   - rekursi observer: save() di dalam observer mencapai 51 penyimpanan dan
+  //     kedalaman 51 sebelum penjaga menghentikannya
+  //   - token bergaya Sanctum: hanya hash yang disimpan; rahasia diubah satu karakter,
+  //     id ditukar, dan tanpa pemisah semuanya DITOLAK lewat hash_equals
+  //   - kemampuan token terpisah dari peran pengguna (artikel:hapus DITOLAK meski
+  //     penggunanya mungkin berhak lewat antarmuka web)
+  //   - delapan kasus policy sebagai fungsi murni, termasuk selisih SENGAJA antara
+  //     ubah (editor boleh atas miliknya) dan hapus (hanya admin)
+  //   - tumpang tindih penjadwalan: tugas 5 menit dengan jeda 1 menit menghasilkan
+  //     5 salinan berjalan bersamaan sebagai keadaan TETAP, bukan puncak sementara
+  //   - isolasi listener: tanpa isolasi, satu listener yang gagal menghentikan sisanya
+  //     sehingga catatan audit tidak pernah ditulis
+  //
+  // ANGKA YANG PALING MENENTUKAN, diukur dengan PHP 8.3.6: menyaring daftar dengan policy
+  // membuat pengguna MEMINTA 20 dan MENERIMA 9, sementara 11 baris milik orang lain sudah
+  // terbaca ke memori proses. Itu dipakai sebagai bukti bahwa policy tidak pernah cukup
+  // untuk daftar — batasnya harus ikut ke klausa WHERE.
+  reviewedAt: '2026-09-14',
   lessons: lessonsLaravelLanjutan,
   quiz: [
     q(
@@ -205,7 +285,36 @@ const menyambung = defineChapter({
     { category: 'frontend-intermediate', chapter: 'state-management' },
   ],
   stackVersions: ['Next.js 16.2', 'OpenAPI 3.1'],
-  reviewedAt: '2026-08-05',
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (Node 26.5.0, PHP 8.3.6,
+  // Chrome for Testing 149 lewat CDP, curl 8.5.0):
+  //   - cookie lintas origin di peramban sungguhan: SameSite=Lax DITOLAK, dan
+  //     SameSite=None TANPA Secure juga DITOLAK pada http:// -> /saya menjawab 401
+  //     dengan cookieYangTiba:null di ketiga percobaan
+  //   - SSE: server menutup aliran setelah 2 peristiwa, Chrome menyambung ulang
+  //     SENDIRI 3 kali dalam 4 detik dan mengirim Last-Event-ID berisi id terakhir
+  //   - kebocoran SSE: dari 6 koneksi hanya 1 yang dibersihkan lewat req.on('close'),
+  //     dan 25 tick setInterval masih menembak ke response yang sudah berakhir
+  //   - WebSocket lintas origin BERHASIL tanpa satu pun header CORS; Origin tiba di
+  //     server, Authorization tidak pernah bisa dikirim peramban
+  //   - skrip audit kontrak yang sama dijalankan ke backend Node dan backend PHP:
+  //     12 pemeriksaan, 10 lolos di keduanya, 2 gagal hanya di sisi PHP
+  //
+  // TIGA HASIL YANG SENGAJA DILAPORKAN KARENA MELAWAN DUGAAN AWAL:
+  //   - new EventSource(url, { headers }) TIDAK melempar. Argumennya diabaikan diam-diam,
+  //     objeknya tetap hidup, dan ia menambah koneksi 2, 4, dan 6 ke server tanpa satu
+  //     pun pendengar peristiwa. Kegagalan yang tidak bersuara sama sekali.
+  //   - peristiwa 'error' pada SSE muncul dengan readyState=0 (CONNECTING), bukan CLOSED.
+  //     Materinya memakai itu untuk melarang membangun penyambung ulang sendiri di atasnya.
+  //   - kegagalan skrip audit di sisi PHP TIDAK direncanakan. Penyebabnya mb_strlen()
+  //     tidak ada karena mbstring tidak terpasang; hasilnya 500 dengan badan KOSONG,
+  //     content-type text/html, dan header CORS tetap lengkap. Klien melihat
+  //     "SyntaxError: Unexpected end of JSON input" yang tidak menyebut PHP sama sekali.
+  //     Dipakai apa adanya sebagai studi kasus, bukan diperbaiki diam-diam.
+  //
+  // Contoh Socket.IO dan pustaka unggah pihak ketiga TIDAK dijalankan — keduanya tidak
+  // terpasang dan Dependency Version Gate (core.md) berlaku. Mekanisme di bawahnya yang
+  // dijalankan: handshake WebSocket ditulis tangan dengan crypto + node:http.
+  reviewedAt: '2026-09-14',
   lessons: lessonsIntegrasi,
   quiz: [
     q(
@@ -258,7 +367,43 @@ const keamanan = defineChapter({
   ],
   prerequisites: [{ category: 'backend-basic', chapter: 'auth-dasar' }],
   stackVersions: ['OWASP Top 10 (2021)', 'OWASP ASVS 5'],
-  reviewedAt: '2026-08-05',
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (Node 26.5.0, PHP 8.3.6,
+  // node:sqlite, git 2.x, npm, curl 8.5.0):
+  //   - IDOR: tanpa klausa pemilik, satu pengguna membaca tiga faktur yang dua
+  //     di antaranya milik orang lain; dengan klausa itu, dua jadi 404
+  //   - laju penebakan id berurutan: 200.000 percobaan dalam 52 ms
+  //   - SQL injection: penggabungan string membocorkan seluruh tabel termasuk
+  //     sandi_hash lewat OR 1=1 dan lewat UNION; prepared statement 0 baris
+  //     untuk keduanya; exec bertumpuk MENGHAPUS tabel audit (1 baris -> 0)
+  //   - command injection: exec("cat /tmp/catatan.txt; id") membocorkan uid dan
+  //     seluruh grup proses; execFile gagal karena memperlakukannya satu nama berkas
+  //   - biaya hash: sha256 2.395.136/detik, bcrypt cost=10 20/detik, cost=12 5/detik
+  //   - AES-256-CBC menerima ciphertext yang diubah; AES-256-GCM menolaknya
+  //   - SSRF: daftar tolak berbasis teks ditembus 2130706433, 0x7f000001, dan 0,
+  //     ketiganya mengambil kredensial dari layanan internal
+  //   - PHP unserialize: peran dinaikkan ke admin lewat payload tulisan sendiri,
+  //     dan kelas Berkas dibangkitkan sehingga __destruct berjalan
+  //   - npm audit project ini: 21 dependency langsung -> 651 paket, 6 kerentanan
+  //     (2 moderate, 3 high, 1 critical), 4 di antaranya transitif
+  //   - git: kredensial tetap terbaca dari riwayat sesudah berkasnya dikeluarkan
+  //   - skrip audit 10 butir: 10 temuan pada versi rentan, 0 pada versi diperbaiki
+  //
+  // TIGA HASIL YANG SENGAJA DILAPORKAN KARENA MELAWAN DUGAAN AWAL:
+  //   - Perbaikan "hitung hash palsu supaya waktunya seragam" MEMPERBURUK kebocoran:
+  //     tanpa perbaikan selisihnya 28,05 ms; dengan patokan dihitung tiap permintaan
+  //     selisihnya 28,58 ms (scrypt berjalan DUA KALI); baru dengan patokan yang
+  //     dihitung sekali saat boot selisihnya turun ke 0,37 ms. Dipakai di materi
+  //     sebagai bukti bahwa kontrol keamanan diukur, bukan dikira.
+  //   - PHP __destruct TETAP berjalan meski unserialize() gagal di tengah
+  //     ("Error at offset 50 of 54 bytes"). Kegagalan penguraian bukan jaminan
+  //     tidak ada kode yang berjalan.
+  //   - Pada skrip audit, butir pembatasan laju menerima 404 alih-alih 429 di versi
+  //     rentan, dan itu BUKAN pembatasan yang bekerja melainkan kebocoran enumerasi
+  //     dari butir lain yang menampakkan diri lagi. Dilaporkan apa adanya di materi.
+  //
+  // Contoh Laravel, Redis, dan pemindai SAST TIDAK dijalankan — tidak terpasang dan
+  // Dependency Version Gate (core.md) berlaku. Mekanisme di bawahnya yang dijalankan.
+  reviewedAt: '2026-09-14',
   lessons: lessonsKeamanan,
   quiz: [
     q(

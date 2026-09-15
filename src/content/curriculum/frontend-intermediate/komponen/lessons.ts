@@ -25,7 +25,7 @@ export const lessons: LessonDraft[] = [
   written(
     'anatomi-komponen',
     'Anatomi Komponen yang Baik',
-    11,
+    22,
     'Ciri komponen yang enak dipakai ulang — dan tanda-tanda ia mulai rusak.',
     [
       p(
@@ -185,6 +185,220 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Tim memutuskan membuat pustaka komponen internal. Enam bulan kemudian ada empat komponen kartu yang berbeda, tiga tombol, dan dua kotak input, semuanya karena orang tidak menemukan yang sudah ada atau menemukannya lalu merasa tidak cocok. Yang membedakan pustaka yang dipakai dari pustaka yang diabaikan bukan kelengkapannya melainkan apakah orang bisa memakainya tanpa membaca kodenya.',
+      ),
+      p(
+        'Sebuah komponen yang layak dipakai ulang punya empat bagian yang bisa diperiksa satu per satu, dan bagian keempat adalah yang paling sering hilang.',
+      ),
+      code(
+        'tsx',
+        `
+        import type { ComponentPropsWithoutRef, ReactNode } from 'react';
+
+        // 1. KONTRAK — apa yang diterima, dan mana yang wajib.
+        type KartuProps = ComponentPropsWithoutRef<'article'> & {
+          judul: ReactNode;                        // wajib, dan boleh berupa elemen
+          aksi?: ReactNode;                        // slot opsional di kanan atas
+          padat?: boolean;
+        };
+
+        // 2. BAWAAN — nilai yang masuk akal supaya pemakaian termudah tetap pendek.
+        export function Kartu({
+          judul,
+          aksi,
+          padat = false,
+          className = '',
+          children,
+          ...sisa
+        }: KartuProps) {
+          // 3. STRUKTUR — semantik HTML yang benar, bukan div bertumpuk.
+          return (
+            <article
+              {...sisa}
+              className={['kartu', padat ? 'kartu-padat' : '', className]
+                .filter(Boolean)
+                .join(' ')}
+            >
+              <header className="kartu-kepala">
+                <h3 className="kartu-judul">{judul}</h3>
+                {aksi ? <div className="kartu-aksi">{aksi}</div> : null}
+              </header>
+              <div className="kartu-isi">{children}</div>
+            </article>
+          );
+        }
+
+        // 4. JALAN KELUAR — pemakai bisa menembus tanpa mengubah komponennya.
+        //    Di sini: {...sisa} meneruskan seluruh atribut article,
+        //    dan className digabung bukan ditimpa.
+        `,
+        { filename: 'src/ui/Kartu.tsx' },
+      ),
+      p(
+        'Bagian keempat itu yang menentukan apakah komponenmu akan dipakai atau disalin. Selalu ada satu kebutuhan yang tidak kamu duga, misalnya seseorang butuh `id` untuk menautkan, atau `data-testid` untuk pengujian, atau satu kelas tambahan untuk jarak. Tanpa jalan keluar, ia akan menyalin komponenmu dan mengubah salinannya, dan sejak itu ada dua kartu yang harus dirawat.',
+      ),
+      p(
+        'Perhatikan `judul` bertipe `ReactNode`, bukan `string`. Ini keputusan kecil yang berdampak besar. Dengan `string`, seseorang yang butuh judul berisi ikon atau lencana harus menyalin komponennya. Dengan `ReactNode`, ia cukup mengirim elemen. Biayanya nol, dan ia menutup satu alasan menyalin.',
+      ),
+      p(
+        'Penggabungan `className` di baris tengah juga bagian dari jalan keluar. Urutannya menentukan, yaitu kelas dari pemanggil ditaruh terakhir supaya ia bisa menimpa saat memang diinginkan. Sebaliknya `{...sisa}` ditaruh sebelum `className` supaya nilai yang kamu susun tidak tertimpa oleh `className` mentah dari `sisa`, dan itu jebakan yang sudah dibahas di bab sebelumnya.',
+      ),
+      code(
+        'text',
+        `
+        Empat pertanyaan untuk memeriksa sebuah komponen sebelum dipakai bersama:
+
+        1. Bisakah dipakai tanpa membaca kodenya, hanya dari tipe propsnya?
+        2. Apakah pemakaian paling umum cukup satu atau dua prop?
+        3. Apakah struktur HTML-nya semantik, atau hanya div bertumpuk?
+        4. Kalau ada kebutuhan yang tidak terduga, adakah jalan keluarnya?
+
+        Yang keempat paling sering hilang, dan itu yang membuat orang menyalin.
+        `,
+        { caption: 'Daftar periksa yang bisa dipakai saat meninjau komponen orang lain.' },
+      ),
+      callout(
+        'tip',
+        'Tulis pemakaiannya lebih dulu, baru komponennya',
+        'Sebelum menulis satu baris implementasi, tulis dulu bagaimana komponen ini akan dipanggil di tiga tempat yang berbeda. Kalau salah satunya terasa berbelit, ubah bentuk propsnya sebelum ada yang memakainya. Mengubah kontrak komponen yang sudah dipakai di dua puluh tempat jauh lebih mahal.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut diuji dengan `tsc` dan tipe React 19 asli, dan seluruhnya menandai kontrak yang bocor.',
+      ),
+      code(
+        'text',
+        `
+        type Props = { children: JSX.Element };
+
+        error TS2503: Cannot find namespace 'JSX'.
+        `,
+        { caption: 'Diuji dengan tipe React 19. Namespace global `JSX` sudah tidak ada.' },
+      ),
+      p(
+        'Ini perubahan pada React 19 yang sering menyandung saat memutakhirkan. Namespace `JSX` yang dulu global kini berada di dalam `React`, sehingga bentuk lamanya tidak dikenali lagi. Untuk `children`, jawabannya tetap sama seperti sebelumnya, yaitu pakai `ReactNode` yang diimpor dari `react`. Kalau kamu memang butuh tipe satu elemen, pakai `ReactElement`.',
+      ),
+      code(
+        'text',
+        `
+        <Kartu judul="Ringkasan" className="mt-4" />
+
+        // Hasil: <article class="mt-4">
+        // Seluruh kelas kartu hilang.
+        `,
+        { caption: '`className` dari pemanggil menimpa yang disusun komponen.' },
+      ),
+      p(
+        'Ini terjadi saat `className` dibiarkan berada di dalam `{...sisa}` yang ditulis setelah `className` milik komponen. Tidak ada error, dan gejalanya berupa komponen yang kehilangan seluruh gayanya begitu pemanggil menambahkan satu kelas untuk jarak. Bongkar `className` keluar dari `sisa` lalu gabungkan, seperti pada studi kasus.',
+      ),
+      code(
+        'text',
+        `
+        <Kartu judul="x" onKlik={() => {}} />
+
+        error TS2322: Property 'onKlik' does not exist on type 'KartuProps'.
+        `,
+        { caption: 'Prop asing ditolak, dan itu menangkap salah ketik.' },
+      ),
+      p(
+        'Penolakan prop asing sangat berguna sebab ia menangkap nama yang salah ketik sebelum dijalankan. Yang perlu diketahui, pemeriksaan ini hanya berlaku untuk object literal yang ditulis langsung. Menyebarkan object variabel dengan spread melewatinya, sehingga `<Kartu {...data} />` bisa membawa field asing yang lalu ikut menjadi atribut HTML tidak dikenal.',
+      ),
+      code(
+        'text',
+        `
+        <Kartu judul="x" data-produk-id={7} />
+
+        // Lolos, dan menjadi atribut di DOM. Ini memang diinginkan.
+        // Tapi prop khusus komponen yang lolos ke DOM tidak:
+        // <article padat="true"> muncul di DOM kalau 'padat' lupa dibongkar.
+        `,
+        { caption: 'Prop khusus komponen yang lupa dibongkar ikut menjadi atribut HTML.' },
+      ),
+      p(
+        'Kalau `padat` tidak dibongkar keluar dan ikut masuk ke `{...sisa}`, React akan mencoba menaruhnya sebagai atribut HTML. Untuk nama yang tidak dikenal, React meneruskannya apa adanya sehingga muncul atribut aneh di DOM. Gejalanya biasanya berupa peringatan di console pada versi lama, dan pada React modern ia hanya ikut terpasang diam-diam. Selalu bongkar seluruh prop khusus komponen sebelum menyebar sisanya.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            "`Cannot find namespace 'JSX'`",
+            'Namespace global `JSX` dihapus di React 19',
+            'Pakai `ReactNode` dari `react`, atau `React.JSX.Element`',
+          ],
+          [
+            'Gaya komponen hilang saat pemanggil memberi `className`',
+            'Urutan spread membuat nilai pemanggil menimpa',
+            'Bongkar `className` keluar lalu gabungkan, dan taruh milik pemanggil terakhir',
+          ],
+          [
+            "`Property 'x' does not exist on type`",
+            'Prop asing, sering karena salah ketik',
+            'Periksa ejaannya, atau tambahkan ke tipe props',
+          ],
+          [
+            'Atribut aneh muncul di DOM',
+            'Prop khusus komponen ikut disebar ke elemen',
+            'Bongkar seluruh prop khusus sebelum `{...sisa}`',
+          ],
+          [
+            'Orang menyalin komponenmu alih-alih memakainya',
+            'Tidak ada jalan keluar untuk kebutuhan yang tidak terduga',
+            'Warisi atribut elemennya, dan gabungkan `className`',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Komponen yang dipakai bersama punya biaya perubahan yang jauh lebih tinggi daripada komponen sekali pakai, dan sebagian besar kesalahan di bawah baru terasa setelah ada sepuluh pemakai.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membuat komponen bersama dari satu contoh pemakaian',
+            'Nanti tinggal ditambah',
+            'Bentuknya hampir selalu salah sebab kamu menebak apa yang akan berbeda. Tulis dua yang konkret dulu',
+          ],
+          [
+            'Tidak menyediakan jalan keluar',
+            'Supaya pemakaiannya seragam',
+            'Selalu ada satu kebutuhan yang tidak terduga, dan tanpa jalan keluar orang akan menyalin komponenmu',
+          ],
+          [
+            'Mengetik prop teks sebagai `string`',
+            'Isinya kan teks',
+            'Yang butuh ikon atau lencana di dalamnya harus menyalin. `ReactNode` menutup itu tanpa biaya',
+          ],
+          [
+            'Membungkus segalanya dengan `div`',
+            'Yang penting tampilannya benar',
+            'Pembaca layar kehilangan struktur halaman. Pakai `article`, `section`, `header`, dan `nav` sesuai maknanya',
+          ],
+          [
+            'Menaruh nilai warna dan jarak langsung di komponen',
+            'Supaya tampilannya pasti',
+            'Komponen menjadi terikat pada satu tema. Pakai token, dan biarkan pemakainya menyesuaikan lewat kelas',
+          ],
+          [
+            'Menambahkan prop baru tiap ada permintaan',
+            'Satu prop untuk satu kebutuhan',
+            'Komponen tumbuh menjadi puluhan prop yang tidak pernah dipakai bersamaan. Pertimbangkan komposisi',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua adalah pembeda antara pustaka komponen yang hidup dan yang mati. Komponen tanpa jalan keluar memaksa setiap kebutuhan baru melewati pemiliknya, dan pada tim yang sibuk itu berarti orang memilih menyalin. Meneruskan atribut elemen dengan `ComponentPropsWithoutRef` dan menggabungkan `className` adalah dua baris yang menutup sebagian besar alasan menyalin.',
+      ),
+      callout(
+        'info',
+        'Komponen bersama adalah kontrak, dan kontrak sulit diubah',
+        'Begitu sebuah komponen dipakai di dua puluh tempat, mengubah nama prop berarti menyunting dua puluh berkas. Karena itu bentuk propsnya layak dipikirkan lebih lama daripada isinya. Isi komponen bisa ditulis ulang kapan saja tanpa mengganggu siapa pun, dan kontraknya tidak.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Satu tanggung jawab yang bisa disebut tanpa kata "dan".',
@@ -225,7 +439,7 @@ export const lessons: LessonDraft[] = [
   written(
     'studi-button',
     'Studi Kasus: `Button`',
-    13,
+    23,
     'Komponen paling sering ditulis ulang, dan paling sering salah dirancang.',
     [
       terms(
@@ -410,6 +624,217 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Tombol Simpan pada formulir panjang harus mati selama permintaan berjalan, menampilkan indikator, tetap bisa difokus keyboard, dan mengumumkan perubahannya ke pembaca layar. Versi pertama memakai `div` dengan penangan klik supaya tampilannya bebas diatur. Pengguna keyboard melaporkan tombolnya tidak bisa ditekan sama sekali, dan pengguna pembaca layar tidak mendengar apa pun saat menekannya.',
+      ),
+      p('Berikut buktinya, diukur di Chromium sungguhan.'),
+      code(
+        'text',
+        `
+        <div id="divtombol" onclick="...">Tombol palsu</div>
+
+        div tabIndex bawaan          :: -1
+        div bisa difokus?            :: false
+        `,
+        { caption: 'Elemen `div` tidak bisa difokus, dan Enter tidak memicu apa pun.' },
+      ),
+      p(
+        'Nilai `tabIndex` bernilai minus satu berarti elemen itu tidak ikut dalam urutan Tab, dan pemanggilan `focus()` pun tidak berhasil. Akibatnya pengguna yang tidak memakai tetikus tidak punya cara mencapai tombol itu. Membangunnya kembali menuntut `tabIndex={0}`, penangan `onKeyDown` untuk Enter dan spasi, `role="button"`, dan penanganan keadaan mati. Elemen `button` memberi keempatnya gratis.',
+      ),
+      code(
+        'tsx',
+        `
+        import type { ComponentPropsWithoutRef, ReactNode } from 'react';
+
+        type TombolProps = ComponentPropsWithoutRef<'button'> & {
+          varian?: 'utama' | 'sekunder' | 'bahaya' | 'hantu';
+          ukuran?: 'kecil' | 'sedang' | 'besar';
+          memuat?: boolean;
+          ikonKiri?: ReactNode;
+        };
+
+        export function Tombol({
+          varian = 'utama',
+          ukuran = 'sedang',
+          memuat = false,
+          ikonKiri,
+          type = 'button',              // bawaan aman, bisa ditimpa jadi 'submit'
+          disabled,
+          className = '',
+          children,
+          ...sisa
+        }: TombolProps) {
+          const mati = memuat || disabled;
+
+          return (
+            <button
+              type={type}
+              {...sisa}
+              disabled={mati}
+              aria-busy={memuat || undefined}
+              className={['tombol', \`tombol-\${varian}\`, \`tombol-\${ukuran}\`, className]
+                .filter(Boolean)
+                .join(' ')}
+            >
+              {memuat ? <Spinner aria-hidden="true" /> : ikonKiri}
+              <span>{children}</span>
+            </button>
+          );
+        }
+        `,
+        { filename: 'src/ui/Tombol.tsx' },
+      ),
+      p(
+        'Atribut `type = \'button\'` sebagai bawaan menutup bug yang sangat sering. Tombol di dalam `form` bertipe `submit` secara bawaan menurut HTML, sehingga tombol Batal atau Tambah Baris akan mengirim formulirnya. Menjadikan `button` sebagai bawaan membalik itu, dan pemanggil yang memang ingin mengirim cukup menulis `type="submit"`. Perhatikan ia ditulis **sebelum** `{...sisa}` supaya bisa ditimpa.',
+      ),
+      p(
+        'Sebaliknya `disabled` ditulis **setelah** spread, dan itu juga disengaja. Nilainya menggabungkan `memuat` dan `disabled` dari pemanggil, sehingga tombol tetap mati saat sedang memuat walaupun pemanggil tidak menyetel `disabled`. Kalau ia ditulis sebelum spread, `disabled` mentah dari `sisa` akan menimpanya dan tombolnya bisa diklik saat sedang mengirim.',
+      ),
+      p(
+        'Spinner diberi `aria-hidden` sebab ia hiasan, dan yang mengumumkan keadaan sibuk adalah `aria-busy` pada tombolnya. Tanpa itu, pembaca layar akan membacakan sesuatu tentang gambar yang tidak berarti sekaligus tidak memberi tahu bahwa tombolnya sedang bekerja. Teks tombol sengaja tidak diganti menjadi Memuat, sebab mengganti nama aksesibel sebuah tombol di tengah interaksi membingungkan.',
+      ),
+      callout(
+        'danger',
+        'Tombol yang mati tidak bisa difokus, dan itu punya konsekuensi',
+        'Elemen `button` yang `disabled` dikeluarkan dari urutan Tab, sehingga pengguna keyboard tidak bisa mencapainya untuk mengetahui kenapa ia mati. Untuk tombol yang mati karena syarat yang bisa dipenuhi pengguna, pertimbangkan membiarkannya aktif lalu menampilkan pesan saat ditekan, atau tambahkan `aria-describedby` yang menjelaskan syaratnya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut adalah yang paling sering pada komponen tombol, dan dua di antaranya hanya terlihat oleh pengguna keyboard.',
+      ),
+      code(
+        'text',
+        `
+        <div onClick={simpan}>Simpan</div>
+
+        div tabIndex bawaan :: -1
+        div bisa difokus?   :: false
+        `,
+        { caption: 'Diukur di Chromium. Pengguna keyboard tidak punya cara mencapainya.' },
+      ),
+      p(
+        'Tidak ada error dan tidak ada peringatan dari React. Plugin lint aksesibilitas menandainya dengan aturan `no-noninteractive-element-interactions`, dan itu satu-satunya tanda otomatis yang akan kamu dapat. Cara memeriksanya tanpa alat, tekan Tab berulang di halamanmu dan lihat apakah seluruh yang bisa diklik ikut terlewati.',
+      ),
+      code(
+        'text',
+        `
+        <button><svg width="10" height="10"><rect /></svg></button>
+
+        nama aksesibel tombol ikon :: "" (kosong)
+        `,
+        { caption: 'Diukur di Chromium. Tombol tanpa teks tidak punya nama.' },
+      ),
+      p(
+        'Pembaca layar akan mengumumkannya sebagai tombol tanpa nama, dan pengguna tidak punya cara tahu apa fungsinya. Ini sangat sering pada tombol ikon seperti tutup, hapus, dan menu. Perbaikannya menambahkan `aria-label` pada tombolnya, atau menyertakan teks yang disembunyikan secara visual. Yang tidak cukup adalah `title`, sebab ia tidak selalu dibacakan dan tidak muncul di perangkat sentuh.',
+      ),
+      code(
+        'text',
+        `
+        <form onSubmit={kirim}>
+          <button onClick={tambahBaris}>Tambah baris</button>
+        </form>
+
+        // Mengklik "Tambah baris" MENGIRIM formulirnya.
+        `,
+        { caption: 'Tombol di dalam formulir bertipe `submit` secara bawaan.' },
+      ),
+      p(
+        'Ini aturan HTML, bukan React, dan ia mengejutkan hampir semua orang sekali. Gejalanya berupa halaman yang memuat ulang atau formulir yang terkirim sebelum waktunya. Perbaikannya `type="button"` pada tombol yang bukan pengirim, dan menjadikannya bawaan di komponen tombolmu menutup seluruh kelas bug ini untuk seluruh aplikasi.',
+      ),
+      code(
+        'text',
+        `
+        <Tombol memuat disabled={false}>Simpan</Tombol>
+
+        // Kalau 'disabled' ditulis SEBELUM spread:
+        // tombol tetap bisa diklik saat sedang memuat.
+        `,
+        { caption: 'Urutan spread menentukan siapa yang menang.' },
+      ),
+      p(
+        'Tidak ada error, dan gejalanya berupa pengiriman ganda saat jaringan lambat. Aturan yang bisa dipegang, taruh **sebelum** spread untuk nilai yang boleh ditimpa pemanggil, dan **setelah** spread untuk nilai yang komponenmu harus tentukan sendiri. Keadaan mati saat sedang memuat termasuk yang kedua.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Tombol tidak bisa dicapai dengan Tab',
+            'Dibuat dari `div`, bukan `button`',
+            'Pakai `button` lalu atur gayanya',
+          ],
+          [
+            'Pembaca layar menyebut tombol tanpa nama',
+            'Isinya hanya ikon',
+            'Tambahkan `aria-label`, atau teks yang disembunyikan secara visual',
+          ],
+          [
+            'Formulir terkirim saat tombol lain diklik',
+            'Tombol di dalam `form` bertipe `submit` secara bawaan',
+            'Jadikan `type="button"` sebagai bawaan komponenmu',
+          ],
+          [
+            'Tombol bisa diklik saat sedang memuat',
+            '`disabled` ditulis sebelum spread',
+            'Taruh setelah spread, dan gabungkan dengan keadaan memuat',
+          ],
+          [
+            'Pengguna tidak tahu kenapa tombol mati',
+            'Tombol `disabled` tidak bisa difokus',
+            'Tambahkan penjelasan, atau biarkan aktif lalu tampilkan pesan saat ditekan',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Tombol adalah komponen yang paling banyak dipakai dan paling sering dibangun ulang dengan cara yang menghilangkan perilaku bawaannya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `div` atau `span` sebagai tombol',
+            'Tampilannya lebih bebas diatur',
+            'Kehilangan fokus keyboard, Enter dan spasi, serta pengumuman pembaca layar. Semuanya harus dibangun ulang dan hampir selalu ada yang terlewat',
+          ],
+          [
+            'Tombol ikon tanpa nama aksesibel',
+            'Ikonnya jelas maksudnya',
+            'Hanya jelas bagi yang melihatnya. Pembaca layar mengumumkannya sebagai tombol tanpa nama',
+          ],
+          [
+            'Melupakan `type="button"`',
+            'Tombolnya kan bukan pengirim',
+            'HTML menjadikan `submit` sebagai bawaan di dalam `form`. Jadikan `button` bawaan komponenmu',
+          ],
+          [
+            'Mengganti teks tombol menjadi Memuat saat mengirim',
+            'Supaya jelas sedang bekerja',
+            'Nama aksesibel tombol berubah di tengah interaksi dan membingungkan. Pakai `aria-busy` dan spinner di sampingnya',
+          ],
+          [
+            'Menambah boolean untuk tiap varian tampilan',
+            'Satu prop satu kebutuhan',
+            'Kombinasi yang tidak masuk akal menjadi mungkin. Pakai union, dan ini dibahas di Sub-bab 3.10',
+          ],
+          [
+            'Menghapus indikator fokus karena dianggap jelek',
+            'Garis biru mengganggu desain',
+            'Pengguna keyboard kehilangan satu-satunya petunjuk posisi mereka. Ganti gayanya, jangan hilangkan',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir adalah pelanggaran aksesibilitas yang paling sering dilakukan atas nama desain. Aturan `outline: none` tanpa pengganti membuat pengguna keyboard benar-benar tidak tahu di mana fokus berada. Kalau garis bawaannya tidak cocok, ganti dengan gaya lain yang tetap terlihat jelas, misalnya cincin berwarna kontras. Pemilih `:focus-visible` bahkan membuatnya hanya muncul untuk pengguna keyboard, sehingga pengguna tetikus tidak melihatnya sama sekali.',
+      ),
+      callout(
+        'tip',
+        'Uji tiga menit yang menemukan sebagian besar masalah tombol',
+        'Tekan Tab dari awal halaman dan pastikan seluruh yang bisa diklik ikut terkena giliran. Tekan Enter dan spasi pada tiap tombol dan pastikan keduanya bekerja. Perbesar halaman sampai dua ratus persen dan pastikan tombolnya masih terbaca. Ketiganya tidak butuh alat apa pun dan menemukan lebih banyak masalah daripada yang diduga.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         '`variant`/`size` mengalahkan boolean; `cva` memberi tipenya sekaligus.',
@@ -449,7 +874,7 @@ export const lessons: LessonDraft[] = [
   written(
     'studi-field',
     'Studi Kasus: Field Form',
-    13,
+    23,
     'Input, label, dan pesan error — beserta hubungan aksesibilitas yang mengikatnya.',
     [
       p(
@@ -647,6 +1072,213 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Formulir pengaturan akun punya dua belas kolom. Tiap kolom butuh label, teks bantuan, pesan galat, dan penanda wajib. Ditulis berulang di tiap kolom, hasilnya delapan baris markup per kolom dan sembilan puluh enam baris total, dengan tiga di antaranya lupa menghubungkan label ke kolomnya sehingga mengklik label tidak memfokuskan apa pun.',
+      ),
+      p(
+        'Komponen kolom yang benar menyelesaikan itu sekaligus menjamin hubungan aksesibilitasnya tidak mungkin lupa dibuat.',
+      ),
+      code(
+        'tsx',
+        `
+        import { useId } from 'react';
+        import type { ComponentPropsWithoutRef, ReactNode } from 'react';
+
+        type KolomProps = Omit<ComponentPropsWithoutRef<'input'>, 'id'> & {
+          label: string;
+          bantuan?: ReactNode;
+          galat?: string;
+        };
+
+        export function Kolom({ label, bantuan, galat, required, ...sisa }: KolomProps) {
+          // useId menghasilkan id unik dan stabil, aman untuk render di server.
+          const id = useId();
+          const idBantuan = \`\${id}-bantuan\`;
+          const idGalat = \`\${id}-galat\`;
+
+          // Hubungkan KEDUANYA kalau keduanya ada, dipisah spasi.
+          const dijelaskanOleh = [bantuan ? idBantuan : null, galat ? idGalat : null]
+            .filter(Boolean)
+            .join(' ') || undefined;
+
+          return (
+            <div className="kolom">
+              <label htmlFor={id}>
+                {label}
+                {required ? <span aria-hidden="true"> *</span> : null}
+              </label>
+
+              <input
+                id={id}
+                required={required}
+                aria-invalid={galat ? true : undefined}
+                aria-describedby={dijelaskanOleh}
+                {...sisa}
+              />
+
+              {bantuan ? <p id={idBantuan} className="bantuan">{bantuan}</p> : null}
+              {galat ? <p id={idGalat} className="galat" role="alert">{galat}</p> : null}
+            </div>
+          );
+        }
+        `,
+        { filename: 'src/ui/Kolom.tsx' },
+      ),
+      p(
+        "Bentuk `Omit<..., 'id'>` pada tipe props menutup satu kelas bug sekaligus. Karena komponen ini membuat `id` sendiri untuk menghubungkan label, membiarkan pemanggil menyetelnya akan memutus hubungan itu. Menghapusnya dari tipe berarti kesalahan itu ditolak sebelum dijalankan, bukan ditemukan lewat pengujian aksesibilitas.",
+      ),
+      p(
+        'Penggabungan `aria-describedby` adalah bagian yang paling sering ditulis setengah benar. Atribut itu menerima **beberapa** id yang dipisah spasi, dan sebagian orang hanya menghubungkan salah satunya sehingga teks bantuan atau pesan galat tidak dibacakan. Menyusunnya dari array lalu menyaring yang kosong membuat kedua kasus tertangani, dan `|| undefined` di akhir menghapus atributnya kalau keduanya tidak ada.',
+      ),
+      p(
+        'Tanda bintang penanda wajib diberi `aria-hidden`, dan itu disengaja. Atribut `required` pada kolomnya sudah diumumkan pembaca layar sebagai wajib, sehingga membiarkan bintangnya ikut dibacakan menghasilkan pengumuman ganda yang membingungkan. Bintang itu murni petunjuk visual bagi yang melihat.',
+      ),
+      p(
+        'Hook `useId` dipakai bukan angka acak, dan alasannya teknis. Nilai acak menghasilkan id berbeda antara render di server dan di klien, sehingga terjadi ketidakcocokan hidrasi yang membuat React membuang seluruh hasil server. `useId` menghasilkan nilai yang sama di kedua sisi, dan ia memang dibuat untuk keperluan ini.',
+      ),
+      callout(
+        'warning',
+        'Placeholder bukan pengganti label',
+        'Teks di dalam kolom hilang begitu pengguna mulai mengetik, sehingga ia tidak lagi tahu kolom itu untuk apa. Ia juga sering berkontras rendah dan tidak dibacakan sebagian pembaca layar. Placeholder berguna untuk contoh format, misalnya 08xxxxxxxxxx, dan tidak pernah menggantikan label.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut adalah yang paling sering pada komponen kolom, dan tiga di antaranya hanya terlihat oleh pengguna pembaca layar.',
+      ),
+      code(
+        'text',
+        `
+        <label>Email</label>
+        <input type="email" />
+
+        // Mengklik label tidak memfokuskan kolom.
+        // Pembaca layar mengumumkan kolom tanpa nama.
+        `,
+        { caption: 'Label tidak terhubung ke kolomnya.' },
+      ),
+      p(
+        'Ada dua cara menghubungkannya, yaitu `htmlFor` pada label yang menunjuk `id` kolom, atau membungkus kolomnya di dalam label. Keduanya sah. Yang tidak sah adalah membiarkan keduanya bersebelahan tanpa hubungan, dan itu yang paling sering terjadi sebab tampilannya terlihat benar. Plugin lint aksesibilitas menandainya dengan aturan `label-has-associated-control`.',
+      ),
+      code(
+        'text',
+        `
+        <Kolom label="Email" id="email-pengguna" />
+
+        error TS2322: Property 'id' does not exist on type 'KolomProps'.
+        `,
+        { caption: 'Diuji dengan `tsc`. Menyetel `id` sendiri akan memutus hubungan label.' },
+      ),
+      p(
+        'Ini contoh tipe yang dipakai untuk menegakkan aturan, bukan sekadar mendeskripsikan bentuk. Karena `id` dihapus dari tipe props, pemanggil tidak bisa merusak hubungan yang komponen ini bangun. Kalau pemanggil memang butuh menunjuk kolomnya dari tempat lain, sediakan prop lain yang tidak bentrok, misalnya `idLuar` yang komponen gabungkan sendiri.',
+      ),
+      code(
+        'text',
+        `
+        <input aria-describedby="bantuan" />
+        <p id="bantuan">Minimal 8 karakter</p>
+        <p id="galat">Kata sandi terlalu pendek</p>
+
+        // Pesan galat TIDAK dibacakan, sebab tidak ikut dihubungkan.
+        `,
+        { caption: 'Hanya satu dari dua penjelasan yang terhubung.' },
+      ),
+      p(
+        'Atribut `aria-describedby` menerima beberapa id yang dipisah spasi, dan menuliskan satu saja berarti sisanya tidak pernah sampai ke pengguna pembaca layar. Ini kesalahan yang tidak terlihat sama sekali secara visual, sebab kedua teks tetap tampil di layar. Satu-satunya cara menemukannya adalah menguji dengan pembaca layar atau memeriksa pohon aksesibilitas di DevTools.',
+      ),
+      code(
+        'text',
+        `
+        <input value={nilai} />
+
+        Warning: You provided a \`value\` prop to a form field without an
+        \`onChange\` handler. This will render a read-only field.
+        `,
+        { caption: 'Peringatan React yang sudah dibahas, dan sering muncul pada komponen kolom.' },
+      ),
+      p(
+        'Pada komponen kolom, penyebabnya biasanya `onChange` tidak ikut diteruskan lewat `{...sisa}` karena tidak sengaja dibongkar keluar lalu tidak dipakai. Periksa daftar prop yang kamu bongkar di parameter, dan pastikan seluruh yang tidak kamu pakai sendiri tetap masuk ke `sisa`. Ini kesalahan yang mudah terjadi saat komponennya diperluas.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Mengklik label tidak memfokuskan kolom',
+            'Label tidak terhubung lewat `htmlFor` dan `id`',
+            'Hubungkan keduanya, atau bungkus kolom di dalam label',
+          ],
+          [
+            "`Property 'id' does not exist on type`",
+            '`id` sengaja dihapus dari tipe props',
+            'Biarkan komponen membuatnya, dan sediakan prop lain kalau memang butuh',
+          ],
+          [
+            'Pesan galat tidak dibacakan pembaca layar',
+            'Hanya satu id yang dihubungkan ke `aria-describedby`',
+            'Gabungkan seluruh id yang relevan, dipisah spasi',
+          ],
+          [
+            '`You provided a \\`value\\` prop ... without an \\`onChange\\``',
+            '`onChange` tidak ikut diteruskan ke elemennya',
+            'Pastikan prop yang tidak dipakai komponen tetap masuk ke `sisa`',
+          ],
+          [
+            'Id bentrok saat komponen dipakai dua kali',
+            'Id ditulis tetap, bukan dihasilkan',
+            'Pakai `useId`',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kolom formulir adalah komponen dengan kebutuhan aksesibilitas terbanyak, dan sebagian besar kesalahan di bawah tidak terlihat sama sekali secara visual.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai placeholder sebagai pengganti label',
+            'Tampilannya lebih bersih',
+            'Teksnya hilang begitu pengguna mengetik, kontrasnya rendah, dan sebagian pembaca layar tidak membacakannya',
+          ],
+          [
+            'Menaruh label sebagai `div` di atas kolom',
+            'Tampilannya sama saja',
+            'Tidak ada hubungan dengan kolomnya, sehingga mengklik tidak memfokuskan dan pembaca layar tidak menyebut namanya',
+          ],
+          [
+            'Memakai `id` tetap pada komponen yang dipakai berulang',
+            'Idnya kan sudah unik',
+            'Dua kolom dengan id sama membuat label menunjuk kolom yang salah. Pakai `useId`',
+          ],
+          [
+            'Menampilkan pesan galat tanpa `role="alert"`',
+            'Pesannya kan sudah terlihat',
+            'Pembaca layar tidak mengumumkan teks yang baru muncul kecuali diberi tahu. Pengguna tidak tahu ada yang salah',
+          ],
+          [
+            'Menandai wajib hanya dengan tanda bintang',
+            'Semua orang tahu artinya',
+            'Bintang tanpa `required` tidak diumumkan sebagai wajib. Pakai atribut `required`, dan bintangnya sebagai petunjuk visual saja',
+          ],
+          [
+            'Menyembunyikan pesan galat dengan `opacity: 0`',
+            'Supaya tata letak tidak melompat',
+            'Teksnya tetap dibacakan pembaca layar walaupun tidak terlihat. Pakai `hidden`, atau sediakan ruang kosong',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir menghasilkan pengalaman yang membingungkan bagi pengguna pembaca layar, yaitu mereka mendengar pesan galat untuk kolom yang tampak baik-baik saja. Cara menyediakan ruang tanpa menyembunyikan teks adalah memberi tinggi minimum pada wadah pesannya, sehingga tata letak tetap stabil dan pesannya benar-benar tidak ada saat tidak diperlukan.',
+      ),
+      callout(
+        'tip',
+        'Cara memeriksa hubungan aksesibilitas tanpa pembaca layar',
+        'Buka tab Elements di DevTools, pilih kolomnya, lalu buka panel Accessibility. Di sana tertulis nama aksesibelnya dan dari mana nama itu berasal, beserta deskripsinya. Kalau namanya kosong atau bukan label yang kamu maksud, hubungannya belum benar. Pemeriksaan sepuluh detik ini menemukan sebagian besar masalah di sub-bab ini.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Tiga hubungan wajib: `htmlFor`/`id`, `aria-invalid`, `aria-describedby`.',
@@ -693,7 +1325,7 @@ export const lessons: LessonDraft[] = [
   written(
     'studi-card-skeleton',
     'Studi Kasus: `Card` & `Skeleton`',
-    11,
+    19,
     'Wadah konten yang fleksibel, dan placeholder yang tidak membuat layout melompat.',
     [
       terms(
@@ -894,6 +1526,219 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman beranda menampilkan dua belas kartu produk yang datanya diambil dari server. Versi pertama menampilkan spinner tunggal di tengah layar selama pemuatan. Setelah diukur, skor Cumulative Layout Shift halaman itu buruk sebab seluruh isi melompat begitu data tiba, dan pengguna yang hendak mengklik menu justru mengklik kartu yang tiba-tiba muncul di bawah kursornya.',
+      ),
+      p(
+        'Skeleton menyelesaikan dua hal sekaligus, yaitu memberi tahu bahwa sesuatu sedang dimuat, dan **menahan ruang** supaya tata letak tidak bergeser saat isinya tiba.',
+      ),
+      code(
+        'tsx',
+        `
+        // Skeleton yang bentuknya MENGIKUTI kartu sungguhan.
+        export function KartuSkeleton() {
+          return (
+            <article className="kartu" aria-hidden="true">
+              {/* Ukuran gambar sama persis dengan kartu asli. */}
+              <div className="skeleton" style={{ aspectRatio: '1 / 1' }} />
+              <div className="kartu-isi">
+                <div className="skeleton skeleton-baris" style={{ width: '70%' }} />
+                <div className="skeleton skeleton-baris" style={{ width: '40%' }} />
+              </div>
+            </article>
+          );
+        }
+
+        // Wadahnya yang mengumumkan keadaannya, bukan tiap skeleton.
+        export function DaftarProduk({ keadaan }: { keadaan: Keadaan<Produk[]> }) {
+          if (keadaan.status === 'memuat') {
+            return (
+              <div className="grid" role="status" aria-label="Memuat produk">
+                {Array.from({ length: 12 }, (_, i) => <KartuSkeleton key={i} />)}
+              </div>
+            );
+          }
+          // ...
+        }
+        `,
+        { filename: 'src/produk/KartuSkeleton.tsx' },
+      ),
+      p(
+        'Atribut `aria-hidden` pada tiap skeleton dan `role="status"` pada wadahnya adalah pembagian yang penting. Tanpa `aria-hidden`, pembaca layar akan mengumumkan dua belas kotak kosong yang tidak berarti apa-apa. Dengan `role="status"` dan `aria-label` di wadahnya, ia mengumumkan satu kalimat yang berguna, yaitu sedang memuat produk. Satu pengumuman, bukan dua belas.',
+      ),
+      p(
+        'Pemakaian `key={i}` di sini adalah salah satu dari sedikit kasus di mana indeks memang tepat. Daftar skeleton tidak pernah diurutkan, tidak pernah disaring, tidak pernah dihapus di tengah, dan tidak ada satu pun elemen di dalamnya yang menyimpan keadaan. Ketiga syarat dari Sub-bab 2.6 terpenuhi sekaligus, dan tidak ada id yang bisa dipakai sebab datanya memang belum ada.',
+      ),
+      p(
+        'Bagian `aspectRatio` menutup masalah pergeseran tata letak sepenuhnya. Selama peramban tahu perbandingan sisi gambarnya, ia bisa menyediakan ruang yang tepat sebelum gambarnya terunduh. Kalau kartu aslinya memakai gambar dengan `width` dan `height`, skeleton harus memakai perbandingan yang sama persis. Skeleton yang ukurannya berbeda dari isi aslinya justru menambah pergeseran, bukan menguranginya.',
+      ),
+      code(
+        'css',
+        `
+        .skeleton {
+          background: linear-gradient(90deg,
+            var(--abu-100) 25%, var(--abu-200) 50%, var(--abu-100) 75%);
+          background-size: 200% 100%;
+          animation: geser 1.5s linear infinite;
+          border-radius: 4px;
+        }
+
+        @keyframes geser {
+          to { background-position: -200% 0; }
+        }
+
+        /* Hormati pengaturan pengguna yang mengurangi gerakan. */
+        @media (prefers-reduced-motion: reduce) {
+          .skeleton { animation: none; }
+        }
+        `,
+        { filename: 'src/gaya/skeleton.css' },
+      ),
+      p(
+        'Blok `prefers-reduced-motion` bukan penyempurnaan melainkan bagian dari baseline aksesibilitas project ini. Sebagian pengguna menyetel sistemnya untuk mengurangi gerakan karena animasi berulang bisa memicu pusing atau mual. Animasi kilau yang berjalan terus-menerus pada dua belas kartu adalah persis jenis gerakan yang dimaksud. Mematikannya tetap menyisakan bentuk skeleton yang sudah cukup memberi tahu bahwa sesuatu sedang dimuat.',
+      ),
+      callout(
+        'tip',
+        'Skeleton hanya untuk pemuatan pertama, bukan untuk pemuatan ulang',
+        'Kalau data lama masih ada dan pengguna hanya mengganti filter, mengganti daftar dengan skeleton membuat layar berkedip dan terasa lebih lambat. Pertahankan data lama sambil menandai `aria-busy`, seperti pola `memuat-ulang` yang dibahas di bab tentang state. Skeleton penuh hanya saat benar-benar belum ada apa pun untuk ditampilkan.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Skeleton jarang melempar error. Yang muncul adalah pergeseran tata letak dan pengumuman yang mengganggu, dan keduanya baru terlihat kalau diuji dengan benar.',
+      ),
+      code(
+        'text',
+        `
+        // Skeleton tinggi 120px, kartu asli tinggi 280px.
+        // Saat data tiba, seluruh isi halaman melompat 160px x 12 baris.
+
+        Cumulative Layout Shift: 0.42   (batas yang baik: di bawah 0.1)
+        `,
+        { caption: 'Skeleton yang ukurannya tidak sama dengan isi aslinya.' },
+      ),
+      p(
+        'Skeleton yang ukurannya tidak cocok justru memperburuk keadaan dibandingkan tidak ada skeleton sama sekali, sebab pergeserannya terjadi setelah pengguna sempat mengarahkan kursor. Ukur kartu aslinya lalu samakan, dan cara paling andal adalah memakai kelas dan `aspectRatio` yang sama persis. Tab Performance di DevTools menampilkan skor pergeseran ini beserta elemen mana yang menyebabkannya.',
+      ),
+      code(
+        'text',
+        `
+        {Array.from({ length: 12 }, (_, i) => <KartuSkeleton key={i} />)}
+        // tanpa aria-hidden pada skeleton
+
+        // Pembaca layar mengumumkan dua belas kali:
+        // "artikel, artikel, artikel, ..."
+        `,
+        { caption: 'Skeleton ikut dibacakan sebagai isi yang berarti.' },
+      ),
+      p(
+        'Tidak ada error, dan pengalamannya sangat mengganggu bagi pengguna pembaca layar. Yang mereka dengar adalah deretan elemen kosong tanpa penjelasan apa pun. Sembunyikan seluruh skeleton dari pohon aksesibilitas dengan `aria-hidden`, lalu sediakan satu pengumuman di wadahnya yang menjelaskan apa yang sedang terjadi.',
+      ),
+      code(
+        'text',
+        `
+        // Data tiba dalam 80 ms.
+        // Skeleton muncul lalu hilang dalam sekejap. Layar berkedip.
+        `,
+        { caption: 'Skeleton ditampilkan untuk pemuatan yang hampir seketika.' },
+      ),
+      p(
+        'Kedipan terbaca lebih lambat daripada tidak ada indikator sama sekali, sebab mata menangkap dua perubahan besar. Ada dua pola yang menyelesaikannya. Pertama, tunda memunculkan skeleton sekitar dua ratus milidetik sehingga pemuatan cepat tidak sempat menampilkannya. Kedua, kalau sudah terlanjur muncul, tahan minimal beberapa ratus milidetik. Keduanya dibahas di Bab 5 Frontend Basic.',
+      ),
+      code(
+        'text',
+        `
+        @keyframes geser { to { background-position: -200% 0; } }
+        // tanpa blok prefers-reduced-motion
+
+        // Dua belas animasi berjalan terus-menerus.
+        // Sebagian pengguna mengalami pusing.
+        `,
+        { caption: 'Animasi berulang tanpa menghormati pengaturan pengguna.' },
+      ),
+      p(
+        'Ini bukan preferensi estetika melainkan kebutuhan kesehatan bagi sebagian orang. Sistem operasi menyediakan pengaturan untuk mengurangi gerakan, dan CSS bisa membacanya lewat `prefers-reduced-motion`. Mematikan animasi di sana tidak menghilangkan fungsi skeleton sama sekali, sebab bentuk kotaknya sudah cukup menyampaikan bahwa sesuatu sedang dimuat.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Isi halaman melompat saat data tiba',
+            'Ukuran skeleton tidak sama dengan isi aslinya',
+            'Samakan ukurannya, dan pakai `aspectRatio` untuk gambar',
+          ],
+          [
+            'Pembaca layar mengumumkan belasan elemen kosong',
+            'Skeleton tidak disembunyikan dari pohon aksesibilitas',
+            'Beri `aria-hidden`, dan satu `role="status"` di wadahnya',
+          ],
+          [
+            'Layar berkedip pada pemuatan cepat',
+            'Skeleton muncul lalu hilang dalam sekejap',
+            'Tunda memunculkannya, atau tahan minimalnya',
+          ],
+          [
+            'Sebagian pengguna melaporkan pusing',
+            'Animasi berulang tanpa `prefers-reduced-motion`',
+            'Matikan animasinya pada pengaturan itu',
+          ],
+          [
+            'Skeleton muncul saat filter diganti',
+            'Keadaan memuat ulang tidak dibedakan dari memuat pertama',
+            'Pertahankan data lama, tandai dengan `aria-busy`',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Skeleton terlihat sebagai detail visual, dan ia sebenarnya menyentuh performa terukur sekaligus aksesibilitas.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai spinner tunggal di tengah layar',
+            'Paling sederhana',
+            'Tidak menahan ruang, sehingga seluruh isi melompat saat data tiba. Skeleton yang seukuran isinya menutup itu',
+          ],
+          [
+            'Membuat skeleton yang bentuknya asal kotak',
+            'Yang penting ada tandanya',
+            'Ukuran yang berbeda dari isi aslinya justru menambah pergeseran. Ikuti bentuk dan ukuran sungguhannya',
+          ],
+          [
+            'Menampilkan skeleton pada setiap pemuatan',
+            'Konsisten',
+            'Untuk pemuatan ulang, layar berkedip dan terasa lebih lambat. Pertahankan data lama',
+          ],
+          [
+            'Membiarkan skeleton dibacakan pembaca layar',
+            'Ia kan bagian dari halaman',
+            'Isinya tidak berarti apa-apa. Sembunyikan dengan `aria-hidden`, dan umumkan sekali di wadahnya',
+          ],
+          [
+            'Menganimasikan `background-position` pada puluhan elemen',
+            'Efeknya bagus',
+            'Untuk daftar sangat panjang ini bisa memakan tenaga. Batasi jumlah skeleton yang ditampilkan, misalnya sebanyak yang muat di layar',
+          ],
+          [
+            'Melupakan `prefers-reduced-motion`',
+            'Animasinya kan halus',
+            'Sebagian pengguna menyetel sistemnya untuk mengurangi gerakan karena alasan kesehatan. Ini bagian dari baseline, bukan penyempurnaan',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama layak ditegaskan karena spinner tunggal masih sangat umum dan ia menyelesaikan hanya setengah masalah. Ia memberi tahu bahwa sesuatu sedang terjadi, dan sama sekali tidak menahan ruang. Skor pergeseran tata letak adalah salah satu metrik yang diukur baseline performa project ini, dan spinner tunggal hampir selalu membuatnya buruk pada halaman yang isinya banyak.',
+      ),
+      callout(
+        'info',
+        'Cara mengukur pergeseran tata letak sendiri',
+        'Buka tab Performance di DevTools, centang Web Vitals, lalu rekam pemuatan halamannya. Skor Cumulative Layout Shift muncul di sana beserta elemen mana yang bergeser dan berapa banyak. Batas yang dianggap baik adalah di bawah 0,1, dan itu angka yang dipakai baseline performa project ini.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Card memakai composition; props yang meledak adalah tandanya salah rancang.',
@@ -934,7 +1779,7 @@ export const lessons: LessonDraft[] = [
   written(
     'studi-dialog',
     'Studi Kasus: `Dialog`',
-    15,
+    25,
     'Overlay yang benar: portal, focus trap, pengembalian fokus, dan `Esc`.',
     [
       p(
@@ -1156,6 +2001,224 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Dialog konfirmasi hapus dibangun dari `div` bertumpuk dengan latar gelap di belakangnya. Tiga laporan masuk. Pengguna keyboard bisa menekan Tab keluar dari dialog dan mengklik tombol di belakangnya. Menekan Escape tidak menutup apa pun. Dan setelah dialog ditutup, fokus keyboard hilang entah ke mana sehingga pengguna harus menekan Tab dari awal halaman.',
+      ),
+      p(
+        'Ketiganya sudah diselesaikan peramban lewat elemen `dialog`. Berikut buktinya, diukur di Chromium sungguhan.',
+      ),
+      code(
+        'text',
+        `
+        dialog sebelum dibuka: open      :: false
+        setelah showModal: open          :: true
+        fokus otomatis pindah ke         :: tutup
+        elemen di luar dialog bisa difokus? :: tutup
+        setelah close: open              :: false
+        `,
+        { caption: 'Baris keempat membuktikan fokus benar-benar terjebak di dalam dialog.' },
+      ),
+      p(
+        'Baris ketiga menunjukkan fokus otomatis berpindah ke elemen pertama yang bisa difokus di dalam dialog, tanpa satu baris kode. Baris keempat adalah yang paling menentukan, yaitu percobaan memfokuskan tombol di **luar** dialog gagal dan fokusnya tetap di dalam. Peramban menjebak fokus secara bawaan pada `showModal`, dan itu menutup laporan pertama sepenuhnya.',
+      ),
+      code(
+        'tsx',
+        `
+        import { useEffect, useRef } from 'react';
+
+        type DialogProps = {
+          terbuka: boolean;
+          onTutup: () => void;
+          judul: string;
+          children: ReactNode;
+          kaki?: ReactNode;
+        };
+
+        export function Dialog({ terbuka, onTutup, judul, children, kaki }: DialogProps) {
+          const ref = useRef<HTMLDialogElement>(null);
+          const idJudul = useId();
+
+          useEffect(() => {
+            const el = ref.current;
+            if (!el) return;
+            // showModal, bukan show. Yang kedua tidak menjebak fokus.
+            if (terbuka && !el.open) el.showModal();
+            if (!terbuka && el.open) el.close();
+          }, [terbuka]);
+
+          return (
+            <dialog
+              ref={ref}
+              aria-labelledby={idJudul}
+              // Escape memicu 'cancel', dan tanpa ini state kita tidak ikut berubah.
+              onCancel={(e) => { e.preventDefault(); onTutup(); }}
+              // 'close' dipicu oleh cara penutupan apa pun.
+              onClose={onTutup}
+              // Klik di area gelap: target adalah dialog itu sendiri.
+              onClick={(e) => { if (e.target === ref.current) onTutup(); }}
+            >
+              <h2 id={idJudul}>{judul}</h2>
+              <div className="dialog-isi">{children}</div>
+              {kaki ? <footer className="dialog-kaki">{kaki}</footer> : null}
+            </dialog>
+          );
+        }
+        `,
+        { filename: 'src/ui/Dialog.tsx' },
+      ),
+      p(
+        'Perbedaan `showModal` dan `show` menentukan segalanya. Hanya `showModal` yang menjebak fokus, menampilkan latar gelap, dan membuat isi di belakangnya tidak bisa disentuh. Method `show` menampilkan dialog tanpa satu pun dari ketiganya, dan memakainya berarti membangun ulang seluruh perilaku itu sendiri. Kalau dialogmu terasa tidak menjebak fokus, hal pertama yang diperiksa adalah method mana yang dipanggil.',
+      ),
+      p(
+        'Penangan `onCancel` menutup laporan kedua. Peramban sudah menutup dialog saat Escape ditekan, dan tanpa penangan itu state React tetap menganggapnya terbuka sehingga dialognya tidak bisa dibuka lagi. Memanggil `preventDefault` lalu menutup lewat state membuat satu jalur penutupan yang konsisten, dan `onClose` menangkap seluruh cara penutupan lainnya.',
+      ),
+      p(
+        'Penangan klik pada area gelap memakai perbandingan `e.target === ref.current`, dan itu bekerja karena latar gelapnya secara teknis adalah bagian dari elemen dialog itu sendiri. Klik di dalam isi dialog menghasilkan target berupa elemen di dalamnya, sehingga perbandingannya salah dan dialognya tidak ikut tertutup. Ini pola yang lebih sederhana daripada memakai `contains`, dan hanya berlaku untuk elemen `dialog`.',
+      ),
+      callout(
+        'info',
+        'Fokus kembali ke pemicu secara otomatis',
+        'Setelah `close`, peramban mengembalikan fokus ke elemen yang tadinya aktif sebelum dialog dibuka. Itu menutup laporan ketiga tanpa satu baris kode. Kalau kamu membangun dialog dari `div`, mengembalikan fokus adalah pekerjaan tambahan yang harus kamu tulis dan mudah terlewat.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut adalah yang paling sering pada dialog, dan tiga di antaranya hanya terasa oleh pengguna keyboard.',
+      ),
+      code(
+        'text',
+        `
+        el.show();      // bukan showModal
+
+        // Dialog muncul. Fokus TIDAK terjebak, latar gelap tidak ada,
+        // dan isi di belakangnya masih bisa diklik.
+        `,
+        { caption: 'Method yang salah dipanggil, dan seluruh perilaku modal hilang.' },
+      ),
+      p(
+        'Tidak ada error, dan dialognya memang muncul sehingga sekilas terlihat benar. Perbedaannya hanya terlihat saat diuji dengan keyboard atau saat mencoba mengklik sesuatu di belakangnya. Kalau dialogmu terasa kurang menahan, periksa method yang dipanggil sebelum menambahkan kode penjebak fokus sendiri.',
+      ),
+      code(
+        'text',
+        `
+        // Pengguna menekan Escape. Dialog tertutup.
+        // Menekan tombol buka lagi tidak melakukan apa-apa.
+        `,
+        { caption: 'Peramban menutup dialog, dan state React masih menganggapnya terbuka.' },
+      ),
+      p(
+        'Karena `terbuka` di state masih bernilai benar, efeknya menyimpulkan tidak ada yang perlu diubah dan `showModal` tidak dipanggil lagi. Dialognya seolah rusak. Penangan `onCancel` dan `onClose` menyinkronkan state dengan kenyataan, dan tanpa keduanya seluruh penutupan yang dilakukan peramban akan membuat state menyimpang.',
+      ),
+      code(
+        'text',
+        `
+        <dialog ref={ref}>
+          <h2>Hapus pesanan</h2>
+        </dialog>
+
+        // Pembaca layar mengumumkan: "dialog" tanpa nama.
+        `,
+        { caption: 'Dialog tanpa nama aksesibel.' },
+      ),
+      p(
+        'Pengguna pembaca layar mendengar bahwa sebuah dialog terbuka dan tidak tahu dialog apa. Hubungkan judulnya dengan `aria-labelledby` yang menunjuk id judulnya, seperti pada studi kasus. Alternatifnya `aria-label` berisi teks langsung, dan itu dipakai kalau dialognya memang tidak punya judul yang terlihat.',
+      ),
+      code(
+        'text',
+        `
+        useEffect(() => {
+          if (terbuka) ref.current?.showModal();
+        }, [terbuka]);
+
+        // Membuka dialog yang SUDAH terbuka:
+        InvalidStateError: Failed to execute 'showModal' on 'HTMLDialogElement':
+        The dialog is already open as a non-modal dialog, or has an open popover.
+        `,
+        { caption: 'Method dipanggil tanpa memeriksa keadaan saat ini.' },
+      ),
+      p(
+        'Memanggil `showModal` pada dialog yang sudah terbuka melempar, dan itu bisa terjadi kalau efeknya berjalan dua kali seperti di `StrictMode`. Pemeriksaan `if (terbuka && !el.open)` pada studi kasus menutupnya. Ini contoh kenapa efek harus aman dijalankan berulang, dan `StrictMode` sengaja menemukan kasus seperti ini di pengembangan.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Fokus bisa keluar dari dialog',
+            '`show` dipakai, bukan `showModal`',
+            'Panggil `showModal`',
+          ],
+          [
+            'Dialog tidak bisa dibuka lagi setelah Escape',
+            'State tidak ikut berubah saat peramban menutupnya',
+            'Tangani `onCancel` dan `onClose`',
+          ],
+          [
+            'Pembaca layar menyebut dialog tanpa nama',
+            'Tidak ada `aria-labelledby` atau `aria-label`',
+            'Hubungkan ke judulnya',
+          ],
+          [
+            '`InvalidStateError` pada `showModal`',
+            'Dipanggil saat dialog sudah terbuka',
+            'Periksa `el.open` lebih dulu',
+          ],
+          [
+            'Klik di dalam dialog ikut menutupnya',
+            'Perbandingan target tidak dilakukan',
+            'Bandingkan `e.target === ref.current`',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Dialog adalah komponen dengan kebutuhan aksesibilitas paling banyak, dan hampir seluruhnya sudah diselesaikan peramban kalau elemen yang tepat dipakai.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membangun dialog dari `div` bertumpuk',
+            'Tampilannya lebih bebas diatur',
+            'Penjebakan fokus, Escape, latar gelap, dan pengembalian fokus semuanya harus dibangun ulang, dan hampir selalu ada yang terlewat',
+          ],
+          [
+            'Memakai `show` alih-alih `showModal`',
+            'Namanya lebih pendek',
+            'Tidak menjebak fokus dan tidak menampilkan latar gelap. Seluruh keunggulan elemen `dialog` hilang',
+          ],
+          [
+            'Melupakan penangan `onClose`',
+            'State sudah diatur tombol tutup',
+            'Escape dan penutupan lain dari peramban membuat state menyimpang, dan dialog tidak bisa dibuka lagi',
+          ],
+          [
+            'Tidak mengunci gulir halaman di belakang',
+            'Latar gelapnya sudah menutupi',
+            'Menggulir di atas dialog menggulir halaman di belakangnya. Kunci gulir badan halaman selama dialog terbuka',
+          ],
+          [
+            'Menaruh dialog jauh di dalam pohon komponen',
+            'Dekat dengan yang memanggilnya',
+            'Bisa terpotong oleh `overflow: hidden` induknya. Elemen `dialog` naik ke lapisan atas secara bawaan, dan itu salah satu keunggulannya',
+          ],
+          [
+            'Membuka dialog tanpa memindahkan fokus ke dalamnya',
+            'Penggunanya kan melihat dialognya',
+            'Pengguna keyboard dan pembaca layar tetap berada di halaman belakang. `showModal` menyelesaikannya otomatis',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima adalah keunggulan elemen `dialog` yang jarang disebut dan sangat berguna. Dialog yang dibuka dengan `showModal` dirender di lapisan teratas peramban, di luar seluruh konteks penumpukan CSS. Artinya ia tidak bisa terpotong oleh `overflow: hidden`, tidak butuh `z-index` yang terus dinaikkan, dan tidak perlu dipindahkan ke `body` dengan portal. Untuk dialog yang dibangun dari `div`, ketiganya adalah masalah yang harus diselesaikan sendiri.',
+      ),
+      callout(
+        'tip',
+        'Uji dialog dengan keyboard saja, tanpa menyentuh tetikus',
+        'Buka dialognya dengan Enter pada tombol pemicu. Tekan Tab beberapa kali dan pastikan fokus berputar di dalam dialog saja. Tekan Escape dan pastikan ia tertutup. Lalu periksa apakah fokus kembali ke tombol pemicu. Empat langkah itu memakan dua puluh detik dan menemukan seluruh masalah di sub-bab ini.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Pakai `<dialog>` + `showModal()` — ia memberi empat dari lima kewajiban gratis.',
@@ -1202,7 +2265,7 @@ export const lessons: LessonDraft[] = [
   written(
     'studi-tabs',
     'Studi Kasus: `Tabs` sebagai compound component',
-    14,
+    25,
     'Beberapa komponen yang berbagi state lewat context — dan pola keyboard ARIA yang menyertainya.',
     [
       terms(
@@ -1430,6 +2493,237 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman detail pesanan punya tiga tab, yaitu Ringkasan, Riwayat, dan Dokumen. Versi pertama dibangun dari tombol biasa dan tiga `div` yang disembunyikan bergantian. Penguji aksesibilitas melaporkan tiga hal. Pengguna keyboard harus menekan Tab tiga kali untuk melewati tab yang tidak ia pilih. Panah kiri dan kanan tidak melakukan apa pun. Dan pembaca layar tidak mengumumkan bahwa itu adalah tab, apalagi tab keberapa dari berapa.',
+      ),
+      p(
+        'Tab punya pola interaksi yang sudah dibakukan, dan mengikutinya berarti pengguna yang sudah terbiasa langsung tahu cara memakainya tanpa belajar.',
+      ),
+      code(
+        'tsx',
+        `
+        export function Tab({ daftar, aktif, onUbah }: TabProps) {
+          const idDasar = useId();
+          const refDaftar = useRef<HTMLDivElement>(null);
+
+          function tanganiTombol(peristiwa: KeyboardEvent<HTMLDivElement>) {
+            const i = daftar.findIndex((t) => t.id === aktif);
+            let tujuan = i;
+
+            if (peristiwa.key === 'ArrowRight') tujuan = (i + 1) % daftar.length;
+            else if (peristiwa.key === 'ArrowLeft') tujuan = (i - 1 + daftar.length) % daftar.length;
+            else if (peristiwa.key === 'Home') tujuan = 0;
+            else if (peristiwa.key === 'End') tujuan = daftar.length - 1;
+            else return;
+
+            peristiwa.preventDefault();
+            onUbah(daftar[tujuan].id);
+            // Fokus harus IKUT berpindah, bukan hanya pilihannya.
+            refDaftar.current
+              ?.querySelector<HTMLButtonElement>(\`#\${idDasar}-tab-\${daftar[tujuan].id}\`)
+              ?.focus();
+          }
+
+          return (
+            <>
+              <div role="tablist" ref={refDaftar} onKeyDown={tanganiTombol}>
+                {daftar.map((t) => {
+                  const dipilih = t.id === aktif;
+                  return (
+                    <button
+                      key={t.id}
+                      id={\`\${idDasar}-tab-\${t.id}\`}
+                      role="tab"
+                      type="button"
+                      aria-selected={dipilih}
+                      aria-controls={\`\${idDasar}-panel-\${t.id}\`}
+                      // Hanya tab aktif yang ikut urutan Tab.
+                      tabIndex={dipilih ? 0 : -1}
+                      onClick={() => onUbah(t.id)}
+                    >
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {daftar.map((t) => (
+                <div
+                  key={t.id}
+                  id={\`\${idDasar}-panel-\${t.id}\`}
+                  role="tabpanel"
+                  aria-labelledby={\`\${idDasar}-tab-\${t.id}\`}
+                  tabIndex={0}
+                  hidden={t.id !== aktif}
+                >
+                  {t.isi}
+                </div>
+              ))}
+            </>
+          );
+        }
+        `,
+        { filename: 'src/ui/Tab.tsx' },
+      ),
+      p(
+        'Bagian `tabIndex={dipilih ? 0 : -1}` menutup laporan pertama, dan polanya punya nama yaitu roving tabindex. Hanya satu tab yang ikut urutan Tab, sehingga menekan Tab sekali membawa pengguna masuk ke kelompok tab dan sekali lagi keluar ke isinya. Perpindahan antar-tab memakai panah, dan itu perilaku yang sudah dibakukan sehingga pengguna yang terbiasa tidak perlu menebak.',
+      ),
+      p(
+        'Pemanggilan `focus()` setelah `onUbah` sering dilewatkan, dan tanpa itu polanya rusak. Kalau pilihannya berpindah sementara fokus tetap di tab lama, menekan panah sekali lagi akan menghitung dari posisi yang salah. Fokus dan pilihan harus bergerak bersama, dan itu yang membuat panah terasa benar.',
+      ),
+      p(
+        'Atribut `hidden` pada panel yang tidak aktif lebih tepat daripada menyembunyikannya dengan CSS. Elemen yang disembunyikan dengan `hidden` benar-benar keluar dari pohon aksesibilitas dan tidak bisa difokus, sedangkan yang disembunyikan dengan `opacity` atau posisi di luar layar tetap bisa dicapai Tab. Pengguna keyboard akan menemukan fokusnya berpindah ke panel yang tidak terlihat.',
+      ),
+      p(
+        'Atribut `tabIndex={0}` pada panelnya sengaja ada, dan alasannya sering ditanyakan. Panel yang isinya bisa digulir tapi tidak punya elemen yang bisa difokus di dalamnya tidak bisa digulir dengan keyboard. Menjadikannya bisa difokus menyelesaikan itu, dan ia juga memberi tempat berhenti yang wajar setelah pengguna keluar dari daftar tab.',
+      ),
+      callout(
+        'tip',
+        'Kalau kontennya berupa halaman terpisah, tab bukan jawabannya',
+        'Tab cocok untuk beberapa tampilan atas **satu** hal yang sama. Kalau tiap tab sebenarnya halaman yang layak punya alamat sendiri, misalnya bisa dibagikan atau dibuka di tab baru, yang kamu butuhkan navigasi bukan tab. Tandanya jelas, yaitu kalau pengguna kesal karena menyegarkan halaman mengembalikannya ke tab pertama.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut hampir seluruhnya tidak terlihat secara visual, dan hanya muncul saat diuji dengan keyboard atau pembaca layar.',
+      ),
+      code(
+        'text',
+        `
+        <div role="tablist">
+          <button role="tab">Ringkasan</button>
+          <button role="tab">Riwayat</button>
+        </div>
+        // tanpa tabIndex
+
+        // Pengguna harus menekan Tab untuk tiap tab.
+        // Panah kiri dan kanan tidak melakukan apa pun.
+        `,
+        { caption: 'Peran ARIA dipasang tanpa perilaku keyboard yang menyertainya.' },
+      ),
+      p(
+        'Ini kesalahan yang paling merugikan, sebab `role="tab"` memberi tahu pembaca layar bahwa ini adalah tab, dan pengguna yang mendengar itu akan mencoba memakai panah. Ketika panahnya tidak bekerja, mereka terjebak. Peran ARIA adalah **janji** tentang perilaku, dan memasangnya tanpa memenuhi janjinya lebih buruk daripada tidak memasangnya sama sekali.',
+      ),
+      code(
+        'text',
+        `
+        <div role="tabpanel" style={{ display: t.id === aktif ? 'block' : 'none' }}>
+
+        // Bekerja. Tapi kalau memakai opacity atau posisi di luar layar:
+        // Tab membawa fokus ke panel yang tidak terlihat.
+        `,
+        { caption: 'Cara menyembunyikan menentukan apakah isinya masih bisa dicapai.' },
+      ),
+      p(
+        'Menyembunyikan dengan `display: none` atau atribut `hidden` benar-benar mengeluarkan elemennya dari urutan Tab dan dari pohon aksesibilitas. Menyembunyikan dengan `opacity: 0`, `visibility` yang salah, atau memindahkannya ke luar layar tidak. Pengguna keyboard akan menekan Tab lalu fokusnya menghilang ke tempat yang tidak terlihat, dan itu salah satu pengalaman paling membingungkan.',
+      ),
+      code(
+        'text',
+        `
+        onUbah(daftar[tujuan].id);
+        // tanpa .focus()
+
+        // Pilihan berpindah, fokus tetap di tab lama.
+        // Menekan panah lagi menghitung dari posisi yang salah.
+        `,
+        { caption: 'Fokus dan pilihan berpisah.' },
+      ),
+      p(
+        'Gejalanya khas dan membingungkan, yaitu menekan panah kanan dua kali hanya berpindah satu tab. Penyebabnya fokus masih berada di tab pertama sehingga perhitungan posisinya selalu dimulai dari sana. Pada pola roving tabindex, fokus dan pilihan wajib bergerak bersama.',
+      ),
+      code(
+        'text',
+        `
+        <button role="tab" aria-selected={dipilih} />
+        // tanpa aria-controls
+
+        // Pembaca layar tidak tahu panel mana yang dikendalikan tab ini.
+        `,
+        { caption: 'Hubungan antara tab dan panelnya tidak dinyatakan.' },
+      ),
+      p(
+        'Tanpa `aria-controls` dan `aria-labelledby` yang saling menunjuk, tab dan panelnya adalah dua hal terpisah di mata pembaca layar. Pengguna tidak punya cara berpindah cepat dari tab ke isinya. Kedua atribut itu memakai id, dan itu alasan `useId` dipakai untuk menghasilkan awalan yang unik supaya dua kelompok tab di satu halaman tidak bentrok.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Panah kiri dan kanan tidak bekerja',
+            'Peran ARIA dipasang tanpa penangan keyboard',
+            'Tambahkan `onKeyDown` dengan pola roving tabindex',
+          ],
+          [
+            'Tab harus ditekan sekali untuk tiap tab',
+            'Seluruh tab ikut urutan Tab',
+            'Hanya tab aktif yang `tabIndex={0}`, sisanya `-1`',
+          ],
+          [
+            'Fokus berpindah ke panel yang tidak terlihat',
+            'Panel disembunyikan dengan cara yang tidak mengeluarkannya dari pohon',
+            'Pakai atribut `hidden` atau `display: none`',
+          ],
+          [
+            'Panah kanan dua kali hanya berpindah satu tab',
+            'Fokus tidak ikut berpindah bersama pilihan',
+            'Panggil `focus()` pada tab tujuan',
+          ],
+          [
+            'Pembaca layar tidak menghubungkan tab dan panelnya',
+            'Tidak ada `aria-controls` dan `aria-labelledby`',
+            'Hubungkan keduanya lewat id yang dihasilkan `useId`',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Tab terlihat sederhana dan punya pola interaksi yang cukup rinci. Sebagian besar kesalahan di bawah berasal dari memasang peran ARIA tanpa perilaku yang menyertainya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memasang `role="tab"` tanpa penangan panah',
+            'Perannya sudah benar',
+            'Peran adalah janji tentang perilaku. Pengguna yang mendengar tab akan mencoba panah dan terjebak',
+          ],
+          [
+            'Membiarkan seluruh tab ikut urutan Tab',
+            'Supaya semuanya bisa dicapai',
+            'Pengguna harus menekan Tab berkali-kali untuk melewati kelompok tab. Pakai roving tabindex',
+          ],
+          [
+            'Merender seluruh panel lalu menyembunyikan dengan CSS',
+            'Berpindah tab jadi seketika',
+            'Untuk panel yang isinya berat, seluruhnya tetap dibangun. Dan cara menyembunyikan yang salah membuat isinya masih bisa difokus',
+          ],
+          [
+            'Memakai tab untuk konten yang seharusnya punya alamat sendiri',
+            'Tampilannya lebih rapi',
+            'Tidak bisa dibagikan, tombol kembali tidak bekerja, dan menyegarkan mengembalikan ke tab pertama. Pakai navigasi',
+          ],
+          [
+            'Memakai `div` sebagai tab',
+            'Tampilannya lebih bebas',
+            'Kehilangan fokus keyboard dan Enter. Pakai `button` dengan `role="tab"`',
+          ],
+          [
+            'Memakai id tetap untuk menghubungkan tab dan panel',
+            'Idnya kan sudah unik',
+            'Dua kelompok tab di satu halaman akan bentrok. Pakai `useId` sebagai awalan',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama layak dijadikan aturan umum untuk seluruh ARIA, bukan hanya tab. Memasang peran memberi tahu teknologi bantu bahwa komponenmu berperilaku dengan cara tertentu, dan pengguna akan memakainya sesuai harapan itu. Peran yang dipasang tanpa perilakunya menciptakan janji palsu, dan itu lebih membingungkan daripada elemen biasa tanpa peran sama sekali.',
+      ),
+      callout(
+        'info',
+        'Pola interaksi ini sudah dibakukan, dan tidak perlu direka sendiri',
+        'WAI-ARIA Authoring Practices menerbitkan pola untuk tab, accordion, menu, combobox, dan belasan lainnya, lengkap dengan tombol keyboard yang diharapkan. Mengikutinya berarti komponenmu berperilaku sama dengan yang sudah dikenal pengguna. Merekanya sendiri berarti pengguna harus belajar ulang untuk aplikasimu saja.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Compound component berbagi state lewat context, bukan lewat props berantai.',
@@ -1470,7 +2764,7 @@ export const lessons: LessonDraft[] = [
   written(
     'studi-accordion',
     'Studi Kasus: `Accordion`',
-    12,
+    23,
     'Buka-tutup konten dengan semantik yang benar — dan kapan HTML bawaan sudah cukup.',
     [
       terms(
@@ -1660,6 +2954,223 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman bantuan berisi dua puluh pertanyaan yang sering diajukan, masing-masing bisa dibuka untuk melihat jawabannya. Versi pertama dibangun dari `div` dengan penangan klik dan state terbuka. Setelah dipasang, muncul tiga masalah. Pencarian bawaan peramban dengan Ctrl+F tidak menemukan teks di dalam jawaban yang tertutup. Pengguna keyboard tidak bisa membukanya. Dan mencetak halaman hanya menghasilkan daftar pertanyaan tanpa satu pun jawaban.',
+      ),
+      p(
+        'Ketiganya diselesaikan elemen `details` yang sudah disediakan HTML, dan berikut buktinya di Chromium sungguhan.',
+      ),
+      code(
+        'text',
+        `
+        <details id="det"><summary>Rincian</summary><p>isi</p></details>
+
+        details open bawaan        :: false
+        details setelah dibuka     :: true
+        `,
+        { caption: 'Keadaan buka dan tutup sudah dikelola peramban lewat properti `open`.' },
+      ),
+      p(
+        'Elemen `details` memberi lima hal gratis, yaitu keadaan buka dan tutup, tombol pembuka yang bisa difokus keyboard, peran yang diumumkan pembaca layar, isi yang tetap ditemukan pencarian peramban, dan pencetakan yang menyertakan isinya. Membangunnya dari `div` berarti membangun ulang kelimanya, dan tiga di antaranya hampir selalu terlewat.',
+      ),
+      code(
+        'tsx',
+        `
+        // Versi tanpa state React sama sekali. Peramban yang mengurusnya.
+        export function Akordeon({ butir }: { butir: Butir[] }) {
+          return (
+            <div className="akordeon">
+              {butir.map((b) => (
+                <details key={b.id} className="akordeon-butir">
+                  <summary className="akordeon-judul">{b.pertanyaan}</summary>
+                  <div className="akordeon-isi">{b.jawaban}</div>
+                </details>
+              ))}
+            </div>
+          );
+        }
+
+        // Versi terkendali, dipakai HANYA kalau memang butuh
+        // membatasi satu terbuka pada satu waktu.
+        export function AkordeonTunggal({ butir }: { butir: Butir[] }) {
+          const [terbuka, setTerbuka] = useState<string | null>(null);
+
+          return (
+            <div className="akordeon">
+              {butir.map((b) => (
+                <details
+                  key={b.id}
+                  open={terbuka === b.id}
+                  onToggle={(e) => {
+                    // onToggle dipicu peramban SETELAH keadaannya berubah.
+                    if (e.currentTarget.open) setTerbuka(b.id);
+                    else if (terbuka === b.id) setTerbuka(null);
+                  }}
+                >
+                  <summary>{b.pertanyaan}</summary>
+                  <div>{b.jawaban}</div>
+                </details>
+              ))}
+            </div>
+          );
+        }
+        `,
+        { filename: 'src/ui/Akordeon.tsx' },
+      ),
+      p(
+        'Versi pertama tidak punya satu pun state React, dan untuk sebagian besar kasus itu justru yang benar. Kalau tidak ada aturan yang menuntut hanya satu boleh terbuka, membiarkan peramban mengurusnya berarti nol kode dan nol bug. Kecenderungan menambahkan state untuk hal yang sudah diurus peramban adalah salah satu kebiasaan yang paling sering merugikan di React.',
+      ),
+      p(
+        'Versi kedua dipakai hanya kalau aturan satu terbuka memang diperlukan. Perhatikan `onToggle` dipicu **setelah** peramban mengubah keadaannya, bukan sebelum, sehingga ia berbeda dari `onChange` pada kolom formulir. Membaca `e.currentTarget.open` memberi keadaan yang baru, dan menyetel state berdasarkan itu menjaga keduanya tetap sinkron.',
+      ),
+      p(
+        'Perlu diketahui elemen `summary` sudah bisa difokus dan sudah menanggapi Enter serta spasi secara bawaan. Menambahkan `tabIndex` atau penangan keyboard sendiri padanya justru bisa merusak perilaku bawaannya. Ini pola yang berulang di seluruh bab ini, yaitu elemen bawaan memberi banyak hal gratis, dan menambahinya sering menghilangkan sebagian.',
+      ),
+      callout(
+        'warning',
+        'Menganimasikan `details` butuh pertimbangan tambahan',
+        'Peramban tidak menganimasikan buka dan tutup `details` secara bawaan, dan menganimasikan `height` memicu perhitungan tata letak tiap bingkai seperti diukur di Bab 4 Frontend Basic. Properti CSS `interpolate-size` dan `content-visibility` mulai menyediakan jalan yang lebih baik, dan dukungannya masih berbeda antar-peramban. Periksa dukungannya sebelum mengandalkannya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut adalah yang paling sering pada akordeon, dan tiga di antaranya berasal dari membangunnya sendiri padahal tidak perlu.',
+      ),
+      code(
+        'text',
+        `
+        <div onClick={() => setBuka(!buka)}>{pertanyaan}</div>
+        {buka ? <div>{jawaban}</div> : null}
+
+        // Ctrl+F tidak menemukan teks jawaban yang tertutup.
+        // Mencetak halaman tidak menyertakan jawaban.
+        // Pengguna keyboard tidak bisa membukanya.
+        `,
+        { caption: 'Dibangun dari `div`, dan tiga perilaku bawaan hilang sekaligus.' },
+      ),
+      p(
+        'Yang paling merugikan adalah pencarian peramban, sebab pengguna sering mencari kata kunci di halaman bantuan. Isi yang tidak dirender tidak akan pernah ditemukan. Elemen `details` menyelesaikan itu karena peramban modern membuka bagian yang cocok saat pencarian menemukannya di dalamnya, dan perilaku itu mustahil ditiru dengan `div`.',
+      ),
+      code(
+        'text',
+        `
+        <details open={terbuka} />
+        // tanpa onToggle
+
+        // Pengguna mengklik. Peramban membukanya sesaat lalu React menutupnya lagi.
+        // Akordeon terasa berkedip dan tidak bisa dibuka.
+        `,
+        { caption: 'Prop `open` dikendalikan React tanpa menyinkronkan balik.' },
+      ),
+      p(
+        'Ini bentuk yang sama dengan kolom `value` tanpa `onChange` dari bab sebelumnya. Peramban mengubah keadaannya, React menggambar ulang dengan nilai lama, dan keadaannya kembali. Kalau kamu memakai `open` sebagai prop terkendali, `onToggle` wajib ada. Kalau tidak butuh mengendalikan, jangan setel `open` sama sekali dan biarkan peramban yang mengurusnya.',
+      ),
+      code(
+        'text',
+        `
+        <summary tabIndex={0} onKeyDown={tanganiEnter}>{pertanyaan}</summary>
+
+        // Enter memicu penangan DAN perilaku bawaan.
+        // Akordeon terbuka lalu langsung tertutup lagi.
+        `,
+        { caption: 'Perilaku bawaan ditambahi, bukan digantikan.' },
+      ),
+      p(
+        'Elemen `summary` sudah menanggapi Enter dan spasi, sehingga menambahkan penangan sendiri menghasilkan dua reaksi untuk satu penekanan. Gejalanya berupa akordeon yang berkedip terbuka lalu tertutup. Aturan yang bisa dipegang, jangan menambahkan perilaku keyboard pada elemen yang sudah punya, dan periksa dulu apa yang sudah disediakan sebelum menambah apa pun.',
+      ),
+      code(
+        'text',
+        `
+        // Dua puluh akordeon, masing-masing berisi tabel besar.
+        // Seluruhnya dirender walaupun tertutup.
+
+        // Halaman butuh 1.8 detik untuk interaktif.
+        `,
+        { caption: 'Isi berat dirender walaupun tidak terlihat.' },
+      ),
+      p(
+        'Elemen `details` merender isinya walaupun tertutup, dan itu justru yang membuat pencarian peramban bekerja. Untuk isi ringan seperti paragraf, itu tidak jadi masalah. Untuk isi berat seperti tabel besar atau grafik, kamu perlu menunda pembuatannya sampai dibuka. Ini pertukaran yang harus disadari, yaitu menunda isinya berarti kehilangan pencarian peramban di bagian itu.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Ctrl+F tidak menemukan isi yang tertutup',
+            'Isi tidak dirender saat tertutup',
+            'Pakai `details`, yang merender isinya',
+          ],
+          [
+            'Akordeon berkedip dan tidak bisa dibuka',
+            '`open` dikendalikan tanpa `onToggle`',
+            'Tambahkan `onToggle`, atau jangan setel `open` sama sekali',
+          ],
+          [
+            'Terbuka lalu langsung tertutup saat Enter',
+            'Penangan keyboard ditambahkan pada `summary`',
+            'Hapus penanganmu, sebab perilakunya sudah bawaan',
+          ],
+          [
+            'Halaman lambat menjadi interaktif',
+            'Isi berat dirender walaupun tertutup',
+            'Tunda pembuatan isi berat sampai dibuka, dan sadari pertukarannya',
+          ],
+          [
+            'Pengguna keyboard tidak bisa membuka',
+            'Dibangun dari `div` tanpa `tabIndex` dan penangan',
+            'Pakai `details` dan `summary`',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Akordeon adalah contoh paling jelas dari kebiasaan membangun ulang sesuatu yang sudah disediakan peramban.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membangun akordeon dari `div` dan state',
+            'Lebih bebas mengatur tampilannya',
+            'Kehilangan pencarian peramban, pencetakan, fokus keyboard, dan peran ARIA. Keempatnya harus dibangun ulang',
+          ],
+          [
+            'Menambahkan state React untuk `details` yang tidak butuh dikendalikan',
+            'Semua keadaan harus di React',
+            'Peramban sudah mengurusnya. Menambah state berarti menambah tempat yang bisa tidak sinkron tanpa manfaat apa pun',
+          ],
+          [
+            'Menambahkan `tabIndex` dan penangan keyboard pada `summary`',
+            'Supaya bisa dipakai keyboard',
+            'Ia sudah bisa. Menambahinya menghasilkan reaksi ganda',
+          ],
+          [
+            'Memakai akordeon untuk menyembunyikan informasi penting',
+            'Supaya halaman terlihat ringkas',
+            'Isi yang tertutup sering tidak pernah dibuka. Kalau informasinya penting bagi sebagian besar pengguna, tampilkan langsung',
+          ],
+          [
+            'Memakai akordeon untuk formulir bertahap',
+            'Tampilannya mirip',
+            'Formulir bertahap butuh validasi per langkah dan urutan yang dipaksakan. Akordeon membiarkan pengguna membuka apa saja',
+          ],
+          [
+            'Menganimasikan tinggi tanpa memikirkan biayanya',
+            'Supaya terasa halus',
+            'Menganimasikan `height` memicu perhitungan tata letak tiap bingkai. Untuk dua puluh butir sekaligus ini terasa',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat adalah keputusan desain yang sering diambil untuk alasan yang salah. Akordeon dipilih supaya halaman terlihat ringkas, dan akibatnya informasi yang dibutuhkan sebagian besar pengguna menjadi tersembunyi di balik satu klik tambahan. Ukurannya sederhana, yaitu kalau lebih dari separuh pengguna akan membukanya, ia tidak layak ditutup sejak awal.',
+      ),
+      callout(
+        'tip',
+        'Periksa dulu apa yang sudah disediakan HTML',
+        'Sebelum membangun komponen interaktif, cari apakah HTML sudah punya elemennya. `details` untuk akordeon, `dialog` untuk modal, `select` untuk pilihan, `input type="range"` untuk penggeser, dan `progress` untuk kemajuan. Semuanya membawa perilaku keyboard, peran ARIA, dan dukungan pembaca layar yang sudah teruji, dan semuanya gratis.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         '`<details>`/`<summary>` sudah benar untuk kebanyakan kasus — pakai itu dulu.',
@@ -1700,7 +3211,7 @@ export const lessons: LessonDraft[] = [
   written(
     'studi-toast',
     'Studi Kasus: `Toast`',
-    13,
+    23,
     'Notifikasi sementara yang tetap terbaca teknologi bantu — dan tidak menghilang terlalu cepat.',
     [
       terms(
@@ -1904,6 +3415,268 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Aplikasi menampilkan pemberitahuan kecil di pojok kanan bawah setiap kali sesuatu berhasil disimpan. Setelah dipakai, tiga laporan masuk. Pengguna pembaca layar tidak pernah tahu penyimpanannya berhasil. Pemberitahuan galat hilang setelah tiga detik sebelum sempat dibaca. Dan saat pengguna menyimpan sepuluh kali cepat, sepuluh kotak menumpuk sampai menutupi tombol yang sedang ia pakai.',
+      ),
+      p(
+        'Ketiganya berasal dari memperlakukan seluruh pemberitahuan sama. Yang membedakan bukan tampilannya melainkan **seberapa mendesak** isinya, dan itu menentukan cara pengumumannya.',
+      ),
+      table(
+        ['Jenis', 'Peran ARIA', 'Kapan diumumkan', 'Boleh hilang sendiri?'],
+        [
+          [
+            'Berhasil disimpan',
+            '`status`',
+            'Setelah bacaan sekarang selesai',
+            'Ya, sekitar 4 detik',
+          ],
+          [
+            'Gagal menyimpan',
+            '`alert`',
+            '**Memotong** bacaan sekarang',
+            '**Tidak.** Harus ditutup pengguna',
+          ],
+          ['Kemajuan unggahan', '`status`', 'Setelah bacaan sekarang selesai', 'Ya, saat selesai'],
+          ['Konfirmasi hapus', 'Bukan toast', 'Dialog, bukan pemberitahuan', 'Tidak berlaku'],
+        ],
+        'Kegagalan yang menuntut tindakan tidak boleh hilang sendiri.',
+      ),
+      code(
+        'tsx',
+        `
+        // Wadahnya dipasang SEKALI di akar aplikasi, dan tidak pernah dilepas.
+        // Wilayah live harus SUDAH ADA di DOM sebelum isinya berubah,
+        // kalau tidak, pembaca layar tidak mengumumkan apa pun.
+        export function WadahToast({ daftar, onTutup }: WadahProps) {
+          return (
+            <>
+              {/* Untuk pesan biasa. Diumumkan setelah bacaan sekarang selesai. */}
+              <div
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+                className="toast-wadah"
+              >
+                {daftar
+                  .filter((t) => t.jenis !== 'galat')
+                  .map((t) => (
+                    <Toast key={t.id} toast={t} onTutup={() => onTutup(t.id)} />
+                  ))}
+              </div>
+
+              {/* Untuk galat. Memotong bacaan yang sedang berlangsung. */}
+              <div role="alert" aria-live="assertive" className="toast-wadah">
+                {daftar
+                  .filter((t) => t.jenis === 'galat')
+                  .map((t) => (
+                    <Toast key={t.id} toast={t} onTutup={() => onTutup(t.id)} />
+                  ))}
+              </div>
+            </>
+          );
+        }
+        `,
+        { filename: 'src/ui/WadahToast.tsx' },
+      ),
+      p(
+        'Dua wadah terpisah adalah bagian yang paling sering keliru. Nilai `aria-live` tidak bisa diubah setelah wilayahnya dibuat dan diharapkan langsung berlaku, sehingga satu wadah yang nilainya berganti-ganti tidak bekerja dengan andal. Memisahkan sejak awal membuat pesan biasa menunggu giliran, sedangkan galat memotong bacaan yang sedang berlangsung.',
+      ),
+      p(
+        'Kalimat bahwa wadahnya harus sudah ada di DOM sebelum isinya berubah itu bukan detail kecil. Kalau kamu merender wadah `aria-live` **bersamaan** dengan pesan pertamanya, sebagian pembaca layar tidak mengumumkan apa pun sebab wilayah itu baru saja lahir. Pasang wadah kosongnya di akar aplikasi sejak awal, lalu isinya yang berubah.',
+      ),
+      code(
+        'tsx',
+        `
+        function Toast({ toast, onTutup }: { toast: Toast; onTutup: () => void }) {
+          const timerRef = useRef<number | null>(null);
+
+          useEffect(() => {
+            // Galat TIDAK hilang sendiri. Pengguna yang menutupnya.
+            if (toast.jenis === 'galat') return;
+
+            timerRef.current = window.setTimeout(onTutup, 4000);
+            return () => {
+              if (timerRef.current !== null) clearTimeout(timerRef.current);
+            };
+          }, [toast.jenis, onTutup]);
+
+          function tahan() {
+            if (timerRef.current !== null) clearTimeout(timerRef.current);
+          }
+
+          function lanjut() {
+            if (toast.jenis === 'galat') return;
+            timerRef.current = window.setTimeout(onTutup, 4000);
+          }
+
+          return (
+            <div
+              className={\`toast toast-\${toast.jenis}\`}
+              // Hitung mundur berhenti saat pengguna mengarahkan kursor
+              // atau memfokusnya dengan keyboard.
+              onMouseEnter={tahan}
+              onMouseLeave={lanjut}
+              onFocus={tahan}
+              onBlur={lanjut}
+            >
+              <p>{toast.pesan}</p>
+              <button type="button" onClick={onTutup} aria-label="Tutup pemberitahuan">
+                &times;
+              </button>
+            </div>
+          );
+        }
+        `,
+        { filename: 'src/ui/Toast.tsx' },
+      ),
+      p(
+        'Penangan `onMouseEnter` dan `onFocus` yang menghentikan hitung mundur menutup masalah yang sangat nyata. Pengguna yang sedang membaca pemberitahuan panjang atau sedang mengarahkan kursor ke tombol di dalamnya akan kehilangan keduanya kalau waktunya habis. Ini termasuk kriteria WCAG tentang isi yang bergerak, yaitu pengguna harus bisa menghentikan atau memperpanjangnya.',
+      ),
+      p(
+        'Tombol tutup diberi `aria-label` karena isinya hanya tanda silang, dan itu bukan teks yang berarti bagi pembaca layar. Ini bentuk yang sama dengan tombol ikon di sub-bab tombol, dan ia muncul lagi di sini karena tombol tutup adalah salah satu tombol ikon yang paling sering dipakai sekaligus paling sering lupa diberi nama.',
+      ),
+      callout(
+        'danger',
+        'Jangan pernah memakai toast untuk kegagalan yang menuntut tindakan',
+        'Pesan yang hilang setelah empat detik tidak cocok untuk memberi tahu bahwa pembayaran gagal atau data tidak tersimpan. Pengguna yang sedang melihat ke tempat lain akan melewatkannya sepenuhnya, dan tidak ada cara mengulangnya. Untuk kegagalan yang penting, pakai pesan yang menetap di dekat tempat kejadiannya, bukan toast.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut adalah yang paling sering pada pemberitahuan, dan tiga di antaranya hanya terasa oleh pengguna pembaca layar.',
+      ),
+      code(
+        'text',
+        `
+        {toast ? <div role="status">{toast.pesan}</div> : null}
+
+        // Wadah dan isinya muncul BERSAMAAN.
+        // Sebagian pembaca layar tidak mengumumkan apa pun.
+        `,
+        { caption: 'Wilayah live baru lahir bersama isinya.' },
+      ),
+      p(
+        'Pembaca layar mengamati perubahan **di dalam** wilayah live yang sudah ada. Kalau wilayahnya sendiri yang baru muncul, tidak ada perubahan yang teramati. Perbaikannya merender wadah kosongnya sejak awal di akar aplikasi, lalu hanya isinya yang berubah. Ini kesalahan yang tidak terlihat sama sekali secara visual, sebab kotaknya tetap muncul di layar.',
+      ),
+      code(
+        'text',
+        `
+        <div role="alert">{pesan}</div>
+        // dipakai untuk pesan "Tersimpan"
+
+        // Pembaca layar MEMOTONG apa pun yang sedang dibaca pengguna.
+        `,
+        { caption: 'Peran yang terlalu mendesak untuk pesan biasa.' },
+      ),
+      p(
+        'Peran `alert` memotong bacaan yang sedang berlangsung, dan itu tepat untuk kegagalan yang mendesak. Memakainya untuk pemberitahuan berhasil berarti setiap penyimpanan otomatis akan memotong pengguna yang sedang membaca isi halaman. Pakai `status` dengan `aria-live="polite"` untuk pesan yang bisa menunggu, dan sisakan `alert` untuk yang benar-benar mendesak.',
+      ),
+      code(
+        'text',
+        `
+        useEffect(() => {
+          setTimeout(onTutup, 4000);
+        }, []);
+
+        // Pengguna menutup manual sebelum 4 detik.
+        // Timer tetap jalan dan menutup toast BERIKUTNYA.
+        `,
+        { caption: 'Timer tidak dibersihkan saat komponen dilepas.' },
+      ),
+      p(
+        'Gejalanya khas dan membingungkan, yaitu pemberitahuan berikutnya hilang jauh lebih cepat dari seharusnya. Penyebabnya timer dari toast yang sudah ditutup masih hidup dan memanggil penutupnya. Fungsi pembersih di `useEffect` yang memanggil `clearTimeout` menutupnya, dan ini pola yang berlaku untuk seluruh timer di React.',
+      ),
+      code(
+        'text',
+        `
+        // Pengguna menyimpan 10 kali cepat.
+        // 10 toast menumpuk dan menutupi tombol di pojok.
+        `,
+        { caption: 'Tidak ada batas jumlah dan tidak ada penggabungan.' },
+      ),
+      p(
+        'Tidak ada error, dan yang rusak adalah kegunaannya. Ada dua pola yang menyelesaikannya. Pertama, batasi jumlah yang ditampilkan misalnya tiga, dan buang yang paling lama saat ada yang baru. Kedua, gabungkan pesan yang sama, misalnya menampilkan tersimpan beserta angka berapa kali alih-alih sepuluh kotak terpisah.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Pembaca layar tidak mengumumkan apa pun',
+            'Wilayah live lahir bersama isinya',
+            'Render wadah kosongnya sejak awal di akar aplikasi',
+          ],
+          [
+            'Bacaan pengguna terpotong untuk pesan biasa',
+            'Peran `alert` dipakai untuk yang tidak mendesak',
+            'Pakai `status` dengan `aria-live="polite"`',
+          ],
+          [
+            'Pemberitahuan berikutnya hilang terlalu cepat',
+            'Timer tidak dibersihkan saat dilepas',
+            'Panggil `clearTimeout` di fungsi pembersih',
+          ],
+          [
+            'Pemberitahuan menumpuk menutupi antarmuka',
+            'Tidak ada batas jumlah',
+            'Batasi jumlahnya, atau gabungkan pesan yang sama',
+          ],
+          [
+            'Pengguna melewatkan pesan galat penting',
+            'Galat memakai toast yang hilang sendiri',
+            'Pakai pesan menetap di dekat tempat kejadiannya',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Toast terlihat sebagai komponen sederhana dan justru punya kebutuhan aksesibilitas yang paling mudah salah, sebab kesalahannya tidak terlihat sama sekali di layar.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Merender wadah `aria-live` hanya saat ada pesan',
+            'Tidak perlu elemen kosong di DOM',
+            'Pembaca layar tidak mengumumkan apa pun sebab wilayahnya baru lahir. Render wadah kosongnya sejak awal',
+          ],
+          [
+            'Memakai `role="alert"` untuk semua pemberitahuan',
+            'Supaya pasti terdengar',
+            'Ia memotong bacaan pengguna setiap kali. Sisakan untuk yang benar-benar mendesak',
+          ],
+          [
+            'Membuat galat hilang sendiri setelah beberapa detik',
+            'Konsisten dengan pesan lain',
+            'Pengguna yang melihat ke tempat lain melewatkannya, dan tidak ada cara mengulangnya',
+          ],
+          [
+            'Tidak menghentikan hitung mundur saat kursor diarahkan',
+            'Waktunya sudah cukup untuk membaca',
+            'Pengguna yang membaca lambat atau sedang mengarahkan kursor ke tombol di dalamnya kehilangan keduanya',
+          ],
+          [
+            'Menaruh tombol aksi di dalam toast yang hilang sendiri',
+            'Supaya bisa langsung urungkan',
+            'Tombolnya hilang sebelum sempat ditekan. Kalau ada aksi, perpanjang waktunya jauh atau jangan hilangkan sendiri',
+          ],
+          [
+            'Menampilkan toast di pojok yang menutupi tombol tetap',
+            'Pojok kanan bawah kan standar',
+            'Ia bisa menutupi tombol aksi mengambang atau bilah navigasi bawah di ponsel. Sesuaikan posisinya per lebar layar',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima sering terjadi pada pola urungkan yang populer, yaitu menampilkan pesan terhapus beserta tombol urungkan yang hilang setelah lima detik. Kalau tombolnya memang ada, waktu tunggunya harus jauh lebih panjang dan hitung mundurnya harus berhenti saat pengguna mengarahkan kursor. Tanpa keduanya, fitur urungkan itu hanya berguna bagi orang yang kebetulan sedang melihat ke sana.',
+      ),
+      callout(
+        'tip',
+        'Uji dengan pembaca layar bawaan sistem, gratis dan sudah terpasang',
+        'macOS punya VoiceOver dengan Cmd+F5, Windows punya Narrator dengan Ctrl+Windows+Enter, dan Android punya TalkBack. Nyalakan salah satunya lalu picu pemberitahuanmu. Sepuluh detik itu memberi tahu apakah pesannya benar-benar sampai, dan tidak ada cara lain memastikannya.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         '`role="alert"` untuk kegagalan (menyela), `role="status"` untuk sisanya.',
@@ -1944,7 +3717,7 @@ export const lessons: LessonDraft[] = [
   written(
     'studi-data-table',
     'Studi Kasus: Data Table',
-    15,
+    26,
     'Tabel dengan sort, filter, dan paginasi — dan kenapa `<table>` asli tetap penting.',
     [
       terms(
@@ -2176,6 +3949,251 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Tabel pesanan di panel admin menampilkan tiga ribu baris dengan pengurutan, pemilihan baris, dan aksi per baris. Setelah dipasang, empat laporan masuk. Halaman butuh empat detik untuk bisa diklik. Mengurutkan kolom membuat centang pilihan berpindah ke baris yang salah. Pengguna pembaca layar tidak tahu kolom mana yang sedang diurutkan. Dan di ponsel, tabelnya terpotong tanpa cara menggulirnya.',
+      ),
+      p(
+        'Keempatnya punya penyebab yang berbeda, dan yang pertama sering disalahartikan sebagai masalah React padahal bukan.',
+      ),
+      code(
+        'tsx',
+        `
+        export function TabelPesanan({ data, urut, onUrut }: Props) {
+          return (
+            // Pembungkus yang bisa digulir, dan bisa difokus keyboard.
+            <div className="tabel-gulir" tabIndex={0} role="region" aria-label="Tabel pesanan">
+              <table>
+                <caption className="sr-only">
+                  Daftar pesanan, {data.length} baris
+                </caption>
+
+                <thead>
+                  <tr>
+                    <th scope="col">
+                      <input type="checkbox" aria-label="Pilih semua baris" />
+                    </th>
+
+                    {KOLOM.map((k) => {
+                      const aktif = urut.kunci === k.kunci;
+                      return (
+                        <th
+                          key={k.kunci}
+                          scope="col"
+                          // Inilah yang memberi tahu pembaca layar arah pengurutan.
+                          aria-sort={aktif ? (urut.arah === 'naik' ? 'ascending' : 'descending') : 'none'}
+                        >
+                          <button type="button" onClick={() => onUrut(k.kunci)}>
+                            {k.judul}
+                            <IkonUrut arah={aktif ? urut.arah : null} aria-hidden="true" />
+                          </button>
+                        </th>
+                      );
+                    })}
+
+                    <th scope="col">Aksi</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {data.map((p) => (
+                    // key memakai id pesanan, BUKAN indeks.
+                    <tr key={p.id}>
+                      <td>
+                        <input type="checkbox" aria-label={\`Pilih pesanan \${p.nomor}\`} />
+                      </td>
+                      <th scope="row">{p.nomor}</th>
+                      <td>{p.pembeli}</td>
+                      <td>{formatRupiah(p.totalSen)}</td>
+                      <td>
+                        <button type="button" data-aksi="batalkan" data-id={p.id}>
+                          Batalkan
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        }
+        `,
+        { filename: 'src/admin/TabelPesanan.tsx' },
+      ),
+      p(
+        'Atribut `aria-sort` pada kepala kolom menutup laporan ketiga, dan ia satu-satunya cara menyampaikan arah pengurutan ke pembaca layar. Ikon panah yang terlihat diberi `aria-hidden` sebab ia hiasan, dan yang membawa informasinya adalah atributnya. Perhatikan hanya **satu** kolom yang boleh bernilai selain `none` pada satu waktu.',
+      ),
+      p(
+        'Elemen `th` dengan `scope="row"` pada nomor pesanan sering dilewatkan padahal sangat berpengaruh. Ia menandai kolom mana yang menjadi penanda tiap baris, sehingga pembaca layar bisa mengumumkan konteks saat pengguna berpindah sel. Tanpa itu, pengguna mendengar deretan angka tanpa tahu angka itu milik pesanan yang mana.',
+      ),
+      p(
+        'Pembungkus yang bisa digulir diberi `tabIndex={0}` supaya pengguna keyboard bisa menggulirnya, dan itu menutup laporan keempat. Elemen yang bisa digulir tapi tidak punya isi yang bisa difokus tidak bisa digulir dengan panah keyboard. Atribut `role="region"` beserta namanya membuatnya juga muncul sebagai tempat yang bisa dituju pengguna pembaca layar.',
+      ),
+      code(
+        'tsx',
+        `
+        // Laporan pertama: tiga ribu baris membuat halaman lambat.
+        // Penyebabnya BUKAN React, melainkan tiga ribu x 5 = 15.000 elemen DOM.
+
+        // Jalan keluar 1 — paginasi. Paling sederhana, dan hampir selalu cukup.
+        const potongan = data.slice((halaman - 1) * 50, halaman * 50);
+
+        // Jalan keluar 2 — virtualisasi. Hanya render yang terlihat di layar.
+        // Dipakai kalau memang harus satu daftar panjang tanpa halaman.
+
+        // Yang TIDAK menolong: membungkus baris dengan pengoptimalan React.
+        // Biayanya ada di jumlah elemen DOM, bukan di jumlah render.
+        `,
+        { caption: 'Ukur dulu di tab Performance sebelum memilih jalan keluarnya.' },
+      ),
+      p(
+        'Kalimat terakhir itu yang paling sering keliru. Orang menaburkan pembungkus pengoptimalan ke komponen baris lalu heran halamannya tetap lambat. Biaya membuat lima belas ribu elemen DOM tidak berkurang sedikit pun oleh pengoptimalan render. Yang menolong hanya mengurangi jumlah elemennya, dan paginasi adalah cara termudah yang juga lebih enak dipakai.',
+      ),
+      p(
+        'Laporan kedua, yaitu centang yang berpindah saat diurutkan, adalah bug `key` yang sudah dibahas di Sub-bab 2.6. Kalau `key` memakai indeks, mengurutkan mengubah posisi sehingga React menyimpulkan baris di posisi nol berubah isinya dan mempertahankan elemennya beserta keadaan centangnya. Memakai id pesanan menutupnya sepenuhnya.',
+      ),
+      callout(
+        'warning',
+        'Jangan membangun tabel dari `div` dengan `role="table"`',
+        'Sebagian pustaka menyarankan itu supaya tata letaknya lebih bebas. Konsekuensinya, seluruh perilaku navigasi tabel di pembaca layar harus dibangun ulang lewat `role` yang lengkap dan hampir selalu ada yang terlewat. Elemen `table` sungguhan memberi navigasi antar-sel, pengumuman kepala kolom, dan hitungan baris secara bawaan.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut adalah yang paling sering pada tabel data, dan dua di antaranya hanya terasa oleh pengguna pembaca layar.',
+      ),
+      code(
+        'text',
+        `
+        {data.map((p, i) => <tr key={i}>...</tr>)}
+
+        // Pengguna mencentang baris ke-3, lalu mengurutkan kolom.
+        // Centangnya sekarang berada di baris yang berbeda.
+        `,
+        { caption: 'Indeks dipakai sebagai `key` pada daftar yang bisa diurutkan.' },
+      ),
+      p(
+        'Tidak ada error, dan datanya sendiri benar. Yang salah adalah pencocokan elemen, sehingga keadaan yang hidup di dalam elemen DOM ikut tertinggal di posisi lama. Selain centang, hal yang sama terjadi pada kotak input di dalam baris, baris yang sedang disorot, dan animasi yang sedang berjalan. Pakai id yang melekat pada datanya.',
+      ),
+      code(
+        'text',
+        `
+        <th onClick={() => onUrut('nomor')}>Nomor</th>
+
+        // Pengguna keyboard tidak bisa mengurutkan.
+        // Pembaca layar tidak tahu kolom ini bisa diklik.
+        `,
+        { caption: 'Penangan klik dipasang pada `th`, bukan pada tombol di dalamnya.' },
+      ),
+      p(
+        'Elemen `th` bukan elemen interaktif, sehingga ia tidak bisa difokus dan tidak menanggapi Enter. Ini bentuk yang sama dengan memakai `div` sebagai tombol dari sub-bab tombol. Perbaikannya menaruh `button` di dalam `th`, dan itu juga yang membuat pembaca layar mengumumkannya sebagai tombol yang bisa ditekan.',
+      ),
+      code(
+        'text',
+        `
+        <th aria-sort="ascending">Nomor</th>
+        <th aria-sort="ascending">Total</th>
+
+        // Dua kolom mengaku sedang diurutkan naik.
+        // Pembaca layar mengumumkan keduanya, dan penggunanya bingung.
+        `,
+        { caption: 'Lebih dari satu kolom bernilai selain `none`.' },
+      ),
+      p(
+        'Hanya satu kolom yang boleh punya nilai `aria-sort` selain `none` pada satu waktu, sebab tabel memang hanya bisa diurutkan berdasarkan satu kolom. Kesalahan ini terjadi saat nilainya disetel tetap di markup alih-alih dihitung dari state pengurutan. Bentuk pada studi kasus menghitungnya dari `urut.kunci`, sehingga hanya kolom aktif yang bernilai selain `none`.',
+      ),
+      code(
+        'text',
+        `
+        // Tabel lebih lebar dari layar ponsel.
+        // Pembungkusnya punya overflow-x: auto, tanpa tabIndex.
+
+        // Pengguna keyboard tidak bisa menggulirnya ke kanan.
+        `,
+        { caption: 'Area yang bisa digulir tidak bisa difokus.' },
+      ),
+      p(
+        'Peramban hanya menggulir area yang sedang mendapat fokus atau yang berisi elemen terfokus. Kalau seluruh isi tabelmu berupa teks tanpa elemen yang bisa difokus, tidak ada cara mencapai area gulirnya dengan keyboard. Menambahkan `tabIndex={0}` pada pembungkusnya menyelesaikannya, dan menambahkan `role="region"` beserta nama membuatnya juga bisa dituju pengguna pembaca layar.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Centang berpindah baris setelah diurutkan',
+            'Indeks dipakai sebagai `key`',
+            'Pakai id yang melekat pada datanya',
+          ],
+          [
+            'Kolom tidak bisa diurutkan dengan keyboard',
+            'Penangan klik dipasang pada `th`',
+            'Taruh `button` di dalam `th`',
+          ],
+          [
+            'Pembaca layar menyebut dua kolom sedang diurutkan',
+            '`aria-sort` disetel tetap, bukan dihitung',
+            'Hitung dari state pengurutan, dan hanya satu yang aktif',
+          ],
+          [
+            'Tabel terpotong dan tidak bisa digulir keyboard',
+            'Pembungkus gulir tidak bisa difokus',
+            'Tambahkan `tabIndex={0}` dan `role="region"` beserta nama',
+          ],
+          [
+            'Halaman lambat pada ribuan baris',
+            'Jumlah elemen DOM, bukan jumlah render',
+            'Paginasi, atau virtualisasi. Pengoptimalan render tidak menolong',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Tabel data adalah komponen paling rumit di bab ini, dan sebagian besar kesalahan di bawah berasal dari mengabaikan apa yang sudah diberikan elemen `table`.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membangun tabel dari `div`',
+            'Tata letaknya lebih bebas dengan grid',
+            'Kehilangan navigasi antar-sel, pengumuman kepala kolom, dan hitungan baris. Semuanya harus dibangun ulang lewat `role`',
+          ],
+          [
+            'Memakai indeks sebagai `key` pada baris',
+            'Barisnya kan berurutan',
+            'Mengurutkan dan menyaring mengubah posisi, sehingga keadaan di dalam baris berpindah',
+          ],
+          [
+            'Melupakan `scope` pada `th`',
+            'Kepala kolomnya sudah jelas',
+            'Pembaca layar tidak tahu sebuah `th` menjelaskan kolom atau baris. Tulis `scope="col"` dan `scope="row"`',
+          ],
+          [
+            'Merender ribuan baris sekaligus',
+            'Datanya memang sebanyak itu',
+            'Peramban harus membuat puluhan ribu elemen. Paginasi hampir selalu cukup dan lebih enak dipakai',
+          ],
+          [
+            'Menaburkan pengoptimalan React untuk memperbaiki kelambatan',
+            'Rendernya kan yang lambat',
+            'Biayanya ada di jumlah elemen DOM. Ukur di tab Performance sebelum mengubah apa pun',
+          ],
+          [
+            'Menaruh aksi per baris tanpa nama yang membedakan',
+            'Tombolnya sudah jelas di barisnya',
+            'Pembaca layar mendengar dua puluh tombol bernama Batalkan tanpa tahu milik pesanan mana. Sertakan penandanya di `aria-label`',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir punya perbaikan yang murah dan sering dilewatkan. Tombol bernama Batalkan yang berulang dua puluh kali tidak berarti apa-apa saat pengguna menelusuri daftar tombol di halaman. Menambahkan nomor pesanannya ke `aria-label`, misalnya batalkan pesanan INV-0042, membuat tiap tombol punya identitas. Ini juga berlaku untuk centang pilihan per baris.',
+      ),
+      callout(
+        'tip',
+        'Urutan memperbaiki tabel yang lambat',
+        'Rekam di tab Performance lebih dulu dan lihat ke mana waktunya habis. Kalau habis di pembuatan elemen, kurangi jumlah barisnya lewat paginasi. Kalau habis di perhitungan seperti pengurutan atau penyaringan, pindahkan ke server atau bungkus dengan `useMemo`. Kalau habis di penggambaran ulang berulang, barulah pengoptimalan render relevan. Menebak urutan ini hampir selalu salah.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Pakai `<table>` asli — `<div>` menghapus navigasi tabel sepenuhnya.',
@@ -2223,7 +4241,7 @@ export const lessons: LessonDraft[] = [
   written(
     'boolean-prop-explosion',
     'Menghindari Ledakan Boolean Props',
-    12,
+    22,
     'Tanda-tanda API komponen mulai rusak — dan empat cara memperbaikinya.',
     [
       terms(
@@ -2422,6 +4440,221 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Komponen `Peringatan` lahir dengan dua prop. Setahun kemudian ia menerima sebelas boolean, yaitu `info`, `sukses`, `galat`, `kecil`, `besar`, `garis`, `padat`, `bisaTutup`, `tanpaIkon`, `penuh`, dan `melayang`. Tim mencatat dua ribu empat puluh delapan kombinasi yang bisa ditulis, dan hanya sembilan yang pernah dipakai. Sisanya adalah keadaan yang tidak pernah dirancang dan tidak pernah diuji.',
+      ),
+      p(
+        'Angka itu bukan retorika. Sebelas boolean berarti dua pangkat sebelas kombinasi, dan tiap satu boolean baru **menggandakan** jumlahnya.',
+      ),
+      table(
+        ['Jumlah boolean', 'Kombinasi yang bisa ditulis', 'Yang biasanya berarti'],
+        [
+          ['3', '8', 'sekitar 4'],
+          ['5', '32', 'sekitar 6'],
+          ['8', '256', 'sekitar 8'],
+          ['11', '**2.048**', '**9**'],
+        ],
+        'Yang tumbuh dua pangkat adalah ruang kesalahannya, bukan kemampuannya.',
+      ),
+      code(
+        'tsx',
+        `
+        // SEBELUM: sebelas boolean, dua ribu kombinasi.
+        type PeringatanProps = {
+          info?: boolean; sukses?: boolean; galat?: boolean;
+          kecil?: boolean; besar?: boolean;
+          garis?: boolean; padat?: boolean;
+          bisaTutup?: boolean; tanpaIkon?: boolean;
+          penuh?: boolean; melayang?: boolean;
+        };
+
+        // Sah menurut tipe, dan tidak masuk akal:
+        <Peringatan info sukses galat kecil besar />
+
+        // SESUDAH: tiga union dan dua boolean yang benar-benar berdiri sendiri.
+        type PeringatanProps = {
+          nada?: 'info' | 'sukses' | 'galat' | 'peringatan';   // saling meniadakan
+          ukuran?: 'kecil' | 'sedang' | 'besar';               // saling meniadakan
+          gaya?: 'padat' | 'garis';                            // saling meniadakan
+          bisaTutup?: boolean;                                 // berdiri sendiri, sah
+          ikon?: ReactNode | false;                            // bawaan, atau matikan
+        };
+
+        // 4 x 3 x 2 x 2 = 48 kombinasi, dan SEMUANYA berarti.
+        `,
+        { caption: 'Dari 2.048 kombinasi menjadi 48, tanpa kehilangan satu pun kemampuan.' },
+      ),
+      p(
+        'Aturan untuk memilih mana yang jadi union dan mana yang tetap boolean bisa dinyatakan satu kalimat, yaitu **kalau dua prop tidak boleh benar bersamaan, keduanya sebenarnya satu prop**. Nada tidak bisa info sekaligus galat. Ukuran tidak bisa kecil sekaligus besar. Sebaliknya `bisaTutup` tidak meniadakan apa pun, sehingga ia tetap boolean dan itu benar.',
+      ),
+      p(
+        'Prop `ikon` menunjukkan pola ketiga yang sering berguna, yaitu mengganti boolean penolak dengan nilai yang bisa diisi. Prop bernama `tanpaIkon` hanya bisa menjawab ya atau tidak, sedangkan `ikon` bisa berarti tiga hal sekaligus, yaitu tidak diberikan berarti pakai ikon bawaan sesuai nada, diberi `false` berarti tanpa ikon, dan diberi elemen berarti pakai ikon itu. Satu prop menggantikan dua, dan kemampuannya justru bertambah.',
+      ),
+      code(
+        'tsx',
+        `
+        // Nama berawalan "tanpa" atau "sembunyikan" hampir selalu tanda masalah.
+        // Ia memaksa pembaca berpikir terbalik.
+
+        <Peringatan tanpaIkon={false} />        // artinya... pakai ikon?
+        <Kartu sembunyikanKepala={false} />     // artinya... tampilkan kepala?
+
+        // Balik menjadi bentuk positif, dan bawaannya yang diatur.
+        <Peringatan />                          // ikon bawaan
+        <Peringatan ikon={false} />             // tanpa ikon
+        <Kartu />                               // kepala tampil
+        <Kartu kepala={null} />                 // tanpa kepala
+        `,
+        { caption: 'Prop bernama negatif menghasilkan penyangkalan ganda saat dibaca.' },
+      ),
+      p(
+        'Bentuk `tanpaIkon={false}` menuntut pembaca menyangkal dua kali untuk sampai pada artinya, dan itu jenis kerumitan yang tidak perlu ada. Aturan praktisnya, namai prop dengan keadaan positif lalu atur bawaannya. Kalau bawaannya memang menampilkan sesuatu, sediakan cara mematikannya lewat nilai, bukan lewat boolean penolak.',
+      ),
+      callout(
+        'tip',
+        'Cara memeriksa komponen yang sudah lama hidup',
+        'Hitung berapa boolean yang dimiliki komponenmu, lalu hitung dua pangkat sebanyak itu. Bandingkan dengan berapa tampilan yang sebenarnya kamu rancang. Kalau selisihnya besar, sebagian besar kombinasi itu tidak pernah diuji dan tidak ada yang tahu hasilnya seperti apa. Kelompokkan yang saling meniadakan menjadi union.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut diuji dengan `tsc` dan tipe React asli, dan dua di antaranya tidak melempar apa pun.',
+      ),
+      code(
+        'text',
+        `
+        type A = { kecil?: boolean; besar?: boolean };
+        <TombolA kecil besar />
+
+        // Diuji dengan tsc: TIDAK ADA ERROR.
+        // Hasilnya bergantung pada urutan kelas CSS.
+        `,
+        { caption: 'Boolean bertumpuk tidak bisa saling meniadakan di tingkat tipe.' },
+      ),
+      p(
+        'Tidak ada error, dan itu justru masalahnya. TypeScript tidak punya cara tahu bahwa `kecil` dan `besar` tidak boleh benar bersamaan, sebab keduanya prop terpisah yang sah. Hasil akhirnya ditentukan urutan kelas di berkas CSS, yaitu detail yang tidak seorang pun ingat. Dengan union, kombinasi itu tidak bisa ditulis sama sekali.',
+      ),
+      code(
+        'text',
+        `
+        type B = { ukuran?: 'kecil' | 'besar' };
+        <TombolB ukuran="sedang" />
+
+        error TS2322: Type '"sedang"' is not assignable to type
+        '"kecil" | "besar" | undefined'.
+        `,
+        { caption: 'Diuji dengan `tsc`. Union menolak nilai yang tidak dikenal.' },
+      ),
+      p(
+        'Selain menolak, pesannya menyebut seluruh nilai yang sah sehingga perbaikannya tidak perlu membuka berkas tipenya. Manfaat lain yang terasa saat mengetik, editor akan menawarkan ketiga pilihannya begitu kamu mengetik `ukuran=`. Dengan boolean bertumpuk, tidak ada bantuan apa pun dan kamu harus mengingat nama-namanya.',
+      ),
+      code(
+        'text',
+        `
+        <Peringatan info sukses />
+
+        // Kelas yang dihasilkan: "peringatan-info peringatan-sukses"
+        // Warna akhirnya ditentukan urutan di berkas CSS.
+        // Mengubah urutan CSS mengubah tampilan komponen ini.
+        `,
+        { caption: 'Tidak ada error, dan hasilnya bergantung pada hal yang tidak berhubungan.' },
+      ),
+      p(
+        'Ini bentuk ketergantungan yang paling sulit ditelusuri, sebab penyebabnya berada di berkas yang sama sekali berbeda. Seseorang merapikan urutan aturan CSS, dan tiba-tiba satu komponen di halaman lain berubah warna. Union menutupnya sepenuhnya sebab hanya satu kelas nada yang bisa dihasilkan.',
+      ),
+      code(
+        'text',
+        `
+        <Peringatan tanpaIkon={false} bisaTutup={false} penuh={false} />
+
+        // Tidak ada error. Tiga penyangkalan dalam satu baris,
+        // dan pembaca berikutnya harus memikirkan artinya satu per satu.
+        `,
+        { caption: 'Prop bernama negatif menumpuk menjadi tidak terbaca.' },
+      ),
+      p(
+        'Tidak ada error dan tidak ada bug, dan yang rusak adalah keterbacaannya. Kode seperti ini menuntut pembaca menyangkal tiga kali untuk memahami satu pemanggilan. Untuk komponen yang dipakai di dua puluh tempat, biaya itu dikalikan dua puluh setiap kali ada yang membacanya. Namai dengan bentuk positif, dan atur bawaannya.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Dua prop yang bertentangan diterima tanpa error',
+            'Boolean terpisah tidak bisa saling meniadakan di tipe',
+            'Kelompokkan menjadi satu union',
+          ],
+          [
+            'Tampilan berubah setelah urutan CSS dirapikan',
+            'Beberapa kelas nada aktif sekaligus',
+            'Pastikan hanya satu kelas nada yang bisa dihasilkan',
+          ],
+          [
+            'Salah ketik nama varian lolos tanpa peringatan',
+            'Prop bertipe `string`, bukan union',
+            'Pakai union teks',
+          ],
+          [
+            'Pemanggilan sulit dibaca karena penyangkalan bertumpuk',
+            'Prop dinamai dengan bentuk negatif',
+            'Namai positif, lalu atur bawaannya',
+          ],
+          [
+            'Komponen punya belasan prop yang tidak pernah dipakai bersama',
+            'Prop ditambah tiap ada kebutuhan baru',
+            'Kelompokkan yang saling meniadakan, dan pertimbangkan komposisi',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Ledakan prop boolean terjadi perlahan, satu prop pada satu waktu, sehingga tidak ada momen di mana keputusannya terasa salah. Baris di bawah adalah tanda-tandanya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menambah satu boolean tiap ada varian tampilan baru',
+            'Satu prop untuk satu kebutuhan, dan perubahannya kecil',
+            'Jumlah kombinasi tumbuh dua pangkat. Sebelas boolean berarti dua ribu kombinasi yang sebagian besar tidak pernah diuji',
+          ],
+          [
+            'Memakai `string` untuk varian supaya fleksibel',
+            'Bisa menerima nilai apa pun nanti',
+            'Salah ketik lolos tanpa peringatan dan menghasilkan kelas yang tidak ada. Pakai union',
+          ],
+          [
+            'Menamai prop dengan bentuk negatif',
+            'Bawaannya memang menampilkan, jadi propnya untuk mematikan',
+            'Pembaca harus menyangkal dua kali. Namai positif dan atur bawaannya',
+          ],
+          [
+            'Membiarkan kombinasi yang tidak masuk akal karena tidak pernah dipakai',
+            'Tidak ada yang menulisnya',
+            'Sampai ada yang menulisnya karena salah ketik atau salah paham, dan hasilnya tidak terduga',
+          ],
+          [
+            'Mengelompokkan prop yang sebenarnya berdiri sendiri',
+            'Katanya union lebih baik',
+            '`bisaTutup` dan `penuh` tidak meniadakan apa pun. Memaksanya jadi union justru menghalangi kombinasi yang sah',
+          ],
+          [
+            'Menyelesaikan ledakan prop dengan menambah komponen baru',
+            'Supaya masing-masing sederhana',
+            'Lahirlah `PeringatanKecil`, `PeringatanGalat`, dan seterusnya. Perbaikan pada satu tidak ikut ke yang lain',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima layak diperhatikan supaya perbaikannya tidak berlebihan. Union hanya tepat untuk prop yang benar-benar **saling meniadakan**. Memaksa `bisaTutup` dan `penuh` menjadi satu union akan menghalangi kombinasi yang sah, yaitu peringatan yang bisa ditutup sekaligus selebar wadahnya. Ujinya sederhana, yaitu tanyakan apakah kedua nilai itu bisa benar bersamaan dan masuk akal.',
+      ),
+      callout(
+        'info',
+        'Ini penerapan gagasan yang sama dengan union bertanda pada state',
+        'Membuat keadaan yang salah menjadi mustahil adalah pola yang sama dengan yang dipakai untuk empat keadaan tampilan di bab tentang state. Di sana ia mencegah keadaan sedang memuat sekaligus punya galat. Di sini ia mencegah tombol kecil sekaligus besar. Alat dan tempatnya berbeda, dan gagasannya satu.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Lebih dari tiga boolean prop adalah tanda peringatan.',
@@ -2462,7 +4695,7 @@ export const lessons: LessonDraft[] = [
   written(
     'praktik-design-system',
     'Praktik: Susun mini design system',
-    16,
+    26,
     'Menyatukan komponen bab ini jadi satu set yang konsisten — dan menguji konsistensinya.',
     [
       p(
@@ -2672,6 +4905,259 @@ export const lessons: LessonDraft[] = [
         'Seluruh set diuji dengan keyboard saja, tanpa menyentuh mouse',
       ),
 
+      divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Tim sepakat membuat pustaka komponen internal. Enam bulan kemudian ada empat komponen kartu, tiga tombol, dan dua kotak input, semuanya karena orang tidak menemukan yang sudah ada atau menemukannya lalu merasa tidak cocok. Pustaka itu tidak gagal karena komponennya kurang bagus, melainkan karena tidak ada yang menjawab tiga pertanyaan dasar sebelum orang mulai memakainya.',
+      ),
+      table(
+        ['Pertanyaan', 'Kalau tidak dijawab', 'Cara menjawabnya'],
+        [
+          [
+            'Bagaimana saya tahu komponen ini ada?',
+            'Orang membuat yang baru',
+            'Satu halaman katalog yang menampilkan seluruhnya',
+          ],
+          [
+            'Bagaimana saya tahu cara memakainya?',
+            'Orang membaca kodenya, atau menyerah',
+            'Tipe props yang jelas, plus satu contoh per komponen',
+          ],
+          [
+            'Apa yang saya lakukan kalau tidak cocok?',
+            'Orang menyalin lalu mengubah salinannya',
+            'Jalan keluar yang disediakan, dan cara mengusulkan perubahan',
+          ],
+        ],
+        'Yang ketiga paling sering diabaikan, dan itu yang paling sering menyebabkan penyalinan.',
+      ),
+      code(
+        'tsx',
+        `
+        // Lapisan paling bawah: token. Nilai visual tinggal di SINI, sekali.
+        // Tanpa lapisan ini, tema gelap dan pergantian merek jadi mustahil.
+        :root {
+          --warna-utama: oklch(0.55 0.18 258);
+          --warna-bahaya: oklch(0.55 0.19 25);
+          --jarak-1: 0.25rem;
+          --jarak-2: 0.5rem;
+          --jarak-3: 1rem;
+          --radius: 0.375rem;
+        }
+        `,
+        { filename: 'src/gaya/token.css' },
+      ),
+      code(
+        'tsx',
+        `
+        // Lapisan tengah: primitif. Satu elemen, satu tanggung jawab.
+        export function Tombol({ varian = 'utama', ...sisa }: TombolProps) { /* ... */ }
+        export function Kolom({ label, galat, ...sisa }: KolomProps) { /* ... */ }
+        export function Kartu({ judul, aksi, ...sisa }: KartuProps) { /* ... */ }
+
+        // Lapisan atas: pola. Menggabungkan primitif untuk kebutuhan yang berulang.
+        // Ini yang mencegah sepuluh orang menyusun dialog konfirmasi dengan cara berbeda.
+        export function DialogKonfirmasi({
+          terbuka,
+          judul,
+          pesan,
+          labelSetuju = 'Ya, lanjutkan',
+          nadaSetuju = 'bahaya',
+          onSetuju,
+          onBatal,
+        }: KonfirmasiProps) {
+          return (
+            <Dialog terbuka={terbuka} onTutup={onBatal} judul={judul}
+              kaki={
+                <>
+                  <Tombol varian="hantu" onClick={onBatal}>Batal</Tombol>
+                  <Tombol varian={nadaSetuju} onClick={onSetuju}>{labelSetuju}</Tombol>
+                </>
+              }
+            >
+              <p>{pesan}</p>
+            </Dialog>
+          );
+        }
+        `,
+        { filename: 'src/ui/index.ts' },
+      ),
+      p(
+        'Tiga lapisan ini punya pembagian yang jelas. Token menyimpan nilai visual, primitif membungkus satu elemen, dan pola menggabungkan primitif untuk kebutuhan yang berulang. Lapisan pola sering dilewatkan, padahal ia yang mencegah sepuluh orang menyusun dialog konfirmasi dengan urutan tombol yang berbeda-beda. Pola dibuat **setelah** bentuk yang sama muncul tiga kali, bukan sebelum itu.',
+      ),
+      p(
+        'Perhatikan `DialogKonfirmasi` dibangun **di atas** `Dialog`, bukan menggantikannya. Yang butuh dialog dengan isi khusus tetap memakai `Dialog` langsung. Ini pola berlapis yang membuat pustaka tetap luwes, yaitu ada jalan pintas untuk kebutuhan yang umum dan ada jalan penuh untuk yang tidak umum. Pustaka yang hanya menyediakan jalan pintas akan disalin begitu ada kebutuhan di luar dugaan.',
+      ),
+      code(
+        'text',
+        `
+        Berkas yang membuat pustaka komponen dipakai, bukan diabaikan:
+
+        src/ui/
+          index.ts           <- satu titik impor, supaya mudah ditemukan
+          token.css          <- seluruh nilai visual
+          Tombol.tsx
+          Kolom.tsx
+          Dialog.tsx
+          pola/
+            DialogKonfirmasi.tsx
+            FormPencarian.tsx
+
+        docs/ui.md           <- katalog: apa yang ada, dan satu contoh per komponen
+        `,
+        { caption: 'Satu titik impor dan satu katalog menutup dua dari tiga pertanyaan di atas.' },
+      ),
+      p(
+        "Satu titik impor lewat `index.ts` terlihat sepele dan sangat berpengaruh. Dengan itu, mengetik `from '@/ui'` lalu menekan pelengkapan otomatis di editor menampilkan seluruh komponen yang tersedia. Tanpa itu, orang harus tahu nama berkasnya lebih dulu, dan yang tidak tahu akan membuat sendiri.",
+      ),
+      p(
+        'Katalog dalam bentuk satu berkas markdown sudah cukup untuk tim kecil, dan tidak perlu menunggu alat khusus. Yang penting isinya menjawab dua hal per komponen, yaitu untuk apa ia dipakai dan satu contoh pemanggilan yang bisa disalin. Katalog yang hanya mendaftar nama tanpa contoh tidak menjawab pertanyaan kedua, dan orang tetap harus membuka kodenya.',
+      ),
+      callout(
+        'warning',
+        'Pustaka komponen adalah kontrak, dan kontrak sulit diubah',
+        'Begitu sebuah komponen dipakai di dua puluh tempat, mengubah nama prop berarti menyunting dua puluh berkas. Karena itu tahan diri membuat komponen bersama sampai ada dua pemakai nyata dengan kebutuhan yang benar-benar sama. Menyalin dua kali lalu menyatukan setelah perbedaannya terlihat hampir selalu menghasilkan bentuk yang lebih baik daripada merancangnya di depan.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan pustaka komponen jarang berupa pesan error. Yang muncul adalah tanda-tanda bahwa orang berhenti memakainya.',
+      ),
+      code(
+        'text',
+        `
+        $ grep -rln "className=\\"kartu" src/ | wc -l
+        14
+
+        $ grep -rln "from '@/ui'" src/ | wc -l
+        3
+
+        # Empat belas tempat menyusun kartu sendiri.
+        # Tiga tempat memakai komponen bersama.
+        `,
+        { caption: 'Tanda paling jelas bahwa pustakanya tidak dipakai.' },
+      ),
+      p(
+        'Perbandingan seperti ini bisa dijalankan kapan saja dan langsung memberi gambaran. Kalau jumlah tempat yang menyusun sendiri jauh lebih besar daripada yang memakai komponen bersama, ada satu dari tiga pertanyaan di awal yang belum terjawab. Yang paling sering adalah pertanyaan ketiga, yaitu tidak ada jalan keluar sehingga orang menyalin.',
+      ),
+      code(
+        'text',
+        `
+        $ ls src/ui/
+        Kartu.tsx  KartuBaru.tsx  KartuProduk.tsx  KartuV2.tsx
+
+        # Empat komponen kartu, dan tidak ada yang tahu mana yang benar.
+        `,
+        { caption: 'Nama berakhiran Baru atau V2 adalah tanda kontrak yang gagal diubah.' },
+      ),
+      p(
+        'Komponen bernama `KartuV2` lahir saat seseorang butuh mengubah kontrak `Kartu` tapi takut merusak dua puluh pemakainya. Itu keputusan yang bisa dipahami, dan akibatnya dua komponen yang harus dirawat selamanya. Jalan keluar yang lebih baik adalah menambah prop opsional dengan bawaan yang menjaga perilaku lama, atau melakukan perubahan bertahap dengan penandaan usang lebih dulu.',
+      ),
+      code(
+        'text',
+        `
+        // Tema gelap ditambahkan. Setengah komponen ikut, setengah tidak.
+        $ grep -rn "#[0-9a-fA-F]\\{6\\}" src/ui/ | wc -l
+        37
+
+        # Tiga puluh tujuh nilai warna ditulis langsung, bukan lewat token.
+        `,
+        { caption: 'Nilai visual yang tersebar membuat tema gelap mustahil.' },
+      ),
+      p(
+        'Ini akibat langsung dari melewatkan lapisan token. Selama warna ditulis langsung di komponen, tidak ada satu tempat pun yang bisa diubah untuk mengganti tema. Perbaikannya bertahap, yaitu kumpulkan seluruh nilai yang berulang menjadi token lebih dulu, lalu ganti pemakaiannya satu berkas per satu berkas. Pencarian seperti di atas memberi daftar pekerjaannya.',
+      ),
+      code(
+        'text',
+        `
+        <Tombol varian="utama" className="!bg-red-500" />
+
+        # Tanda seru pada kelas Tailwind berarti memaksa menimpa.
+        # Ini tanda komponennya tidak menyediakan yang dibutuhkan.
+        `,
+        { caption: 'Pemaksaan gaya adalah gejala, bukan penyakitnya.' },
+      ),
+      p(
+        'Satu atau dua pemaksaan masih wajar. Kalau ia muncul di banyak tempat untuk hal yang sama, itu berarti ada varian yang seharusnya disediakan komponennya. Cara membacanya, pemaksaan gaya adalah permintaan fitur yang ditulis dalam bentuk akalan. Kumpulkan yang berulang, lalu tambahkan sebagai varian resmi.',
+      ),
+      table(
+        ['Tanda', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Banyak tempat menyusun komponen sendiri',
+            'Tidak ditemukan, atau tidak ada jalan keluar',
+            'Satu titik impor, katalog, dan warisi atribut elemennya',
+          ],
+          [
+            'Muncul komponen bernama Baru atau V2',
+            'Kontrak lama sulit diubah tanpa merusak pemakainya',
+            'Tambah prop opsional dengan bawaan yang menjaga perilaku lama',
+          ],
+          [
+            'Tema gelap hanya berlaku sebagian',
+            'Nilai warna ditulis langsung di komponen',
+            'Kumpulkan menjadi token, lalu ganti bertahap',
+          ],
+          [
+            'Banyak pemaksaan gaya di tempat pemakaian',
+            'Ada varian yang belum disediakan',
+            'Kumpulkan yang berulang, tambahkan sebagai varian resmi',
+          ],
+          [
+            'Komponen dipakai dengan cara yang berbeda-beda',
+            'Tidak ada lapisan pola untuk kebutuhan yang berulang',
+            'Buat komponen pola setelah bentuk yang sama muncul tiga kali',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Pustaka komponen gagal bukan karena teknisnya sulit melainkan karena keputusan yang diambil di awal, dan sebagian besar baris di bawah adalah keputusan itu.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membuat komponen bersama dari satu contoh',
+            'Nanti tinggal ditambah',
+            'Bentuknya hampir selalu salah sebab kamu menebak apa yang akan berbeda. Tunggu sampai ada dua pemakai nyata',
+          ],
+          [
+            'Melewatkan lapisan token',
+            'Nilainya kan sudah ada di komponen',
+            'Tema gelap dan pergantian merek menjadi mustahil tanpa menyisir puluhan berkas',
+          ],
+          [
+            'Tidak menyediakan jalan keluar',
+            'Supaya pemakaiannya seragam',
+            'Selalu ada kebutuhan yang tidak terduga, dan tanpa jalan keluar orang akan menyalin komponenmu',
+          ],
+          [
+            'Membuat katalog yang hanya mendaftar nama',
+            'Setidaknya sudah terdokumentasi',
+            'Tanpa contoh pemanggilan, orang tetap harus membuka kodenya. Satu contoh per komponen sudah cukup',
+          ],
+          [
+            'Membuat komponen pola sebelum polanya terlihat',
+            'Supaya seragam sejak awal',
+            'Pola yang ditebak biasanya salah. Buat setelah bentuk yang sama muncul tiga kali',
+          ],
+          [
+            'Melarang orang menyusun komponennya sendiri',
+            'Supaya pustakanya dipakai',
+            'Larangan tanpa jalan keluar hanya memindahkan penyalinan ke tempat yang lebih tersembunyi. Sediakan jalannya, dan sediakan cara mengusulkan perubahan',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama layak dijadikan aturan tetap, dan ia sama dengan aturan tiga untuk abstraksi di Bab 2 Frontend Basic. Komponen bersama punya biaya perubahan yang jauh lebih tinggi daripada komponen sekali pakai, sehingga bentuknya layak dipikirkan lebih lama. Menyalin dua kali bukan kegagalan melainkan cara mengumpulkan bukti tentang apa yang benar-benar berbeda.',
+      ),
+      callout(
+        'info',
+        'Yang kamu bawa dari bab ini ke bab berikutnya',
+        'Elemen bawaan memberi banyak hal gratis, yaitu fokus keyboard, peran ARIA, dan perilaku yang sudah dikenal pengguna. Prop yang saling meniadakan dikelompokkan menjadi union. Jalan keluar disediakan supaya tidak ada yang menyalin. Bab berikutnya membahas jenis komponen dan cara menyusunnya, termasuk kapan komposisi menang atas konfigurasi dan bagaimana batas antara Server Component dan Client Component mengubah keputusan itu.',
+      ),
       divider,
       h2('Rangkuman'),
       ul(

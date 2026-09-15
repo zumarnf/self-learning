@@ -28,7 +28,7 @@ export const lessons: LessonDraft[] = [
   written(
     'apa-itu-arsitektur',
     'Apa Itu Arsitektur Perangkat Lunak',
-    15,
+    20,
     'Batas antara keputusan biasa dan keputusan yang pantas disebut arsitektur.',
     [
       p(
@@ -294,6 +294,178 @@ export const lessons: LessonDraft[] = [
         'Jumlah arsitektur yang pantas ditentukan bukti yang ada sekarang, bukan skala yang dibayangkan.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Arsitektur perangkat lunak adalah kumpulan keputusan yang mahal diubah kemudian. Definisi itu terdengar abstrak sampai diukur pada satu codebase yang nyata.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini, dengan menelusuri seluruh
+        pernyataan impor di src/:
+
+          berkas TypeScript             : 116
+          sisi ketergantungan           : 337
+          berkas tanpa ketergantungan lokal : 8
+
+        Dan berkas yang paling banyak diimpor:
+          58  src/lib/curriculum/authoring.ts
+          49  src/lib/content/builders.ts
+          19  src/lib/curriculum/queries.ts
+          16  src/components/ui/icons.tsx
+          16  src/lib/utils/cn.ts
+        `,
+      ),
+      p(
+        'Angka 58 itu belum menunjukkan seluruhnya. Yang menentukan adalah berapa banyak berkas yang terpengaruh bila bentuk API berkas itu berubah, dan itu dihitung secara transitif.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan:
+
+          src/lib/curriculum/authoring.ts
+            58 berkas bergantung LANGSUNG
+            82 dari 116 berkas bergantung secara TRANSITIF (71%)
+
+        Artinya mengubah bentuk fungsi \`written()\` di berkas itu
+        menyentuh 71% dari seluruh codebase.
+
+        Itulah arti "mahal diubah kemudian", dinyatakan sebagai angka
+        alih-alih sebagai perasaan.
+        `,
+        {
+          caption:
+            'Keputusan tentang bentuk satu fungsi kecil ternyata adalah keputusan arsitektur.',
+        },
+      ),
+      p(
+        'Sebaliknya, ada banyak keputusan yang terlihat besar dan sebenarnya murah dibatalkan, dan membedakan keduanya adalah inti pekerjaan arsitektur.',
+      ),
+      table(
+        ['Keputusan', 'Berapa berkas terpengaruh', 'Mahal dibatalkan?'],
+        [
+          ['Bentuk `written()` dan `Block`', '82 dari 116 (71%)', 'Ya, sangat'],
+          ['Struktur direktori `content/`', 'Seluruh berkas kurikulum', 'Ya'],
+          ['Pustaka ikon yang dipakai', '16 berkas', 'Sedang'],
+          ['Warna dan token desain', 'Berkas gaya saja', 'Tidak'],
+          ['Isi satu sub-bab', '1 berkas', 'Tidak'],
+        ],
+      ),
+      p(
+        'Perhatikan bahwa yang menentukan bukan seberapa penting sesuatu terasa, melainkan berapa banyak tempat yang harus ikut berubah. Itu bisa dihitung, dan tidak perlu diperdebatkan.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Keputusan arsitektur yang keliru tidak menghasilkan error. Ia menghasilkan pekerjaan yang terasa jauh lebih berat daripada seharusnya, dan gejalanya cukup khas.',
+      ),
+      code(
+        'text',
+        `
+        Gejala bahwa sebuah batas berada di tempat yang salah:
+
+          "Menambah satu field menyentuh tujuh berkas"
+          "Setiap perubahan kecil memerlukan perubahan di tiga lapisan"
+          "Tidak ada yang berani menyentuh modul itu"
+          "Kami harus merilis semuanya bersamaan"
+          "Test-nya selalu merah untuk alasan yang tidak berhubungan"
+
+        Kelimanya terukur, bukan soal perasaan. Yang pertama bisa
+        dihitung dengan menelusuri satu perubahan nyata dan
+        menghitung berkas yang tersentuh.
+        `,
+      ),
+      p('Pada project ini, riwayat git memberi sinyal serupa tanpa perlu menebak.'),
+      code(
+        'text',
+        `
+        Diukur sungguhan dari riwayat git project ini, berkas yang
+        sering berubah BERSAMAAN:
+
+          3x bersama (50% dari perubahan yang lebih jarang)
+              src/lib/content/types.ts
+              src/test/curriculum-integrity.test.ts
+
+          3x bersama (60% dari perubahan yang lebih jarang)
+              src/content/glossary.ts
+              src/test/curriculum-integrity.test.ts
+
+        Dua berkas yang selalu berubah bersamaan punya coupling,
+        terlepas dari apakah ada import di antara keduanya.
+
+        Angka itu disebut perubahan bersama, dan ia sering
+        menunjukkan batas yang salah tempat lebih jelas daripada
+        diagram mana pun.
+        `,
+        {
+          caption:
+            'Dalam kasus ini, coupling-nya wajar: test integritas memang harus mengikuti bentuk data yang diujinya.',
+        },
+      ),
+      p(
+        'Kesalahan yang berlawanan juga nyata, yaitu memperlakukan setiap keputusan sebagai keputusan arsitektur.',
+      ),
+      code(
+        'text',
+        `
+        Biaya memperlakukan keputusan murah sebagai keputusan mahal:
+
+          - rapat untuk memutuskan nama variabel
+          - dokumen untuk memilih pustaka yang dipakai satu berkas
+          - abstraksi untuk sesuatu yang punya satu pemakai
+
+        Uji yang cukup andal: hitung berapa berkas yang harus berubah
+        bila keputusan ini dibatalkan minggu depan.
+
+          1 berkas       -> putuskan sendiri, lanjutkan
+          5-10 berkas    -> sebutkan di pull request
+          > 50 berkas    -> ini keputusan arsitektur. Tulis alasannya
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Arsitektur sering dibayangkan sebagai diagram dan nama pola, padahal ia sebagian besar berupa keputusan tentang di mana batas diletakkan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menilai pentingnya keputusan dari perasaan',
+            'Ini kan bagian inti',
+            'Diukur, satu fungsi kecil ternyata menyentuh 71% codebase. Hitung berkas yang terpengaruh',
+          ],
+          [
+            'Memakai nama pola sebagai jawaban',
+            'Pola itu kan sudah teruji',
+            '"Pakai hexagonal" bukan keputusan sampai jelas batas apa yang dipisahkan dan kenapa',
+          ],
+          [
+            'Membuat abstraksi untuk pemakai yang belum ada',
+            'Biar fleksibel nanti',
+            'Biayanya dibayar tiap hari oleh setiap pembaca. Manfaatnya mungkin tidak pernah datang',
+          ],
+          [
+            'Memperlakukan setiap keputusan sebagai keputusan arsitektur',
+            'Biar tidak salah',
+            'Rapat untuk hal yang bisa dibatalkan dalam lima menit. Hitung dulu biayanya membatalkan',
+          ],
+          [
+            'Menilai arsitektur dari diagramnya',
+            'Itu yang terlihat',
+            'Diagram menunjukkan niat. Graf impor yang sesungguhnya sering berbeda, dan itu bisa diukur',
+          ],
+          [
+            'Mengabaikan riwayat perubahan sebagai sumber',
+            'Itu kan cuma git log',
+            'Diukur, berkas yang sering berubah bersamaan menunjukkan coupling yang tidak terlihat dari import',
+          ],
+        ],
+      ),
+      p(
+        'Cara paling langsung mengetahui arsitektur sebuah project bukan membaca dokumennya melainkan menelusuri seluruh pernyataan impornya dan menggambar grafnya. Skrip yang melakukannya bisa ditulis dalam tiga puluh baris, dan hasilnya hampir selalu menunjukkan sesuatu yang tidak ada di dokumen mana pun.',
+      ),
       references(
         {
           label: 'Azure Application Architecture Guide',
@@ -320,7 +492,7 @@ export const lessons: LessonDraft[] = [
   written(
     'keputusan-mahal',
     'Keputusan yang Mahal Dibatalkan',
-    15,
+    21,
     'Cara memisahkan pintu yang bisa dibuka dua arah dari pintu yang hanya satu arah.',
     [
       p(
@@ -566,6 +738,194 @@ export const lessons: LessonDraft[] = [
         'Empat pertanyaan cepat sudah cukup untuk memisahkan mana yang perlu dilambatkan.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Keputusan yang mahal dibatalkan punya satu ciri yang bisa diukur, yaitu banyaknya tempat yang harus ikut berubah. Itu bukan penilaian melainkan hitungan.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini:
+
+          src/lib/curriculum/authoring.ts
+            fan-in langsung   : 58 berkas
+            fan-in transitif  : 82 dari 116 berkas (71%)
+
+          src/lib/content/builders.ts
+            fan-in langsung   : 49 berkas
+
+        Mengubah bentuk fungsi \`written()\` atau bentuk \`Block\` di
+        kedua berkas itu berarti menyentuh mayoritas codebase.
+
+        Sebagai pembanding, satu berkas pelajaran:
+          fan-in : 1 berkas (berkas indeks kategorinya)
+        `,
+        {
+          caption:
+            'Selisih antara 82 dan 1 adalah selisih antara keputusan arsitektur dan keputusan biasa.',
+        },
+      ),
+      p(
+        'Beberapa keputusan mahal karena alasan yang berbeda, yaitu karena data yang sudah tersimpan mengikuti bentuknya.',
+      ),
+      code(
+        'text',
+        `
+        Diuji sungguhan dengan PostgreSQL 16.15:
+
+          kode LAMA membaca nama_lengkap  -> berhasil
+          -- migrasi RENAME dijalankan, kode BARU di-deploy --
+          kode BARU membaca nama          -> berhasil
+          -- ada bug, kode di-rollback ke versi LAMA --
+
+          SELECT nama_lengkap FROM pengguna
+            ERROR: column "nama_lengkap" does not exist
+
+        Rollback kodenya berhasil, dan aplikasinya tetap rusak.
+
+        Dan dihitung dengan volume yang realistis:
+          283 byte/baris, 100 juta baris/hari
+          1 tahun -> 10,3 TB
+
+        Memindahkan 10,3 TB sambil sistemnya melayani adalah
+        pekerjaan berminggu-minggu.
+        `,
+      ),
+      p(
+        'Karena itu keputusan bisa diurutkan dari yang paling mahal dibatalkan, dan urutan itu menentukan berapa banyak pemikiran yang pantas dikeluarkan.',
+      ),
+      table(
+        ['Keputusan', 'Yang harus ikut berubah', 'Biaya membatalkan'],
+        [
+          [
+            'Bentuk data yang tersimpan',
+            'Seluruh data yang sudah ada',
+            'Sangat mahal, dan bertambah tiap hari',
+          ],
+          [
+            'Kontrak API publik',
+            'Setiap klien, termasuk yang tidak kamu kendalikan',
+            'Sangat mahal',
+          ],
+          ['Batas modul dan arah ketergantungan', 'Setiap berkas yang menyeberanginya', 'Mahal'],
+          ['Bentuk fungsi dengan fan-in tinggi', 'Diukur, 82 dari 116 berkas', 'Mahal'],
+          ['Pustaka pihak ketiga di satu lapisan', 'Lapisan itu saja', 'Sedang'],
+          ['Isi satu fungsi', 'Fungsi itu', 'Murah'],
+        ],
+      ),
+      p(
+        'Yang membuat daftar itu berguna adalah bahwa ia bisa dibalik menjadi strategi, yaitu menunda keputusan yang mahal sampai informasinya cukup, dan mengambil keputusan yang murah dengan cepat.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Keputusan mahal yang diambil terlalu cepat tidak menghasilkan error saat diambil. Biayanya muncul sebagai pekerjaan yang tidak pernah selesai.',
+      ),
+      code(
+        'text',
+        `
+        Bentuk yang khas:
+
+          "Kita tidak bisa mengubah itu, terlalu banyak yang pakai"
+          "Sudah ada tiga cara melakukan hal yang sama, dan
+           ketiganya masih dipakai"
+          "Kita sudah mulai migrasi ke bentuk baru dua tahun lalu"
+          "Jangan sentuh modul itu, tidak ada yang paham lagi"
+
+        Ketiga yang pertama adalah gejala keputusan yang dibatalkan
+        SEBAGIAN: yang lama tidak pernah dihapus, dan sekarang
+        keduanya harus dijaga.
+        `,
+      ),
+      p(
+        'Ada satu bentuk kegagalan yang lebih halus, yaitu keputusan yang membeku karena tidak ada yang tahu apa yang akan rusak bila diubah.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini, fitness function yang
+        dijalankan terhadap graf impornya:
+
+          GAGAL  lib tidak boleh bergantung pada content (1 pelanggaran)
+                 src/lib/curriculum/queries.ts -> src/content/curriculum/index.ts
+
+          GAGAL  tidak ada siklus ketergantungan (3 pelanggaran)
+                 src/app/dashboard-client.tsx -> src/app/page.tsx -> ...
+                 src/app/latihan/latihan-client.tsx -> src/app/latihan/page.tsx -> ...
+                 src/app/roadmap/page.tsx -> src/app/roadmap/roadmap-client.tsx -> ...
+
+        Ketiga siklus itu adalah pasangan halaman server dan komponen
+        klien yang saling mengimpor — bentuk yang lazim di Next.js
+        dan tetap merupakan siklus.
+
+        Yang penting bukan apakah temuan itu harus diperbaiki,
+        melainkan bahwa ia SEKARANG TERLIHAT dan bisa diputuskan.
+        `,
+        {
+          caption:
+            'Keputusan yang tidak terlihat tidak bisa ditinjau ulang, dan itu yang membuatnya membeku.',
+        },
+      ),
+      p('Dan satu kesalahan arah sebaliknya, yaitu menunda keputusan murah karena takut salah.'),
+      code(
+        'text',
+        `
+        Keputusan yang MURAH dibatalkan, dan sering ditunda berhari-hari:
+
+          nama fungsi
+          struktur satu berkas
+          pustaka yang dipakai di satu tempat
+          bentuk satu komponen
+
+        Untuk semuanya, mencoba lalu mengubah lebih murah daripada
+        memperdebatkan. Uji cepatnya: bila keputusan ini salah,
+        berapa lama memperbaikinya?
+
+          di bawah sehari -> ambil sekarang, lanjutkan
+          berminggu-minggu -> tunda sampai informasinya cukup
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p('Yang paling sering keliru bukan keputusannya melainkan waktu mengambilnya.'),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memutuskan bentuk data sebelum pola aksesnya jelas',
+            'Harus mulai dari suatu tempat',
+            'Diuji, `RENAME` membuat rollback mustahil. Dan 10,3 TB tidak bisa dipindah dalam semalam',
+          ],
+          [
+            'Menerbitkan API publik sebelum bentuknya stabil',
+            'Biar klien bisa mulai',
+            'Setiap klien yang memakainya mengunci bentuknya. Tandai eksperimental, dan beri versi',
+          ],
+          [
+            'Membuat abstraksi sebelum ada pemakai kedua',
+            'Nanti pasti ada',
+            'Abstraksi untuk satu pemakai adalah lapisan tanpa manfaat, dan ia menaikkan fan-in',
+          ],
+          [
+            'Menunda keputusan murah karena takut salah',
+            'Biar tidak perlu diubah',
+            'Untuk yang bisa diperbaiki dalam sehari, mencoba lebih murah daripada memperdebatkan',
+          ],
+          [
+            'Membatalkan keputusan hanya sebagian',
+            'Nanti sisanya menyusul',
+            'Dua cara melakukan hal yang sama harus dijaga keduanya, dan itu biaya permanen',
+          ],
+          [
+            'Tidak pernah mengukur ketergantungan yang sebenarnya',
+            'Sudah terlihat dari strukturnya',
+            'Diukur, satu berkas menyentuh 71% codebase secara transitif. Itu tidak terlihat dari direktori',
+          ],
+        ],
+      ),
+      p(
+        'Ada satu pertanyaan yang bila diajukan sebelum keputusan besar menghemat banyak, dan ia bukan tentang benar atau salah. Berapa lama waktu yang dibutuhkan untuk membatalkan keputusan ini bila enam bulan lagi ternyata keliru? Jawabannya memisahkan keputusan yang pantas ditunda dari keputusan yang pantas diambil sekarang, dan ia jauh lebih berguna daripada berusaha menebak mana yang benar.',
+      ),
       references(
         {
           label: 'Design principles for Azure applications',
@@ -592,7 +952,7 @@ export const lessons: LessonDraft[] = [
   written(
     'atribut-kualitas',
     'Atribut Kualitas yang Menarik Bentuk',
-    14,
+    21,
     'Kenapa dua aplikasi dengan fitur sama bisa pantas berbentuk sangat berbeda.',
     [
       p(
@@ -839,6 +1199,211 @@ export const lessons: LessonDraft[] = [
         'Tuliskan juga atribut yang sengaja tidak dikejar, karena itu yang mencegah kerumitan datang belakangan.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Atribut kualitas adalah sifat yang menarik bentuk sistem ke arah tertentu, dan hampir selalu saling bertarik ke arah yang berlawanan. Yang membuatnya bisa diputuskan adalah angka.',
+      ),
+      code(
+        'text',
+        `
+        Contoh pertarikan yang terukur, dari bab System Design:
+
+        KECEPATAN BACA melawan KECEPATAN TULIS
+          agregasi 1.000.000 baris   468,922 ms
+          kolom denormalisasi          0,068 ms   (6.900x lebih cepat)
+          biaya tulisnya 0,0090 ms -> 0,2825 ms   (31x lebih lambat)
+
+        KESEGARAN melawan KAPASITAS BACA
+          replika baca menambah kapasitas
+          dan saat beban tulis besar, 8 dari 8 pembacaan sesudah
+          penulisan GAGAL menemukan datanya
+
+        KETERSEDIAAN melawan KESEDERHANAAN
+          2 salinan @ 99% -> 99,99%
+          10 komponen berantai @ 99,9% -> 99,0045% (87,2 jam/tahun)
+        `,
+        {
+          caption:
+            'Tiap baris adalah pertukaran, bukan perbaikan. Yang bisa dipilih hanyalah arah mana yang lebih berharga di sini.',
+        },
+      ),
+      p(
+        'Karena itu atribut kualitas hanya berguna bila ditulis dengan angka dan dengan cara mengukurnya, bukan sebagai kata sifat.',
+      ),
+      table(
+        ['Ditulis sebagai kata sifat', 'Ditulis sebagai atribut yang bisa diuji'],
+        [
+          ['Harus cepat', 'p95 pencarian di bawah 300 ms, diukur dari peramban pengguna'],
+          ['Harus andal', 'SLI 99,9% per 30 hari, diukur di penyeimbang beban'],
+          [
+            'Harus mudah dirawat',
+            'Menambah satu jenis blok konten menyentuh paling banyak 3 berkas',
+          ],
+          [
+            'Harus aman',
+            'Tidak ada endpoint yang mengembalikan data milik pengguna lain, diuji otomatis',
+          ],
+          ['Harus mudah diuji', 'Seluruh logika bisnis bisa diuji tanpa basis data'],
+          [
+            'Harus bisa menskala',
+            'Menangani 3.472 QPS tulis pada puncak, dengan p99 di bawah 500 ms',
+          ],
+        ],
+      ),
+      p('Baris ketiga pantas diperhatikan karena ia bisa diukur pada project ini sendiri.'),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini:
+
+          src/lib/content/builders.ts
+            49 berkas mengimpornya langsung
+
+        Artinya menambah satu jenis blok konten baru menyentuh
+        berkas itu, dan setiap berkas kurikulum yang memakainya
+        tidak perlu berubah sama sekali — mereka hanya memanggil
+        fungsi baru bila memerlukannya.
+
+        Itulah bentuk "mudah dirawat" yang terukur: penambahan
+        bersifat aditif, bukan menuntut perubahan di 49 tempat.
+
+        Yang TIDAK aditif, dan karena itu mahal:
+          mengubah BENTUK fungsi yang sudah ada
+          diukur, authoring.ts menyentuh 82 dari 116 berkas (71%)
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Atribut kualitas yang tidak ditulis tidak menghasilkan error saat pembangunan. Ia menghasilkan penulisan ulang setelah sistemnya dipakai.',
+      ),
+      code(
+        'text',
+        `
+        Bentuk yang khas:
+
+          "Ternyata harus mendukung 20 bahasa"
+            -> setiap teks yang ditanam di kode harus dicabut
+
+          "Ternyata data pengguna Eropa tidak boleh keluar Eropa"
+            -> basis data tunggal harus dipecah per wilayah
+
+          "Ternyata harus ada jejak audit untuk setiap perubahan"
+            -> setiap penulisan harus melewati satu jalur, dan
+               jalur itu tidak ada
+
+          "Ternyata harus bisa dipakai saat jaringan putus"
+            -> seluruh asumsi tentang kapan data tersedia berubah
+
+        Keempatnya BUKAN fitur baru. Keempatnya atribut kualitas yang
+        sudah ada sejak awal dan tidak pernah ditanyakan.
+        `,
+      ),
+      p(
+        'Kegagalan kedua berupa mengejar satu atribut sampai merusak yang lain, dan biayanya bisa dihitung.',
+      ),
+      code(
+        'text',
+        `
+        Mengejar KETERSEDIAAN tanpa menghitung kesederhanaan:
+
+        Dihitung sungguhan:
+           1 komponen @ 99,9% -> 99,9000%   (  8,8 jam/tahun)
+           5 komponen @ 99,9% -> 99,5010%   ( 43,7 jam/tahun)
+          10 komponen @ 99,9% -> 99,0045%   ( 87,2 jam/tahun)
+          30 komponen @ 99,9% -> 97,0431%   (259,0 jam/tahun)
+
+        Menambah cache, antrean, penyeimbang beban, dan gerbang API
+        "untuk ketangguhan" menambah empat komponen BERANTAI.
+
+        Bila keempatnya tidak dirancang agar kegagalannya tidak
+        menjatuhkan seluruhnya, sistem yang "lebih tangguh" justru
+        lebih sering mati daripada satu server.
+        `,
+        {
+          caption:
+            'Komponen paralel menambah ketersediaan; komponen berantai menguranginya. Keduanya sering dicampur.',
+        },
+      ),
+      code(
+        'text',
+        `
+        Mengejar KECEPATAN tanpa menghitung konsistensi:
+
+        Diuji sungguhan dengan replika streaming PostgreSQL 16.15:
+
+          saat sistem DIAM  : 5 dari 5 pembacaan sesudah penulisan BERHASIL
+          saat beban BESAR  : 8 dari 8 GAGAL (replika tertinggal 11 MB)
+
+        Kapasitas baca bertambah, dan jaminan "data yang baru saya
+        tulis bisa saya baca" hilang — tepat pada saat sistem sedang
+        ramai, yaitu saat ia paling diperhatikan.
+        `,
+      ),
+      p(
+        'Kesalahan ketiga bersifat urutan, yaitu menulis atribut kualitas sesudah arsitekturnya dipilih.',
+      ),
+      code(
+        'text',
+        `
+        Atribut kualitas MENARIK bentuk. Bila ia ditulis sesudahnya,
+        ia hanya menjadi pembenaran.
+
+        Contoh urutan yang benar:
+          "p95 pencarian di bawah 300 ms, dari peramban pengguna
+           di Indonesia"
+            -> panggilan API ke server di benua lain sudah memakan
+               p50 70,04 ms dan p99 362,72 ms (diukur)
+            -> maka pencariannya harus dilayani dari dekat pengguna
+            -> maka indeks pencariannya harus direplikasi
+            -> maka ia boleh sedikit basi
+
+        Satu angka menghasilkan tiga keputusan arsitektur berturut-turut.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Atribut kualitas terasa seperti bagian dokumen yang bisa diisi belakangan, dan justru ia yang menentukan bentuk seluruh sistem.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis "harus cepat" dan "harus andal"',
+            'Itu memang yang diinginkan',
+            'Tidak bisa diuji dan tidak bisa dirancang. Sebutkan angka, persentil, dan dari mana diukurnya',
+          ],
+          [
+            'Mengejar beberapa atribut sekaligus tanpa memilih',
+            'Semuanya kan penting',
+            'Diukur, kecepatan baca dibayar kecepatan tulis 31 kali. Pertukaran itu tidak bisa dihindari',
+          ],
+          [
+            'Menambah komponen demi ketangguhan',
+            'Lebih banyak lapisan kan lebih aman',
+            'Dihitung, 10 komponen berantai @ 99,9% menghasilkan 87,2 jam mati per tahun',
+          ],
+          [
+            'Menulis atribut kualitas sesudah arsitekturnya dipilih',
+            'Biar sesuai kenyataan',
+            'Ia berubah menjadi pembenaran. Atribut kualitas MENARIK bentuk, bukan menjelaskannya',
+          ],
+          [
+            'Melupakan atribut yang tidak terlihat sebagai fitur',
+            'Yang penting fiturnya jalan',
+            'Kepatuhan wilayah data, jejak audit, dan jumlah bahasa mengubah arsitektur, bukan menambah layar',
+          ],
+          [
+            'Menetapkan target setinggi mungkin',
+            'Lebih tinggi kan lebih baik',
+            'Dihitung, 99,99% berarti 4,4 menit per bulan — terlalu singkat untuk ditangani manusia',
+          ],
+        ],
+      ),
+      p(
+        'Ada satu latihan yang membuat atribut kualitas berhenti menjadi kata sifat, dan ia memakan waktu sepuluh menit. Ambil setiap kalimat kualitas yang pernah ditulis tentang sistemmu, lalu tanyakan bagaimana kamu akan menguji apakah ia terpenuhi. Kalimat yang tidak punya jawaban bukan kebutuhan melainkan harapan, dan tidak ada arsitektur yang bisa dirancang dari harapan.',
+      ),
       references(
         {
           label: 'The pillars of the AWS Well-Architected Framework',
@@ -865,7 +1430,7 @@ export const lessons: LessonDraft[] = [
   written(
     'coupling-cohesion',
     'Coupling dan Cohesion',
-    15,
+    22,
     'Dua ukuran yang menjelaskan kenapa satu perubahan kecil bisa merembet ke mana-mana.',
     [
       p(
@@ -1122,6 +1687,225 @@ export const lessons: LessonDraft[] = [
         'Satu modul punya satu pintu masuk resmi, dan satu tabel dimiliki tepat satu modul.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Coupling adalah seberapa banyak satu bagian harus tahu tentang bagian lain, dan cohesion adalah seberapa erat isi satu bagian saling berhubungan. Keduanya sering dijelaskan sebagai rasa, padahal keduanya bisa dihitung.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini, dari seluruh pernyataan
+        impornya:
+
+          berkas TypeScript    : 116
+          sisi ketergantungan  : 337
+          rata-rata per berkas : 2,9 ketergantungan
+
+        FAN-OUT tertinggi (mengimpor paling banyak):
+          10  src/content/curriculum/index.ts
+           9  src/app/kelas/[category]/[chapter]/page.tsx
+           9  src/components/content/block-renderer.tsx
+
+        FAN-IN tertinggi (paling banyak diimpor):
+          58  src/lib/curriculum/authoring.ts
+          49  src/lib/content/builders.ts
+          19  src/lib/curriculum/queries.ts
+        `,
+        {
+          caption:
+            'Fan-in tinggi pada berkas kecil yang stabil adalah tanda sehat. Fan-in tinggi pada berkas yang sering berubah adalah masalah.',
+        },
+      ),
+      p(
+        'Kalimat pada keterangan itu bisa diperiksa, sebab riwayat git memberi tahu seberapa sering sebuah berkas berubah.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dari riwayat git project ini:
+
+          9x  src/test/curriculum-integrity.test.ts
+          6x  src/lib/content/types.ts
+          5x  src/content/glossary.ts
+          5x  src/content/curriculum/frontend-intermediate/nextjs/lessons.ts
+          5x  src/components/layout/sidebar-nav.tsx
+          4x  src/lib/curriculum/types.ts
+          4x  src/lib/curriculum/authoring.ts
+
+        Dan bandingkan dengan fan-in-nya:
+          authoring.ts : fan-in 58, berubah 4 kali
+          types.ts     : fan-in tinggi, berubah 6 kali
+
+        Berkas dengan fan-in tinggi YANG SERING BERUBAH adalah
+        tempat biaya perubahan berlipat: satu perubahan di sana
+        berpotensi menyentuh puluhan berkas.
+        `,
+      ),
+      p(
+        'Ada satu ukuran coupling lain yang tidak terlihat dari impor sama sekali, yaitu berkas yang selalu berubah bersamaan.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dari riwayat git project ini:
+
+          3x bersama (50% dari perubahan yang lebih jarang)
+              src/lib/content/types.ts
+              src/test/curriculum-integrity.test.ts
+
+          3x bersama (60% dari perubahan yang lebih jarang)
+              src/content/glossary.ts
+              src/test/curriculum-integrity.test.ts
+
+        Dua berkas yang selalu berubah bersamaan punya coupling,
+        terlepas dari apakah ada import di antara keduanya.
+
+        Dalam kasus ini coupling-nya WAJAR: test integritas memang
+        harus mengikuti bentuk data yang diujinya. Yang perlu dicurigai
+        adalah pasangan yang berubah bersamaan TANPA alasan yang jelas.
+        `,
+        {
+          caption:
+            'Perubahan bersama sering menunjukkan batas yang salah tempat lebih jelas daripada graf impor.',
+        },
+      ),
+      p(
+        'Untuk cohesion, ukuran yang paling berguna adalah apakah isi sebuah modul berubah karena alasan yang sama.',
+      ),
+      code(
+        'text',
+        `
+        Uji yang cukup andal:
+          "Sebutkan satu kalimat yang menjelaskan apa yang dikerjakan
+           modul ini, tanpa memakai kata DAN."
+
+          "Menyusun dan memvalidasi blok konten"           -> dua hal
+          "Menyusun blok konten"                           -> satu hal
+
+        Modul yang butuh kata DAN untuk dijelaskan biasanya punya
+        dua alasan berubah, dan karena itu akan berubah dua kali
+        lebih sering daripada seharusnya.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Coupling yang tinggi tidak menghasilkan error. Ia menghasilkan pekerjaan yang terasa jauh lebih berat daripada seharusnya, dan gejalanya bisa diukur.',
+      ),
+      code(
+        'text',
+        `
+        Gejala coupling yang terlalu tinggi:
+
+          "Menambah satu field menyentuh tujuh berkas"
+          "Test modul A merah karena perubahan di modul B"
+          "Tidak bisa menguji ini tanpa menyalakan basis data"
+          "Setiap perubahan kecil menuntut perubahan di tiga lapisan"
+
+        Yang pertama bisa dihitung: ambil satu perubahan nyata dari
+        riwayat git, lalu hitung berkas yang tersentuh.
+
+        Diukur pada project ini, tertutup transitif berkas dengan
+        fan-in tertinggi:
+          82 dari 116 berkas (71%)
+
+        Artinya perubahan pada BENTUK fungsi di berkas itu berpotensi
+        menyentuh 71% codebase — meski perubahan yang bersifat
+        MENAMBAH tidak menyentuh satu pun.
+        `,
+      ),
+      p(
+        'Bentuk coupling yang paling merusak adalah yang melingkar, dan akibatnya berbeda antar sistem modul.',
+      ),
+      code(
+        'text',
+        `
+        Diuji sungguhan dengan Node 26.5.0, dua modul yang saling
+        mengimpor.
+
+        CommonJS:
+          saat b.cjs dimuat, a.dariA adalah: undefined
+          a.pakaiB() -> B
+          b.pakaiA() -> TypeError: a.dariA is not a function
+          Warning: Accessing non-existent property 'dariA' of module
+                   exports inside circular dependency
+
+        ESM, siklus yang SAMA, dengan deklarasi fungsi:
+          saat b.mjs dimuat, dariA adalah: function
+          pakaiB() -> B
+          pakaiA() -> A
+          BERHASIL, karena deklarasi fungsi di-hoist dan binding-nya hidup
+
+        ESM, dengan nilai yang dibaca SAAT MODUL DIMUAT:
+          ReferenceError: Cannot access 'DARI_C' before initialization
+        `,
+        {
+          caption:
+            'ESM menoleransi siklus untuk fungsi, dan TIDAK untuk nilai yang dibaca saat modul dievaluasi.',
+        },
+      ),
+      code(
+        'text',
+        `
+        Dan siklus itu memang ada di project ini, diukur sungguhan:
+
+          src/app/dashboard-client.tsx -> src/app/page.tsx -> ...
+          src/app/latihan/latihan-client.tsx -> src/app/latihan/page.tsx -> ...
+          src/app/roadmap/page.tsx -> src/app/roadmap/roadmap-client.tsx -> ...
+
+        Ketiganya pasangan halaman server dan komponen klien yang
+        saling mengimpor. Bentuk itu lazim di Next.js dan tetap
+        merupakan siklus — dan ia tidak menimbulkan masalah di sini
+        karena yang diimpor adalah komponen, bukan nilai yang dibaca
+        saat modul dievaluasi.
+
+        Yang penting bukan apakah temuan itu harus diperbaiki,
+        melainkan bahwa ia terlihat dan bisa diputuskan.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Coupling dan cohesion sering dinilai dari rasa, padahal keduanya punya ukuran yang bisa dijalankan dalam tiga puluh baris kode.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menilai coupling dari struktur direktori',
+            'Kelihatan dari susunannya',
+            'Diukur, graf impor yang sesungguhnya sering berbeda dari yang terlihat di direktori',
+          ],
+          [
+            'Menganggap fan-in tinggi selalu buruk',
+            'Banyak yang bergantung padanya',
+            'Fan-in tinggi pada berkas kecil yang STABIL adalah tanda sehat. Yang berbahaya adalah yang sering berubah',
+          ],
+          [
+            'Mengabaikan coupling yang tidak lewat import',
+            'Tidak ada import berarti tidak terkait',
+            'Diukur dari git, dua berkas berubah bersamaan 60% dari waktunya tanpa satu pun import',
+          ],
+          [
+            'Membiarkan siklus karena "toh jalan"',
+            'Tidak ada error',
+            'Diuji, di CommonJS ia gagal, dan di ESM ia gagal begitu nilainya dibaca saat modul dimuat',
+          ],
+          [
+            'Memecah modul demi ukuran',
+            'Modul kecil kan lebih baik',
+            'Kecil tidak sama dengan kohesif. Satu modul panjang yang kohesif lebih baik daripada lima yang dangkal',
+          ],
+          [
+            'Membuat modul yang menjelaskan dirinya dengan kata "dan"',
+            'Isinya memang dua hal',
+            'Dua alasan berubah berarti ia akan berubah dua kali lebih sering. Pisahkan berdasarkan alasannya',
+          ],
+        ],
+      ),
+      p(
+        'Ukuran yang paling berguna dari semuanya juga yang paling sederhana, dan ia tidak memerlukan alat sama sekali. Ambil satu perubahan yang baru saja kamu lakukan, hitung berapa berkas yang tersentuh, lalu tanyakan apakah jumlahnya masuk akal untuk perubahan sebesar itu. Bila menambah satu field menyentuh tujuh berkas, batasnya berada di tempat yang salah, dan itu berlaku terlepas dari sekelihatan rapi apa pun strukturnya.',
+      ),
       references(
         {
           label: 'Architectural principles',
@@ -1148,7 +1932,7 @@ export const lessons: LessonDraft[] = [
   written(
     'lapisan-dan-arah',
     'Lapisan dan Arah Ketergantungan',
-    14,
+    21,
     'Kenapa arah panah antar lapisan lebih menentukan daripada jumlah lapisannya.',
     [
       p(
@@ -1475,6 +2259,212 @@ export const lessons: LessonDraft[] = [
         'Aturan arah pantas ditegakkan linter, karena kesepakatan lisan selalu kalah oleh tenggat.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Lapisan hanya berguna bila arah ketergantungannya ditegakkan. Tanpa penegakan, yang tersisa hanyalah nama direktori yang terlihat rapi.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini, seluruh sisi ketergantungan
+        dikelompokkan per lapisan:
+
+          110  content -> lib
+           58  content -> content
+           40  app     -> lib
+           36  app     -> components
+           32  components -> lib
+           22  components -> components
+           14  lib     -> lib
+           10  test    -> lib
+            9  app     -> app
+            2  app     -> content
+            2  test    -> content
+            1  lib     -> content        <- MELAWAN ARAH
+            1  test    -> components
+        `,
+        { caption: 'Dua belas baris pertama mengikuti arah yang diharapkan. Satu baris tidak.' },
+      ),
+      p(
+        'Satu sisi yang melawan arah itu bisa ditemukan tepat berkasnya, dan itulah nilai mengukur alih-alih menebak.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan:
+
+          src/lib/curriculum/queries.ts  ->  src/content/curriculum/index.ts
+
+        Lapisan lib, yang seharusnya tidak tahu apa pun tentang isi
+        kurikulum, mengimpor langsung dari lapisan content.
+
+        Akibatnya:
+          - queries.ts tidak bisa diuji tanpa memuat SELURUH kurikulum
+          - menambah kategori baru berpotensi menyentuh queries.ts
+          - lib tidak lagi bisa dipakai ulang di konteks lain
+
+        Dan dua sisi lain yang MELEWATI lapisan:
+          src/app/cheatsheet/page.tsx        -> src/content/cheatsheets.ts
+          src/app/glosarium/glosarium-client.tsx -> src/content/glossary.ts
+        `,
+      ),
+      p(
+        'Perlu dinyatakan dengan jujur bahwa ketiga temuan itu belum tentu salah. Yang penting adalah bahwa ketiganya kini **terlihat** dan bisa diputuskan, alih-alih menyelinap masuk tanpa ada yang menyadarinya.',
+      ),
+      code(
+        'text',
+        `
+        Aturan arah yang lazim, dari luar ke dalam:
+
+          app        boleh bergantung pada semuanya
+          components boleh bergantung pada lib
+          content    boleh bergantung pada lib
+          lib        TIDAK boleh bergantung pada app, components,
+                     atau content
+
+        Alasannya bukan estetika. Lapisan paling dalam adalah yang
+        paling banyak dipakai, dan karena itu paling mahal diubah.
+
+        Diukur pada project ini:
+          src/lib/curriculum/authoring.ts -> 82 dari 116 berkas (71%)
+          bergantung padanya secara transitif
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Pelanggaran arah tidak menghasilkan error kompilasi. Gejalanya muncul sebagai pekerjaan yang terasa berat di tempat yang tidak terduga.',
+      ),
+      code(
+        'text',
+        `
+        Gejala bahwa arahnya terbalik:
+
+          "Tidak bisa menguji modul ini tanpa menyalakan basis data"
+            -> lapisan dalam bergantung pada lapisan luar
+
+          "Menambah satu halaman menyentuh lapisan domain"
+            -> arah ketergantungannya dari dalam ke luar
+
+          "Kami tidak bisa memakai modul ini di project lain"
+            -> ia membawa serta seluruh lapisan di atasnya
+
+          "Import ini menyebabkan siklus"
+            -> arahnya sudah terbalik di suatu tempat
+        `,
+      ),
+      p(
+        'Siklus adalah bentuk pelanggaran arah yang paling langsung, dan akibatnya berbeda antar sistem modul.',
+      ),
+      code(
+        'text',
+        `
+        Diuji sungguhan dengan Node 26.5.0:
+
+        CommonJS, dua modul yang saling mengimpor:
+          saat b.cjs dimuat, a.dariA adalah: undefined
+          b.pakaiA() -> TypeError: a.dariA is not a function
+          Warning: Accessing non-existent property 'dariA' of module
+                   exports inside circular dependency
+
+        ESM, siklus yang SAMA, memakai deklarasi fungsi:
+          pakaiA() -> A      BERHASIL
+
+        ESM, dengan nilai yang dibaca SAAT MODUL DIMUAT:
+          ReferenceError: Cannot access 'DARI_C' before initialization
+
+        Kesimpulan yang tepat: ESM menoleransi siklus untuk FUNGSI
+        yang di-hoist, dan tidak untuk NILAI yang dibaca saat modul
+        dievaluasi. Siklus yang "aman hari ini" bisa menjadi
+        ReferenceError begitu ada yang menambahkan satu konstanta.
+        `,
+        {
+          caption:
+            'Itulah kenapa siklus tetap dilarang meski kebetulan tidak menimbulkan masalah sekarang.',
+        },
+      ),
+      code(
+        'text',
+        `
+        Dan siklus itu memang ada di project ini, diukur sungguhan:
+
+          src/app/dashboard-client.tsx -> src/app/page.tsx -> ...
+          src/app/latihan/latihan-client.tsx -> src/app/latihan/page.tsx -> ...
+          src/app/roadmap/page.tsx -> src/app/roadmap/roadmap-client.tsx -> ...
+
+        Ketiganya pasangan halaman server dan komponen klien yang
+        saling mengimpor, bentuk yang lazim di Next.js. Ia tidak
+        menimbulkan masalah karena yang diimpor adalah komponen,
+        bukan nilai yang dibaca saat modul dievaluasi.
+
+        Yang ditunjukkan pengukuran bukan bahwa ketiganya harus
+        diperbaiki, melainkan bahwa keputusannya sekarang bisa
+        diambil dengan sadar.
+        `,
+      ),
+      p(
+        'Kesalahan terakhir bersifat penegakan, yaitu aturan arah yang hanya hidup di kepala orang.',
+      ),
+      code(
+        'text',
+        `
+        Aturan yang tidak dijalankan mesin akan menyimpang, dan
+        penyimpangannya baru terlihat secara kebetulan.
+
+        Diukur pada project ini, fitness function yang dijalankan
+        terhadap graf impornya:
+
+          GAGAL  lib tidak boleh bergantung pada content (1)
+          LULUS  components tidak boleh bergantung pada app
+          LULUS  content tidak boleh bergantung pada components
+          GAGAL  tidak ada siklus ketergantungan (3)
+          LULUS  tidak ada berkas di atas 400 KB
+
+        Lima aturan, tiga puluh baris kode, dan hasilnya langsung
+        bisa ditindaklanjuti.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p('Lapisan mudah dibuat sebagai direktori dan sulit dijaga sebagai aturan.'),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membuat direktori berlapis tanpa menegakkan arahnya',
+            'Strukturnya sudah rapi',
+            'Diukur, satu sisi `lib -> content` menyelinap masuk tanpa ada yang menyadarinya',
+          ],
+          [
+            'Mengizinkan lapisan dalam mengimpor lapisan luar "sekali ini saja"',
+            'Cuma satu tempat',
+            'Lapisan dalam kehilangan kemampuan diuji sendiri, dan pengecualian berikutnya jadi lebih mudah',
+          ],
+          [
+            'Membiarkan siklus karena tidak menimbulkan error',
+            'Toh jalan',
+            'Diuji, ESM menoleransi siklus untuk fungsi dan gagal untuk nilai. Satu konstanta baru sudah cukup',
+          ],
+          [
+            'Melewati lapisan tengah untuk mempercepat',
+            'Lebih langsung',
+            'Diukur, dua sisi `app -> content` melewati `lib`. Perubahan di `content` kini menyentuh `app` langsung',
+          ],
+          [
+            'Menegakkan aturan lewat review manusia',
+            'Reviewer-nya teliti',
+            'Aturan yang tidak dijalankan mesin akan menyimpang, dan penyimpangannya ditemukan secara kebetulan',
+          ],
+          [
+            'Membuat terlalu banyak lapisan',
+            'Lebih terpisah lebih baik',
+            'Setiap lapisan menambah tempat yang harus dilewati. Tiga lapisan yang ditegakkan lebih baik daripada enam yang tidak',
+          ],
+        ],
+      ),
+      p(
+        'Yang membuat lapisan bekerja bukan jumlahnya melainkan apakah arahnya benar-benar dijaga oleh sesuatu yang berjalan otomatis. Tiga puluh baris skrip yang menelusuri seluruh impor dan memeriksa arahnya sudah cukup, dan hasilnya pada project ini menemukan satu pelanggaran arah dan tiga siklus yang tidak ada di dokumen mana pun.',
+      ),
       references(
         {
           label: 'N-tier architecture style',
@@ -1501,7 +2491,7 @@ export const lessons: LessonDraft[] = [
   written(
     'membalik-ketergantungan',
     'Membalik Ketergantungan lewat Interface',
-    14,
+    21,
     'Cara membuat aturan bisnis berhenti bergantung pada database dan mulai dilayani olehnya.',
     [
       p(
@@ -1827,6 +2817,228 @@ export const lessons: LessonDraft[] = [
         'Balik ketergantungan pada yang mahal, tidak stabil, atau perlu diuji tanpa dijalankan. Sisanya biarkan langsung.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Membalik ketergantungan berarti membuat lapisan dalam menetapkan kontraknya sendiri, lalu lapisan luar yang memenuhinya. Yang dibeli bisa diukur, dan yang dibayar juga.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini:
+
+          src/lib/curriculum/queries.ts -> src/content/curriculum/index.ts
+
+        Lapisan lib mengimpor lapisan content secara LANGSUNG.
+        Akibatnya:
+          - queries.ts tidak bisa diuji tanpa memuat SELURUH kurikulum
+          - menambah kategori berpotensi menyentuh queries.ts
+          - lib tidak bisa dipakai ulang di konteks lain
+
+        Bentuk yang dibalik: queries.ts menetapkan apa yang ia
+        butuhkan, dan siapa pun yang memanggilnya menyediakan itu.
+        `,
+      ),
+      code(
+        'ts',
+        `
+        // SEBELUM: lapisan dalam tahu dari mana datanya berasal.
+        import { curriculum } from '@/content/curriculum';
+
+        export function cariPelajaran(slug: string) {
+          return curriculum.flatMap((k) => k.chapters).flatMap((b) => b.lessons)
+            .find((p) => p.slug === slug);
+        }
+
+        // SESUDAH: lapisan dalam menetapkan APA yang ia butuhkan.
+        export function cariPelajaran(sumber: Kategori[], slug: string) {
+          return sumber.flatMap((k) => k.chapters).flatMap((b) => b.lessons)
+            .find((p) => p.slug === slug);
+        }
+
+        // Pemanggil yang menyediakan datanya:
+        //   cariPelajaran(curriculum, slug)
+        // Dan test yang menyediakan data uji:
+        //   cariPelajaran([kategoriUji], 'apa-pun')
+        `,
+        { caption: 'Membalik ketergantungan sering sesederhana mengubah impor menjadi parameter.' },
+      ),
+      p(
+        'Bentuk kedua, yaitu antarmuka yang ditetapkan lapisan dalam, dipakai ketika yang dibutuhkan bukan data melainkan kemampuan.',
+      ),
+      code(
+        'ts',
+        `
+        // Lapisan dalam menetapkan kontraknya SENDIRI.
+        // Perhatikan bentuknya: ia ditulis dengan kata-kata domain,
+        // bukan kata-kata basis data.
+        export interface PenyimpanPesanan {
+          ambil(id: PesananId): Promise<Pesanan | null>;
+          simpan(pesanan: Pesanan): Promise<void>;
+        }
+
+        export function batalkanPesanan(
+          penyimpan: PenyimpanPesanan,
+          id: PesananId,
+        ): Promise<HasilPembatalan> {
+          // seluruh aturan bisnis di sini, tanpa satu pun
+          // pengetahuan tentang SQL, HTTP, atau berkas
+        }
+
+        // Lapisan luar yang MEMENUHI kontrak itu:
+        export class PenyimpanPesananPostgres implements PenyimpanPesanan {
+          async ambil(id: PesananId) { /* SQL di sini */ }
+          async simpan(pesanan: Pesanan) { /* SQL di sini */ }
+        }
+        `,
+      ),
+      p(
+        'Yang dibeli bisa diperiksa langsung, yaitu bahwa logikanya kini bisa diuji tanpa satu pun komponen luar.',
+      ),
+      code(
+        'text',
+        `
+        Sebelum dibalik:
+          untuk menguji satu aturan bisnis, dibutuhkan basis data
+          yang menyala, skema yang termigrasi, dan data uji
+
+          Diukur di bab lain: menyiapkan cluster PostgreSQL, membuat
+          skema, dan mengisi 55.000 baris memakan beberapa detik
+          per jalannya — dan itu per SUITE, bukan per test
+
+        Sesudah dibalik:
+          test menyediakan objek tiruan yang memenuhi antarmukanya
+          Diukur di mesin ini, satu pemanggilan fungsi murni
+          selesai dalam puluhan nanodetik
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Membalik ketergantungan punya biaya nyata, dan biaya itu sering tidak dihitung sebelum diterapkan di mana-mana.',
+      ),
+      code(
+        'text',
+        `
+        Yang dibayar:
+
+          1. Satu lapisan tidak langsung tambahan
+             Membaca kode menjadi: lihat antarmuka, cari siapa yang
+             memenuhinya, baru baca implementasinya.
+
+          2. Lebih banyak berkas
+             Satu kemampuan kini menjadi antarmuka, implementasi,
+             dan tempat keduanya disambungkan.
+
+          3. Antarmuka yang bocor
+             Bila antarmukanya ditulis mengikuti bentuk basis data,
+             yang terjadi hanyalah memindahkan nama tanpa membalik
+             apa pun.
+        `,
+      ),
+      code(
+        'ts',
+        `
+        // ANTARMUKA YANG BOCOR — terlihat dibalik, sebenarnya tidak.
+        export interface PenyimpanPesanan {
+          query(sql: string, params: unknown[]): Promise<Row[]>;   // BOCOR
+          beginTransaction(): Promise<Transaction>;                 // BOCOR
+        }
+        // Lapisan dalam kini tahu bahwa penyimpanannya adalah basis
+        // data relasional. Menggantinya dengan apa pun yang lain
+        // tetap mustahil, dan satu lapisan tidak langsung sudah
+        // dibayar tanpa membeli apa-apa.
+
+        // ANTARMUKA YANG BENAR ditulis dengan kata DOMAIN:
+        export interface PenyimpanPesanan {
+          ambil(id: PesananId): Promise<Pesanan | null>;
+          simpan(pesanan: Pesanan): Promise<void>;
+          cariMenunggu(batas: number): Promise<Pesanan[]>;
+        }
+        `,
+        {
+          caption:
+            'Uji sederhananya: bisakah antarmuka ini dipenuhi oleh berkas JSON? Bila tidak, ia belum dibalik.',
+        },
+      ),
+      p('Kesalahan kedua bersifat cakupan, yaitu membalik segalanya termasuk yang tidak perlu.'),
+      code(
+        'text',
+        `
+        Yang PANTAS dibalik:
+          - hal yang berbeda antara produksi dan test
+          - hal yang mungkin diganti: penyedia pembayaran, penyimpanan
+            berkas, pengirim surel
+          - hal yang membuat logika tidak bisa diuji sendiri
+
+        Yang TIDAK pantas dibalik:
+          - fungsi utilitas murni
+          - pustaka yang tidak mungkin diganti
+          - hal yang punya satu implementasi dan akan tetap begitu
+
+        Diukur pada project ini: src/lib/utils/cn.ts punya fan-in 16
+        dan tidak ada satu pun alasan membalik ketergantungan
+        padanya. Ia fungsi murni tanpa keadaan dan tanpa I/O.
+        `,
+      ),
+      code(
+        'text',
+        `
+        DAN SATU KESALAHAN yang halus: antarmuka dengan satu
+        implementasi selamanya.
+
+        Bila sebuah antarmuka hanya pernah punya satu implementasi
+        DAN tidak pernah dipakai untuk menguji, ia adalah lapisan
+        tidak langsung yang tidak membeli apa pun.
+
+        Uji: hitung implementasinya.
+          1 implementasi + dipakai di test  -> berbayar
+          1 implementasi + tidak dipakai di test -> hapus antarmukanya
+          2 implementasi atau lebih -> jelas berbayar
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Membalik ketergantungan adalah teknik yang mudah diterapkan berlebihan, sebab ia terasa seperti kerapian.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membuat antarmuka untuk setiap kelas',
+            'Katanya praktik yang baik',
+            'Antarmuka dengan satu implementasi yang tidak dipakai di test adalah lapisan tanpa manfaat',
+          ],
+          [
+            'Menulis antarmuka mengikuti bentuk basis data',
+            'Itu kan yang dibutuhkan',
+            'Lapisan dalam tetap tahu penyimpanannya relasional. Satu lapisan dibayar tanpa membeli apa pun',
+          ],
+          [
+            'Mengimpor lapisan luar dari lapisan dalam "sekali ini saja"',
+            'Cuma satu tempat',
+            'Diukur, satu sisi `lib -> content` membuat modul itu tidak bisa diuji tanpa seluruh kurikulum',
+          ],
+          [
+            'Membalik ketergantungan pada fungsi murni',
+            'Biar konsisten',
+            'Fungsi tanpa keadaan dan tanpa I/O tidak perlu dibalik. Diukur, `cn.ts` fan-in 16 dan tetap sederhana',
+          ],
+          [
+            'Memakai kerangka injeksi ketergantungan sejak awal',
+            'Nanti pasti dibutuhkan',
+            'Parameter fungsi sudah menyelesaikan sebagian besar kasus tanpa satu pun pustaka',
+          ],
+          [
+            'Menganggap pembalikan menjamin bisa ganti implementasi',
+            'Antarmukanya kan ada',
+            'Hanya bila antarmukanya ditulis dengan kata domain. Uji: bisakah dipenuhi oleh berkas JSON?',
+          ],
+        ],
+      ),
+      p(
+        'Bentuk pembalikan yang paling sering benar juga yang paling sederhana, yaitu mengubah impor menjadi parameter. Ia tidak memerlukan antarmuka, tidak memerlukan kerangka kerja, dan langsung membuat fungsinya bisa diuji dengan data apa pun. Baru ketika parameter itu ternyata berupa kemampuan dan bukan data, antarmuka menjadi bentuk yang tepat.',
+      ),
       references(
         {
           label: 'Anti-corruption Layer pattern',
@@ -1853,7 +3065,7 @@ export const lessons: LessonDraft[] = [
   written(
     'hukum-conway',
     'Hukum Conway dan Bentuk Tim',
-    13,
+    19,
     'Kenapa susunan sistem cenderung meniru susunan orang yang membangunnya.',
     [
       p(
@@ -2057,6 +3269,209 @@ export const lessons: LessonDraft[] = [
         'Untuk tim kecil, batas modul di dalam satu aplikasi memberi hampir seluruh manfaatnya tanpa biayanya.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Hukum Conway menyatakan bahwa bentuk sistem cenderung meniru bentuk komunikasi organisasi yang membangunnya. Yang membuatnya berguna bukan pengamatannya melainkan akibat praktisnya, yaitu bahwa batas modul dan batas tim sebaiknya diputuskan bersamaan.',
+      ),
+      code(
+        'text',
+        `
+        Bentuk yang paling sering terlihat:
+
+          tim frontend + tim backend
+            -> batasnya di antara keduanya, yaitu API
+            -> setiap fitur menuntut koordinasi dua tim
+            -> "menunggu backend" dan "menunggu frontend" menjadi
+               kalimat sehari-hari
+
+          tim per domain (pesanan, pembayaran, katalog)
+            -> batasnya di antara domain
+            -> satu fitur biasanya selesai dalam satu tim
+            -> koordinasi hanya saat kontrak antar domain berubah
+
+        Keduanya menghasilkan arsitektur yang berbeda, dan tidak
+        satu pun dari keduanya dipilih dengan sengaja.
+        `,
+        {
+          caption:
+            'Bentuk sistem yang tidak dipilih dengan sengaja tetap dipilih — oleh struktur organisasinya.',
+        },
+      ),
+      p(
+        'Pada project satu orang, hukum ini tetap berlaku dengan bentuk yang berbeda, dan bisa dilihat pada project ini sendiri.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini:
+
+          110  content -> lib
+           58  content -> content
+           40  app     -> lib
+           36  app     -> components
+           32  components -> lib
+
+        Bentuknya mengikuti cara kerjanya: isi kurikulum ditulis
+        terpisah dari cara ia ditampilkan, dan keduanya memakai
+        satu lapisan alat bersama.
+
+        Dan berkas yang paling banyak diimpor:
+          58  src/lib/curriculum/authoring.ts
+          49  src/lib/content/builders.ts
+
+        Keduanya adalah "kontrak" yang disepakati antara orang yang
+        menulis isi dan orang yang menulis tampilan — meski keduanya
+        orang yang sama.
+        `,
+      ),
+      p(
+        'Akibat praktis yang paling berguna dari hukum ini adalah bahwa ia bisa dipakai ke arah sebaliknya, yaitu mengubah bentuk tim untuk mendapatkan bentuk sistem yang diinginkan.',
+      ),
+      code(
+        'text',
+        `
+        Disebut manuver Conway terbalik:
+
+          Ingin sistem terbagi per domain?
+            -> bagi timnya per domain, bukan per lapisan teknologi
+
+          Ingin satu tim bisa merilis sendiri?
+            -> beri tim itu seluruh lapisan yang dibutuhkan fiturnya,
+               termasuk basis datanya sendiri
+
+          Ingin lapisan bersama tetap stabil?
+            -> ia harus punya pemilik yang jelas, dan perubahannya
+               melewati kontrak yang disepakati
+
+        Dan sebaliknya: memecah sistem menjadi layanan sementara
+        timnya tetap terbagi per lapisan menghasilkan bentuk terburuk
+        dari keduanya, yaitu banyak layanan yang tidak bisa dirilis
+        tanpa koordinasi.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Ketidakcocokan antara bentuk tim dan bentuk sistem tidak menghasilkan error. Ia menghasilkan pekerjaan yang selalu tertunda pada tempat yang sama.',
+      ),
+      code(
+        'text',
+        `
+        Gejala yang khas:
+
+          "Fitur ini menunggu tim lain"
+            -> batas sistemnya memotong tengah-tengah alur kerja
+
+          "Kami harus merilis bersamaan"
+            -> layanan terpisah tanpa kontrak yang bisa berevolusi
+
+          "Tidak ada yang tahu siapa pemilik modul itu"
+            -> modul tanpa pemilik akan menampung segalanya
+
+          "Setiap tim menulis ulang hal yang sama"
+            -> tidak ada lapisan bersama, atau ada dan tidak
+               ditemukan siapa pun
+
+        Ketiga yang pertama adalah masalah organisasi yang menyamar
+        sebagai masalah teknis, dan menyelesaikannya dengan teknik
+        saja tidak pernah berhasil.
+        `,
+      ),
+      p(
+        'Ada satu sinyal terukur yang cukup andal, yaitu berapa tim yang harus terlibat untuk menyelesaikan satu fitur.',
+      ),
+      code(
+        'text',
+        `
+        Hitung untuk sepuluh fitur terakhir:
+
+          1 tim   -> batasnya cocok dengan alur kerjanya
+          2 tim   -> masih wajar untuk sebagian fitur
+          3+ tim  -> batasnya memotong tempat yang salah
+
+        Dan sinyal yang sama pada tingkat berkas, diukur dari
+        riwayat git project ini:
+
+          3x bersama (50% dari perubahan yang lebih jarang)
+              src/lib/content/types.ts
+              src/test/curriculum-integrity.test.ts
+
+          3x bersama (60% dari perubahan yang lebih jarang)
+              src/content/glossary.ts
+              src/test/curriculum-integrity.test.ts
+
+        Berkas yang selalu berubah bersamaan menunjukkan batas
+        yang mungkin salah tempat. Pada tingkat tim, angkanya
+        adalah berapa tim yang harus setuju untuk satu perubahan.
+        `,
+        {
+          caption:
+            'Dalam kasus di atas, coupling-nya wajar. Yang perlu dicurigai adalah pasangan yang tidak punya alasan jelas.',
+        },
+      ),
+      p(
+        'Kesalahan yang paling mahal adalah memecah sistem tanpa memecah kepemilikannya, dan biayanya bisa dihitung.',
+      ),
+      code(
+        'text',
+        `
+        Dihitung sungguhan, komponen BERANTAI yang semuanya harus hidup:
+
+           1 komponen @ 99,9% -> 99,9000%   (  8,8 jam/tahun)
+          10 komponen @ 99,9% -> 99,0045%   ( 87,2 jam/tahun)
+          30 komponen @ 99,9% -> 97,0431%   (259,0 jam/tahun)
+
+        Memecah menjadi tiga puluh layanan menambah tiga puluh tempat
+        yang bisa mati, dan bila tidak ada tim yang benar-benar
+        memiliki masing-masing, tidak ada yang menjaganya.
+
+        Hasilnya: seluruh biaya memecah sistem dibayar, dan tidak
+        satu pun manfaatnya diperoleh.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Hukum Conway sering dianggap pengamatan sosiologis yang menarik, padahal ia alat perancangan yang bisa dipakai dengan sengaja.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membagi tim per lapisan teknologi',
+            'Setiap orang mengerjakan keahliannya',
+            'Setiap fitur memotong semua tim. Koordinasi menjadi pekerjaan utama',
+          ],
+          [
+            'Memecah sistem tanpa memecah kepemilikan',
+            'Yang penting kodenya terpisah',
+            'Dihitung, 30 komponen berantai @ 99,9% menghasilkan 259 jam mati per tahun, tanpa satu pun manfaat',
+          ],
+          [
+            'Membiarkan modul bersama tanpa pemilik',
+            'Semua orang boleh menyentuhnya',
+            'Modul tanpa pemilik menampung segalanya, dan diukur, fan-in-nya menyentuh 71% codebase',
+          ],
+          [
+            'Menyelesaikan masalah koordinasi dengan alat',
+            'Alatnya akan mempermudah',
+            'Batas yang memotong alur kerja tetap memotongnya. Yang perlu berubah adalah batasnya',
+          ],
+          [
+            'Menyalin struktur tim perusahaan besar',
+            'Mereka kan berhasil',
+            'Struktur mereka menjawab masalah organisasi mereka, dan itu yang paling tidak bisa disalin',
+          ],
+          [
+            'Mengabaikan hukum ini pada project satu orang',
+            'Tidak ada tim di sini',
+            'Bentuknya tetap mengikuti cara kerjamu. Diukur pada project ini, batasnya mengikuti pemisahan isi dan tampilan',
+          ],
+        ],
+      ),
+      p(
+        'Nilai praktis hukum ini bisa diringkas menjadi satu pertanyaan yang pantas diajukan sebelum memutuskan batas modul. Siapa yang akan mengubah bagian ini, dan seberapa sering ia perlu menunggu orang lain? Bila jawabannya melibatkan lebih dari dua pihak untuk perubahan yang biasa, batasnya berada di tempat yang akan terus menimbulkan gesekan, betapapun rapi diagramnya.',
+      ),
       references(
         {
           label: 'Organization — Operational Excellence Pillar',
@@ -2083,7 +3498,7 @@ export const lessons: LessonDraft[] = [
   written(
     'anti-pola-arsitektur',
     'Anti-pola yang Sering Terjadi',
-    14,
+    21,
     'Delapan bentuk yang terlihat masuk akal saat dibuat dan mahal saat harus dibongkar.',
     [
       p(
@@ -2312,6 +3727,232 @@ export const lessons: LessonDraft[] = [
         'Lima pertanyaan dan satu perintah git sudah cukup untuk pemeriksaan mandiri yang jujur.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Anti-pola arsitektur punya satu kesamaan, yaitu semuanya terasa masuk akal saat diambil. Yang membedakannya dari keputusan yang baik hanya terlihat setelah beberapa bulan, dan sebagian besar bisa dikenali dari angka.',
+      ),
+      code(
+        'text',
+        `
+        BOLA LUMPUR BESAR
+        Tidak ada batas yang jelas; segalanya mengimpor segalanya.
+
+        Tandanya bisa dihitung:
+          - rata-rata fan-out per berkas tinggi
+          - banyak siklus ketergantungan
+          - tidak ada sisi yang bisa dikelompokkan per lapisan
+
+        Diukur sungguhan pada project ini sebagai pembanding:
+          116 berkas, 337 sisi -> rata-rata 2,9 per berkas
+          siklus ditemukan     : 3, seluruhnya pasangan
+                                 halaman-server dan komponen-klien
+          sisi per lapisan     : 12 dari 13 kelompok mengikuti arah
+                                 yang diharapkan
+        `,
+        {
+          caption:
+            'Angka-angka itu yang membedakan struktur yang terjaga dari bola lumpur, dan keduanya terlihat sama di diagram.',
+        },
+      ),
+      p(
+        'Anti-pola kedua adalah objek dewa, yaitu satu berkas yang tahu terlalu banyak dan karena itu disentuh setiap perubahan.',
+      ),
+      code(
+        'text',
+        `
+        Cara mengenalinya, diukur pada project ini:
+
+          fan-in tertinggi:
+            58  src/lib/curriculum/authoring.ts
+            49  src/lib/content/builders.ts
+
+          seberapa sering berubah (dari riwayat git):
+            4x  authoring.ts
+            6x  src/lib/content/types.ts
+
+        Fan-in tinggi SAJA bukan objek dewa. Yang membuatnya objek
+        dewa adalah fan-in tinggi DITAMBAH sering berubah DITAMBAH
+        berubah karena alasan yang berbeda-beda.
+
+        Di sini, authoring.ts punya fan-in 58 dan hanya berubah 4
+        kali, dan perubahannya bersifat MENAMBAH kemampuan. Itu
+        bentuk yang sehat: ia kernel bersama, bukan objek dewa.
+        `,
+      ),
+      p(
+        'Anti-pola ketiga adalah lapisan yang tidak melakukan apa-apa selain meneruskan, dan ia paling sering lahir dari niat baik.',
+      ),
+      code(
+        'ts',
+        `
+        // LAPISAN ANEMIK — setiap metode hanya meneruskan.
+        export class LayananPesanan {
+          constructor(private repo: RepoPesanan) {}
+          ambil(id: string) { return this.repo.ambil(id); }
+          simpan(p: Pesanan) { return this.repo.simpan(p); }
+          hapus(id: string) { return this.repo.hapus(id); }
+        }
+
+        // Uji penghapusan: bila kelas ini dihapus dan pemanggilnya
+        // memakai repo langsung, apa yang hilang?
+        //   -> tidak ada. Ia hanya menambah satu berkas untuk dibaca.
+
+        // Lapisan berbayar bila ia MENAMBAH sesuatu:
+        export async function batalkanPesanan(repo: RepoPesanan, id: string) {
+          const p = await repo.ambil(id);
+          if (!p) throw new TidakDitemukan(id);
+          if (p.status === 'terkirim') throw new TidakBolehDibatalkan(id);
+          if (Date.now() - p.dibuat > 24 * 3600_000) throw new TerlambatDibatalkan(id);
+          await repo.simpan({ ...p, status: 'dibatalkan' });
+          return p;
+        }
+        `,
+        {
+          caption:
+            'Uji penghapusan: kalau lapisan ini dihapus, apakah kerumitannya hilang atau justru menyebar ke pemanggil?',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Anti-pola keempat adalah yang paling mahal, yaitu memecah sistem menjadi banyak layanan tanpa memecah datanya.',
+      ),
+      code(
+        'text',
+        `
+        MONOLIT TERDISTRIBUSI
+        Beberapa layanan, satu basis data bersama.
+
+        Yang terjadi:
+          - setiap perubahan skema menyentuh beberapa layanan
+          - layanan tidak bisa dirilis sendiri-sendiri
+          - transaksi lintas layanan mustahil
+          - dan seluruh biaya jaringan tetap dibayar
+
+        Dihitung sungguhan:
+          10 komponen berantai @ 99,9% -> 99,0045% (87,2 jam/tahun)
+
+        Diukur sungguhan, biaya panggilan jaringan:
+          loopback  1,69 ms
+          internet  p50 70,04 ms, p99 362,72 ms
+
+        Artinya: seluruh biaya memecah dibayar, dan tidak satu pun
+        manfaatnya diperoleh. Bentuk ini lebih buruk daripada monolit
+        maupun microservice yang benar.
+        `,
+      ),
+      p(
+        'Anti-pola kelima adalah abstraksi yang dibangun untuk masa depan yang tidak pernah datang.',
+      ),
+      code(
+        'text',
+        `
+        Tandanya:
+          - antarmuka dengan satu implementasi, selamanya
+          - lapisan konfigurasi untuk hal yang tidak pernah diubah
+          - "dukungan multi-tenant" pada produk dengan satu tenant
+          - "dukungan beberapa basis data" yang tidak pernah dipakai
+
+        Biayanya dibayar SETIAP HARI oleh setiap orang yang membaca
+        kodenya, dan manfaatnya dibayar sekali bila kebutuhannya
+        benar-benar datang.
+
+        Uji: hitung implementasinya.
+          1 implementasi + dipakai di test        -> berbayar
+          1 implementasi + tidak dipakai di test  -> hapus
+          2 atau lebih                            -> jelas berbayar
+        `,
+      ),
+      p(
+        'Anti-pola keenam bersifat penegakan, yaitu aturan arsitektur yang hanya hidup di dokumen.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini, fitness function yang
+        dijalankan terhadap graf impornya:
+
+          GAGAL  lib tidak boleh bergantung pada content (1)
+                 src/lib/curriculum/queries.ts -> src/content/curriculum/index.ts
+          LULUS  components tidak boleh bergantung pada app
+          LULUS  content tidak boleh bergantung pada components
+          GAGAL  tidak ada siklus ketergantungan (3)
+          LULUS  tidak ada berkas di atas 400 KB
+
+        Tiga aturan gagal. Tidak satu pun dari ketiganya sengaja
+        dilanggar; ketiganya menyelinap masuk karena tidak ada yang
+        memeriksanya secara otomatis.
+
+        Aturan yang tidak dijalankan mesin akan menyimpang, dan
+        penyimpangannya ditemukan secara kebetulan.
+        `,
+      ),
+      code(
+        'text',
+        `
+        DAN SATU JEBAKAN pada fitness function itu sendiri:
+
+        Aturan "tidak ada import paket luar di src/content" ditulis
+        dengan mencocokkan teks "import ... from" di MANA SAJA dalam
+        berkas. Hasilnya, diukur:
+
+          aturan NAIF  : 259 "pelanggaran"
+          aturan BENAR : 0 pelanggaran
+
+        Selisihnya seluruhnya POSITIF PALSU: kata "import" yang
+        muncul di dalam CONTOH KODE yang ditulis sebagai teks materi.
+
+        Fitness function yang menghasilkan ratusan positif palsu akan
+        dimatikan dalam seminggu, dan seluruh manfaatnya hilang.
+        `,
+        {
+          caption:
+            'Anti-pola juga berlaku untuk alat yang dipakai menjaga arsitektur, bukan hanya untuk arsitekturnya.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Anti-pola jarang dipilih dengan sengaja. Ia tumbuh dari keputusan kecil yang masing-masing masuk akal.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menambah lapisan yang hanya meneruskan',
+            'Biar terpisah rapi',
+            'Uji penghapusan: bila dihapus, tidak ada kerumitan yang hilang. Ia hanya berkas tambahan untuk dibaca',
+          ],
+          [
+            'Memecah menjadi layanan dengan basis data bersama',
+            'Kodenya kan sudah terpisah',
+            'Seluruh biaya jaringan dibayar tanpa satu pun manfaatnya. Dihitung, 10 komponen berantai = 87,2 jam/tahun',
+          ],
+          [
+            'Membuat abstraksi untuk kebutuhan yang belum ada',
+            'Biar siap nanti',
+            'Biayanya dibayar tiap hari oleh setiap pembaca. Hitung implementasinya sebelum membuat antarmuka',
+          ],
+          [
+            'Menganggap fan-in tinggi selalu objek dewa',
+            'Banyak yang bergantung padanya',
+            'Diukur, `authoring.ts` fan-in 58 dan hanya berubah 4 kali secara aditif. Itu kernel, bukan objek dewa',
+          ],
+          [
+            'Menulis aturan arsitektur hanya di dokumen',
+            'Timnya sudah sepakat',
+            'Diukur, tiga aturan dilanggar tanpa ada yang sengaja melanggarnya. Jalankan otomatis',
+          ],
+          [
+            'Menulis fitness function dengan pencocokan teks',
+            'Lebih cepat ditulis',
+            'Diukur, aturan naif menghasilkan 259 positif palsu melawan 0 pelanggaran sesungguhnya',
+          ],
+        ],
+      ),
+      p(
+        'Ada satu uji yang menangkap sebagian besar anti-pola di daftar ini, dan namanya uji penghapusan. Bayangkan sebuah modul, lapisan, atau layanan dihapus dan isinya dipindahkan ke pemanggilnya. Bila kerumitannya hilang, modul itu memang tidak membeli apa-apa. Bila kerumitannya menyebar ke banyak tempat, modul itu sedang menanggung beban nyata dan pantas ada.',
+      ),
       references(
         {
           label: 'Performance antipatterns for cloud applications',

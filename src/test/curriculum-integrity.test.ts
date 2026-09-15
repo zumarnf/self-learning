@@ -471,7 +471,7 @@ describe('istilah & rujukan resmi (ADR-0006)', () => {
     // Batch 14 (2026-08-25): System Design Bab 1–4 — 30 sub-bab. Kumulatif 342.
     // Batch 15 (2026-08-26): Prompt Engineering Bab 1–4 — 30 sub-bab. Kumulatif 372.
     // Batch 16 (2026-08-27): Architecture Design Bab 1–4 — 30 sub-bab. Kumulatif 402.
-    expect(lessonsWithBlock('references').size).toBeGreaterThanOrEqual(402);
+    expect(lessonsWithBlock('references').size).toBeGreaterThanOrEqual(440);
   });
 
   /**
@@ -492,6 +492,7 @@ describe('istilah & rujukan resmi (ADR-0006)', () => {
     { slug: 'system-design', jumlah: 30 },
     { slug: 'architecture-design', jumlah: 30 },
     { slug: 'prompt-engineering', jumlah: 30 },
+    { slug: 'deployment', jumlah: 38 },
   ] as const;
 
   for (const { slug, jumlah } of kategoriTuntas) {

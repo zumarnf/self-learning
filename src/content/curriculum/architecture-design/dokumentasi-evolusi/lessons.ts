@@ -27,7 +27,7 @@ export const lessons: LessonDraft[] = [
   written(
     'diagram-c4',
     'Menggambar dengan Model C4',
-    14,
+    20,
     'Empat tingkat kedalaman, supaya satu gambar berhenti berusaha menjelaskan segalanya.',
     [
       p(
@@ -304,6 +304,214 @@ export const lessons: LessonDraft[] = [
         'Tulis diagram sebagai teks di repositori yang sama, supaya ia berubah lewat proses yang sama dengan kodenya.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Model C4 berguna karena ia memisahkan empat tingkat kedalaman, dan hampir semua kebingungan pada diagram arsitektur berasal dari mencampur keempatnya dalam satu gambar.',
+      ),
+      code(
+        'text',
+        `
+        Empat tingkat, dan satu pertanyaan yang dijawab masing-masing:
+
+          1. CONTEXT   "Siapa memakai sistem ini, dan sistem ini
+                        bicara dengan apa?"
+                       Pembacanya: siapa saja, termasuk yang bukan
+                       teknis.
+
+          2. CONTAINER "Bagian apa saja yang BERJALAN, dan masing-masing
+                        menyimpan apa?"
+                       Satu kotak = satu hal yang bisa dijalankan
+                       atau dimatikan sendiri.
+
+          3. COMPONENT "Di dalam satu container, ada modul apa saja?"
+                       Yang paling cepat basi.
+
+          4. CODE      Kelas dan fungsi.
+                       Hampir tidak pernah pantas digambar; kode
+                       sudah menunjukkannya, dan alat bisa
+                       menghasilkannya bila perlu.
+
+        Untuk sebagian besar sistem, tingkat 1 dan 2 sudah cukup.
+        `,
+        {
+          caption:
+            'Tingkat 3 hanya digambar untuk container yang benar-benar rumit, dan hanya selama ia masih rumit.',
+        },
+      ),
+      p(
+        'Nilai tingkat kedua bisa dilihat pada project ini, sebab ia menjawab pertanyaan yang tidak bisa dijawab struktur direktori.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini:
+
+          116 berkas TypeScript, 337 sisi ketergantungan
+
+          sisi antar lapisan:
+            110  content -> lib
+             40  app     -> lib
+             36  app     -> components
+             32  components -> lib
+              1  lib     -> content        <- melawan arah
+
+        Yang menarik: SELURUHNYA berjalan di satu container.
+        Diagram tingkat 2 untuk project ini hanya punya beberapa
+        kotak, dan itu memang gambaran yang jujur.
+
+        Diagram yang menggambarkan empat "layanan" untuk sistem
+        seperti ini akan menyesatkan pembacanya sepenuhnya.
+        `,
+      ),
+      p(
+        'Yang paling menentukan pada sebuah diagram bukan kotaknya melainkan panahnya, dan panah yang berguna selalu punya tiga hal.',
+      ),
+      code(
+        'text',
+        `
+        Panah yang TIDAK berguna:
+          [Web] ---------> [API]
+
+        Panah yang berguna:
+          [Web] --HTTPS/JSON, sinkron--> [API]
+                 "mengambil daftar pelajaran"
+
+        Tiga hal yang harus ada:
+          1. ARAH    siapa yang memulai
+          2. CARA    protokol, dan SINKRON atau ASINKRON
+          3. KENAPA  apa yang sebenarnya diminta
+
+        Nomor 2 yang paling sering hilang, dan ia yang paling
+        menentukan. Diukur di bab Komunikasi:
+          pemanggilan fungsi  puluhan nanodetik
+          loopback            1,69 ms
+          internet            p50 70,04 ms, p99 362,72 ms
+
+        Panah tanpa keterangan cara membuat pembaca tidak bisa
+        membedakan ketiga angka itu.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p('Diagram tidak menghasilkan error, dan cara ia gagal cukup konsisten.'),
+      code(
+        'text',
+        `
+        1. Diagram menunjukkan niat, bukan kenyataan
+
+           Digambar: app -> lib -> content
+           Diukur  : ada satu sisi lib -> content
+
+           Diagram tidak pernah tahu bahwa satu impor menyelinap
+           masuk. Yang tahu hanya alat yang menelusuri impor
+           sesungguhnya.
+
+        2. Diagram mencampur tingkat
+
+           Satu gambar memuat pengguna, layanan, tabel basis data,
+           dan nama kelas sekaligus. Tidak ada pembaca yang bisa
+           memakainya: yang butuh gambaran besar tenggelam, yang
+           butuh rincian tidak menemukan cukup.
+
+        3. Diagram tidak punya tanggal dan tidak punya pemilik
+
+           Tidak ada yang tahu apakah ia masih benar. Dan diagram
+           yang tidak dipercaya sama tidak bergunanya dengan yang
+           tidak ada — dengan tambahan bahwa ia masih menyesatkan.
+
+        4. Diagram digambar dengan alat yang menyulitkan pembaruan
+
+           Gambar yang harus dibuka di aplikasi khusus, diekspor,
+           lalu diunggah ulang tidak akan pernah diperbarui.
+        `,
+      ),
+      p(
+        'Poin keempat punya penyelesaian yang praktis, yaitu menuliskan diagram sebagai teks sehingga ia ikut ke riwayat versi.',
+      ),
+      code(
+        'text',
+        `
+        Diagram sebagai teks, disimpan bersama kodenya:
+
+          - ikut ter-commit, jadi perubahannya terlihat di diff
+          - bisa direview di pull request yang sama dengan kodenya
+          - punya riwayat: kapan berubah, oleh siapa, dan kenapa
+
+        Pada project ini, riwayat git bisa menjawab pertanyaan
+        kesegaran dokumen secara langsung:
+
+          README.md  terakhir diubah 2026-08-27, 4 commit
+          src/       terakhir diubah 2026-08-27, 12 commit
+
+        Dokumen yang tanggal perubahan terakhirnya jauh tertinggal
+        dari kodenya adalah dokumen yang perlu diperiksa sebelum
+        dipercaya.
+        `,
+        { caption: 'Kesegaran dokumen bisa diukur, dan tidak perlu ditebak.' },
+      ),
+      p(
+        'Kegagalan terakhir bersifat cakupan, yaitu menggambar terlalu banyak sehingga tidak ada yang terjaga.',
+      ),
+      code(
+        'text',
+        `
+        Berapa diagram yang PANTAS dijaga:
+
+          1 diagram CONTEXT      untuk seluruh sistem
+          1 diagram CONTAINER    untuk seluruh sistem
+          0-2 diagram COMPONENT  hanya untuk yang benar-benar rumit
+
+        Selebihnya digambar saat dibutuhkan, dipakai dalam
+        percakapan itu, lalu DIBUANG.
+
+        Diagram sekali pakai tidak perlu benar selamanya, dan itu
+        yang membuatnya jauh lebih berguna daripada diagram yang
+        harus dijaga dan tidak pernah dijaga.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Diagram mudah dibuat dan sulit dijaga, dan sebagian besar kesalahannya adalah membuat lebih banyak daripada yang bisa dijaga.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menggambar keempat tingkat C4',
+            'Biar lengkap',
+            'Tingkat 3 dan 4 paling cepat basi. Untuk sebagian besar sistem, tingkat 1 dan 2 sudah cukup',
+          ],
+          [
+            'Mencampur beberapa tingkat dalam satu gambar',
+            'Biar semuanya terlihat',
+            'Yang butuh gambaran besar tenggelam, yang butuh rincian tidak menemukan cukup',
+          ],
+          [
+            'Menggambar panah tanpa keterangan',
+            'Arahnya kan sudah jelas',
+            'Diukur, selisih sinkron dan asinkron adalah selisih antara nanodetik dan 70 ms. Panah harus menyebutnya',
+          ],
+          [
+            'Memakai alat gambar yang sulit diperbarui',
+            'Hasilnya lebih rapi',
+            'Diagram yang menyulitkan pembaruan tidak akan diperbarui. Tulis sebagai teks yang ikut ter-commit',
+          ],
+          [
+            'Mempercayai diagram tanpa memeriksanya',
+            'Itu kan dokumen resmi',
+            'Diukur pada project ini, satu sisi melawan arah ada di kode dan tidak ada di diagram mana pun',
+          ],
+          [
+            'Menjaga semua diagram selamanya',
+            'Sudah dibuat, sayang dibuang',
+            'Diagram sekali pakai untuk satu percakapan jauh lebih berguna daripada diagram permanen yang basi',
+          ],
+        ],
+      ),
+      p(
+        'Ada satu kebiasaan yang membuat diagram berhenti berbohong, dan ia memakan waktu tiga puluh baris kode. Hasilkan diagram tingkat komponen dari graf impor yang sesungguhnya, bukan dari ingatan. Diagram yang dihasilkan dari kode tidak akan pernah menyesatkan, dan selisih antara diagram itu dan diagram yang digambar tangan adalah daftar tempat yang perlu diperiksa.',
+      ),
       references(
         {
           label: 'The C4 model',
@@ -330,7 +538,7 @@ export const lessons: LessonDraft[] = [
   written(
     'adr',
     'Architecture Decision Record',
-    14,
+    21,
     'Menyimpan alasan sebuah keputusan, supaya ia tidak diperdebatkan ulang setiap tahun.',
     [
       p(
@@ -578,6 +786,221 @@ export const lessons: LessonDraft[] = [
         'Perubahan arah ditulis sebagai ADR baru yang menyebut yang lama, bukan dengan mengedit yang lama.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'ADR menyimpan satu hal yang tidak disimpan kode mana pun, yaitu **kenapa** sebuah keputusan diambil beserta alternatif yang ditolak. Kode menunjukkan hasilnya; ADR menunjukkan pilihannya.',
+      ),
+      code(
+        'text',
+        `
+        Bentuk yang cukup, dan tidak perlu lebih:
+
+          # ADR 0007: Memakai kolom penghitung alih-alih agregasi
+
+          Status  : Diterima
+          Tanggal : 2026-09-14
+
+          ## Konteks
+          Halaman "artikel terpopuler" dibuka pada setiap kunjungan
+          beranda. Diukur pada PostgreSQL 16.15 dengan 1.000.000
+          komentar: agregasi GROUP BY memakan 468,922 ms.
+
+          ## Keputusan
+          Menyimpan jumlah komentar sebagai kolom pada tabel artikel,
+          diperbarui lewat trigger.
+          Diukur: pembacaannya menjadi 0,068 ms.
+
+          ## Alternatif yang ditolak
+          - Cache hasil agregasi: DITOLAK karena cache yang kosong
+            tetap membayar 468,922 ms, dan itu terjadi tepat saat
+            lalu lintas tinggi.
+          - Replika baca: DITOLAK karena diuji, saat beban tulis besar
+            8 dari 8 pembacaan sesudah penulisan gagal menemukan datanya.
+
+          ## Konsekuensi
+          - Penulisan komentar menjadi 31 kali lebih lambat:
+            diukur 0,0090 ms menjadi 0,2825 ms per operasi.
+          - Penghitungnya BISA menyimpang. Diuji: satu penghapusan
+            yang lewat jalur lain menghasilkan penghitung 3 sementara
+            yang sebenarnya 2.
+          - Karena itu diperlukan query pendamaian berkala.
+        `,
+        {
+          caption:
+            'Bagian "alternatif yang ditolak" adalah yang paling dicari pembaca berikutnya, dan paling sering dihapus demi ringkas.',
+        },
+      ),
+      p(
+        'Yang membuat ADR itu berguna bukan formatnya melainkan bahwa setiap klaimnya punya angka. Bandingkan dengan versi yang tidak.',
+      ),
+      code(
+        'text',
+        `
+        VERSI TANPA ANGKA:
+
+          ## Konteks
+          Query halaman terpopuler lambat.
+
+          ## Keputusan
+          Memakai kolom penghitung.
+
+          ## Konsekuensi
+          Penulisan jadi sedikit lebih lambat.
+
+        Enam bulan kemudian, tidak ada yang bisa menilai apakah
+        keputusan ini masih tepat, sebab tidak ada satu pun angka
+        yang bisa dibandingkan dengan keadaan sekarang.
+        `,
+      ),
+      p(
+        'ADR juga menjawab pertanyaan yang berulang, dan itu manfaat yang baru terasa setelah beberapa bulan.',
+      ),
+      code(
+        'text',
+        `
+        Tanpa ADR:
+          "Kenapa kita tidak pakai replika baca saja?"
+          -> didiskusikan ulang dari nol, kadang dengan kesimpulan
+             yang berbeda dari sebelumnya
+
+        Dengan ADR:
+          "Sudah dipertimbangkan di ADR 0007, ditolak karena
+           read-after-write. Kalau keadaannya berubah, tulis ADR
+           baru yang menggantikannya."
+
+        Dan itu poin pentingnya: ADR TIDAK diedit. Keputusan yang
+        berubah ditulis sebagai ADR BARU yang menyatakan ia
+        menggantikan yang lama.
+
+        Riwayat keputusannya sama berharganya dengan keputusan
+        terakhirnya.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'ADR gagal dengan beberapa cara yang khas, dan yang pertama adalah ditulis untuk hal yang tidak memerlukannya.',
+      ),
+      code(
+        'text',
+        `
+        Uji yang cukup andal: berapa berkas yang harus berubah bila
+        keputusan ini dibatalkan minggu depan?
+
+          1 berkas       -> putuskan sendiri, tidak perlu ADR
+          5-10 berkas    -> sebutkan di pull request
+          > 50 berkas    -> tulis ADR
+
+        Diukur pada project ini sebagai contoh keputusan yang PANTAS
+        ber-ADR:
+          src/lib/curriculum/authoring.ts
+            58 berkas bergantung LANGSUNG
+            82 dari 116 berkas (71%) secara TRANSITIF
+
+        Bentuk fungsi di berkas itu adalah keputusan yang mahal
+        dibatalkan, dan alasannya pantas ditulis.
+        `,
+      ),
+      p(
+        'Kegagalan kedua adalah ADR yang ditulis sesudah keputusannya diambil dan dijalankan, sehingga ia menjadi pembenaran.',
+      ),
+      code(
+        'text',
+        `
+        Tanda ADR yang hanya pembenaran:
+
+          - tidak ada satu pun alternatif yang ditulis
+          - alternatif yang ditulis jelas-jelas buruk, sehingga
+            pilihannya terlihat tidak terhindarkan
+          - bagian konsekuensi hanya memuat hal yang baik
+          - tidak ada angka, hanya kata sifat
+
+        Bagian KONSEKUENSI yang memuat hal buruk adalah tanda paling
+        jelas bahwa sebuah ADR jujur. Contoh di atas menulis bahwa
+        penulisannya menjadi 31 kali lebih lambat dan penghitungnya
+        bisa menyimpang — dan keduanya memang terjadi.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KETIGA: ADR yang tidak bisa ditemukan.
+
+        Disimpan di folder yang tidak dilihat siapa pun, atau di
+        alat yang berbeda dari tempat kodenya.
+
+        Yang bekerja:
+          docs/adr/0001-nama-keputusan.md
+          bernomor, di dalam repositori, ikut ter-commit
+
+        Dan pada project ini, kesegarannya bisa diukur dari git:
+          README.md  terakhir diubah 2026-08-27, 4 commit
+          src/       terakhir diubah 2026-08-27, 12 commit
+
+        Dokumen yang tanggal perubahannya jauh tertinggal dari
+        kodenya adalah dokumen yang perlu diperiksa sebelum dipercaya.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KEEMPAT: ADR yang diedit ketika keputusannya berubah.
+
+        Riwayat keputusan ikut hilang, dan pertanyaan "kenapa dulu
+        kita memilih yang itu" tidak lagi punya jawaban.
+
+        Yang benar:
+          ADR 0007  Status: Digantikan oleh ADR 0021
+          ADR 0021  Status: Diterima
+                    "Menggantikan ADR 0007. Keadaan berubah karena ..."
+
+        Dengan begitu, pembaca bisa melihat bahwa pilihannya pernah
+        berbeda, dan tahu apa yang berubah.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'ADR sering dianggap formalitas dokumen, padahal ia satu-satunya tempat alasan sebuah keputusan bertahan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis ADR tanpa alternatif yang ditolak',
+            'Yang lain kan tidak dipakai',
+            'Itu bagian yang paling dicari pembaca berikutnya, dan paling mahal direkonstruksi',
+          ],
+          [
+            'Menulis konsekuensi yang hanya baik',
+            'Keputusannya kan sudah tepat',
+            'Setiap keputusan punya biaya. Diukur, kolom penghitung membuat penulisan 31 kali lebih lambat',
+          ],
+          [
+            'Menulis tanpa angka',
+            'Semua orang sudah tahu masalahnya',
+            'Enam bulan kemudian tidak ada yang bisa menilai apakah keputusannya masih tepat',
+          ],
+          [
+            'Mengedit ADR ketika keputusannya berubah',
+            'Biar selalu terbaru',
+            'Riwayat keputusan hilang. Tulis ADR baru yang menyatakan ia menggantikan yang lama',
+          ],
+          [
+            'Menulis ADR untuk setiap keputusan',
+            'Biar terdokumentasi',
+            'Hitung berkas yang terpengaruh bila dibatalkan. Satu berkas tidak perlu ADR',
+          ],
+          [
+            'Menyimpan ADR di luar repositori',
+            'Alatnya lebih rapi',
+            'Ia tidak ikut di-review bersama kodenya, dan kesegarannya tidak bisa diperiksa dari git',
+          ],
+        ],
+      ),
+      p(
+        'Ujian yang paling ringkas untuk sebuah ADR adalah memberikannya kepada orang yang tidak ikut membuatnya, lalu meminta ia menyebutkan satu alternatif yang ditolak beserta alasannya dan satu biaya yang harus ditanggung karena keputusan ini. Bila ia bisa menjawab keduanya dalam lima menit, ADR itu bekerja. Bila tidak, yang kurang hampir selalu bagian alternatif atau bagian konsekuensi.',
+      ),
       references(
         {
           label: 'Architectural Decision Records',
@@ -604,7 +1027,7 @@ export const lessons: LessonDraft[] = [
   written(
     'dokumen-arsitektur',
     'Dokumen Arsitektur yang Tidak Basi',
-    13,
+    20,
     'Menulis sesedikit mungkin, supaya yang ditulis benar-benar bisa dijaga tetap benar.',
     [
       p(
@@ -882,6 +1305,225 @@ export const lessons: LessonDraft[] = [
         'Empat jenis catatan punya tempat masing-masing, dan keputusan dari sebuah rencana dinaikkan menjadi ADR.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Dokumen arsitektur menjadi basi karena ia menjelaskan hal yang sudah dijelaskan kode, dan karena tidak ada yang memeriksa apakah ia masih benar. Keduanya bisa diperbaiki.',
+      ),
+      code(
+        'text',
+        `
+        Yang CEPAT basi, dan sebaiknya TIDAK ditulis:
+
+          daftar berkas dan direktori
+          tanda tangan fungsi
+          nama tabel dan kolom
+          langkah-langkah yang sudah ada di skrip
+          diagram komponen yang digambar tangan
+
+        Kelimanya sudah ada di kode, dan menyalinnya berarti
+        menciptakan salinan kedua yang pasti akan menyimpang.
+
+        Yang LAMBAT basi, dan hanya ada di dokumen:
+
+          kenapa batasnya di situ, bukan di tempat lain
+          alternatif yang pernah ditolak, dan alasannya
+          atribut kualitas beserta angkanya
+          batasan dari luar yang memaksa bentuk tertentu
+          apa yang SENGAJA tidak dikerjakan sistem ini
+        `,
+        {
+          caption:
+            'Yang lambat basi adalah yang tidak bisa direkonstruksi dari kode, dan karena itu paling berharga.',
+        },
+      ),
+      p(
+        'Kesegaran dokumen bukan sesuatu yang harus ditebak, sebab riwayat versi sudah menyimpannya.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini:
+
+          README.md   terakhir diubah 2026-08-27,  4 commit
+          src/        terakhir diubah 2026-08-27, 12 commit
+
+        Keduanya berubah pada hari yang sama, jadi dokumennya
+        relatif segar.
+
+        Yang perlu dicurigai adalah pola sebaliknya:
+          dokumen terakhir diubah enam bulan lalu
+          kode terakhir diubah kemarin
+
+        Selisih itu bisa dihitung otomatis, dan dijadikan
+        peringatan di pipeline — bukan sebagai kegagalan, melainkan
+        sebagai daftar dokumen yang perlu diperiksa.
+        `,
+      ),
+      p(
+        'Cara paling andal membuat dokumen tidak basi adalah membuat sebagiannya dihasilkan dari kode, bukan ditulis tangan.',
+      ),
+      code(
+        'text',
+        `
+        Yang bisa DIHASILKAN, dan karena itu tidak pernah basi:
+
+          graf ketergantungan antar lapisan
+          daftar endpoint beserta bentuk masukan dan keluarannya
+          daftar tabel dan relasinya
+          daftar variabel environment yang dibaca
+
+        Diukur sungguhan pada project ini, graf yang dihasilkan dari
+        seluruh pernyataan impor:
+
+          116 berkas, 337 sisi
+          110  content -> lib
+           40  app     -> lib
+           36  app     -> components
+           32  components -> lib
+            1  lib     -> content     <- melawan arah
+
+        Baris terakhir tidak ada di dokumen mana pun, dan ia ada di
+        kode. Dokumen yang dihasilkan akan selalu memuatnya.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Dokumen yang basi tidak menghasilkan error, dan ia lebih berbahaya daripada dokumen yang tidak ada, sebab ia tetap dipercaya.',
+      ),
+      code(
+        'text',
+        `
+        Bentuk kerugiannya:
+
+          orang baru mengikuti dokumen, lalu menemukan bahwa
+          separuhnya tidak lagi benar
+            -> ia berhenti mempercayai SELURUHNYA, termasuk bagian
+               yang masih benar
+
+          keputusan diambil berdasarkan dokumen yang sudah lewat
+            -> pekerjaan dibangun di atas asumsi yang salah
+
+          dokumen dipakai sebagai bukti bahwa sesuatu sudah dijamin
+            -> "kan sudah ditulis di dokumen arsitektur"
+               padahal diukur, satu sisi melawan arah ada di kode
+               dan tidak ada di dokumen
+
+        Yang terakhir itu bentuk kegagalan yang paling mahal.
+        `,
+      ),
+      p(
+        'Kegagalan kedua bersifat ukuran, yaitu dokumen yang terlalu panjang sehingga tidak dibaca.',
+      ),
+      code(
+        'text',
+        `
+        Gejala dokumen yang terlalu panjang:
+
+          - disetujui tanpa satu pun komentar substansial
+          - yang dikomentari hanya format dan tata bahasa
+          - orang bertanya hal yang jawabannya ada di halaman 7
+          - versi keduanya tidak pernah ditulis
+
+        Batas satu halaman untuk dokumen desain bukan gaya. Ia
+        memaksa memilih, dan yang bertahan setelah dipaksa memilih
+        biasanya memang yang menentukan.
+
+        Rincian yang tidak muat bukan dihapus melainkan dipindah ke
+        lampiran yang boleh tidak dibaca.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KETIGA: dokumen tanpa pemilik dan tanpa tanggal.
+
+        Tidak ada yang tahu apakah ia masih benar, dan tidak ada
+        yang merasa bertanggung jawab memeriksanya.
+
+        Tiga hal yang murah dan sangat berpengaruh:
+
+          1. Tanggal terakhir diperiksa, bukan tanggal terakhir diubah
+             "Diperiksa masih benar pada 2026-09-14"
+
+          2. Satu nama pemilik
+
+          3. Dokumen ada DI DALAM repositori, sehingga ia ikut
+             di-review pada pull request yang sama dengan kodenya
+        `,
+        {
+          caption:
+            'Nomor 1 berbeda dari tanggal ubah: dokumen bisa masih benar tanpa perlu diubah, dan itu informasi.',
+        },
+      ),
+      p(
+        'Kegagalan terakhir adalah dokumen yang menjelaskan hal yang sudah dijelaskan kode, dan itu menciptakan dua sumber kebenaran.',
+      ),
+      code(
+        'text',
+        `
+        Dua sumber kebenaran selalu menyimpang, dan yang menang
+        selalu kode — sebab kode yang dijalankan.
+
+        Karena itu aturannya:
+          kode menjelaskan APA dan BAGAIMANA
+          dokumen menjelaskan KENAPA
+
+        Dan bila sesuatu harus dijelaskan di dua tempat, buatlah
+        yang kedua DIHASILKAN dari yang pertama.
+
+        Diukur pada project ini, contoh yang hanya bisa dihasilkan:
+          src/lib/curriculum/authoring.ts
+            58 berkas bergantung langsung
+            82 dari 116 (71%) secara transitif
+
+        Angka itu berubah setiap kali ada berkas baru, dan menulisnya
+        tangan berarti ia salah sejak hari berikutnya.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Dokumen arsitektur sering ditulis sekali dengan sungguh-sungguh, lalu tidak pernah disentuh lagi.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis daftar berkas dan tanda tangan fungsi',
+            'Biar lengkap',
+            'Sudah ada di kode. Salinan kedua pasti menyimpang, dan yang menang selalu kode',
+          ],
+          [
+            'Menulis dokumen tujuh halaman',
+            'Biar tidak ada yang terlewat',
+            'Disetujui tanpa komentar substansial. Pindahkan rincian ke lampiran yang boleh tidak dibaca',
+          ],
+          [
+            'Tidak menulis tanggal dan pemilik',
+            'Nanti kelihatan dari git',
+            'Tanggal diubah berbeda dari tanggal DIPERIKSA. Dokumen bisa masih benar tanpa perlu diubah',
+          ],
+          [
+            'Menyimpan dokumen di luar repositori',
+            'Alatnya lebih rapi',
+            'Ia tidak ikut di-review bersama kodenya, dan kesegarannya tidak bisa diperiksa',
+          ],
+          [
+            'Menggambar diagram komponen dengan tangan',
+            'Lebih mudah dipahami',
+            'Diukur, satu sisi melawan arah ada di kode dan tidak ada di diagram. Hasilkan dari graf impor',
+          ],
+          [
+            'Mempercayai dokumen sebagai jaminan',
+            'Itu kan dokumen resmi',
+            'Dokumen menyatakan niat. Yang menyatakan kenyataan adalah alat yang membaca kode',
+          ],
+        ],
+      ),
+      p(
+        'Pembagian yang membuat dokumen bertahan bisa diringkas menjadi tiga kalimat. Yang bisa dihasilkan dari kode, hasilkan. Yang tidak bisa direkonstruksi dari kode, yaitu alasan dan alternatif yang ditolak, tulis dan jaga. Dan yang hanya dibutuhkan untuk satu percakapan, tulis di papan, pakai, lalu buang tanpa merasa bersalah.',
+      ),
       references(
         {
           label: 'arc42 overview',
@@ -908,7 +1550,7 @@ export const lessons: LessonDraft[] = [
   written(
     'fitness-function',
     'Menjaga Arsitektur lewat Test',
-    14,
+    20,
     'Mengubah aturan arsitektur dari kesepakatan menjadi sesuatu yang gagal di CI.',
     [
       p(
@@ -1210,6 +1852,219 @@ export const lessons: LessonDraft[] = [
         'Fitness function juga berlaku untuk ukuran bundel, kecepatan test, rahasia, dan otorisasi endpoint.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Fitness function adalah test yang mengukur sifat arsitektur, bukan perilaku fitur. Yang membuatnya bekerja adalah ia berjalan otomatis, sebab aturan yang hanya hidup di kepala orang akan menyimpang.',
+      ),
+      code(
+        'text',
+        `
+        Dijalankan sungguhan pada project ini, sekitar tiga puluh
+        baris kode yang menelusuri seluruh pernyataan impor:
+
+          GAGAL  lib tidak boleh bergantung pada content  (1 pelanggaran)
+                   src/lib/curriculum/queries.ts -> src/content/curriculum/index.ts
+          LULUS  components tidak boleh bergantung pada app
+          LULUS  content tidak boleh bergantung pada components
+          GAGAL  tidak ada siklus ketergantungan  (3 pelanggaran)
+                   src/app/dashboard-client.tsx -> src/app/page.tsx -> ...
+                   src/app/latihan/latihan-client.tsx -> ...
+                   src/app/roadmap/page.tsx -> ...
+          LULUS  tidak ada berkas di atas 400 KB
+
+          -> 3 aturan gagal
+        `,
+        {
+          caption:
+            'Tidak satu pun dari ketiga pelanggaran itu sengaja dibuat. Ketiganya menyelinap masuk karena tidak ada yang memeriksa.',
+        },
+      ),
+      p(
+        'Yang bisa diukur sebagai fitness function jauh lebih banyak daripada arah ketergantungan, dan sebagian besarnya murah.',
+      ),
+      table(
+        ['Sifat yang diukur', 'Cara mengukurnya', 'Ambang yang lazim'],
+        [
+          ['Arah ketergantungan', 'Telusuri impor, kelompokkan per lapisan', 'Nol pelanggaran'],
+          ['Siklus', 'Telusuri graf, cari simpul yang kembali', 'Nol'],
+          ['Ukuran berkas', 'Baca ukuran berkas', 'Ambang yang disepakati'],
+          ['Waktu pemeriksaan', 'Ukur durasi tiap langkah', 'Diukur: type-check 2.403 ms'],
+          [
+            'Ukuran bundel klien',
+            'Jumlahkan berkas keluaran build',
+            'Diukur: 1.823,4 KB, chunk terbesar 653,4 KB',
+          ],
+          [
+            'Data bocor ke klien',
+            'Cari string tertentu di keluaran build',
+            'Diukur: 0 berkas di `.next/static`',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir pantas diperhatikan sebab ia fitness function keamanan yang bisa dijalankan pada setiap build.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada keluaran build project ini:
+
+          string materi kurikulum di .next/static (KLIEN)  : 0 berkas
+          string materi kurikulum di .next/server (SERVER) : 1.250 berkas
+
+        Perintahnya satu baris:
+          grep -rl "kata-yang-dicari" .next/static | wc -l
+
+        Dijadikan aturan: nilai apa pun yang tidak boleh sampai ke
+        peramban diperiksa dengan cara itu pada setiap build. Bila
+        hasilnya bukan nol, build-nya gagal.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Fitness function punya satu cara gagal yang mematikan seluruh manfaatnya, yaitu menghasilkan terlalu banyak positif palsu.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini. Aturan "tidak ada import
+        paket luar di src/content", ditulis dua cara:
+
+          aturan NAIF  (cocokkan teks "import ... from" di mana saja)
+            259 "pelanggaran"
+
+          aturan BENAR (hanya blok impor di AWAL berkas)
+            0 pelanggaran
+
+        Selisihnya SELURUHNYA positif palsu: kata "import" yang
+        muncul di dalam CONTOH KODE yang ditulis sebagai teks materi.
+
+        Fitness function yang menghasilkan 259 positif palsu akan
+        dimatikan dalam seminggu, dan seluruh manfaatnya hilang —
+        termasuk untuk aturan-aturan lain yang sebenarnya benar.
+        `,
+        {
+          caption:
+            'Alat penegak harus lebih dipercaya daripada aturannya, atau ia yang akan diabaikan lebih dulu.',
+        },
+      ),
+      p(
+        'Kegagalan kedua adalah aturan yang ditambahkan ke codebase yang sudah punya banyak pelanggaran, sehingga ia merah sejak hari pertama.',
+      ),
+      code(
+        'text',
+        `
+        Diukur pada project ini: 3 dari 5 aturan GAGAL saat pertama
+        dijalankan.
+
+        Bila aturan itu langsung dijadikan penggagal build, tidak
+        ada yang bisa merilis apa pun sampai ketiganya diperbaiki.
+
+        Yang bekerja: AMBANG YANG MENURUN.
+
+          siklus ketergantungan: maksimal 3
+          -> hari ini lulus dengan 3
+          -> bila bertambah menjadi 4, build GAGAL
+          -> setiap kali ada yang memperbaiki satu, ambangnya
+             diturunkan menjadi 2
+
+        Dengan begitu, keadaannya tidak pernah memburuk, dan
+        perbaikannya bisa dilakukan bertahap.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KETIGA: aturan yang tidak bisa ditindaklanjuti.
+
+          GAGAL  coupling terlalu tinggi
+
+        Berapa? Di berkas mana? Apa yang harus diubah?
+
+        Bandingkan dengan bentuk yang bisa ditindaklanjuti:
+
+          GAGAL  lib tidak boleh bergantung pada content (1 pelanggaran)
+                   src/lib/curriculum/queries.ts -> src/content/curriculum/index.ts
+
+        Baris kedua menyebut berkasnya, tujuannya, dan aturannya.
+        Yang membacanya tahu persis apa yang harus dilakukan.
+        `,
+      ),
+      p(
+        'Kegagalan keempat menyangkut apa yang TIDAK bisa ditangkap fitness function berbasis impor, dan itu perlu dinyatakan dengan jujur.',
+      ),
+      code(
+        'text',
+        `
+        Yang TIDAK muncul di graf impor sama sekali:
+
+          - dua modul yang membaca tabel yang sama
+          - JOIN lintas modul di dalam SQL
+          - panggilan lewat HTTP antar bagian
+          - ketergantungan lewat nama berkas atau konfigurasi
+
+        Yang pertama paling sering, dan paling mahal. Menemukannya
+        menuntut pemeriksaan yang berbeda: daftar tabel yang
+        disentuh tiap modul, bukan daftar impor.
+
+        Dan ada satu sumber lagi yang sering terlewat, yaitu riwayat
+        perubahan. Diukur dari git project ini:
+
+          3x bersama (50% dari perubahan yang lebih jarang)
+              src/lib/content/types.ts
+              src/test/curriculum-integrity.test.ts
+          3x bersama (60%)
+              src/content/glossary.ts
+              src/test/curriculum-integrity.test.ts
+
+        Dua berkas yang selalu berubah bersamaan punya coupling,
+        terlepas dari apakah ada import di antara keduanya.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Fitness function mudah ditulis dan mudah ditulis dengan cara yang membuatnya diabaikan dalam seminggu.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis aturan dengan pencocokan teks',
+            'Lebih cepat ditulis',
+            'Diukur, aturan naif menghasilkan 259 positif palsu melawan 0 pelanggaran sesungguhnya',
+          ],
+          [
+            'Menjadikan aturan baru penggagal build seketika',
+            'Aturannya kan memang benar',
+            'Diukur, 3 dari 5 aturan gagal sejak hari pertama. Pakai ambang yang menurun',
+          ],
+          [
+            'Menulis pesan gagal tanpa menyebut berkasnya',
+            'Aturannya kan sudah jelas',
+            '"Coupling terlalu tinggi" tidak bisa ditindaklanjuti. Sebutkan berkas, tujuan, dan aturannya',
+          ],
+          [
+            'Mengandalkan graf impor untuk semua batas',
+            'Itu kan ketergantungannya',
+            'Tabel yang dibaca dua modul dan JOIN lintas modul tidak muncul di graf impor sama sekali',
+          ],
+          [
+            'Menulis aturan arsitektur hanya di dokumen',
+            'Timnya sudah sepakat',
+            'Diukur, tiga aturan dilanggar tanpa ada yang sengaja melanggarnya',
+          ],
+          [
+            'Menunda memasangnya sampai codebase besar',
+            'Sekarang masih kecil',
+            'Penyimpangan tumbuh diam-diam, dan memperbaikinya kemudian jauh lebih mahal',
+          ],
+        ],
+      ),
+      p(
+        'Yang membuat fitness function berbeda dari dokumen arsitektur adalah bahwa ia berjalan. Aturan yang ditulis di dokumen menyatakan niat, dan aturan yang dijalankan pada setiap perubahan menyatakan kenyataan. Pengukuran pada project ini menunjukkan selisihnya dengan jelas: tiga pelanggaran yang tidak ada di dokumen mana pun, dan tidak satu pun sengaja dibuat.',
+      ),
       references(
         {
           label: 'no-restricted-imports',
@@ -1236,7 +2091,7 @@ export const lessons: LessonDraft[] = [
   written(
     'evolusi-arsitektur',
     'Arsitektur yang Berevolusi',
-    14,
+    22,
     'Mengenali kapan bentuk yang dulu benar sudah tidak cocok, tanpa membongkar semuanya.',
     [
       p(
@@ -1465,6 +2320,236 @@ export const lessons: LessonDraft[] = [
         'Utang teknis yang sehat adalah yang diambil sadar, tercatat, punya pemicu pelunasan, dan diketahui bunganya.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Arsitektur yang berevolusi berarti bentuknya bisa berubah tanpa harus ditulis ulang. Yang menentukan apakah itu mungkin bukan bentuk awalnya melainkan berapa mahal setiap perubahan bentuknya.',
+      ),
+      code(
+        'text',
+        `
+        Biaya membatalkan tiap jenis keputusan, dihitung dan diukur:
+
+          memindahkan batas DI DALAM satu proses
+            ubah beberapa impor, jalankan test  -> sehari
+
+          memindahkan batas ANTAR layanan
+            pindahkan tabel, penulisan ganda, backfill, pindahkan
+            pembacaan, hapus yang lama
+            diukur, 283 byte/baris @ 100 juta/hari -> 10,3 TB setahun
+            -> berminggu-minggu
+
+          mengubah bentuk data yang sudah tersimpan
+            diuji, rollback sesudah RENAME:
+              ERROR: column "nama_lengkap" does not exist
+            -> tidak bisa dibatalkan dengan rollback kode
+
+          mengubah bentuk fungsi dengan fan-in tinggi
+            diukur, authoring.ts menyentuh 82 dari 116 berkas (71%)
+        `,
+        {
+          caption:
+            'Arsitektur yang berevolusi adalah arsitektur yang keputusan mahalnya sedikit dan ditunda selama mungkin.',
+        },
+      ),
+      p(
+        'Karena itu strategi evolusinya bisa dinyatakan sebagai urutan, dan urutannya konsisten untuk hampir semua sistem.',
+      ),
+      code(
+        'text',
+        `
+        1. Ambil keputusan MURAH dengan cepat, dan ubah bila salah.
+        2. Tunda keputusan MAHAL sampai informasinya cukup.
+        3. Buat keputusan mahal menjadi lebih murah, bila bisa.
+
+        Langkah 3 yang paling sering dilewatkan, dan contohnya
+        konkret:
+
+          kontrak API  -> beri versi, sehingga bentuk lama bisa
+                          hidup berdampingan
+          skema data   -> expand-migrate-contract, sehingga rollback
+                          kode tetap aman
+          batas modul  -> tegakkan di dalam satu proses lebih dulu,
+                          sehingga memecahnya nanti tinggal mengganti
+                          pemanggilan fungsi menjadi panggilan jaringan
+                          DI SATU TEMPAT
+          fitur baru   -> saklar fitur, sehingga "dirilis" dan
+                          "dinyalakan" menjadi dua peristiwa terpisah
+        `,
+      ),
+      p(
+        'Yang membuat evolusi mungkin secara praktis adalah kemampuan mengubah sesuatu tanpa memutus yang lama, dan bentuknya selalu sama.',
+      ),
+      code(
+        'text',
+        `
+        EXPAND - MIGRATE - CONTRACT, berlaku untuk skema DAN kontrak:
+
+          RILIS 1 — EXPAND
+            tambahkan yang baru, pertahankan yang lama
+            tulis ke KEDUANYA, baca dari yang lama
+            rollback aman: yang baru diabaikan kode lama
+
+          RILIS 2 — MIGRATE
+            isi yang baru dari yang lama, dalam batch terpisah
+            pindahkan pembacaan, masih menulis ke keduanya
+            rollback aman: yang lama masih terisi
+
+          RILIS 3 — CONTRACT
+            berhenti menulis ke yang lama
+            baru setelah itu, hapus
+
+        Langkah 2 menuntut kemampuan MELIHAT siapa yang masih
+        memakai yang lama, dan itu harus dipasang SEBELUM rilis 1.
+        Tanpa itu, langkah 3 diambil dengan menebak.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan evolusi punya bentuk yang khas, dan yang paling umum adalah perubahan yang dibatalkan hanya sebagian.',
+      ),
+      code(
+        'text',
+        `
+        Gejalanya:
+
+          "Sudah ada tiga cara melakukan hal yang sama, dan
+           ketiganya masih dipakai"
+          "Kami sudah mulai migrasi ke bentuk baru dua tahun lalu"
+          "Jangan pakai yang itu, tapi jangan dihapus juga"
+
+        Penyebabnya selalu sama: langkah CONTRACT tidak pernah
+        dijalankan, sebab tidak ada yang tahu siapa yang masih
+        memakai yang lama.
+
+        Yang menutupnya harus dipasang SEBELUM migrasinya dimulai:
+          catat setiap pemakaian jalur lama, beserta pemanggilnya
+          lalu langkah contract diambil ketika catatannya nol
+          selama beberapa minggu
+        `,
+      ),
+      p(
+        'Kegagalan kedua adalah migrasi yang menghapus jalan mundurnya sendiri, dan itu bisa diuji.',
+      ),
+      code(
+        'text',
+        `
+        Diuji sungguhan dengan PostgreSQL 16.15:
+
+          kode LAMA membaca nama_lengkap  -> berhasil
+          -- migrasi RENAME dijalankan, kode BARU di-deploy --
+          kode BARU membaca nama          -> berhasil
+          -- ada bug, kode di-rollback ke versi LAMA --
+
+          SELECT nama_lengkap FROM pengguna
+            ERROR: column "nama_lengkap" does not exist
+
+        Rollback kodenya BERHASIL, dan aplikasinya tetap rusak.
+
+        Pertanyaan yang menutupnya, dan pantas diajukan pada setiap
+        migrasi sebelum digabungkan:
+          "Bila kode versi lama dan versi baru berjalan BERSAMAAN
+           selama sepuluh menit, apakah keduanya masih bekerja
+           dengan benar terhadap skema ini?"
+
+        Keadaan itu bukan kemungkinan melainkan KEHARUSAN pada
+        setiap rilis tanpa henti.
+        `,
+        {
+          caption:
+            'Migrasi yang tidak lolos pertanyaan itu harus dipecah, bukan dijalankan dengan hati-hati.',
+        },
+      ),
+      p(
+        'Kegagalan ketiga bersifat arah, yaitu evolusi yang tidak pernah terjadi karena tidak ada yang berani.',
+      ),
+      code(
+        'text',
+        `
+        Gejalanya:
+
+          "Tidak ada yang berani menyentuh modul itu"
+          "Kita tidak tahu apa yang akan rusak"
+          "Belum ada testnya, jadi jangan diubah"
+
+        Ketiganya adalah gejala yang sama: tidak ada sinyal yang
+        bisa memberi tahu apakah sebuah perubahan merusak sesuatu.
+
+        Yang mengembalikannya:
+          - test yang benar-benar bisa merah pada perilaku itu
+          - fitness function untuk sifat arsitekturnya
+          - dan diukur pada project ini, satu skrip tiga puluh baris
+            sudah menemukan satu pelanggaran arah dan tiga siklus
+
+        Arsitektur yang tidak bisa diubah bukan arsitektur yang
+        stabil melainkan arsitektur yang membeku.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KEEMPAT: evolusi tanpa ambang yang menurun.
+
+        Diukur pada project ini, 3 dari 5 fitness function GAGAL
+        saat pertama dijalankan.
+
+        Bila ketiganya langsung dijadikan penggagal build, tidak ada
+        yang bisa merilis apa pun sampai semuanya diperbaiki — dan
+        hasilnya biasanya aturannya yang dimatikan.
+
+        Yang bekerja:
+          siklus ketergantungan: maksimal 3
+          -> hari ini lulus dengan 3
+          -> bila bertambah menjadi 4, build GAGAL
+          -> setiap kali ada yang memperbaiki satu, ambangnya
+             diturunkan
+
+        Keadaannya tidak pernah memburuk, dan perbaikannya bertahap.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Evolusi arsitektur gagal bukan karena arah yang salah melainkan karena tidak ada mekanisme yang membuat perubahan terasa aman.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Mengganti bentuk lama dengan bentuk baru sekaligus',
+            'Satu perubahan, satu rilis',
+            'Diuji, rollback sesudah `RENAME` menghasilkan `column does not exist`. Pakai expand-migrate-contract',
+          ],
+          [
+            'Memulai migrasi tanpa mencatat siapa yang memakai yang lama',
+            'Nanti kelihatan',
+            'Langkah contract diambil dengan menebak, atau tidak pernah diambil sama sekali',
+          ],
+          [
+            'Membiarkan dua bentuk hidup berdampingan selamanya',
+            'Keduanya kan jalan',
+            'Keduanya harus dijaga selamanya. Itu biaya permanen dari migrasi yang tidak diselesaikan',
+          ],
+          [
+            'Menjadikan aturan baru penggagal build seketika',
+            'Aturannya kan benar',
+            'Diukur, 3 dari 5 gagal sejak hari pertama. Hasilnya biasanya aturannya yang dimatikan',
+          ],
+          [
+            'Tidak menyentuh modul yang tidak ada testnya',
+            'Terlalu berisiko',
+            'Arsitektur yang tidak bisa diubah adalah arsitektur yang membeku. Bangun sinyalnya dulu',
+          ],
+          [
+            'Merancang bentuk akhir di awal',
+            'Biar tidak perlu berevolusi',
+            'Informasinya paling sedikit tepat di awal. Ambil keputusan yang paling murah dibatalkan',
+          ],
+        ],
+      ),
+      p(
+        'Kalimat yang paling ringkas untuk seluruh sub-bab ini adalah bahwa arsitektur yang baik bukan yang paling benar hari ini melainkan yang paling murah diubah besok. Setiap mekanisme di atas, yaitu versi kontrak, expand-migrate-contract, saklar fitur, dan ambang yang menurun, mengerjakan satu hal yang sama: membuat perubahan berikutnya lebih murah daripada perubahan sekarang.',
+      ),
       references(
         {
           label: 'Design for evolution',
@@ -1491,7 +2576,7 @@ export const lessons: LessonDraft[] = [
   written(
     'review-arsitektur',
     'Review Arsitektur dan Trade-off',
-    13,
+    20,
     'Cara menantang sebuah usulan dengan pertanyaan, bukan dengan pendapat.',
     [
       p(
@@ -1748,6 +2833,223 @@ export const lessons: LessonDraft[] = [
         'Review dilakukan sebelum dibangun, berdasarkan tulisan pendek, dan wajib menghasilkan catatan.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Review arsitektur berbeda dari review kode karena yang ditinjau bukan benar atau salahnya melainkan pertukarannya. Pertanyaan yang tepat hampir selalu berbentuk "apa yang dibayar untuk itu".',
+      ),
+      code(
+        'text',
+        `
+        Enam pertanyaan yang menutup sebagian besar review:
+
+          1. Angka mana yang membuat keputusan ini perlu?
+          2. Alternatif apa yang ditolak, dan kenapa?
+          3. Apa yang dibayar untuk keuntungan ini?
+          4. Apa yang terjadi bila komponen X mati?
+          5. Berapa mahal membatalkan keputusan ini enam bulan lagi?
+          6. Bagaimana kita tahu keputusan ini berhasil?
+
+        Pertanyaan 3 yang paling sering tidak terjawab, dan
+        jawabannya hampir selalu ada bila dicari.
+        `,
+      ),
+      p('Contoh pertukaran yang terukur menunjukkan bentuk jawaban yang berguna.'),
+      code(
+        'text',
+        `
+        "Kita pakai kolom penghitung supaya halaman terpopuler cepat."
+
+        Pertanyaan 1 — angkanya:
+          agregasi 1.000.000 baris   468,922 ms
+          kolom berindeks              0,068 ms
+          -> ~6.900 kali lebih cepat
+
+        Pertanyaan 3 — yang dibayar:
+          INSERT saja                0,0090 ms/operasi
+          INSERT + UPDATE penghitung 0,2825 ms/operasi
+          -> ~31 kali lebih lambat
+
+          dan pertentangan pada baris panas:
+          2.000 UPDATE baris sama    459 ms
+          2.000 UPDATE baris berbeda  29 ms
+          -> ~16 kali lebih lambat
+
+          dan penghitungnya BISA menyimpang: diuji, satu penghapusan
+          yang lewat jalur lain menghasilkan penghitung 3 sementara
+          yang sebenarnya 2
+
+        Dengan angka itu, keputusannya bisa dinilai. Tanpa angka itu,
+        yang bisa dilakukan hanya setuju atau tidak setuju.
+        `,
+        {
+          caption:
+            'Review yang berguna menghasilkan angka yang belum ada, bukan pendapat tentang angka yang sudah ada.',
+        },
+      ),
+      p(
+        'Pertanyaan keempat punya bentuk jawaban yang bisa dihitung, dan itu sering mengubah kesimpulan.',
+      ),
+      code(
+        'text',
+        `
+        "Apa yang terjadi bila komponen X mati?"
+
+        Dihitung sungguhan, komponen BERANTAI:
+           1 komponen @ 99,9% -> 99,9000%   (  8,8 jam/tahun)
+           5 komponen @ 99,9% -> 99,5010%   ( 43,7 jam/tahun)
+          10 komponen @ 99,9% -> 99,0045%   ( 87,2 jam/tahun)
+          30 komponen @ 99,9% -> 97,0431%   (259,0 jam/tahun)
+
+        Dan komponen PARALEL:
+          2 salinan @ 99% -> 99,9900%
+          3 salinan @ 99% -> 99,9999%
+
+        Menambah komponen untuk "ketangguhan" sering menambah
+        komponen BERANTAI, bukan paralel. Selisihnya yang menentukan
+        apakah keputusannya menaikkan atau menurunkan ketersediaan.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Review arsitektur gagal dengan beberapa cara yang khas, dan yang pertama adalah terjadi terlalu terlambat.',
+      ),
+      code(
+        'text',
+        `
+        Tanda review terjadi terlalu terlambat:
+
+          - diskusi panjang tentang ARAH DASAR perubahannya
+          - sudah ada 600 baris yang harus dibuang bila arahnya berubah
+          - "sudah terlanjur begini, nanti saja diperbaiki"
+
+        Diskusi arah terjadi SEBELUM kodenya ditulis. Setelah ada
+        implementasi, biaya mengubah arah sudah tidak sebanding
+        dengan manfaatnya, dan reviewer tahu itu — sehingga ia
+        menyetujui sesuatu yang sebenarnya tidak ia setujui.
+
+        Yang menutupnya: satu halaman dokumen desain SEBELUM
+        implementasi, dengan enam pertanyaan di atas terjawab.
+        `,
+      ),
+      p('Kegagalan kedua bersifat ukuran, dan ia bisa diukur.'),
+      code(
+        'text',
+        `
+        Yang terjadi seiring bertambahnya baris yang berubah:
+
+          < 100 baris   reviewer membaca setiap baris
+          200-400 baris reviewer membaca selektif
+          > 400 baris   reviewer memindai, lalu menulis "LGTM"
+          > 1000 baris  reviewer menyetujui tanpa membacanya
+
+        Dan yang membuatnya berbahaya: perubahan yang terlalu besar
+        TETAP DISETUJUI. Ia tidak ditolak, tidak memunculkan
+        peringatan, dan tidak meninggalkan jejak bahwa reviewnya
+        tidak sungguhan.
+
+        Review yang tidak terjadi terlihat persis sama dengan review
+        yang terjadi.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KETIGA: review yang membahas hal yang bisa
+        diperiksa mesin.
+
+        Diukur sungguhan pada project ini:
+          format:check     3.691 ms
+          lint             6.021 ms
+          type-check       2.403 ms
+          test             7.184 ms
+
+        Empat pemeriksaan itu selesai dalam 19,3 detik. Setiap
+        komentar review tentang format, impor yang tidak terpakai,
+        atau tipe yang salah adalah pekerjaan yang seharusnya
+        diselesaikan dalam sembilan belas detik itu.
+
+        Dan untuk sifat ARSITEKTUR, hal yang sama berlaku. Diukur:
+          GAGAL  lib tidak boleh bergantung pada content (1)
+          GAGAL  tidak ada siklus ketergantungan (3)
+
+        Ketiga pelanggaran itu ditemukan mesin dalam sepersekian
+        detik, dan tidak satu pun ditemukan oleh review manusia
+        selama ini.
+        `,
+        {
+          caption:
+            'Waktu manusia dipakai untuk pertukaran dan alasan, bukan untuk hal yang bisa dihitung.',
+        },
+      ),
+      p(
+        'Kegagalan keempat menyangkut bentuk komentarnya, dan ia menentukan apakah review menghasilkan perubahan.',
+      ),
+      code(
+        'text',
+        `
+        TIDAK BISA DITINDAKLANJUTI:
+          "ini kurang bagus"
+          "kayaknya ada cara yang lebih baik"
+          "saya nggak suka pendekatan ini"
+
+        BISA DITINDAKLANJUTI:
+          "Keputusan ini menambah satu komponen berantai di depan
+           seluruh sistem. Dihitung, 2 komponen @ 99,9% berarti
+           17,5 jam mati per tahun melawan 8,8 jam. Apakah manfaatnya
+           sebanding, dan apakah ada rencana salinan paralel?"
+
+        Dan membedakan yang WAJIB dari yang SARAN:
+          BLOKIR : "ini harus diubah sebelum digabung, karena ..."
+          SARAN  : "nit: ini bisa disederhanakan, tidak menghalangi"
+
+        Menandai keduanya dengan jelas menghemat satu putaran
+        percakapan pada hampir setiap review.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Review arsitektur sering diperlakukan sebagai persetujuan, padahal gunanya membuat pertukarannya terlihat.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Mereview sesudah implementasinya jadi',
+            'Biar jelas yang dibahas',
+            'Sudah ada 600 baris yang harus dibuang bila arahnya berubah. Reviewer menyetujui yang tidak ia setujui',
+          ],
+          [
+            'Mengirim perubahan besar sekaligus',
+            'Perubahannya memang satu kesatuan',
+            'Diamati, di atas 400 baris reviewer memindai lalu menyetujui. Review yang tidak terjadi terlihat sama',
+          ],
+          [
+            'Membahas format dan tipe di review',
+            'Memang itu yang terlihat',
+            'Diukur, empat pemeriksaan mesin selesai dalam 19,3 detik. Jangan pakai waktu manusia untuk itu',
+          ],
+          [
+            'Menulis komentar yang tidak bisa ditindaklanjuti',
+            'Saya cuma merasa kurang pas',
+            'Penulisnya tidak tahu harus mengubah apa. Sebutkan angkanya, akibatnya, dan alternatifnya',
+          ],
+          [
+            'Tidak menanyakan apa yang dibayar',
+            'Manfaatnya kan jelas',
+            'Setiap keputusan punya biaya. Diukur, kolom penghitung membuat penulisan 31 kali lebih lambat',
+          ],
+          [
+            'Tidak menanyakan bagaimana tahu ini berhasil',
+            'Nanti kelihatan sendiri',
+            'Tanpa metrik yang ditetapkan lebih dulu, "berhasil" menjadi soal perasaan',
+          ],
+        ],
+      ),
+      p(
+        'Ada satu kebiasaan yang mengubah kualitas review lebih besar daripada aturan apa pun, dan ia dikerjakan oleh penulisnya sendiri. Sebelum meminta orang lain meninjau, jawab keenam pertanyaan di awal sub-bab ini dan tuliskan jawabannya. Sebagian besar kelemahan sebuah keputusan muncul saat menuliskan jawaban pertanyaan ketiga, yaitu apa yang dibayar, dan menemukannya sendiri jauh lebih murah daripada menemukannya lewat satu putaran percakapan.',
+      ),
       references(
         {
           label: 'AWS Well-Architected Framework',
@@ -1774,7 +3076,7 @@ export const lessons: LessonDraft[] = [
   written(
     'studi-kasus',
     'Studi Kasus, Merancang dari Nol',
-    16,
+    21,
     'Seluruh isi kategori ini dijalankan sekali, dari brief kosong sampai ADR yang tercatat.',
     [
       p(
@@ -2247,6 +3549,215 @@ export const lessons: LessonDraft[] = [
         'Kalau kamu hanya membawa satu hal dari kategori ini, bawa yang ini. **Bentuk yang benar adalah bentuk paling sederhana yang memenuhi kebutuhan yang benar-benar ada sekarang, ditambah batas yang membuat perubahan berikutnya tetap murah.** Sisanya adalah cara mengetahui kebutuhan mana yang benar-benar ada.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Merancang dari nol berguna hanya bila setiap keputusannya bisa ditelusuri kembali ke sebuah angka atau sebuah batasan. Tanpa itu, yang dihasilkan adalah diagram yang terlihat masuk akal dan tidak bisa diperiksa.',
+      ),
+      code(
+        'text',
+        `
+        Urutan yang dipakai sepanjang kategori ini:
+
+        1. BATASAN dan ATRIBUT KUALITAS, dengan angka
+           berapa pengguna, berapa tulis, berapa baca, target latensi
+           pada persentil berapa, target ketersediaan, dan APA YANG
+           TIDAK dikerjakan
+
+        2. KEPUTUSAN YANG MAHAL DIBATALKAN, diurutkan
+           bentuk data yang tersimpan
+           kontrak publik
+           batas modul dan arah ketergantungan
+           -> tunda selama mungkin, dan buat lebih murah bila bisa
+
+        3. BENTUK, dan untuk tiap kotak: "angka mana yang
+           membuatnya perlu ada?"
+
+        4. PENEGAKAN: fitness function untuk sifat yang harus dijaga
+
+        5. CARA MENGETAHUI INI BERHASIL: metrik yang ditetapkan
+           SEBELUM dibangun
+        `,
+        {
+          caption:
+            'Langkah 4 dan 5 yang paling sering dilewati, dan keduanya yang membuat rancangannya bertahan.',
+        },
+      ),
+      p(
+        'Angka-angka yang diukur sepanjang kategori ini bisa dipakai langsung sebagai patokan, dan mengumpulkannya membuat perancangan jauh lebih cepat.',
+      ),
+      table(
+        ['Pertanyaan', 'Angka yang diukur', 'Keputusan yang lahir darinya'],
+        [
+          [
+            'Seberapa mahal panggilan lintas proses?',
+            'fungsi puluhan ns, loopback 1,69 ms, internet p50 70,04 ms',
+            'Kurangi JUMLAH panggilan, bukan percepat masing-masing',
+          ],
+          [
+            'Berapa biaya menambah komponen?',
+            '10 komponen berantai @ 99,9% -> 87,2 jam mati/tahun',
+            'Tiap komponen baru harus punya jawaban saat ia mati',
+          ],
+          [
+            'Seberapa mahal mengubah fungsi bersama?',
+            'authoring.ts menyentuh 82 dari 116 berkas (71%)',
+            'Bentuk fungsi bersama adalah keputusan arsitektur',
+          ],
+          [
+            'Apa yang hilang saat menambah replika?',
+            'saat beban tulis, 8 dari 8 read-after-write GAGAL',
+            'Keputusan uang dan otorisasi dibaca dari sumber',
+          ],
+          [
+            'Berapa untung-rugi denormalisasi?',
+            'baca 468,9 ms -> 0,068 ms; tulis 0,0090 -> 0,2825 ms',
+            'Hitung rasio baca terhadap tulis sebelum memutuskan',
+          ],
+          [
+            'Apakah batasnya benar-benar ditegakkan?',
+            '1 pelanggaran arah + 3 siklus, tidak ada yang sengaja',
+            'Aturan yang tidak dijalankan mesin akan menyimpang',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir itu hasil pengukuran pada project ini sendiri, dan ia menunjukkan bahwa jarak antara niat dan kenyataan selalu ada.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Latihan merancang gagal dengan bentuk yang berulang, dan mengenalinya lebih cepat daripada menunggu koreksi orang lain.',
+      ),
+      code(
+        'text',
+        `
+        1. Kotak yang tidak bisa menjawab "angka mana?"
+
+           Itu kotak yang ada karena sudah terbayang sejak awal.
+           Hapus, atau temukan angkanya.
+
+        2. Tidak ada satu pun jawaban untuk "bagaimana kalau X mati?"
+
+           Dihitung: bila tiap permintaan menyentuh 16 shard, satu
+           shard mati berarti 100% permintaan gagal. Bila tiap
+           permintaan menyentuh satu shard, 6,25%.
+           Selisihnya ditentukan RANCANGAN, bukan keandalan shard-nya.
+
+        3. Tidak menyebut apa yang TIDAK dikerjakan
+
+           Tanpa batas, cakupannya melebar sampai tidak ada yang
+           bisa dinilai selesai.
+
+        4. Nama teknologi dipakai sebagai jawaban
+
+           "Pakai Kafka" bukan keputusan sampai ada angka yang
+           menjelaskan kenapa antrean dibutuhkan.
+
+        5. Rancangan yang tidak punya cara diperiksa
+
+           Tanpa fitness function, rancangannya menyimpang dan tidak
+           ada yang tahu. Diukur pada project ini: 3 pelanggaran,
+           tidak satu pun disengaja.
+        `,
+      ),
+      p(
+        'Kesalahan keenam bersifat arah, dan ia yang paling sering membuat latihan ini kehilangan gunanya.',
+      ),
+      code(
+        'text',
+        `
+        Merancang untuk masalah yang tidak ada.
+
+        Contoh nyata dari project ini, diukur sungguhan:
+
+          Gejala : npm run build gagal, beberapa halaman melewati
+                   batas 60 detik, termasuk yang tidak diubah
+          Dugaan : bebannya terlalu besar untuk mesin ini
+
+          Yang diukur:
+            penyorotan kode seluruh 427 halaman : 5.785 ms total
+            rata-rata per halaman               :    14 ms
+            halaman yang GAGAL                  :    30 ms
+            satu halaman yang gagal tidak punya blok kode sama sekali
+            CPU 4, swap 0, memori tersisa ~1,1 GB
+            load average saat gagal             : 12,84 pada 4 CPU
+
+          Satu perubahan, satu variabel:
+            CIRCLE_NODE_TOTAL=2 npm run build -> EXIT=0, 15,9 detik
+
+        Dugaan pertamanya masuk akal dan salah. Yang membedakan
+        hanya urutannya: ukur dulu, baru simpulkan.
+        `,
+        {
+          caption:
+            'Kebiasaan itu berlaku sama pada sistem berjuta pengguna dan pada build yang gagal di laptop sendiri.',
+        },
+      ),
+      p('Kesalahan terakhir menyangkut kejujuran tentang apa yang belum diketahui.'),
+      code(
+        'text',
+        `
+        MENYATAKAN KEPASTIAN YANG TIDAK DIMILIKI:
+
+          "Sistem ini akan menangani 50.000 QPS."
+
+        Bentuk yang jujur:
+
+          "Dengan asumsi rasio baca:tulis 10:1 dan puncak 3x
+           rata-rata, kami memperkirakan 34.722 QPS baca pada
+           puncaknya. Asumsi yang paling mungkin meleset adalah
+           faktor puncak: kampanye bisa menghasilkan 20x dalam
+           beberapa menit. Yang akan mempersempit perkiraan ini
+           adalah data lalu lintas tiga bulan terakhir, yang belum
+           kami miliki."
+
+        Bentuk kedua bisa dikoreksi orang lain dalam satu kalimat.
+        Bentuk pertama hanya bisa dipercaya atau tidak.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Latihan merancang mudah dikerjakan dengan cara yang menghasilkan diagram bagus tanpa satu pun keputusan yang bisa diperiksa.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Langsung menggambar bentuk arsitekturnya',
+            'Itu yang ditunggu orang',
+            'Tidak ada dasar menilai apakah tiap kotaknya perlu. Mulai dari batasan dan angka',
+          ],
+          [
+            'Menyalin arsitektur perusahaan besar',
+            'Mereka kan sudah teruji',
+            'Arsitektur mereka menjawab masalah mereka, termasuk masalah organisasi yang tidak kamu punya',
+          ],
+          [
+            'Menyebut nama teknologi sebagai keputusan',
+            'Itu yang dipakai orang',
+            'Nama pola dan nama alat bukan keputusan sampai jelas batas apa yang dipisahkan dan kenapa',
+          ],
+          [
+            'Tidak menjawab "bagaimana kalau X mati?"',
+            'Komponennya kan andal',
+            'Dihitung, satu shard mati bisa berarti 6,25% atau 100% gagal, tergantung rancangannya',
+          ],
+          [
+            'Tidak memasang cara memeriksa rancangannya',
+            'Timnya sudah sepakat',
+            'Diukur pada project ini, 3 pelanggaran menyelinap masuk tanpa ada yang sengaja melanggarnya',
+          ],
+          [
+            'Menulis perkiraan sebagai kepastian',
+            'Terdengar lebih meyakinkan',
+            'Tanpa asumsi yang tertulis, tidak ada yang bisa dikoreksi orang lain',
+          ],
+        ],
+      ),
+      p(
+        'Yang sebenarnya dilatih di seluruh kategori ini bukan kemampuan menggambar sistem melainkan kebiasaan menuntut angka sebelum mengambil keputusan, dan menuliskan apa yang dibayar untuk setiap keuntungan. Kebiasaan itu berlaku sama pada sistem berjuta pengguna dan pada satu berkas dengan fan-in 58, dan pada keduanya ia menghasilkan hal yang sama, yaitu keputusan yang bisa diperiksa orang lain dan diperbaiki ketika angkanya berubah.',
+      ),
       references(
         {
           label: 'Azure Application Architecture Guide',

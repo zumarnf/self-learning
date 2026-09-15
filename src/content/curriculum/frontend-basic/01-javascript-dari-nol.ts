@@ -1,6 +1,7 @@
 import {
   callout,
   code,
+  compare,
   divider,
   h2,
   ol,
@@ -40,12 +41,16 @@ export const chapter = defineChapter({
   // menunjuk halaman dokumentasi resminya.
   // 2026-08-05: revisi kedalaman narasi (plans/revisi-kedalaman-narasi/) — paragraf penghubung
   // ditambahkan di titik transisi kode yang sebelumnya kosong, tersebar di keempat file bab ini.
-  reviewedAt: '2026-08-05',
+  // 2026-09-05: revisi studi kasus, error, dan kesalahan umum
+  // (plans/revisi-studi-kasus-error-kesalahan/) — tiga bagian berjudul tetap ditambahkan tepat
+  // sebelum Rangkuman di tiap sub-bab. Pesan error di dalamnya dijalankan sungguhan lebih dulu,
+  // bukan ditulis dari ingatan.
+  reviewedAt: '2026-09-05',
   lessons: [
     written(
       'apa-itu-javascript',
       'Apa itu JavaScript & Cara Menjalankannya',
-      9,
+      15,
       'Tiga tempat JavaScript berjalan, dan cara mengeksekusi baris pertamamu di masing-masing.',
       [
         p(
@@ -292,6 +297,215 @@ export const chapter = defineChapter({
         ),
 
         divider,
+        h2('Studi kasus di project nyata'),
+        p(
+          'Bayangkan kamu mengerjakan toko online kecil. Halaman produk menampilkan harga dalam rupiah, dan tiap malam ada skrip yang merangkum penjualan hari itu menjadi berkas CSV untuk dikirim ke pemilik toko. Halaman produk berjalan di browser, sedangkan skrip laporan berjalan di Node.js. Keduanya harus memformat rupiah dengan cara yang sama persis, sebab kalau berbeda, angka di layar dan angka di laporan akan terlihat seperti dua angka yang berbeda padahal sumbernya satu.',
+        ),
+        p(
+          'Inilah bentuk paling sering dari materi sub-bab ini di pekerjaan sungguhan. Persoalannya bukan memilih browser atau Node.js, melainkan menulis satu berkas yang aman dipakai keduanya, lalu menaruh bagian yang khusus browser dan yang khusus Node.js di berkas terpisah. Berkas bersama itu tidak boleh menyentuh `document` maupun `node:fs`, karena begitu ia menyentuh salah satunya, ia langsung berhenti bisa dipakai di sisi yang lain.',
+        ),
+        code(
+          'js',
+          `
+          // Berkas bersama. Sengaja tidak menyentuh document maupun node:fs,
+          // supaya browser dan Node.js sama-sama bisa mengimpornya.
+
+          const pemformat = new Intl.NumberFormat('id-ID', {
+            style: 'currency',
+            currency: 'IDR',
+            maximumFractionDigits: 0,
+          });
+
+          export function formatRupiah(angka) {
+            if (typeof angka !== 'number' || Number.isNaN(angka)) {
+              throw new TypeError(\`formatRupiah butuh number, dapat \${typeof angka}\`);
+            }
+            return pemformat.format(angka);
+          }
+          `,
+          { filename: 'src/format-rupiah.js' },
+        ),
+        p(
+          'Tiga hal di berkas ini yang membuatnya aman dipakai di dua runtime sekaligus. Pertama, satu-satunya API yang dipakai adalah `Intl.NumberFormat`, dan itu bagian dari bahasa JavaScript sendiri sehingga tersedia di browser maupun Node.js. Kedua, `pemformat` dibuat satu kali di luar fungsi, bukan di dalamnya, sebab membuat objek `Intl` termasuk operasi mahal dan memanggilnya untuk tiap harga di halaman berisi seratus produk akan terasa. Ketiga, fungsinya menolak masukan yang bukan number lewat `throw` alih-alih diam-diam mengembalikan teks aneh, dan itu yang membuat kesalahan ketahuan di tempat ia dibuat bukan di tempat ia terlihat.',
+        ),
+        code(
+          'js',
+          `
+          // Hanya jalan di browser. Berkas inilah yang boleh menyentuh document.
+          import { formatRupiah } from './format-rupiah.js';
+
+          for (const el of document.querySelectorAll('[data-harga]')) {
+            const harga = Number(el.dataset.harga);
+            el.textContent = formatRupiah(harga);
+          }
+          `,
+          { filename: 'src/halaman-produk.js' },
+        ),
+        code(
+          'js',
+          `
+          // Hanya jalan di Node.js. Berkas inilah yang boleh menyentuh node:fs.
+          import { writeFile } from 'node:fs/promises';
+          import { formatRupiah } from '../src/format-rupiah.js';
+
+          const penjualan = [
+            { tanggal: '2026-09-01', total: 1250000 },
+            { tanggal: '2026-09-02', total: 890000 },
+          ];
+
+          const baris = penjualan.map((r) => \`\${r.tanggal};\${formatRupiah(r.total)}\`);
+          await writeFile('laporan.csv', \`tanggal;total\\n\${baris.join('\\n')}\\n\`, 'utf8');
+          console.log(\`Laporan ditulis, \${baris.length} baris.\`);
+          `,
+          { filename: 'scripts/laporan.js' },
+        ),
+        p(
+          'Dua berkas terakhir tidak pernah saling mengimpor, dan itu bukan kebetulan melainkan inti polanya. Yang mereka bagi hanya `format-rupiah.js` di tengah. `halaman-produk.js` mengambil angka dari atribut `data-harga` di HTML lalu menuliskannya kembali sebagai teks, sedangkan `laporan.js` mengambil angka dari array lalu menuliskannya ke berkas. Sumber data dan tujuan keluarannya berbeda total, tapi aturan formatnya satu, sehingga kalau nanti pemilik toko minta angkanya pakai koma desimal, kamu cukup mengubah satu berkas dan kedua sisi ikut berubah.',
+        ),
+        p(
+          'Perhatikan juga `await` di `laporan.js` dipakai langsung di level teratas berkas tanpa dibungkus fungsi `async`. Ini disebut top-level await dan hanya bekerja di berkas yang diperlakukan sebagai module. Di Node.js, berkas `.js` diperlakukan sebagai module kalau `package.json` terdekat memuat `"type": "module"`, atau kalau berkasnya berekstensi `.mjs`. Kalau syarat itu tidak dipenuhi, baris `import` di atasnya sudah gagal lebih dulu sebelum `await` sempat jadi masalah.',
+        ),
+        callout(
+          'tip',
+          'Aturan praktis yang bisa langsung dipakai',
+          'Kalau sebuah fungsi hanya mengubah data menjadi data, taruh di berkas bersama. Kalau ia membaca atau menulis sesuatu di luar program, entah itu halaman, berkas, atau jaringan, taruh di berkas yang khusus untuk satu runtime. Pemisahan ini juga yang membuat fungsi di berkas bersama gampang diuji, sebab ia tidak butuh browser dan tidak butuh berkas apa pun untuk dijalankan.',
+        ),
+
+        h2('Saat error-nya muncul'),
+        p(
+          'Empat error berikut adalah yang paling sering menghentikan orang di sub-bab ini. Teksnya ditulis apa adanya seperti yang muncul di terminal dan di console browser, sebab cara paling cepat mencari solusi adalah menyalin pesannya bukan menerka nama masalahnya.',
+        ),
+        code(
+          'text',
+          `
+          $ node src/halaman-produk.js
+
+          ReferenceError: document is not defined
+              at Object.<anonymous> (/home/kamu/toko/src/halaman-produk.js:4:19)
+          `,
+          { caption: 'Kode browser dijalankan di Node.js.' },
+        ),
+        p(
+          'Pesan ini persis membuktikan pembagian yang dibahas di awal sub-bab. `document` bukan bagian dari bahasa JavaScript, melainkan sesuatu yang disediakan browser, sehingga Node.js memang tidak punya nama itu sama sekali. Perhatikan jenis errornya `ReferenceError` dan bukan `TypeError`, dan itu memberi tahu bahwa namanya tidak ada sama sekali, bukan ada tapi bernilai kosong. Perbaikannya bukan menambahkan sesuatu ke Node.js, melainkan menjalankan berkas itu lewat halaman HTML di browser.',
+        ),
+        code(
+          'text',
+          `
+          Access to script at 'file:///home/kamu/toko/src/halaman-produk.js'
+          from origin 'null' has been blocked by CORS policy: Cross origin
+          requests are only supported for protocol schemes: chrome,
+          chrome-extension, chrome-untrusted, data, http, https, isolated-app.
+          `,
+          { caption: 'Halaman dibuka dengan klik dua kali, bukan lewat server lokal.' },
+        ),
+        p(
+          "Bagian yang menjelaskan segalanya adalah `from origin 'null'`. Saat kamu membuka berkas HTML dengan klik dua kali, alamatnya berawalan `file://` dan browser menganggap halaman itu tidak punya asal yang jelas, sehingga aturan keamanan untuk module menolak memuatnya. Daftar protokol yang disebut di akhir pesan sudah menyiratkan perbaikannya, yaitu halamannya harus disajikan lewat `http`. Jalankan `npx serve` di folder project lalu buka alamat yang ia tampilkan, dan error ini hilang tanpa mengubah satu baris kode pun.",
+        ),
+        code(
+          'text',
+          `
+          const { formatRupiah } = require('./src/format-rupiah.js');
+                                   ^
+
+          ReferenceError: require is not defined in ES module scope,
+          you can use import instead
+          `,
+          { caption: 'Gaya CommonJS dipakai di berkas yang sudah berstatus module.' },
+        ),
+        p(
+          'Error ini muncul karena dua gaya impor yang berbeda tercampur dalam satu project. `require` adalah gaya lama Node.js yang disebut CommonJS, sedangkan `import` adalah gaya standar yang dipakai materi ini. Begitu `package.json` memuat `"type": "module"`, seluruh berkas `.js` di project itu diperlakukan sebagai module dan `require` berhenti tersedia. Pesannya bahkan sudah menyebut perbaikannya sendiri di kalimat kedua. Kalau kamu menyalin potongan kode dari tutorial lama dan bertemu error ini, ubah `require` menjadi `import` alih-alih menghapus `"type": "module"`.',
+        ),
+        code(
+          'text',
+          `
+          $ node --version
+          bash: node: command not found
+          `,
+          { caption: 'Node.js belum terpasang, atau terminalnya belum dimuat ulang.' },
+        ),
+        p(
+          'Pesan `command not found` datang dari terminal, bukan dari Node.js, dan bedanya penting. Artinya terminal sudah mencari program bernama `node` di seluruh folder yang ia kenal lalu tidak menemukannya. Dua penyebabnya jauh lebih sering daripada penyebab lain. Node.js memang belum dipasang, atau ia baru saja dipasang tapi terminal yang sedang terbuka masih memakai daftar folder yang lama. Coba tutup terminal lalu buka lagi sebelum menyimpulkan pemasangannya gagal.',
+        ),
+        table(
+          ['Pesan error', 'Penyebab sebenarnya', 'Perbaikannya'],
+          [
+            [
+              '`ReferenceError: document is not defined`',
+              'Kode yang butuh halaman dijalankan di Node.js',
+              'Jalankan lewat berkas HTML di browser, dan pindahkan logika murninya ke berkas bersama',
+            ],
+            [
+              "`blocked by CORS policy` dengan `origin 'null'`",
+              'Halaman dibuka lewat `file://`, bukan lewat server',
+              'Jalankan `npx serve` lalu buka alamat `http://localhost` yang muncul',
+            ],
+            [
+              '`require is not defined in ES module scope`',
+              'Gaya CommonJS dipakai di project yang sudah `"type": "module"`',
+              'Ganti `require(...)` menjadi `import ... from ...`',
+            ],
+            [
+              '`command not found`',
+              'Program yang dipanggil tidak ada di daftar folder terminal',
+              'Pasang Node.js versi LTS, lalu buka terminal baru',
+            ],
+            [
+              "`Unexpected token '<'`",
+              'Alamat `src` salah sehingga server mengirim halaman error HTML, dan browser mencoba membacanya sebagai JavaScript',
+              'Periksa jalur di atribut `src`, biasanya kurang atau kelebihan `../`',
+            ],
+          ],
+          'Lima error pertama yang paling sering ditemui saat menjalankan JavaScript.',
+        ),
+
+        h2('Kesalahan umum pemula'),
+        p(
+          'Kesalahan di bawah ini bukan kesalahan ceroboh. Semuanya justru muncul karena pembaca menerapkan satu pemahaman yang masuk akal ke situasi yang ternyata berbeda, dan itulah sebabnya kolom kedua sama pentingnya dengan kolom ketiga.',
+        ),
+        table(
+          ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+          [
+            [
+              'Membuka `index.html` dengan klik dua kali di file manager',
+              'Halamannya memang terbuka dan judulnya muncul, jadi sepertinya berhasil',
+              'Alamatnya `file://`, sehingga tag `<script type="module">` diblokir dan tidak ada JavaScript yang jalan sama sekali',
+            ],
+            [
+              'Menyalin contoh `fs.readFileSync` dari tutorial Node.js ke berkas yang dimuat halaman',
+              'Kodenya jelas JavaScript, dan di video tutorialnya berjalan',
+              'Browser sengaja tidak diberi akses ke berkas di komputer pengguna, jadi `node:fs` tidak akan pernah ada di sana',
+            ],
+            [
+              'Menganggap `console.log` menampilkan hasil di halaman',
+              'Kata *log* terdengar seperti menampilkan, dan hasilnya memang terlihat saat mencoba di console',
+              'Tulisannya masuk ke panel Console di DevTools, sedangkan halaman tetap kosong sampai kamu mengubah `textContent` atau sejenisnya',
+            ],
+            [
+              'Menutup DevTools lalu menyimpulkan tidak ada error',
+              'Halamannya terlihat normal dan tidak ada tanda apa pun',
+              'Error JavaScript tidak mengubah tampilan halaman, jadi satu-satunya tempat ia terlihat adalah panel Console yang sedang tertutup',
+            ],
+            [
+              'Membaca baris terakhir stack trace lebih dulu',
+              'Baris terakhir terasa seperti kesimpulan',
+              'Stack trace dibaca dari atas, sebab baris teratas adalah tempat error benar-benar terjadi sedangkan baris bawah hanya rantai pemanggilnya',
+            ],
+            [
+              'Memakai `Intl.NumberFormat` lalu membandingkan hasilnya dengan teks `Rp 1.250.000` yang diketik tangan',
+              'Di layar keduanya terlihat sama persis',
+              'Pemisah setelah `Rp` adalah spasi non-breaking `U+00A0`, bukan spasi biasa, sehingga perbandingannya bernilai `false`',
+            ],
+          ],
+        ),
+        p(
+          'Dua baris pertama tabel itu punya akar yang sama, yaitu menganggap JavaScript adalah satu lingkungan tunggal. Begitu kamu memegang bahwa bahasanya sama tapi tempatnya berbeda, keduanya berhenti menjadi misteri. Baris terakhir jenisnya lain dan sengaja dimasukkan karena ia hampir selalu ditemukan lewat test yang gagal dengan pesan membingungkan, sebab kedua teks terlihat identik di layar padahal berbeda satu karakter. Kalau kamu perlu membandingkannya, bandingkan angkanya sebelum diformat bukan teks hasilnya.',
+        ),
+        callout(
+          'warning',
+          'Error merah di console tidak selalu berarti seluruh kode gagal',
+          'JavaScript berhenti pada berkas atau module yang errornya muncul, sedangkan berkas lain yang sudah berjalan tetap berjalan. Karena itu halaman bisa terlihat setengah bekerja, dan itu justru menyesatkan. Biasakan membuka Console lebih dulu sebelum menyimpulkan apa pun tentang perilaku halaman.',
+        ),
+        divider,
         h2('Rangkuman'),
         ul(
           'Bahasa JavaScript sama di mana-mana; **runtime**-nya yang berbeda dan menentukan API apa yang tersedia.',
@@ -343,7 +557,7 @@ export const chapter = defineChapter({
     written(
       'variabel-let-const-var',
       'Variabel: `let`, `const`, dan kenapa `var` ditinggalkan',
-      11,
+      20,
       'Tiga cara mendeklarasikan variabel, dan alasan teknis kenapa hanya dua yang masih dipakai.',
       [
         p(
@@ -539,6 +753,234 @@ export const chapter = defineChapter({
         ),
 
         divider,
+        h2('Studi kasus di project nyata'),
+        p(
+          'Kamu sedang membuat baris tombol filter di halaman katalog. Ada tombol Semua, Baru, dan Diskon, dan tiap tombol harus menyaring daftar produk saat diklik. Kodenya kamu tulis sekali lalu dipasang ke ketiga tombol lewat perulangan, karena menulis tiga fungsi yang isinya sama persis jelas mubazir. Halaman terbuka, tombolnya bisa diklik, tapi ketiganya menghasilkan filter yang sama.',
+        ),
+        p(
+          'Bug ini termasuk yang paling sering dialami orang saat pertama kali memasang event handler di dalam loop, dan penyebabnya persis materi scope di sub-bab ini. Perbandingan di bawah memakai `setTimeout` alih-alih `addEventListener` supaya bisa kamu jalankan langsung di Node.js tanpa halaman, tapi perilakunya identik karena keduanya sama-sama menjalankan fungsi setelah loop-nya selesai.',
+        ),
+        compare(
+          {
+            title: 'Dengan `var`, ketiganya sama',
+            lang: 'js',
+            code: `
+            const filter = ['semua', 'baru', 'diskon'];
+
+            for (var i = 0; i < filter.length; i++) {
+              setTimeout(() => console.log('klik ->', filter[i]), 0);
+            }
+
+            // klik -> undefined
+            // klik -> undefined
+            // klik -> undefined
+            `,
+            notes: ['Satu `i` dipakai bersama, dan saat fungsinya jalan nilainya sudah 3'],
+          },
+          {
+            title: 'Dengan `let`, tiap putaran punya salinan',
+            lang: 'js',
+            code: `
+            const filter = ['semua', 'baru', 'diskon'];
+
+            for (let i = 0; i < filter.length; i++) {
+              setTimeout(() => console.log('klik ->', filter[i]), 0);
+            }
+
+            // klik -> semua
+            // klik -> baru
+            // klik -> diskon
+            `,
+            notes: [
+              '`let` membuat `i` baru tiap putaran, jadi tiap fungsi memegang nilainya sendiri',
+            ],
+          },
+        ),
+        p(
+          'Yang berbeda hanya satu kata di kolom kiri dan kanan, tapi akibatnya berlawanan. Dengan `var`, hanya ada **satu** variabel `i` untuk seluruh loop, dan ketiga fungsi menyimpan rujukan ke variabel yang sama itu. Loop selesai lebih dulu sebelum satu pun fungsi dijalankan, dan saat itu `i` sudah bernilai 3, sehingga `filter[3]` menghasilkan `undefined` tiga kali. Dengan `let`, JavaScript membuat variabel `i` yang benar-benar baru pada tiap putaran, jadi fungsi pertama memegang `i` bernilai 0, fungsi kedua memegang `i` bernilai 1, dan seterusnya.',
+        ),
+        p(
+          'Perhatikan keluaran kolom kiri bukan angka 3 melainkan `undefined`, dan itu yang membuat bug ini sulit dilacak pemula. Kalau pesannya menyebut angka 3, kamu akan langsung curiga pada `i`. Karena yang muncul justru `undefined`, tersangka pertama yang terpikir biasanya array `filter`, padahal array itu baik-baik saja. Ini contoh kenapa membaca gejala saja tidak cukup dan kamu perlu tahu mekanismenya.',
+        ),
+        p(
+          'Bagian kedua studi kasus ini menyangkut `const`. Halaman katalog yang sama biasanya punya satu objek pengaturan yang dipakai banyak berkas, dan di situlah orang keliru mengira `const` sudah cukup melindunginya.',
+        ),
+        code(
+          'js',
+          `
+          // src/pengaturan.js
+          export const pengaturan = {
+            perHalaman: 12,
+            urutan: 'terbaru',
+          };
+
+          // src/daftar-produk.js
+          import { pengaturan } from './pengaturan.js';
+
+          function tampilkanHalamanCetak() {
+            pengaturan.perHalaman = 100;   // niatnya sementara, nyatanya permanen
+            render();
+          }
+          `,
+          { filename: 'Dua berkas yang berbagi satu objek' },
+        ),
+        p(
+          '`pengaturan` dideklarasikan dengan `const`, dan itu benar-benar mencegah satu hal saja, yaitu nama `pengaturan` menunjuk ke objek lain. Isi objeknya tetap bisa diubah siapa pun yang mengimpornya. Karena module di JavaScript hanya dijalankan sekali lalu hasilnya dipakai bersama, `perHalaman` yang diubah menjadi 100 di satu berkas akan terbaca 100 juga di seluruh berkas lain sampai halaman dimuat ulang. Pengguna yang menekan tombol cetak lalu kembali ke katalog akan melihat 100 produk per halaman tanpa pernah memintanya.',
+        ),
+        code(
+          'js',
+          `
+          // src/pengaturan.js
+          // Object.freeze membuat percobaan mengubah isinya gagal, bukan diam-diam berhasil.
+          export const pengaturan = Object.freeze({
+            perHalaman: 12,
+            urutan: 'terbaru',
+          });
+
+          // src/daftar-produk.js
+          import { pengaturan } from './pengaturan.js';
+
+          function tampilkanHalamanCetak() {
+            // Buat salinan untuk kebutuhan sesaat, jangan sentuh aslinya.
+            render({ ...pengaturan, perHalaman: 100 });
+          }
+          `,
+          { filename: 'Perbaikannya' },
+        ),
+        p(
+          '`Object.freeze` mengubah kesalahan yang tadinya diam menjadi kesalahan yang bersuara. Di berkas module, yang otomatis berjalan dalam mode strict, percobaan menulis ke objek beku melempar `TypeError` alih-alih diabaikan. Baris `render({ ...pengaturan, perHalaman: 100 })` menunjukkan pola penggantinya, yaitu membuat objek baru berisi seluruh isi objek lama dengan satu nilai ditimpa. Aslinya tidak tersentuh, dan berkas lain tetap melihat 12.',
+        ),
+        callout(
+          'info',
+          '`Object.freeze` hanya membekukan satu lapis',
+          'Kalau objekmu punya objek di dalamnya, isi objek dalam itu masih bisa diubah. Untuk pengaturan sederhana satu lapis ini sudah cukup, dan untuk struktur bersarang kamu perlu membekukan tiap lapisnya sendiri. Perbedaan satu lapis dan banyak lapis ini dibahas lebih jauh di Sub-bab 1.3 saat membahas menyalin object.',
+        ),
+
+        h2('Saat error-nya muncul'),
+        p(
+          'Tiga error berikut hampir selalu berasal dari materi sub-bab ini, dan ketiganya justru kabar baik karena ia menghentikanmu di tempat kesalahan dibuat.',
+        ),
+        code(
+          'text',
+          `
+          console.log(total);
+                      ^
+
+          ReferenceError: Cannot access 'total' before initialization
+          `,
+          { caption: 'Variabel `const` atau `let` dipakai sebelum barisnya dijalankan.' },
+        ),
+        p(
+          'Perhatikan kalimatnya berbunyi `Cannot access` dan bukan `is not defined`, dan perbedaan dua kata itu justru petunjuk terbesarnya. `is not defined` berarti namanya memang tidak ada di mana pun, sedangkan `Cannot access ... before initialization` berarti namanya ada, JavaScript sudah tahu ia akan dideklarasikan di berkas ini, tapi barisnya belum dijalankan. Inilah Temporal Dead Zone yang dibahas di atas. Perbaikannya memindahkan pemakaian ke bawah deklarasinya, bukan mengganti `const` menjadi `var`.',
+        ),
+        code(
+          'text',
+          `
+          pajak = 0.12;
+                ^
+
+          TypeError: Assignment to constant variable.
+          `,
+          { caption: 'Nama yang dideklarasikan `const` diarahkan ke nilai lain.' },
+        ),
+        p(
+          'Error ini sering membingungkan karena orang mengira `const` juga akan melarang `pajak.nilai = 0.12`, padahal tidak. Yang dilarang hanya mengarahkan ulang namanya. Kalau kamu bertemu error ini pada variabel yang memang perlu berubah nilainya, seperti penghitung di dalam loop atau penampung hasil sementara, ganti deklarasinya menjadi `let`. Kalau ia justru tidak seharusnya berubah, error ini baru saja menyelamatkanmu.',
+        ),
+        code(
+          'text',
+          `
+          const c = Object.freeze({ perHalaman: 12 });
+          c.perHalaman = 100;
+            ^
+
+          TypeError: Cannot assign to read only property 'perHalaman'
+          of object '#<Object>'
+          `,
+          { caption: 'Isi objek beku dicoba diubah di dalam module.' },
+        ),
+        p(
+          'Bentuk error ini yang membuat `Object.freeze` berguna. Tanpa `freeze`, baris yang sama berjalan mulus dan bugnya baru terlihat berjam-jam kemudian di bagian aplikasi yang sama sekali lain. Perlu dicatat error ini hanya muncul di mode strict, dan seluruh berkas module otomatis berada di mode strict. Kalau kamu mencoba potongan yang sama di console browser di halaman biasa, penulisannya diabaikan tanpa suara.',
+        ),
+        table(
+          ['Pesan error', 'Penyebab sebenarnya', 'Perbaikannya'],
+          [
+            [
+              "`Cannot access 'x' before initialization`",
+              'Nama dipakai sebelum baris `let` atau `const`-nya dijalankan',
+              'Pindahkan pemakaian ke bawah deklarasinya',
+            ],
+            [
+              '`x is not defined`',
+              'Namanya memang tidak pernah dideklarasikan, atau salah ketik',
+              'Periksa ejaannya, lalu periksa apakah ia dideklarasikan di scope yang lain',
+            ],
+            [
+              '`Assignment to constant variable.`',
+              'Nama `const` diarahkan ke nilai lain',
+              'Ganti ke `let` bila memang perlu berubah, atau perbaiki logikanya bila tidak',
+            ],
+            [
+              '`Cannot assign to read only property`',
+              'Isi objek hasil `Object.freeze` dicoba ditulis',
+              'Buat objek baru dengan `{ ...lama, kunci: baru }` alih-alih menimpa',
+            ],
+            [
+              "`Identifier 'x' has already been declared`",
+              'Satu nama dideklarasikan dua kali di scope yang sama',
+              'Hapus salah satu, atau ganti nama yang kedua',
+            ],
+          ],
+          'Kelima error ini muncul sebelum atau tepat saat baris bermasalah dijalankan.',
+        ),
+
+        h2('Kesalahan umum pemula'),
+        p(
+          'Kesalahan berikut lahir dari satu kesalahpahaman yang sama, yaitu menganggap `const` bicara tentang nilainya. `const` sebenarnya bicara tentang **namanya**, dan begitu itu dipegang, sebagian besar baris di bawah ini menjadi jelas dengan sendirinya.',
+        ),
+        table(
+          ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+          [
+            [
+              'Memakai `let` untuk semua variabel supaya aman',
+              'Toh `let` bisa segalanya, jadi kenapa repot memilih',
+              'Pembaca berikutnya kehilangan informasi. `const` memberi tahu bahwa nama ini tidak akan berpindah, dan itu satu hal lebih sedikit yang perlu ia lacak',
+            ],
+            [
+              'Mengira `const` membuat isi array dan object ikut beku',
+              'Kata *constant* memang terdengar seperti tidak bisa berubah sama sekali',
+              '`const arr = []` tetap mengizinkan `arr.push(1)`, sebab yang dikunci hanya nama `arr` bukan isinya',
+            ],
+            [
+              'Mengganti `const` menjadi `var` saat bertemu error Temporal Dead Zone',
+              'Errornya memang langsung hilang',
+              'Nilainya jadi `undefined` dan bug berpindah ke tempat lain yang jauh lebih sulit dilacak. Yang tadinya berhenti dengan pesan jelas kini berjalan dengan data salah',
+            ],
+            [
+              'Memasang event handler di dalam loop dengan `var`',
+              'Loop-nya jelas benar, dan kalau ditambah `console.log` di dalam loop angkanya juga benar',
+              'Fungsi handler baru berjalan setelah loop selesai, dan saat itu satu-satunya `i` yang ada sudah bernilai akhir',
+            ],
+            [
+              'Menaruh deklarasi variabel di paling atas berkas biar rapi',
+              'Terlihat teratur dan mirip gaya bahasa lain',
+              'Jarak antara deklarasi dan pemakaiannya melebar, sehingga pembaca harus menggulir bolak-balik. Deklarasikan sedekat mungkin dengan pemakaian pertamanya',
+            ],
+            [
+              'Menamai variabel `data`, `temp`, atau `arr2`',
+              'Isinya memang data, dan namanya cepat diketik',
+              'Nama itu tidak menyebut isinya, sehingga tiga bulan lagi kamu harus membaca kodenya untuk mengingat apa isinya. `produkTerfilter` menghemat waktu itu',
+            ],
+          ],
+        ),
+        p(
+          'Baris ketiga adalah yang paling merugikan, dan itu perlu ditegaskan sendiri. Temporal Dead Zone sering terasa seperti gangguan, padahal ia justru fitur. `var` tidak punya Temporal Dead Zone, sehingga variabel yang dipakai terlalu awal bernilai `undefined` dan program terus berjalan membawa nilai kosong itu ke mana-mana. Error `Cannot access ... before initialization` menghentikanmu tepat di baris yang salah, sedangkan `undefined` membiarkanmu mencarinya di tempat yang keliru.',
+        ),
+        callout(
+          'tip',
+          'Aturan memilih yang jarang meleset',
+          'Mulai dengan `const` untuk semuanya. Ubah menjadi `let` hanya ketika kamu benar-benar bertemu error `Assignment to constant variable`, sebab error itulah bukti bahwa nilainya memang perlu berpindah. Jangan pernah memakai `var` di kode baru, dan kalau kamu menemukannya di kode lama, ubah menjadi `const` lebih dulu lalu jalankan test.',
+        ),
+        divider,
         h2('Rangkuman'),
         ul(
           '`const` sebagai default, `let` kalau memang berubah, `var` tidak sama sekali.',
@@ -584,7 +1026,7 @@ export const chapter = defineChapter({
     written(
       'tipe-data',
       'Tipe Data: primitif vs reference',
-      12,
+      20,
       'Tujuh tipe primitif, tipe reference, dan kenapa membedakannya menentukan hasil saat menyalin nilai.',
       [
         p(
@@ -863,6 +1305,251 @@ export const chapter = defineChapter({
           'Dulu orang memakai `JSON.parse(JSON.stringify(obj))`. Trik itu membuang `Date` (jadi string), `Map`, `Set`, `undefined`, dan fungsi — dan gagal total pada struktur melingkar. `structuredClone` menangani semuanya dan sudah tersedia di semua browser modern serta Node 17+.',
         ),
 
+        divider,
+        h2('Studi kasus di project nyata'),
+        p(
+          'Kamu mengerjakan keranjang belanja untuk toko yang mengirim barang lewat kurir. Ongkos kirim dihitung bertingkat, yaitu sampai 0,3 kilogram kena tarif pertama, dan di atas itu naik ke tarif kedua. Pelanggan memasukkan dua barang dengan berat 0,1 dan 0,2 kilogram, jumlahnya jelas pas 0,3 kilogram, tapi sistem menagih tarif kedua. Pelanggan protes, dan saat kamu cek satu per satu, kedua angkanya benar.',
+        ),
+        p(
+          'Ini bukan bug ketik dan bukan salah rumus. Ini akibat langsung dari cara komputer menyimpan angka pecahan, yang sudah disinggung di bagian angka di atas. Sekarang kita lihat bentuknya di kode yang sebenarnya.',
+        ),
+        code(
+          'js',
+          `
+          const barang = [
+            { nama: 'Kaos', beratKg: 0.1 },
+            { nama: 'Topi', beratKg: 0.2 },
+          ];
+
+          const totalKg = barang.reduce((jumlah, b) => jumlah + b.beratKg, 0);
+
+          console.log(totalKg);            // 0.30000000000000004
+          console.log(totalKg > 0.3);      // true  <- inilah bugnya
+
+          const ongkir = totalKg > 0.3 ? 18000 : 12000;
+          console.log(ongkir);             // 18000, seharusnya 12000
+          `,
+          { filename: 'src/hitung-ongkir.js — versi yang bermasalah' },
+        ),
+        p(
+          'Baris `console.log(totalKg)` memperlihatkan penyebabnya secara telanjang. Nilai 0,1 dan 0,2 tidak bisa disimpan persis dalam format biner yang dipakai JavaScript, sama seperti sepertiga tidak bisa ditulis habis dalam desimal. Selisihnya sangat kecil, hanya di digit ke tujuh belas, tapi perbandingan `>` tidak mengenal kata kecil. Nilainya memang lebih besar dari 0,3, jadi jawabannya `true`, dan pelanggan membayar enam ribu rupiah lebih mahal.',
+        ),
+        p(
+          'Yang membuat bug seperti ini bertahan lama di produksi adalah ia tidak muncul di semua kasus. Kalau pelanggan membeli barang 0,25 dan 0,05 kilogram, jumlahnya bulat 0,3 dan tarifnya benar. Jadi laporan bug-nya akan berbunyi kadang salah kadang benar, dan itu jenis laporan yang paling sulit ditindaklanjuti kalau kamu belum tahu mekanismenya.',
+        ),
+        code(
+          'js',
+          `
+          // Simpan berat dalam gram, yaitu bilangan bulat.
+          // Satuan terkecil disimpan utuh, dan pembagian hanya dilakukan saat menampilkan.
+          const barang = [
+            { nama: 'Kaos', beratGram: 100 },
+            { nama: 'Topi', beratGram: 200 },
+          ];
+
+          const totalGram = barang.reduce((jumlah, b) => jumlah + b.beratGram, 0);
+
+          console.log(totalGram);          // 300
+          console.log(totalGram > 300);    // false
+
+          const ongkir = totalGram > 300 ? 18000 : 12000;
+          console.log(ongkir);             // 12000
+
+          // Baru diubah ke kilogram saat ditampilkan ke pengguna.
+          const tampil = \`\${(totalGram / 1000).toFixed(1)} kg\`;
+          `,
+          { filename: 'src/hitung-ongkir.js — perbaikannya' },
+        ),
+        p(
+          'Perbaikannya bukan membulatkan hasilnya, melainkan mengubah satuan yang disimpan. Bilangan bulat sampai sekitar sembilan ribu triliun disimpan JavaScript dengan tepat tanpa pembulatan sama sekali, jadi selama seluruh perhitungan memakai gram, tidak ada satu pun titik yang bisa menyelipkan selisih. Pembagian menjadi kilogram baru terjadi di baris terakhir, yaitu saat angkanya diubah menjadi teks untuk dilihat manusia, dan di titik itu selisih kecil sudah tidak berpengaruh apa pun.',
+        ),
+        callout(
+          'tip',
+          'Aturan yang berlaku untuk uang juga',
+          'Alasan yang sama membuat harga sebaiknya disimpan dalam satuan terkecil mata uangnya. Untuk rupiah itu berarti menyimpan rupiah utuh dan menghindari desimal sama sekali, dan untuk mata uang bersen seperti dolar itu berarti menyimpan sen. Kalau sebuah kolom database bernama `harga` bertipe `float`, itu tanda bahaya yang layak diangkat sebelum kolomnya terlanjur berisi jutaan baris.',
+        ),
+        p(
+          'Bagian kedua studi kasus ini menyangkut penyalinan object, dan situasinya juga sangat sering. Halaman pengaturan profil punya tombol Simpan dan tombol Batal. Saat pengguna mulai mengetik, kamu menyalin data aslinya supaya kalau ia menekan Batal, versi lama bisa dikembalikan.',
+        ),
+        code(
+          'js',
+          `
+          const profilAsli = {
+            nama: 'Sari',
+            alamat: { kota: 'Bandung', pos: '40115' },
+            minat: ['musik'],
+          };
+
+          const draf = { ...profilAsli };     // terlihat seperti salinan utuh
+
+          draf.nama = 'Sari Dewi';            // hanya mengubah draf
+          draf.alamat.kota = 'Jakarta';       // diam-diam mengubah profilAsli juga
+          draf.minat.push('film');            // ini pun mengubah profilAsli
+
+          console.log(profilAsli.nama);       // 'Sari'         <- aman
+          console.log(profilAsli.alamat.kota) // 'Jakarta'      <- sudah rusak
+          console.log(profilAsli.minat);      // ['musik', 'film']
+          `,
+          { filename: 'Kenapa tombol Batal tidak mengembalikan apa pun' },
+        ),
+        p(
+          'Ketiga baris `console.log` menunjukkan bahwa salinannya hanya setengah bekerja, dan justru itu yang berbahaya. `draf.nama` berhasil terpisah karena teks termasuk primitif, sehingga yang tersalin adalah nilainya. `draf.alamat` dan `draf.minat` tidak terpisah karena keduanya object, sehingga yang tersalin hanya alamat rujukannya. Kedua variabel menunjuk ke object yang sama persis, dan mengubah lewat salah satu nama berarti mengubah yang dilihat nama lainnya.',
+        ),
+        p(
+          'Akibat praktisnya, tombol Batal akan mengembalikan nama dengan benar tapi membiarkan kota tetap Jakarta. Bug seperti ini biasanya lolos dari pengujian manual karena penguji mencoba mengubah satu field lalu membatalkan, dan kebetulan field yang ia coba adalah field datar. Pola tiga titik `...` sering disebut spread, dan penting diingat ia menyalin **satu lapis** saja.',
+        ),
+        code(
+          'js',
+          `
+          // structuredClone menyalin seluruh lapisan, termasuk object di dalam object.
+          const draf = structuredClone(profilAsli);
+
+          draf.alamat.kota = 'Jakarta';
+          console.log(profilAsli.alamat.kota);   // 'Bandung'  <- aslinya utuh
+          `,
+        ),
+        p(
+          '`structuredClone` sudah tersedia di semua browser modern dan di Node.js sejak versi 17, jadi tidak perlu memasang library apa pun. Ia menyalin sampai ke lapisan terdalam, dan ia juga menangani hal yang `JSON.parse(JSON.stringify(...))` rusakkan, yaitu `Date` yang berubah menjadi teks, `Map` dan `Set` yang hilang isinya, serta `undefined` yang lenyap. Batasnya satu, yaitu ia tidak bisa menyalin fungsi, dan itu justru wajar karena data yang kamu simpan sebagai draf memang tidak seharusnya berisi fungsi.',
+        ),
+
+        h2('Saat error-nya muncul'),
+        p(
+          'Empat error di bawah ini bersama-sama menempati peringkat teratas error yang dilihat orang setiap hari, dan semuanya berakar pada tipe data.',
+        ),
+        code(
+          'text',
+          `
+          console.log(pengguna.profil.nama);
+                                     ^
+
+          TypeError: Cannot read properties of undefined (reading 'nama')
+          `,
+          { caption: 'Properti dibaca dari sesuatu yang ternyata `undefined`.' },
+        ),
+        p(
+          'Cara membaca error ini sering terbalik, dan itu membuat orang mencari di tempat yang salah. Yang `undefined` **bukan** `nama`, melainkan `pengguna.profil`. Kalimatnya berarti JavaScript hendak membaca `nama` dari sesuatu, lalu menemukan sesuatu itu ternyata `undefined`. Jadi pertanyaan yang benar bukan kenapa `nama` kosong, melainkan kenapa `profil` tidak ada. Biasanya jawabannya karena data dari server belum sampai, atau karena bentuk datanya berbeda dari yang kamu kira.',
+        ),
+        p(
+          'Perbaikan cepatnya memakai optional chaining `pengguna.profil?.nama`, yang menghasilkan `undefined` alih-alih melempar error. Perbaikan sebenarnya memastikan bentuk datanya memang seperti yang kamu harapkan sebelum dipakai, sebab `?.` hanya membuat programnya tidak berhenti dan tidak membuat datanya jadi ada.',
+        ),
+        code(
+          'text',
+          `
+          daftar.map((x) => x.nama);
+                 ^
+
+          TypeError: daftar.map is not a function
+          `,
+          { caption: 'Nilainya bukan array, walaupun namanya terdengar seperti array.' },
+        ),
+        p(
+          'Error ini muncul ketika sebuah nilai diperlakukan sebagai array padahal bukan. Tersangka paling sering adalah respons server yang membungkus datanya, misalnya server mengirim `{ data: [...] }` sedangkan kodemu langsung memanggil `.map` pada objek pembungkusnya. Tersangka kedua adalah nilainya masih `undefined` karena datanya belum sampai. Cetak nilainya lebih dulu dengan `console.log(daftar)` sebelum menebak, dan ingat `typeof []` menghasilkan `object` sehingga `typeof` tidak bisa dipakai untuk memeriksa ini. Yang benar adalah `Array.isArray(daftar)`.',
+        ),
+        code(
+          'text',
+          `
+          JSON.stringify(node);
+               ^
+
+          TypeError: Converting circular structure to JSON
+          `,
+          { caption: 'Object menunjuk balik ke dirinya sendiri.' },
+        ),
+        p(
+          'Struktur melingkar terbentuk saat sebuah object menyimpan rujukan yang akhirnya kembali ke dirinya sendiri, misalnya sebuah komentar menyimpan induknya sedangkan induknya menyimpan daftar komentar. `JSON.stringify` menelusuri isinya sampai habis, dan pada struktur melingkar ia tidak pernah habis. Ini salah satu alasan menyalin object dengan `JSON.parse(JSON.stringify(...))` bukan kebiasaan yang baik, sebab `structuredClone` justru menangani struktur melingkar dengan benar.',
+        ),
+        code(
+          'text',
+          `
+          structuredClone({ simpan: () => 1 });
+          ^
+
+          DOMException [DataCloneError]: () => 1 could not be cloned.
+          `,
+          { caption: 'Fungsi tidak bisa disalin.' },
+        ),
+        p(
+          'Kalau kamu bertemu error ini, biasanya artinya kamu sedang menyalin sesuatu yang bukan data murni. Object yang berisi fungsi umumnya adalah komponen, instance kelas, atau elemen halaman, dan ketiganya memang tidak dimaksudkan untuk disalin. Pisahkan data yang perlu disalin dari perilaku yang tidak perlu, dan errornya hilang dengan sendirinya.',
+        ),
+        table(
+          ['Pesan error', 'Penyebab sebenarnya', 'Perbaikannya'],
+          [
+            [
+              "`Cannot read properties of undefined (reading 'x')`",
+              'Yang `undefined` adalah induknya, bukan `x`',
+              'Telusuri kenapa induknya kosong, lalu pakai `?.` sebagai penahan sementara',
+            ],
+            [
+              "`Cannot read properties of null (reading 'x')`",
+              'Nilainya sengaja dikosongkan, biasanya hasil pencarian yang tidak ketemu',
+              'Periksa hasilnya lebih dulu dengan `if (hasil)` sebelum membaca isinya',
+            ],
+            [
+              '`x.map is not a function`',
+              'Nilainya bukan array, sering karena masih terbungkus atau belum sampai',
+              'Cetak nilainya, lalu periksa dengan `Array.isArray(x)` bukan `typeof`',
+            ],
+            [
+              '`Converting circular structure to JSON`',
+              'Object menunjuk balik ke dirinya sendiri',
+              'Pakai `structuredClone`, atau kirim hanya field yang dibutuhkan',
+            ],
+            [
+              '`DataCloneError`',
+              'Ada fungsi atau elemen halaman di dalam object yang disalin',
+              'Salin hanya bagian datanya, bukan seluruh objectnya',
+            ],
+          ],
+          'Lima error yang seluruhnya berakar pada tipe nilai yang tidak sesuai dugaan.',
+        ),
+
+        h2('Kesalahan umum pemula'),
+        p(
+          'Tipe data adalah tempat kesalahan yang paling sering tidak menimbulkan error sama sekali. Programnya jalan, angkanya keluar, dan barulah beberapa minggu kemudian ada yang sadar angkanya salah. Karena itu tabel di bawah lebih banyak berisi hal yang berhasil diam-diam daripada hal yang gagal berisik.',
+        ),
+        table(
+          ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+          [
+            [
+              'Memakai `typeof` untuk memeriksa apakah sesuatu array',
+              '`typeof` bekerja untuk teks, angka, dan boolean, jadi masuk akal ia bekerja untuk array',
+              '`typeof []` menghasilkan `object`, sama seperti `typeof {}` dan `typeof null`. Pemeriksaannya selalu lolos untuk hal yang salah, jadi pakai `Array.isArray()`',
+            ],
+            [
+              'Membandingkan harga hasil perhitungan dengan `===`',
+              'Kedua angka terlihat sama saat dicetak',
+              'Pecahan menyimpan selisih di digit yang tidak ikut tercetak. Bandingkan bilangan bulatnya, atau pakai selisih yang lebih kecil dari `Number.EPSILON`',
+            ],
+            [
+              'Menyalin object dengan `{ ...lama }` lalu menganggapnya benar-benar terpisah',
+              'Untuk object satu lapis memang benar-benar terpisah, dan itu yang biasanya dicoba pertama kali',
+              'Object di dalam object tetap dibagi bersama, jadi mengubah salinan ikut mengubah aslinya',
+            ],
+            [
+              'Memakai `JSON.parse(JSON.stringify(x))` untuk menyalin dalam',
+              'Cara ini beredar luas di internet dan memang bekerja untuk data sederhana',
+              '`Date` berubah menjadi teks, `Map` dan `Set` menjadi object kosong, `undefined` hilang, dan struktur melingkar melempar error',
+            ],
+            [
+              'Mengira `null` dan `undefined` sama saja',
+              'Keduanya sama-sama berarti tidak ada isinya',
+              '`undefined` berarti belum pernah diisi, sedangkan `null` berarti sengaja dikosongkan. Bedanya penting saat membaca data dari database, sebab kolom yang `null` berbeda maksudnya dari field yang tidak dikirim',
+            ],
+            [
+              'Memakai `==` supaya tidak repot memikirkan tipe',
+              'Ia lebih longgar, dan biasanya hasilnya memang yang diharapkan',
+              "`0 == ''` bernilai `true` dan `null == 0` bernilai `false`, sehingga aturannya tidak bisa ditebak dari akal sehat. Pakai `===` selalu, kecuali `x == null` yang memang berguna untuk memeriksa dua-duanya sekaligus",
+            ],
+          ],
+        ),
+        p(
+          'Baris kedua layak mendapat perhatian lebih karena akibatnya berupa uang. Kalau kamu perlu membandingkan dua angka pecahan hasil perhitungan, jangan pernah memakai `===` langsung. Bandingkan selisih mutlaknya dengan `Number.EPSILON`, yaitu jarak terkecil yang masih bisa dibedakan JavaScript, lewat bentuk `Math.abs(a - b) < Number.EPSILON`. Tapi itu penambal, dan jalan keluar yang sebenarnya tetap menyimpan angkanya sebagai bilangan bulat sejak awal seperti pada studi kasus di atas.',
+        ),
+        callout(
+          'warning',
+          'Kolom bertipe `float` untuk uang adalah bug yang menunggu waktu',
+          'Kalau kamu ikut merancang tabel database, pilih tipe bilangan bulat untuk uang dan simpan satuan terkecilnya, atau pakai tipe desimal presisi tetap kalau basis datanya menyediakan. Kesalahan ini sangat mahal diperbaiki belakangan, sebab memperbaikinya berarti memigrasi seluruh baris yang sudah terlanjur menyimpan nilai yang tidak tepat.',
+        ),
         divider,
         h2('Rangkuman'),
         ul(

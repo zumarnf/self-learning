@@ -26,7 +26,7 @@ export const lessons: LessonDraft[] = [
   written(
     'kenapa-desain-sistem',
     'Kenapa Desain Sistem Ada',
-    13,
+    19,
     'Jarak antara aplikasi yang jalan dan aplikasi yang tetap jalan ketika ramai.',
     [
       p(
@@ -294,6 +294,179 @@ export const lessons: LessonDraft[] = [
         'Kolom kanan pada keempat baris itu bisa dijawab. Kolom kirinya tidak. Sub-bab berikutnya membahas cara menyusun kolom kanan itu secara sistematis, dan sub-bab 1.4 membahas cara menghitung angkanya.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Desain sistem menjadi perlu tepat pada saat satu mesin berhenti cukup, dan titik itu jarang datang sebagai kegagalan yang jelas. Ia datang sebagai angka yang perlahan bergerak ke arah yang salah.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada mesin ini, dan angkanya menjelaskan
+        kenapa pertanyaan skala punya jawaban yang berbeda-beda:
+
+          baca 1 nilai dari array di memori          43 ns
+          cari 1 kunci di Map 100.000 entri          50 ns
+          SELECT 1 baris by primary key (sqlite)   1,05 us
+          baca 1 KB dari SSD (cache OS)            3,38 us
+          tulis 1 KB + fsync ke SSD                1,24 ms
+          HTTP round trip ke 127.0.0.1             1,69 ms
+          HTTP round trip ke internet             70,04 ms
+
+        Selisih antara baris pertama dan terakhir adalah 1,6 juta kali.
+        `,
+        {
+          caption:
+            'Sebagian besar keputusan desain sistem sebenarnya keputusan tentang di baris mana pekerjaan itu dilakukan.',
+        },
+      ),
+      p(
+        'Pertanyaan pertama yang benar bukan "bagaimana menskalakannya" melainkan "apa yang sebenarnya menjadi penghambat", dan jawabannya sering mengejutkan.',
+      ),
+      code(
+        'text',
+        `
+        Contoh dari project ini sendiri, diukur sungguhan.
+
+        Gejala : npm run build gagal, beberapa halaman melewati batas
+                 60 detik saat prarender — termasuk halaman yang tidak
+                 disentuh sama sekali.
+
+        Dugaan pertama: ada halaman yang berat.
+
+        Yang diukur:
+          penyorotan kode seluruh 427 halaman : 5.785 ms total
+          rata-rata per halaman               :    14 ms
+          halaman yang GAGAL                  :    30 ms
+          salah satu halaman yang gagal       : tidak punya blok kode
+
+        Halaman itu TIDAK lambat. Yang diukur berikutnya:
+          CPU 4, swap 0, memori tersisa ~1,1 GB
+          Next menjalankan 3 worker, ditambah basis data, peramban,
+          dan editor yang sudah berjalan
+          load average saat gagal: 12,84 pada mesin 4 CPU
+
+        Satu perubahan, satu variabel:
+          CIRCLE_NODE_TOTAL=2 npm run build
+          -> EXIT=0, 506 halaman, 15,9 detik
+        `,
+      ),
+      p(
+        'Itulah bentuk kerja desain sistem yang sesungguhnya, dan ia jarang terlihat seperti diagram. Ia terlihat seperti mengukur sesuatu, menemukan bahwa dugaannya salah, lalu mengukur hal berikutnya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Sistem yang mulai melewati batas kemampuan satu mesin punya gejala yang khas, dan kebanyakan tidak berupa pesan error.',
+      ),
+      code(
+        'text',
+        `
+        YANG BERUPA ERROR:
+
+          Error: connect ETIMEDOUT
+            koneksi habis, atau backend tidak menjawab
+
+          error: sorry, too many clients already
+            batas koneksi basis data terlampaui
+
+          JavaScript heap out of memory
+            satu proses menampung lebih dari yang muat
+
+          Error: EMFILE: too many open files
+            batas deskriptor berkas per proses terlampaui
+
+        YANG TIDAK BERUPA ERROR, dan justru lebih sering:
+
+          p50 tetap 80 ms, p99 naik dari 300 ms menjadi 4 detik
+          antrean job tumbuh 200 pesan per jam, tidak pernah turun
+          basis data memakai 90% CPU pada jam sibuk
+          pengguna keluar sendiri sesudah instance ditambah
+        `,
+      ),
+      p(
+        'Baris pertama pada kelompok kedua pantas ditegaskan, sebab ia cara paling umum sebuah sistem memburuk tanpa ada yang menyadarinya.',
+      ),
+      code(
+        'text',
+        `
+        Kenapa rata-rata menyembunyikannya:
+
+          100 permintaan, 95 selesai dalam 50 ms, 5 dalam 4.000 ms
+            rata-rata = 247 ms       <- terlihat wajar
+            p50       =  50 ms       <- terlihat sangat bagus
+            p95       =  50 ms
+            p99       = 4.000 ms     <- ini yang dirasakan 1 dari 100 orang
+
+        Pada seratus ribu permintaan per hari, "1 dari 100" berarti
+        seribu orang setiap hari. Itu bukan pencilan.
+        `,
+      ),
+      p(
+        'Kesalahan berikutnya bersifat arah, yaitu menyelesaikan masalah skala yang belum ada sambil mengabaikan yang sudah ada.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan di bab lain pada project yang sama:
+
+          pemakaian OFFSET pada 200.000 baris : 0,01 ms di halaman 1,
+                                                1,51 ms di halaman jauh
+          keyset pagination                   : rata 0,01 ms
+
+          agregasi GROUP BY 1.000.000 komentar : 468,9 ms
+          dibaca dari kolom denormalisasi      :   0,068 ms
+
+        Kedua perbaikan itu tidak memerlukan mesin tambahan, tidak
+        memerlukan cache, dan tidak memerlukan antrean. Keduanya
+        perubahan satu query.
+
+        Menambah mesin sebelum mengukur query hampir selalu berarti
+        membayar lebih mahal untuk masalah yang sama.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Desain sistem adalah area tempat jawaban yang terdengar canggih paling mudah menggantikan jawaban yang benar.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Merancang untuk jutaan pengguna sejak awal',
+            'Biar tidak perlu ditulis ulang nanti',
+            'Kerumitannya dibayar setiap hari, manfaatnya mungkin tidak pernah datang. Ukur dulu di mana batasnya',
+          ],
+          [
+            'Menambah mesin sebelum mengukur query',
+            'Sistemnya kan melambat',
+            'Diukur, satu perubahan query mengubah 468,9 ms menjadi 0,068 ms tanpa mesin tambahan',
+          ],
+          [
+            'Menilai performa dari rata-rata',
+            'Itu angka ringkasannya',
+            'Rata-rata menyembunyikan ekor. p99 4 detik berarti seribu orang per hari menunggu 4 detik',
+          ],
+          [
+            'Menyimpulkan penyebab dari gejala',
+            'Pesannya sudah jelas menyebut timeout',
+            'Diukur pada project ini, halaman yang gagal hanya 30 ms. Penyebabnya memori mesin',
+          ],
+          [
+            'Menyalin arsitektur perusahaan besar',
+            'Mereka kan sudah teruji',
+            'Arsitektur mereka menjawab masalah mereka, termasuk masalah organisasi yang tidak kamu punya',
+          ],
+          [
+            'Menganggap desain sistem adalah menggambar diagram',
+            'Itu yang terlihat di hasilnya',
+            'Yang menentukan adalah angka: berapa besar, berapa cepat, berapa sering, dan apa yang boleh gagal',
+          ],
+        ],
+      ),
+      p(
+        'Satu kebiasaan memisahkan pekerjaan desain sistem yang berguna dari yang sekadar terlihat rapi, yaitu setiap keputusan disertai angka yang menjadi dasarnya. Bukan "kita butuh cache" melainkan "endpoint ini dipanggil 34.000 kali per menit pada jam puncak, hasilnya sama untuk semua orang selama lima menit, dan tanpa cache basis datanya berada di 90% CPU". Angka itu juga yang nanti memberi tahu kapan keputusannya perlu ditinjau ulang.',
+      ),
       references(
         {
           label: 'Site Reliability Engineering: Introduction',
@@ -326,7 +499,7 @@ export const lessons: LessonDraft[] = [
   written(
     'kebutuhan-fungsional-nonfungsional',
     'Kebutuhan Fungsional dan Non-Fungsional',
-    12,
+    18,
     'Dua daftar yang harus ada sebelum satu komponen pun dipilih.',
     [
       p(
@@ -581,6 +754,199 @@ export const lessons: LessonDraft[] = [
         'Tabel semacam ini berumur panjang. Enam bulan kemudian, ketika sistemnya berperilaku di luar dugaan, tabel inilah yang memberi tahu asumsi mana yang ternyata meleset, dan itu jauh lebih berguna daripada mencoba mengingat apa yang dipikirkan waktu itu.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Kebutuhan fungsional menentukan apa yang dilakukan sistem, dan kebutuhan non-fungsional menentukan bentuknya. Yang kedua jauh lebih menentukan arsitektur, dan justru itu yang paling sering tidak ditulis.',
+      ),
+      code(
+        'text',
+        `
+        Dua sistem dengan kebutuhan FUNGSIONAL yang sama persis:
+          "pengguna dapat mengunggah foto dan melihatnya kembali"
+
+        Sistem A, non-fungsional:
+          10 pengguna, foto di bawah 5 MB, boleh lambat beberapa detik,
+          boleh mati semalam
+
+          -> satu server, disk lokal, tanpa CDN. Selesai dalam sehari.
+
+        Sistem B, non-fungsional:
+          10 juta pengguna, 100 foto/detik, muncul di bawah 200 ms
+          di seluruh dunia, 99,95% tersedia, data tidak boleh hilang
+
+          -> object storage, CDN, antrean pengolahan, beberapa wilayah,
+             cadangan lintas wilayah. Berbulan-bulan.
+
+        Kalimat fungsionalnya identik. Arsitekturnya tidak punya
+        satu pun kesamaan.
+        `,
+        {
+          caption:
+            'Karena itu pertanyaan pertama pada wawancara desain sistem selalu tentang angka, bukan tentang fitur.',
+        },
+      ),
+      p(
+        'Kebutuhan non-fungsional yang berguna selalu punya angka, dan angka itu punya konsekuensi yang bisa dihitung.',
+      ),
+      code(
+        'text',
+        `
+        Dihitung sungguhan, dari target ketersediaan ke waktu mati
+        yang diizinkan:
+
+              90%    ->  876,0 jam/tahun   4380,0 menit/bulan
+              99%    ->   87,6 jam/tahun    438,0 menit/bulan
+            99,9%    ->    8,8 jam/tahun     43,8 menit/bulan
+           99,95%    ->    4,4 jam/tahun     21,9 menit/bulan
+           99,99%    ->    0,9 jam/tahun      4,4 menit/bulan
+          99,999%    ->    0,1 jam/tahun      0,4 menit/bulan
+
+        Perhatikan baris keempat ke lima. Naik dari 99,95% ke 99,99%
+        berarti waktu mati yang diizinkan turun dari 21,9 menjadi
+        4,4 menit per bulan. Empat menit tidak cukup untuk seorang
+        manusia bangun, membaca alarm, dan memutuskan apa pun.
+
+        Artinya: di atas 99,95%, pemulihan harus OTOMATIS. Itu
+        keputusan arsitektur yang lahir langsung dari satu angka.
+        `,
+      ),
+      p('Hal yang sama berlaku untuk latensi, dan di sini bentuk angkanya menentukan.'),
+      code(
+        'text',
+        `
+        "Harus cepat"                    -> tidak bisa diuji
+        "Rata-rata di bawah 200 ms"      -> menyembunyikan ekor
+        "p95 di bawah 200 ms"            -> bisa diuji
+        "p99 di bawah 500 ms untuk
+         pencarian, diukur dari peramban
+         pengguna di Indonesia"          -> bisa diuji DAN bisa dirancang
+
+        Kenapa bentuk terakhir penting, dihitung dari angka yang diukur:
+          HTTP round trip ke internet, p50 70,04 ms, p99 362,72 ms
+
+        Bila satu permintaan halaman memerlukan tiga panggilan API
+        berurutan ke server yang jauh, p99-nya sudah lebih dari satu
+        detik sebelum satu baris logika pun dijalankan.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kebutuhan non-fungsional yang tidak ditulis tidak menghasilkan error saat dibangun. Ia menghasilkan penulisan ulang setelah sistemnya dipakai.',
+      ),
+      code(
+        'text',
+        `
+        Bentuk yang khas:
+
+          "Ternyata harus mendukung 20 bahasa"
+            -> setiap teks yang ditanam di kode harus dicabut
+
+          "Ternyata data pengguna Eropa tidak boleh keluar Eropa"
+            -> basis data tunggal harus dipecah per wilayah
+
+          "Ternyata harus ada jejak audit untuk setiap perubahan"
+            -> setiap penulisan harus melewati satu jalur, dan
+               jalur itu tidak ada
+
+          "Ternyata harus bisa dipakai saat jaringan putus"
+            -> seluruh asumsi tentang kapan data tersedia berubah
+
+        Keempatnya bukan fitur baru. Keempatnya kebutuhan yang sudah
+        ada sejak awal dan tidak pernah ditanyakan.
+        `,
+      ),
+      p(
+        'Arah sebaliknya juga menghasilkan kerugian, yaitu kebutuhan yang ditulis terlalu tinggi tanpa dasar.',
+      ),
+      code(
+        'text',
+        `
+        "Kami butuh 99,999%"
+
+        Dihitung: 0,4 menit per bulan. Konsekuensinya:
+          - beberapa wilayah aktif bersamaan
+          - failover otomatis yang diuji rutin
+          - basis data dengan replikasi sinkron
+          - tim yang siaga sepanjang waktu
+
+        Dan pertanyaan yang jarang diajukan:
+          Berapa kerugian nyata bila sistem ini mati 40 menit
+          sebulan sekali?
+
+        Untuk sebagian besar produk, jawabannya jauh lebih kecil
+        daripada biaya mengejar sembilan yang kelima.
+        `,
+        {
+          caption:
+            'Kebutuhan non-fungsional yang terlalu tinggi sama merugikannya dengan yang tidak ditulis.',
+        },
+      ),
+      p(
+        'Ada satu kebutuhan yang hampir selalu terlewat dan akibatnya paling sulit diperbaiki belakangan, yaitu pertumbuhan.',
+      ),
+      code(
+        'text',
+        `
+        Pertanyaannya bukan "berapa data sekarang" melainkan
+        "berapa dalam tiga tahun".
+
+        Dihitung untuk satu contoh pemendek alamat:
+          per baris ~283 byte (kode 7 + url 200 + id 8 + waktu 8 + overhead 60)
+
+           1 tahun @ 100 juta/hari ->  10,3 TB
+           5 tahun                 ->  51,6 TB
+          10 tahun                 -> 103,3 TB
+
+        Pada 10,3 TB, satu mesin masih mungkin. Pada 103,3 TB, tidak.
+        Dan keputusan tentang shard key harus diambil SEBELUM datanya
+        sebesar itu, sebab memecah data yang sudah besar jauh lebih
+        mahal daripada memecahnya sejak awal.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kebutuhan non-fungsional terasa seperti formalitas dokumen, dan ia satu-satunya bagian yang benar-benar menentukan bentuk sistemnya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis "harus cepat" dan "harus andal"',
+            'Itu memang yang diinginkan',
+            'Tidak bisa diuji dan tidak bisa dirancang. Sebutkan persentil, ambang, dan dari mana diukurnya',
+          ],
+          [
+            'Menetapkan target ketersediaan tanpa menghitungnya',
+            'Angkanya kan cuma persen',
+            'Dihitung, 99,99% berarti 4,4 menit per bulan. Itu menuntut pemulihan otomatis',
+          ],
+          [
+            'Memakai rata-rata sebagai target latensi',
+            'Itu angka ringkasannya',
+            'Rata-rata menyembunyikan ekor. Yang dirasakan pengguna adalah p95 dan p99',
+          ],
+          [
+            'Tidak menanyakan pertumbuhan data',
+            'Sekarang masih kecil',
+            'Dihitung, 10,3 TB di tahun pertama menjadi 103,3 TB di tahun kesepuluh. Keputusan shard diambil sebelum itu',
+          ],
+          [
+            'Menetapkan target setinggi mungkin untuk aman',
+            'Lebih tinggi kan lebih baik',
+            'Biayanya nyata dan dibayar setiap hari. Tanyakan berapa kerugian sesungguhnya bila targetnya lebih rendah',
+          ],
+          [
+            'Menganggap kebutuhan non-fungsional urusan nanti',
+            'Yang penting fiturnya jalan dulu',
+            'Kepatuhan wilayah data, jejak audit, dan dukungan luring bukan fitur. Ketiganya mengubah arsitektur',
+          ],
+        ],
+      ),
+      p(
+        'Ada satu pertanyaan yang bila diajukan di awal menghemat sangat banyak, dan bunyinya sederhana. Apa yang harus benar tentang sistem ini yang tidak akan pernah muncul di daftar fitur? Jawabannya biasanya memuat kata seperti aturan wilayah data, jejak audit, jumlah bahasa, batas ukuran, dan berapa lama data harus disimpan, dan kelimanya adalah hal yang paling mahal ditambahkan belakangan.',
+      ),
       references(
         {
           label: 'Service Level Objectives',
@@ -612,7 +978,7 @@ export const lessons: LessonDraft[] = [
   written(
     'proses-empat-langkah',
     'Proses Empat Langkah',
-    13,
+    19,
     'Urutan kerja yang mencegah desain berhenti di gambar atau tersesat di detail.',
     [
       p(
@@ -888,6 +1254,208 @@ export const lessons: LessonDraft[] = [
         ],
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Proses empat langkah terasa seperti tata cara wawancara, dan nilainya justru pada pekerjaan sehari-hari, sebab ia mencegah kebiasaan yang paling mahal, yaitu memilih solusi sebelum masalahnya diukur.',
+      ),
+      p('Langkah pertama menghasilkan angka, dan angka itulah yang menentukan seluruh sisanya.'),
+      code(
+        'text',
+        `
+        LANGKAH 1 — perjelas dan sepakati batasnya
+
+        Yang harus keluar sebagai ANGKA, bukan kalimat:
+          berapa pengguna aktif harian
+          berapa operasi tulis dan baca per hari
+          berapa rasio baca terhadap tulis
+          berapa besar satu satuan data
+          berapa lama data disimpan
+          berapa target latensi, pada persentil berapa
+          berapa target ketersediaan
+          mana yang boleh basi, dan berapa lama
+
+        Yang harus keluar sebagai BATAS:
+          apa yang TIDAK dikerjakan sistem ini
+        `,
+        {
+          caption:
+            'Baris terakhir sering paling berguna, sebab ia yang mencegah cakupannya melebar tanpa batas.',
+        },
+      ),
+      code(
+        'text',
+        `
+        LANGKAH 2 — estimasi kasar, dihitung sungguhan
+
+          100.000.000 tulis/hari
+            -> rata-rata     1.157 QPS
+            -> puncak ~3x    3.472 QPS
+
+          1.000.000.000 baca/hari (rasio 10:1)
+            -> rata-rata    11.574 QPS
+            -> puncak ~3x   34.722 QPS
+
+          penyimpanan, 283 byte per baris:
+             1 tahun  ->  10,3 TB
+             5 tahun  ->  51,6 TB
+            10 tahun  -> 103,3 TB
+
+        Angka-angka itu langsung memutuskan beberapa hal:
+          34.722 QPS baca  -> satu basis data tidak cukup; butuh cache
+                              atau replika baca
+          103,3 TB         -> satu mesin tidak cukup; butuh sharding
+          1.157 QPS tulis  -> masih mungkin satu primary
+        `,
+      ),
+      p(
+        'Langkah ketiga barulah menggambar, dan yang digambar adalah jawaban atas angka-angka di langkah kedua, bukan diagram yang sudah dibayangkan sejak awal.',
+      ),
+      code(
+        'text',
+        `
+        LANGKAH 3 — rancangan tingkat tinggi
+
+        Untuk tiap kotak yang digambar, ada satu pertanyaan wajib:
+          "Angka mana di langkah 2 yang membuat kotak ini perlu ada?"
+
+        Kotak yang tidak bisa menjawabnya adalah kotak yang
+        sebenarnya belum dibutuhkan.
+
+        LANGKAH 4 — perdalam yang paling menentukan
+
+        Bukan mendalami semuanya, melainkan satu atau dua bagian yang
+        paling berisiko. Biasanya:
+          - skema data dan shard key-nya
+          - jalur terpanas, yaitu yang QPS-nya paling tinggi
+          - apa yang terjadi saat komponen X mati
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan proses ini punya bentuk yang sangat khas, dan yang paling sering adalah melompat langsung ke langkah tiga.',
+      ),
+      code(
+        'text',
+        `
+        Gejalanya terdengar seperti ini:
+
+          "Kita pakai microservices, Kafka, dan Redis."
+          Pertanyaan: berapa QPS-nya?
+          Jawaban  : belum tahu.
+
+        Contoh nyata dari project ini, yang menunjukkan biayanya:
+
+          Gejala : build gagal, beberapa halaman melewati 60 detik.
+          Dugaan : ada halaman yang berat. Solusi yang terbayang:
+                   sederhanakan halamannya, atau naikkan batas waktunya.
+
+          Yang terjadi bila langsung ke solusi: halaman disederhanakan,
+          build tetap gagal, dan waktu terbuang.
+
+          Yang terjadi bila diukur dulu:
+            rata-rata per halaman :  14 ms
+            halaman yang gagal    :  30 ms
+            satu halaman yang gagal tidak punya blok kode sama sekali
+            load average          : 12,84 pada mesin 4 CPU
+            swap                  : 0
+            memori tersisa        : ~1,1 GB
+
+          Satu perubahan, satu variabel:
+            CIRCLE_NODE_TOTAL=2 npm run build -> EXIT=0, 15,9 detik
+        `,
+        {
+          caption:
+            'Dugaan pertamanya masuk akal dan salah. Yang membedakan hanya urutan: ukur dulu, baru simpulkan.',
+        },
+      ),
+      p(
+        'Kegagalan kedua berupa estimasi yang dibuat sedemikian teliti sehingga waktunya habis di sana.',
+      ),
+      code(
+        'text',
+        `
+        Estimasi kasar memang KASAR. Yang dicari bukan angka yang
+        tepat melainkan URUTAN BESARANNYA.
+
+          "sekitar 1.000 QPS"     -> satu mesin mungkin cukup
+          "sekitar 100.000 QPS"   -> jelas tidak cukup
+          "sekitar 10 TB"         -> satu basis data masih mungkin
+          "sekitar 1 PB"          -> jelas tidak
+
+        Selisih antara 1.157 dan 1.200 QPS tidak mengubah satu pun
+        keputusan. Selisih antara 1.157 dan 34.722 mengubah semuanya.
+
+        Bulatkan dengan berani, tulis asumsinya, dan lanjut.
+        `,
+      ),
+      p(
+        'Kegagalan ketiga menyangkut asumsi yang dipakai tanpa ditulis, dan akibatnya baru terlihat ketika orang lain membaca rancangannya.',
+      ),
+      code(
+        'text',
+        `
+        Setiap angka di langkah 2 lahir dari asumsi. Tulis asumsinya
+        di sebelah angkanya:
+
+          rata-rata 1.157 QPS
+            asumsi: lalu lintas merata sepanjang hari
+            faktor puncak 3x
+            asumsi: pola harian biasa, TANPA kampanye pemasaran
+
+          283 byte per baris
+            asumsi: URL rata-rata 200 karakter
+            asumsi: tanpa indeks tambahan
+
+        Yang membuat asumsi berbahaya bukan salahnya, melainkan
+        tidak terlihatnya. Asumsi yang tertulis bisa dikoreksi orang
+        lain dalam satu kalimat; asumsi yang tidak tertulis baru
+        ketahuan setelah sistemnya dibangun.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Empat langkah ini mudah dihafal dan mudah dilewati, dan yang paling sering dilewati adalah dua yang pertama.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Langsung menggambar arsitektur',
+            'Itu yang ditunggu orang',
+            'Tidak ada dasar untuk menilai apakah tiap kotaknya perlu ada. Ukur dulu di langkah 1 dan 2',
+          ],
+          [
+            'Melewatkan estimasi karena "belum tahu angkanya"',
+            'Menebak kan tidak ilmiah',
+            'Estimasi kasar dengan asumsi tertulis jauh lebih berguna daripada tidak ada angka sama sekali',
+          ],
+          [
+            'Menghitung estimasi sampai ke digit terakhir',
+            'Biar akurat',
+            'Yang dicari urutan besarannya. 1.157 melawan 1.200 QPS tidak mengubah satu pun keputusan',
+          ],
+          [
+            'Tidak menulis asumsi di sebelah angkanya',
+            'Angkanya sudah ada',
+            'Asumsi yang tidak terlihat tidak bisa dikoreksi. Ia baru ketahuan setelah sistemnya dibangun',
+          ],
+          [
+            'Menyimpulkan penyebab dari gejala',
+            'Pesannya sudah menyebutnya',
+            'Diukur pada project ini, halaman yang "lambat" hanya 30 ms. Penyebabnya memori mesin',
+          ],
+          [
+            'Mendalami semua bagian di langkah 4',
+            'Biar lengkap',
+            'Waktunya habis di bagian yang tidak berisiko. Dalami jalur terpanas dan skema datanya',
+          ],
+        ],
+      ),
+      p(
+        'Cara paling ringkas menguji apakah sebuah rancangan sudah melewati keempat langkahnya adalah menunjuk satu kotak di diagramnya secara acak lalu bertanya angka mana yang membuatnya perlu ada. Bila jawabannya berupa angka dari langkah kedua, rancangannya berdiri di atas dasar. Bila jawabannya berupa kebiasaan atau nama teknologi, kotak itu ada karena sudah terbayang sejak awal, bukan karena dibutuhkan.',
+      ),
       references(
         {
           label: 'OpenAPI Specification',
@@ -914,7 +1482,7 @@ export const lessons: LessonDraft[] = [
   written(
     'estimasi-kasar',
     'Estimasi di Balik Amplop',
-    15,
+    21,
     'Mengubah jumlah pengguna menjadi QPS, penyimpanan, bandwidth, dan jumlah mesin.',
     [
       p(
@@ -1209,6 +1777,206 @@ export const lessons: LessonDraft[] = [
         'Menutup sub-bab ini, ada satu kebiasaan yang layak dibawa terus. Setiap kali seseorang menyebutkan skala dengan kata sifat, kerjakan lima baris perhitungan ini sebelum menjawab. Sebagian besar percakapan desain berakhir jauh lebih cepat setelah angkanya muncul, dan biasanya berakhir dengan kesimpulan bahwa yang dibutuhkan lebih sederhana daripada yang dibayangkan.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Estimasi di balik amplop bukan menebak melainkan menghitung dari beberapa angka yang diketahui, dengan asumsi yang ditulis terbuka. Yang dicari bukan ketepatan melainkan urutan besarannya.',
+      ),
+      code(
+        'text',
+        `
+        Dihitung sungguhan, dari jumlah harian ke QPS:
+
+          tulis        100.000.000/hari
+            -> rata-rata 1.157 QPS, puncak ~3.472 QPS
+
+          baca (rasio 10:1)  1.000.000.000/hari
+            -> rata-rata 11.574 QPS, puncak ~34.722 QPS
+
+        Caranya: bagi dengan 86.400 detik, lalu kalikan tiga untuk
+        puncaknya. Faktor tiga itu asumsi, dan ia ditulis sebagai asumsi.
+        `,
+      ),
+      p(
+        'Angka penyimpanan dihitung dengan cara yang sama, dan yang menentukan adalah memperkirakan ukuran satu baris dengan jujur.',
+      ),
+      code(
+        'text',
+        `
+        Dihitung sungguhan untuk satu contoh pemendek alamat:
+
+          per baris:
+              7 byte  kode pendek
+            200 byte  URL asli (asumsi rata-rata)
+              8 byte  id pemilik
+              8 byte  waktu dibuat
+           ~60 byte   overhead baris dan indeks
+          -----------
+            283 byte
+
+          @ 100 juta baris/hari:
+             1 tahun ->  10,3 TB
+             5 tahun ->  51,6 TB
+            10 tahun -> 103,3 TB
+        `,
+        {
+          caption:
+            'Baris overhead itu yang paling sering dilupakan, dan ia bisa melipatgandakan hasilnya pada baris yang pendek.',
+        },
+      ),
+      p(
+        'Estimasi yang baik juga menyandarkan diri pada beberapa angka yang perlu dihafal, dan angka-angka itu bisa diukur sendiri alih-alih dihafal dari daftar orang lain.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan di mesin ini (Node 26.5.0):
+
+          baca 1 nilai dari memori                  43 ns
+          cari 1 kunci di Map 100.000 entri         50 ns
+          SHA-256 atas 1 KB                       2,41 us
+          baca 1 KB dari SSD (cache OS)           3,38 us
+          baca 1 MB dari memori                 248,62 us
+          baca 1 MB dari SSD (cache OS)         291,26 us
+          tulis 1 KB + fsync ke SSD               1,24 ms
+          HTTP round trip ke 127.0.0.1            1,69 ms
+          HTTP round trip ke internet            70,04 ms
+
+        Dari situ, satu perhitungan yang sering dibutuhkan:
+          satu panggilan API ke layanan lain di internet ~70 ms
+          sepuluh panggilan BERURUTAN ~700 ms
+          sepuluh panggilan PARALEL   ~70-100 ms
+
+        Itulah alasan bentuk N+1 pada panggilan jaringan jauh lebih
+        mahal daripada N+1 pada query basis data lokal.
+        `,
+      ),
+      p(
+        'Untuk kapasitas mesin, angka yang cukup untuk estimasi kasar bisa diturunkan dari pengukuran yang sama.',
+      ),
+      code(
+        'text',
+        `
+        Diukur di bab lain pada mesin yang sama:
+
+          SELECT 1 baris by primary key (sqlite memori)   1,05 us
+          -> secara teoretis ~950.000 per detik per inti
+
+          pemindaian penuh 100.000 baris                 4,69 ms
+          -> ~213 per detik per inti
+
+        Selisihnya 4.400 kali, dan itu seluruh alasan indeks ada.
+
+        Untuk PostgreSQL dengan I/O sungguhan, angkanya jauh lebih
+        kecil. Yang penting bukan angkanya melainkan bahwa keduanya
+        berada di urutan besaran yang berbeda.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kesalahan estimasi jarang berupa angka yang meleset sedikit. Yang merusak adalah meleset satu urutan besaran, dan penyebabnya biasanya satu dari beberapa pola.',
+      ),
+      code(
+        'text',
+        `
+        1. Lupa faktor puncak
+
+           1.157 QPS rata-rata terdengar kecil. Sistem dirancang
+           untuk itu, lalu mati pada jam sibuk di 3.472 QPS.
+
+           Dan puncak sesungguhnya bisa jauh lebih tajam: kampanye,
+           notifikasi massal, atau berita bisa menghasilkan 20x
+           rata-rata dalam beberapa menit.
+
+        2. Lupa overhead
+
+           "URL 200 karakter, jadi 200 byte per baris."
+           Dihitung dengan overhead: 283 byte, yaitu 41% lebih besar.
+           Pada baris yang pendek, overhead bisa MELEBIHI datanya.
+
+        3. Lupa replikasi dan cadangan
+
+           10,3 TB data mentah dengan 2 replika dan 30 hari cadangan
+           harian bukan 10,3 TB, melainkan berkali lipat.
+
+        4. Lupa bahwa indeks juga memakan tempat
+
+           Diukur pada PostgreSQL 16.15 di bab lain:
+             tabel komentar 1 juta baris: 83 MB total
+             tabel artikel 200.000 baris: 38 MB total
+           Angka "total" itu sudah termasuk indeksnya, dan pada tabel
+           dengan banyak indeks, indeksnya bisa lebih besar daripada
+           datanya.
+        `,
+      ),
+      p(
+        'Kesalahan kelima bersifat arah, yaitu menghitung dengan sangat teliti hal yang tidak menentukan apa pun.',
+      ),
+      code(
+        'text',
+        `
+        Yang TIDAK mengubah keputusan:
+          1.157 QPS melawan 1.200 QPS
+          10,3 TB melawan 11,1 TB
+          283 byte melawan 300 byte
+
+        Yang MENGUBAH keputusan:
+          1.157 QPS melawan 34.722 QPS   -> perlu cache atau tidak
+          10,3 TB melawan 103,3 TB       -> perlu sharding atau tidak
+          70 ms melawan 1,69 ms          -> panggilan jauh atau lokal
+
+        Bulatkan dengan berani. Yang penting asumsinya tertulis,
+        sehingga siapa pun bisa mengganti satu asumsi dan melihat
+        hasilnya berubah.
+        `,
+        {
+          caption:
+            'Estimasi yang tidak bisa dikoreksi orang lain dalam satu kalimat adalah estimasi yang terlalu rumit.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Estimasi kasar terasa seperti tebakan yang dibungkus angka, dan yang membedakannya adalah asumsi yang ditulis.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai rata-rata tanpa faktor puncak',
+            'Rata-rata kan mewakili',
+            'Dihitung, puncak 3x membuat 1.157 QPS menjadi 3.472 QPS. Sistem mati tepat saat paling ramai',
+          ],
+          [
+            'Menghitung ukuran baris dari isinya saja',
+            'Itu kan datanya',
+            'Dihitung, overhead menambah 41%. Pada baris pendek, overhead bisa melebihi datanya',
+          ],
+          [
+            'Lupa replikasi, cadangan, dan indeks',
+            'Yang dihitung kan datanya',
+            'Data mentah 10,3 TB dengan replika dan cadangan menjadi berkali lipat',
+          ],
+          [
+            'Menghitung sampai digit terakhir',
+            'Biar akurat',
+            'Yang dicari urutan besarannya. Ketelitian di bawah itu tidak mengubah satu pun keputusan',
+          ],
+          [
+            'Tidak menulis asumsinya',
+            'Angkanya sudah ada',
+            'Asumsi yang tidak terlihat tidak bisa dikoreksi, dan baru ketahuan setelah sistemnya dibangun',
+          ],
+          [
+            'Menghafal angka latensi dari daftar orang lain',
+            'Itu kan angka yang terkenal',
+            'Angkanya berubah seiring perangkat keras. Ukur sendiri: sepuluh baris kode sudah cukup',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir pantas dicoba sendiri sekali. Menulis skrip yang mengukur waktu baca dari memori, dari SSD, dan lewat jaringan memakan waktu belasan menit, dan hasilnya jauh lebih melekat daripada daftar angka yang dihafal. Yang paling berharga dari latihan itu bukan angkanya, melainkan kebiasaan memeriksa apakah sesuatu memang secepat atau selambat yang kamu kira.',
+      ),
       references(
         {
           label: 'Redis: Memory Optimization',
@@ -1240,7 +2008,7 @@ export const lessons: LessonDraft[] = [
   written(
     'angka-latensi',
     'Angka Latensi yang Perlu Dikenali',
-    12,
+    18,
     'Perbedaan memori, SSD, jaringan lokal, dan lintas benua, serta akibatnya pada desain.',
     [
       p(
@@ -1443,6 +2211,210 @@ export const lessons: LessonDraft[] = [
         'Tabel ini menyambung ke sub-bab [empat keadaan UI](/kelas/frontend-intermediate/state-dan-event-handler/empat-keadaan-ui). Sebuah operasi yang memakan dua detik terasa jauh lebih cepat bila ada kerangka yang menahan tata letak, dan terasa jauh lebih lambat bila layar diam tanpa keterangan apa pun. Latensi yang sama, pengalaman yang berbeda.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Angka latensi yang beredar di internet berasal dari perangkat keras tahun tertentu dan berubah seiring waktu. Yang tidak berubah adalah **urutan besarannya**, dan itu bisa diukur sendiri dalam belasan menit.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan di mesin ini dengan Node 26.5.0.
+        Tiap baris: median dari ribuan pengulangan, sesudah pemanasan.
+
+          baca 1 nilai dari array di memori          43 ns   (p99   125 ns)
+          cari 1 kunci di Map 100.000 entri          50 ns   (p99   149 ns)
+          acak kriptografis 32 byte                1,66 us   (p99  3,13 us)
+          SHA-256 atas 1 KB                        2,41 us   (p99  6,63 us)
+          baca 1 KB dari SSD (cache OS)            3,38 us   (p99  9,79 us)
+          SELECT 1 baris by primary key (sqlite)   1,05 us   (p99  2,32 us)
+          baca 1 MB berurutan dari memori        248,62 us   (p99   318 us)
+          baca 1 MB dari SSD (cache OS)          291,26 us   (p99  2,92 ms)
+          tulis 1 KB + fsync ke SSD                1,24 ms   (p99  4,14 ms)
+          HTTP round trip ke 127.0.0.1             1,69 ms   (p99  3,15 ms)
+          pemindaian penuh 100.000 baris (sqlite)  4,69 ms   (p99  7,11 ms)
+          HTTP round trip ke internet             70,04 ms   (p99   363 ms)
+        `,
+        { caption: 'Jarak antara baris pertama dan terakhir adalah 1,6 juta kali.' },
+      ),
+      p(
+        'Beberapa baris di tabel itu pantas dibaca berpasangan, sebab selisihnya yang menjelaskan keputusan desain.',
+      ),
+      table(
+        ['Pasangan', 'Selisih', 'Keputusan yang lahir darinya'],
+        [
+          [
+            'Memori 43 ns melawan SSD 3,38 us',
+            '~79 kali',
+            'Cache di memori berbayar, dan itulah seluruh alasan cache ada',
+          ],
+          [
+            'SSD baca 3,38 us melawan fsync 1,24 ms',
+            '~367 kali',
+            'Menulis jauh lebih mahal daripada membaca. Kumpulkan penulisan, jangan satu per satu',
+          ],
+          [
+            'Loopback 1,69 ms melawan internet 70,04 ms',
+            '~41 kali',
+            'Panggilan lintas wilayah harus dikurangi jumlahnya, bukan dipercepat',
+          ],
+          [
+            'SELECT by key 1,05 us melawan pindai 4,69 ms',
+            '~4.400 kali',
+            "Seluruh alasan indeks ada, dan alasan `LIKE '%kata%'` mahal",
+          ],
+          [
+            'p50 70,04 ms melawan p99 363 ms internet',
+            '~5 kali',
+            'Batas waktu ditetapkan dari p99, bukan dari p50',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir itu yang paling sering salah dipakai. Batas waktu yang ditetapkan dari median akan memutus satu dari seratus permintaan yang sebenarnya akan berhasil.',
+      ),
+      code(
+        'text',
+        `
+        Perhitungan yang paling sering dibutuhkan, dari angka di atas:
+
+          satu panggilan API ke internet        ~70 ms
+          10 panggilan BERURUTAN               ~700 ms
+          10 panggilan PARALEL                 ~70-100 ms
+
+          satu panggilan ke layanan di jaringan
+          yang sama (loopback sebagai patokan)  ~1,7 ms
+          100 panggilan BERURUTAN              ~170 ms
+          100 panggilan PARALEL                ~5-20 ms
+
+        Inilah bentuk N+1, dan kenapa ia jauh lebih mahal pada
+        panggilan jaringan daripada pada query lokal.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kesalahan yang paling sering pada pengukuran latensi bukan pada alatnya melainkan pada cara mengambilnya, dan hasilnya angka yang terlihat meyakinkan dan tidak berarti apa-apa.',
+      ),
+      code(
+        'text',
+        `
+        1. Tanpa pemanasan
+
+           Pengukuran pertama pada Node menyertakan kompilasi JIT,
+           alokasi awal, dan cache yang masih dingin. Ia bisa
+           puluhan kali lebih lambat daripada yang sebenarnya.
+
+           Karena itu seluruh angka di atas diambil SESUDAH tiga kali
+           pemanasan, dan diambil sebagai median dari ribuan ulangan.
+
+        2. Memakai rata-rata
+
+           Satu pencilan 4 detik di antara seribu pengukuran 1 ms
+           menaikkan rata-rata menjadi 5 ms, dan angka itu tidak
+           mewakili satu pun pengukuran yang sebenarnya terjadi.
+
+        3. Membiarkan kompilator membuang pekerjaannya
+
+           for (let i = 0; i < n; i++) arr[12345];
+           -> hasilnya tidak dipakai, dan mesin boleh membuangnya
+              sepenuhnya. Hasilnya "0 ns".
+
+           Karena itu pengukuran di atas menjumlahkan hasilnya ke
+           sebuah variabel yang dipakai di akhir.
+
+        4. Mengukur di mesin yang sedang sibuk
+
+           Diukur pada project ini: load average 12,84 pada mesin
+           4 CPU membuat seluruh pengukuran melar, dan itu bahkan
+           menggagalkan build yang biasanya berhasil.
+        `,
+      ),
+      p(
+        'Kesalahan kelima menyangkut penafsiran, dan ini yang paling sering menghasilkan keputusan yang salah arah.',
+      ),
+      code(
+        'text',
+        `
+        "Cache Redis lebih cepat daripada PostgreSQL."
+
+        Diukur, keduanya dihubungi lewat jaringan. Bila keduanya
+        berada di jaringan yang sama, keduanya membayar ongkos
+        yang sama, yaitu round trip ~1,7 ms pada pengukuran loopback
+        di atas.
+
+        Yang membuat cache lebih cepat bukan Redis-nya, melainkan
+        bahwa ia TIDAK MELAKUKAN PEKERJAAN: tidak membaca disk,
+        tidak menggabungkan tabel, tidak mengurutkan.
+
+        Untuk query by primary key yang sudah berindeks dan datanya
+        ada di cache buffer, selisihnya jauh lebih kecil daripada
+        yang dikira. Ukur dulu sebelum menambah satu komponen.
+        `,
+        {
+          caption:
+            'Cache di MEMORI PROSES ITU SENDIRI adalah cerita lain: 43 ns melawan 1,69 ms, yaitu 39.000 kali.',
+        },
+      ),
+      code(
+        'text',
+        `
+        DAN SATU LAGI yang sering dilupakan tentang p99:
+
+        Bila satu permintaan halaman memanggil 10 layanan dan
+        masing-masing p99-nya 1%, peluang SETIDAKNYA SATU di antaranya
+        kena ekor adalah:
+
+          1 - 0,99^10 = 9,6%
+
+        Artinya hampir 1 dari 10 permintaan halaman akan merasakan
+        latensi ekor, meski tiap layanannya hanya 1%. Inilah kenapa
+        mengurangi JUMLAH panggilan sering lebih berpengaruh daripada
+        mempercepat masing-masing.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Angka latensi mudah dihafal dan mudah dipakai untuk membenarkan keputusan yang belum diukur.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menghafal daftar angka dari internet',
+            'Itu angka yang terkenal',
+            'Angkanya berasal dari perangkat keras tahun tertentu. Ukur sendiri; belasan menit sudah cukup',
+          ],
+          [
+            'Mengukur tanpa pemanasan',
+            'Kodenya kan sama',
+            'Pengukuran pertama menyertakan kompilasi JIT dan cache dingin. Bisa puluhan kali lebih lambat',
+          ],
+          [
+            'Memakai rata-rata',
+            'Itu ringkasannya',
+            'Satu pencilan menggeser rata-rata jauh dari nilai yang sebenarnya terjadi. Pakai median dan p99',
+          ],
+          [
+            'Membiarkan hasil pengukuran tidak dipakai',
+            'Yang diukur kan waktunya',
+            'Mesin boleh membuang pekerjaan yang hasilnya tidak dipakai. Hasilnya "0 ns" yang menyesatkan',
+          ],
+          [
+            'Menetapkan batas waktu dari p50',
+            'Itu waktu yang normal',
+            'Diukur, p99 internet 363 ms melawan p50 70 ms. Batas dari p50 memutus permintaan yang akan berhasil',
+          ],
+          [
+            'Menambah cache tanpa mengukur query aslinya',
+            'Cache kan selalu lebih cepat',
+            'Cache lewat jaringan membayar round trip yang sama. Yang menghemat adalah pekerjaan yang tidak dilakukan',
+          ],
+        ],
+      ),
+      p(
+        'Satu latihan yang pantas dilakukan sekali dan diingat seumur karier adalah menulis skrip pengukuran sendiri di mesin yang kamu pakai sehari-hari. Sepuluh baris untuk memori, sepuluh untuk disk, sepuluh untuk jaringan, dan hasilnya jauh lebih melekat daripada daftar yang dihafal. Yang paling berharga bukan angkanya melainkan kebiasaan yang tumbuh darinya, yaitu memeriksa apakah sesuatu memang secepat atau selambat yang kamu kira.',
+      ),
       references(
         {
           label: 'RAIL model: measure performance with the RAIL model',
@@ -1475,7 +2447,7 @@ export const lessons: LessonDraft[] = [
   written(
     'ketersediaan-dan-sla',
     'Ketersediaan dan Angka Sembilan',
-    13,
+    19,
     'Menerjemahkan persen menjadi menit, dan menghitung ketersediaan rantai layanan.',
     [
       p(
@@ -1671,6 +2643,220 @@ export const lessons: LessonDraft[] = [
         'Untuk bisa menerapkannya, kamu perlu mengukur SLI-nya lebih dulu, dan alat untuk itu sudah dibahas di sub-bab [pemantauan dan uptime](/kelas/deployment/setelah-rilis/monitoring-uptime).',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Angka ketersediaan terdengar abstrak sampai diterjemahkan menjadi menit. Setelah itu, ia langsung menentukan bentuk sistem dan bentuk tim yang menjaganya.',
+      ),
+      code(
+        'text',
+        `
+        Dihitung sungguhan:
+
+              90%    ->  876,0 jam/tahun   4380,0 menit/bulan   8640,0 detik/hari
+              99%    ->   87,6 jam/tahun    438,0 menit/bulan    864,0 detik/hari
+            99,9%    ->    8,8 jam/tahun     43,8 menit/bulan     86,4 detik/hari
+           99,95%    ->    4,4 jam/tahun     21,9 menit/bulan     43,2 detik/hari
+           99,99%    ->    0,9 jam/tahun      4,4 menit/bulan      8,6 detik/hari
+          99,999%    ->    0,1 jam/tahun      0,4 menit/bulan      0,9 detik/hari
+        `,
+        {
+          caption:
+            'Setiap satu sembilan tambahan memotong waktu mati menjadi sepersepuluh, dan biayanya naik jauh lebih cepat.',
+        },
+      ),
+      p(
+        'Kolom menit per bulan itu yang paling berguna, sebab ia langsung menjawab pertanyaan apakah manusia sempat terlibat.',
+      ),
+      code(
+        'text',
+        `
+          43,8 menit/bulan (99,9%)
+            cukup untuk: alarm berbunyi, orang bangun, membaca,
+            memutuskan, dan menjalankan rollback
+
+           4,4 menit/bulan (99,99%)
+            TIDAK cukup untuk manusia. Deteksi dan pemulihan harus
+            OTOMATIS, dan itu keputusan arsitektur, bukan keputusan
+            proses
+
+        Karena itu batas antara 99,9% dan 99,99% bukan batas angka
+        melainkan batas antara "ditangani orang" dan "ditangani sistem".
+        `,
+      ),
+      p(
+        'Yang sering tidak disadari adalah bahwa ketersediaan komponen **berkalikan**, bukan berlaku sendiri-sendiri.',
+      ),
+      code(
+        'text',
+        `
+        Dihitung sungguhan, komponen berantai yang SEMUANYA harus hidup:
+
+           1 komponen @ 99,9% -> sistem 99,9000%   (  8,8 jam/tahun)
+           3 komponen @ 99,9% -> sistem 99,7003%   ( 26,3 jam/tahun)
+           5 komponen @ 99,9% -> sistem 99,5010%   ( 43,7 jam/tahun)
+          10 komponen @ 99,9% -> sistem 99,0045%   ( 87,2 jam/tahun)
+          30 komponen @ 99,9% -> sistem 97,0431%   (259,0 jam/tahun)
+
+        Tiga puluh layanan yang masing-masing 99,9% menghasilkan
+        sistem 97%, yaitu sebelas hari mati per tahun.
+
+        Itulah biaya tersembunyi memecah sistem menjadi banyak
+        layanan, dan ia jarang dihitung sebelum keputusannya diambil.
+        `,
+      ),
+      p('Arah sebaliknya juga berlaku, dan inilah alasan redundansi bekerja.'),
+      code(
+        'text',
+        `
+        Dihitung, komponen PARALEL yang cukup satu hidup:
+
+          1 salinan @ 99% -> 99,0000%
+          2 salinan @ 99% -> 99,9900%
+          3 salinan @ 99% -> 99,9999%
+
+        Dua salinan komponen yang biasa-biasa saja menghasilkan
+        ketersediaan yang lebih tinggi daripada satu komponen yang
+        sangat baik.
+
+        Syaratnya satu, dan sering tidak terpenuhi: kegagalannya
+        harus SALING BEBAS. Dua salinan di rak yang sama, dengan
+        catu daya yang sama, atau dengan bug perangkat lunak yang
+        sama, tidak saling bebas sama sekali.
+        `,
+        {
+          caption:
+            'Kata "saling bebas" itu yang membedakan redundansi sungguhan dari redundansi di atas kertas.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kesalahan yang paling mahal di area ini bukan salah hitung melainkan salah mendefinisikan apa yang dihitung.',
+      ),
+      code(
+        'text',
+        `
+        "Ketersediaan kami 99,95%."
+
+        Pertanyaan yang menentukan artinya:
+          - diukur dari mana? dari dalam pusat data, atau dari
+            peramban pengguna?
+          - apa yang dihitung "mati"? hanya 5xx, atau termasuk
+            permintaan yang lebih lambat dari 3 detik?
+          - dihitung per permintaan, atau per menit?
+          - fitur mana? halaman utama saja, atau seluruh alur checkout?
+
+        Satu sistem yang sama bisa menghasilkan 99,99% dan 99,5%
+        tergantung jawaban keempat pertanyaan itu. Angka tanpa
+        definisi bukan janji, melainkan kesan.
+        `,
+      ),
+      p(
+        'Kesalahan kedua menyangkut selisih antara SLA, SLO, dan SLI, yang sering dipakai bergantian padahal ketiganya berbeda.',
+      ),
+      code(
+        'text',
+        `
+          SLI  Indikator. Yang DIUKUR.
+               contoh: persentase permintaan yang 2xx atau 3xx
+                       dan selesai di bawah 300 ms
+
+          SLO  Sasaran. Angka yang DIKEJAR tim.
+               contoh: SLI di atas harus >= 99,9% per 30 hari
+
+          SLA  Perjanjian. Angka yang MENGIKAT secara kontrak,
+               beserta gantinya bila dilanggar.
+               contoh: 99,5%, dan bila kurang, tagihan dipotong 10%
+
+        Urutan angkanya hampir selalu: SLA lebih longgar daripada SLO.
+        Alasannya praktis: SLO harus dilanggar lebih dulu supaya tim
+        punya waktu bertindak SEBELUM kewajiban kontraknya terlanggar.
+        `,
+      ),
+      code(
+        'text',
+        `
+        Dan error budget, dihitung sungguhan:
+
+          100.000.000 permintaan/bulan, SLO 99,9%
+            anggaran error 0,1% = 100.000 permintaan boleh gagal
+            setara 43,8 menit mati total
+
+          Habis di tengah bulan -> rilis fitur berhenti sampai
+          bulan berikutnya; seluruh kapasitas tim beralih ke
+          keandalan.
+
+        Itulah gunanya error budget: ia mengubah perdebatan
+        "rilis cepat melawan stabil" menjadi satu angka yang bisa
+        dilihat semua orang.
+        `,
+        {
+          caption:
+            'Anggaran yang tidak pernah habis berarti SLO-nya terlalu longgar, dan itu juga informasi.',
+        },
+      ),
+      p(
+        'Kesalahan terakhir bersifat arah, yaitu mengejar sembilan tanpa menghitung apa yang dibeli.',
+      ),
+      code(
+        'text',
+        `
+        Pertanyaan yang jarang diajukan sebelum menaikkan target:
+
+          Berapa kerugian NYATA bila sistem ini mati 40 menit
+          sebulan sekali?
+
+        Untuk sistem pembayaran, jawabannya besar. Untuk dasbor
+        internal yang dipakai dua puluh orang pada jam kerja,
+        jawabannya hampir nol — dan mengejar 99,99% di sana berarti
+        membayar beberapa wilayah aktif, failover otomatis, dan tim
+        siaga sepanjang waktu untuk sesuatu yang tidak ada yang
+        memperhatikannya pada pukul tiga pagi.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Angka ketersediaan mudah disebut dan sulit dipenuhi, dan sebagian besar kesalahannya terjadi sebelum satu baris kode ditulis.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyebut target tanpa menerjemahkannya ke menit',
+            'Angkanya kan sudah jelas',
+            'Dihitung, 99,99% berarti 4,4 menit per bulan. Itu terlalu singkat untuk ditangani manusia',
+          ],
+          [
+            'Menghitung ketersediaan tiap komponen sendiri-sendiri',
+            'Masing-masing kan sudah 99,9%',
+            'Dihitung, 30 komponen berantai @ 99,9% menghasilkan 97%, yaitu sebelas hari per tahun',
+          ],
+          [
+            'Menambah salinan tanpa memastikan kegagalannya saling bebas',
+            'Dua lebih baik daripada satu',
+            'Dua salinan dengan catu daya atau bug yang sama gagal bersamaan. Redundansinya hanya di atas kertas',
+          ],
+          [
+            'Menyebut angka tanpa mendefinisikan apa yang diukur',
+            'Angkanya kan diambil dari pemantauan',
+            'Satu sistem yang sama bisa menghasilkan 99,99% dan 99,5% tergantung definisinya',
+          ],
+          [
+            'Memakai SLA dan SLO bergantian',
+            'Sama-sama target',
+            'SLO harus lebih ketat daripada SLA, supaya tim punya waktu bertindak sebelum kontraknya terlanggar',
+          ],
+          [
+            'Mengejar sembilan tambahan tanpa menghitung manfaatnya',
+            'Lebih tinggi kan lebih baik',
+            'Biayanya nyata dan dibayar tiap hari. Tanyakan berapa kerugian sesungguhnya pada target yang lebih rendah',
+          ],
+        ],
+      ),
+      p(
+        'Perhitungan yang paling mengubah cara pandang di sub-bab ini adalah yang ketiga, yaitu tiga puluh layanan berantai yang masing-masing 99,9% menghasilkan sistem 97%. Angka itu tidak berarti memecah sistem selalu salah, dan ia berarti pemecahan harus disertai perancangan agar kegagalan satu bagian tidak menjatuhkan seluruhnya. Tanpa itu, setiap layanan tambahan adalah satu tempat lagi yang bisa mematikan semuanya.',
+      ),
       references(
         {
           label: 'Embracing Risk',
@@ -1703,7 +2889,7 @@ export const lessons: LessonDraft[] = [
   written(
     'menulis-dokumen-desain',
     'Menulis Dokumen Desain Satu Halaman',
-    12,
+    19,
     'Menggabungkan seluruh bab menjadi satu dokumen yang bisa dibaca orang lain.',
     [
       p(
@@ -1909,6 +3095,220 @@ export const lessons: LessonDraft[] = [
         'Yang belum kamu punya adalah katalog blok yang bisa dipasang, dan itulah isi Bab 2. Setiap blok di sana akan diperkenalkan dengan pola yang sama, yaitu masalah apa yang diselesaikannya, kapan ia mulai dibutuhkan, wujud konkretnya di stack yang sudah kamu pakai, dan harga yang harus dibayar untuk memasangnya.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Dokumen desain satu halaman berguna bukan karena panjangnya melainkan karena batas satu halaman memaksa memilih. Yang tersisa setelah dipaksa memilih biasanya adalah bagian yang memang menentukan.',
+      ),
+      code(
+        'text',
+        `
+        Bentuk yang terbukti berguna, enam bagian:
+
+        1. MASALAH
+           Apa yang tidak bekerja sekarang, dengan ANGKA.
+           Bukan "pencarian lambat", melainkan "p95 pencarian 4,2
+           detik, dan 8% pengguna meninggalkan halaman sebelum
+           hasilnya muncul".
+
+        2. BATASAN DAN KEBUTUHAN NON-FUNGSIONAL
+           Angka target, beserta apa yang TIDAK dikerjakan.
+
+        3. PILIHAN YANG DIPERTIMBANGKAN
+           Minimal dua, beserta alasan penolakannya.
+
+        4. RANCANGAN YANG DIPILIH
+           Satu diagram, dan untuk tiap kotak: angka mana di bagian 2
+           yang membuatnya perlu ada.
+
+        5. RISIKO DAN APA YANG BELUM DIKETAHUI
+           Yang paling sering dilewatkan, dan paling berguna.
+
+        6. BAGAIMANA KITA TAHU INI BERHASIL
+           Metrik yang akan diperiksa sesudahnya, beserta angkanya.
+        `,
+        {
+          caption:
+            'Bagian 3 dan 5 yang paling dicari pembaca berikutnya, dan keduanya yang paling sering dihapus demi ringkas.',
+        },
+      ),
+      p(
+        'Bagian pertama menentukan seluruh sisanya, dan ia harus berdiri di atas pengukuran. Contoh dari project ini menunjukkan kenapa.',
+      ),
+      code(
+        'text',
+        `
+        MASALAH yang ditulis dari dugaan:
+          "Build kami lambat dan sering gagal karena ada halaman
+           yang terlalu berat."
+
+        MASALAH yang ditulis dari pengukuran:
+          "npm run build gagal pada beberapa halaman dengan batas
+           waktu prarender 60 detik, termasuk halaman yang tidak
+           diubah. Diukur: penyorotan kode seluruh 427 halaman
+           memakan 5.785 ms total, rata-rata 14 ms per halaman, dan
+           halaman yang gagal hanya 30 ms. Satu halaman yang gagal
+           bahkan tidak punya blok kode. Mesinnya 4 CPU, swap 0,
+           memori tersisa ~1,1 GB, load average 12,84 saat gagal."
+
+        Rumusan pertama mengarahkan ke pekerjaan berminggu-minggu
+        menyederhanakan halaman. Rumusan kedua mengarahkan ke satu
+        variabel, dan hasilnya:
+          CIRCLE_NODE_TOTAL=2 npm run build -> EXIT=0, 15,9 detik
+        `,
+      ),
+      p(
+        'Bagian ketiga punya nilai yang baru terasa berbulan-bulan kemudian, yaitu mencegah perdebatan yang sama diulang.',
+      ),
+      code(
+        'text',
+        `
+        PILIHAN YANG DIPERTIMBANGKAN
+
+        A. Menambah replika baca
+           + tidak mengubah kode aplikasi
+           - read-after-write menjadi tidak terjamin
+           Diukur: saat beban tulis besar, replika tertinggal 11 MB
+           dan 8 dari 8 pembacaan setelah penulisan TIDAK menemukan
+           datanya.
+           DITOLAK: alur checkout membaca kembali data yang baru
+           ditulis, dan itu akan rusak.
+
+        B. Menambah cache di depan basis data
+           + menurunkan beban baca paling besar
+           - menambah satu tempat yang bisa basi
+           Diukur di bab lain: 50 permintaan bersamaan untuk satu
+           kunci yang kedaluwarsa menghasilkan 50 perhitungan tanpa
+           penggabungan, dan 1 dengan.
+           DIPILIH, dengan penggabungan permintaan.
+
+        C. Denormalisasi penghitung
+           Diukur: 468,9 ms menjadi 0,068 ms untuk halaman populer,
+           dengan biaya tulis naik dari 0,0090 ms menjadi 0,2825 ms
+           per operasi.
+           DIPILIH untuk satu halaman yang memang terpanas.
+        `,
+        {
+          caption:
+            'Alasan penolakan yang disertai angka adalah bagian yang paling mahal direkonstruksi enam bulan kemudian.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Dokumen desain tidak menghasilkan error, dan biayanya muncul pada saat-saat tertentu yang bisa diperkirakan.',
+      ),
+      code(
+        'text',
+        `
+        1. Enam bulan kemudian, ada yang bertanya "kenapa begini?"
+
+           Tanpa bagian 3, tidak ada yang ingat alternatif apa saja
+           yang sudah ditolak dan kenapa. Perdebatannya diulang dari
+           nol, kadang dengan kesimpulan yang berbeda.
+
+        2. Rancangannya dibangun, dan ternyata menjawab masalah lain
+
+           Tanpa angka di bagian 1, tidak ada cara memeriksa apakah
+           yang dibangun benar-benar menyelesaikannya.
+
+        3. Sesudah dirilis, tidak ada yang tahu apakah berhasil
+
+           Tanpa bagian 6, "berhasil" menjadi soal perasaan. Metrik
+           yang ditetapkan SEBELUM membangun tidak bisa disesuaikan
+           belakangan supaya terlihat bagus.
+
+        4. Risiko yang sudah diketahui muncul sebagai kejutan
+
+           Bagian 5 yang dihapus demi ringkas adalah bagian yang
+           nanti dibaca orang saat sesuatu rusak.
+        `,
+      ),
+      p(
+        'Kegagalan yang berlawanan juga nyata, yaitu dokumen yang terlalu panjang sehingga tidak dibaca.',
+      ),
+      code(
+        'text',
+        `
+        Gejala dokumen yang terlalu panjang:
+
+          - disetujui tanpa satu pun komentar substansial
+          - yang dikomentari hanya format dan tata bahasa
+          - orang bertanya hal yang jawabannya ada di halaman 7
+          - versi keduanya tidak pernah ditulis
+
+        Batas satu halaman bukan gaya. Ia memaksa memilih, dan yang
+        bertahan setelah dipaksa memilih biasanya memang yang
+        menentukan.
+
+        Rincian yang tidak muat bukan dihapus, melainkan dipindahkan
+        ke lampiran yang boleh tidak dibaca.
+        `,
+      ),
+      code(
+        'text',
+        `
+        DAN SATU KESALAHAN yang halus: menulis kepastian yang
+        tidak dimiliki.
+
+          "Sistem ini akan menangani 50.000 QPS."
+
+          -> itu janji, bukan estimasi. Bentuk yang jujur:
+
+          "Dengan asumsi rasio baca:tulis 10:1 dan puncak 3x
+           rata-rata, kami memperkirakan 34.722 QPS baca pada
+           puncaknya. Asumsi yang paling mungkin meleset adalah
+           faktor puncak: kampanye pemasaran bisa menghasilkan 20x
+           dalam beberapa menit. Yang akan mempersempit perkiraan ini
+           adalah data lalu lintas tiga bulan terakhir, yang belum
+           kami miliki."
+
+        Bentuk kedua bisa dikoreksi orang lain. Bentuk pertama hanya
+        bisa dipercaya atau tidak.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Dokumen desain sering ditulis untuk mendapat persetujuan, padahal gunanya untuk membuat keputusannya bisa diperiksa.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis masalah tanpa angka',
+            'Semua orang sudah tahu masalahnya',
+            'Tidak ada cara memeriksa apakah yang dibangun menyelesaikannya. Dan dugaannya bisa saja salah',
+          ],
+          [
+            'Hanya menulis rancangan yang dipilih',
+            'Yang lain kan tidak dipakai',
+            'Alasan penolakan adalah bagian yang paling dicari pembaca berikutnya, dan paling mahal direkonstruksi',
+          ],
+          [
+            'Menghapus bagian risiko demi ringkas',
+            'Belum tentu terjadi',
+            'Bagian itu yang nanti dibaca saat sesuatu rusak. Menuliskannya memakan tiga kalimat',
+          ],
+          [
+            'Tidak menulis cara mengukur keberhasilannya',
+            'Nanti kelihatan sendiri',
+            'Tanpa metrik yang ditetapkan lebih dulu, "berhasil" menjadi soal perasaan',
+          ],
+          [
+            'Menulis dokumen tujuh halaman',
+            'Biar lengkap',
+            'Disetujui tanpa komentar substansial. Pindahkan rincian ke lampiran yang boleh tidak dibaca',
+          ],
+          [
+            'Menulis estimasi sebagai kepastian',
+            'Terdengar lebih meyakinkan',
+            'Tanpa asumsi yang tertulis, tidak ada yang bisa dikoreksi. Sebutkan asumsi dan apa yang mempersempitnya',
+          ],
+        ],
+      ),
+      p(
+        'Ada satu ujian sederhana untuk menilai apakah sebuah dokumen desain sudah cukup. Berikan kepada orang yang tidak ikut membuatnya, lalu minta ia menyebutkan satu alternatif yang ditolak beserta alasannya, dan satu angka yang menjadi dasar keputusan utamanya. Bila ia bisa menjawab keduanya setelah membaca lima menit, dokumen itu bekerja. Bila tidak, yang kurang hampir selalu bagian tiga atau bagian satu.',
+      ),
       references(
         {
           label: 'Site Reliability Engineering: Postmortem Culture',

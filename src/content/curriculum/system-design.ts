@@ -42,7 +42,22 @@ const fondasi = defineChapter({
     { category: 'deployment', chapter: 'setelah-rilis' },
   ],
   stackVersions: ['Google SRE Book', 'PostgreSQL 17', 'Prometheus 3', 'OpenAPI 3.1'],
-  reviewedAt: '2026-08-25',
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (Node 26.5.0, mesin ini sendiri):
+  //   - angka latensi diukur sendiri, bukan disalin dari daftar yang beredar:
+  //     memori 43 ns, Map 100.000 entri 50 ns, SHA-256 1 KB 2,41 us, SSD 1 KB 3,38 us,
+  //     SELECT by key sqlite 1,05 us, memori 1 MB 248,62 us, SSD 1 MB 291,26 us,
+  //     fsync 1 KB 1,24 ms, loopback 1,69 ms, pindai 100.000 baris 4,69 ms,
+  //     internet p50 70,04 ms / p99 362,72 ms
+  //   - seluruhnya median dari ribuan ulangan SESUDAH pemanasan, dengan hasil
+  //     dijumlahkan ke variabel yang dipakai supaya mesin tidak membuang pekerjaannya
+  //   - aritmetika ketersediaan, komponen berantai dan paralel, error budget,
+  //     ruang kunci base62, paradoks ulang tahun, dan proyeksi penyimpanan dihitung
+  //
+  // SATU HASIL YANG SENGAJA DILAPORKAN:
+  //   - Naskah awal sub-bab estimasi memakai angka turunan "1 panggilan loopback ~0,2 ms".
+  //     Pengukuran menunjukkan 1,69 ms, hampir sepuluh kali lebih besar. Seluruh turunan
+  //     yang memakai angka itu ditulis ulang dari hasil pengukuran.
+  reviewedAt: '2026-09-14',
   lessons: lessonsFondasi,
   quiz: [
     q(
@@ -122,7 +137,24 @@ const blokPenyusun = defineChapter({
     { category: 'deployment', chapter: 'fondasi-deployment' },
   ],
   stackVersions: ['Nginx 1.27', 'Redis 8', 'BullMQ 5', 'Socket.IO 4'],
-  reviewedAt: '2026-08-25',
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (Node 26.5.0, PostgreSQL 16.15, dig, Chrome 149):
+  //   - penyeimbang beban: tiga backend (5 ms, 5 ms, 60 ms), 600 permintaan, 12 serentak.
+  //     round robin 200/200/200 dalam 1.354 ms; least connections 282/281/37 dalam 624 ms
+  //   - consistent hashing: dari 4 ke 5 server, modulo memindahkan 80,2% kunci sementara
+  //     200 vnode memindahkan 16,8%; satu server mati -> 80,2% melawan 20,3%
+  //   - DNS: dua rekaman A untuk satu nama, TTL 152 detik, apex tidak boleh CNAME
+  //   - replikasi streaming PostgreSQL sungguhan, read-after-write 5/5 berhasil saat diam
+  //     dan 8/8 GAGAL saat beban tulis besar (replika tertinggal 11 MB)
+  //
+  // DUA HASIL YANG SENGAJA DILAPORKAN KARENA MELAWAN DUGAAN AWAL:
+  //   - Consistent hashing memberi sebaran yang LEBIH BURUK daripada modulo: simpangan
+  //     7,8% pada 200 vnode dan 49,8% pada 1 vnode, melawan 0,9% untuk modulo. Yang ia
+  //     beli adalah kestabilan saat jumlah simpul berubah, bukan kerataan.
+  //   - Percobaan penyeimbang beban yang PERTAMA mengirim seluruh 300 permintaan sekaligus,
+  //     sehingga least connections tidak punya informasi apa pun dan hasilnya 100/100/100
+  //     untuk ketiga strategi, yaitu tidak menunjukkan apa-apa. Angka yang dipakai berasal
+  //     dari percobaan kedua dengan kolam pekerja terbatas.
+  reviewedAt: '2026-09-14',
   lessons: lessonsBlokPenyusun,
   quiz: [
     q(
@@ -207,7 +239,23 @@ const skalaData = defineChapter({
     { category: 'backend-basic', chapter: 'database-sql-dasar' },
   ],
   stackVersions: ['PostgreSQL 17', 'MySQL 8.4', 'MongoDB 8', 'Apache Cassandra 5'],
-  reviewedAt: '2026-08-25',
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (PostgreSQL 16.15, replika streaming sungguhan):
+  //   - replika dibangun dengan pg_basebackup -R -X stream dan benar-benar berjalan;
+  //     state=streaming, sync_state=async, dan replika menolak INSERT
+  //   - read-after-write: 5 dari 5 BERHASIL saat sistem diam, 8 dari 8 GAGAL saat beban
+  //     tulis besar dengan replika tertinggal 11 MB; jeda replay memuncak di 202 ms
+  //   - denormalisasi: agregasi 1.000.000 baris 468,922 ms melawan kolom berindeks 0,068 ms
+  //   - biaya tulisnya: INSERT saja 0,0090 ms/operasi melawan INSERT+UPDATE 0,2825 ms/operasi
+  //   - pertentangan baris: 2.000 UPDATE ke baris sama 459 ms melawan baris berbeda 29 ms
+  //   - penyimpangan penghitung dibuktikan: 3 melawan 2 sesudah satu penghapusan
+  //   - sebaran shard: kode negara 70.000/10.000/10.000/10.000 melawan id pengguna ~25.000 rata
+  //
+  // SATU HASIL YANG SENGAJA DILAPORKAN KARENA MELAWAN DUGAAN AWAL:
+  //   - Percobaan read-after-write yang PERTAMA, dijalankan saat sistem sepi, BERHASIL
+  //     lima dari lima. Bila pengujiannya berhenti di situ, kesimpulannya adalah bahwa
+  //     read-after-write aman. Yang membalikkannya adalah mengulang percobaan yang sama
+  //     di bawah beban tulis. Materinya memakai kedua hasil itu berdampingan.
+  reviewedAt: '2026-09-14',
   lessons: lessonsSkalaData,
   quiz: [
     q(
@@ -293,7 +341,22 @@ const keandalanStudiKasus = defineChapter({
     { category: 'deployment', chapter: 'ci-cd' },
   ],
   stackVersions: ['Google SRE Book', 'Prometheus 3', 'Kubernetes 1.32', 'Redis 8', 'RFC 9110'],
-  reviewedAt: '2026-08-25',
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (Node 26.5.0, PostgreSQL 16.15, Docker 29.8.0):
+  //   - rate limiter: jendela tetap meloloskan 20 permintaan dalam 2 ms di perbatasan
+  //     jendela (dua kali batasnya), sementara jendela geser dan token bucket menahan di 10
+  //   - pada beban mantap dan pada ledakan serentak, ketiganya berperilaku IDENTIK —
+  //     selisihnya hanya muncul di perbatasan jendela
+  //   - healthcheck container: starting -> healthy, /healthz 000 -> 503 -> 200
+  //   - pg_dump/pg_restore: 552 KB dalam 84 ms, pemulihan penuh 123 ms
+  //   - pg_restore --data-only ke tabel tanpa primary key melipatgandakan 1.000 menjadi
+  //     2.000 tanpa satu pun error, sementara ke tabel ber-primary key ia gagal
+  //   - aritmetika pemendek alamat: ruang base62, paradoks ulang tahun, proyeksi penyimpanan
+  //
+  // SATU HASIL YANG SENGAJA DILAPORKAN:
+  //   - Paradoks ulang tahun menunjukkan tabrakan 50% pada 7 karakter base62 sudah tercapai
+  //     setelah 2,2 juta kunci acak, bukan setelah 3,5 triliun. Angka itu yang dipakai untuk
+  //     menjelaskan kenapa id berurutan yang di-encode lebih aman daripada kode acak.
+  reviewedAt: '2026-09-14',
   lessons: lessonsKeandalanStudiKasus,
   quiz: [
     q(

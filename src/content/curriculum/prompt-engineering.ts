@@ -36,9 +36,23 @@ const fondasi = defineChapter({
   stackVersions: [
     'Anthropic Prompting Best Practices',
     'OpenAI Prompt Engineering Guide',
-    'Ditinjau 2026-08-26',
+    'Ditinjau 2026-09-15',
   ],
-  reviewedAt: '2026-08-26',
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (Node 26.5.0, mesin ini sendiri):
+  //   - parsing keluaran model dengan zod terhadap 8 bentuk keluaran yang lazim:
+  //     1/8 lolos JSON.parse mentah, 3/8 lolos sesudah blok JSON diekstrak; 5 sisanya
+  //     gagal karena isinya, bukan karena pembungkusnya
+  //   - harness eval sederhana, 5 keluaran tetap dinilai 6 penilai berbasis pola:
+  //     6/6, 5/6, 4/6, 3/6, 3/6
+  //   - ukuran berkas instruksi project ini dihitung: CLAUDE.md 1.803 token,
+  //     9 berkas rules 33.130 token, total 34.933 token per sesi
+  //
+  // YANG SENGAJA TIDAK DILAKUKAN:
+  //   - TIDAK ada satu pun pemanggilan API model. CLI `claude` memang ada di mesin ini
+  //     dan satu variabel kunci API terbaca, tetapi memanggilnya berbiaya bagi user dan
+  //     tidak diminta. Seluruh angka di bab ini berasal dari pengukuran lokal, dan tiap
+  //     sub-bab menyatakan batas itu di dalam teksnya sendiri.
+  reviewedAt: '2026-09-15',
   lessons: lessonsFondasi,
   quiz: [
     q(
@@ -121,9 +135,19 @@ const teknikLanjutan = defineChapter({
     'Anthropic Prompting Best Practices',
     'OpenAI Prompt Engineering Guide',
     'Model Context Protocol',
-    'Ditinjau 2026-08-26',
+    'Ditinjau 2026-09-15',
   ],
-  reviewedAt: '2026-08-26',
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (Node 26.5.0, mesin ini sendiri):
+  //   - perakitan prompt naif dibandingkan dengan perakitan berbatas pada isi halaman
+  //     bermuatan injeksi; 5 pola deteksi semuanya mengenai halaman berbahaya dan tidak
+  //     satu pun mengenai halaman biasa
+  //   - biaya konteks berkas besar diukur: satu berkas pelajaran terbesar 86.723 token
+  //     (67,8% dari window 128.000), seluruh berkas kurikulum 2.539.429 token
+  //   - sebaran ukuran berkas di src/ dihitung: p50 19 KB, p90 271 KB, maks 340 KB
+  //
+  // YANG SENGAJA TIDAK DILAKUKAN:
+  //   - TIDAK ada pemanggilan API model, dengan alasan yang sama seperti Bab 1.
+  reviewedAt: '2026-09-15',
   lessons: lessonsTeknikLanjutan,
   quiz: [
     q(
@@ -205,8 +229,35 @@ const claudeCode = defineChapter({
     { category: 'prompt-engineering', chapter: 'teknik-lanjutan' },
     { category: 'deployment', chapter: 'git-alur-rilis' },
   ],
-  stackVersions: ['Claude Code Docs', 'Anthropic Prompting Best Practices', 'Ditinjau 2026-08-26'],
-  reviewedAt: '2026-08-26',
+  stackVersions: ['Claude Code Docs', 'Anthropic Prompting Best Practices', 'Ditinjau 2026-09-15'],
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (mesin ini sendiri, 4 inti, tanpa swap):
+  //   - empat perintah pemeriksaan project ini diukur waktunya dan dibaca kode keluarnya:
+  //     type-check 1.910 ms exit=0, format:check 3.914 ms exit=1, lint 7.031 ms exit=0,
+  //     test 8.025 ms exit=0 (6 berkas, 101 test)
+  //   - hook guard-hard-rules.py dipanggil langsung dengan dua payload uji: "git push
+  //     origin main" menghasilkan permissionDecision "ask", sedangkan "ls -la" lewat
+  //     tanpa keluaran
+  //   - lima skrip audit dijalankan: audit-parity, audit-routing (419/422 = 99,3% top-1),
+  //     audit-coverage, audit-enforcement (33 gerbang, 24 mesin, 9 LAPIS-1), selftest
+  //     (13/13)
+  //   - ukuran 65 skill dihitung: 196.766 token bila seluruh isinya dimuat melawan
+  //     9.572 token deskripsi yang benar-benar dimuat
+  //   - kesalahan sintaks template literal direproduksi dengan tsc: satu kesalahan
+  //     menghasilkan 6 error, dan yang terakhir menunjuk baris kosong
+  //
+  // SATU HASIL YANG SENGAJA DILAPORKAN:
+  //   - `npm run format:check` keluar dengan kode 1 pada src/test/sidebar-nav.test.tsx,
+  //     berkas yang terakhir diubah pada commit 2264a0a dan TIDAK disentuh pekerjaan ini.
+  //     Temuan itu tidak diperbaiki diam-diam; ia dipakai sebagai contoh nyata bahwa
+  //     pemeriksaan yang tidak pernah dijalankan bukan pemeriksaan. Belakangan, atas
+  //     persetujuan pemilik project, berkas itu diformat sebagai perubahan TERPISAH, dan
+  //     setiap sub-bab yang mengutip exit=1 diberi catatan lanjutan supaya pembaca yang
+  //     menjalankan perintahnya hari ini tidak menyimpulkan materinya keliru.
+  //
+  // YANG SENGAJA TIDAK DILAKUKAN:
+  //   - TIDAK ada pemanggilan API model. Perilaku model sebagai agent dijelaskan mengikuti
+  //     dokumentasi resminya dan ditandai sebagai tidak diukur.
+  reviewedAt: '2026-09-15',
   lessons: lessonsClaudeCode,
   quiz: [
     q(
@@ -289,8 +340,26 @@ const codex = defineChapter({
     { category: 'prompt-engineering', chapter: 'claude-code' },
     { category: 'keamanan-fullstack', chapter: 'identitas-kewenangan' },
   ],
-  stackVersions: ['Codex Docs', 'AGENTS.md', 'Model Context Protocol', 'Ditinjau 2026-08-26'],
-  reviewedAt: '2026-08-26',
+  stackVersions: ['Codex Docs', 'AGENTS.md', 'Model Context Protocol', 'Ditinjau 2026-09-15'],
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (Docker 29.8.0, curl 8.5.0, mesin ini):
+  //   - perilaku sandbox diuji dengan container, bukan dijelaskan dari ingatan:
+  //     --network none membuat wget exit=1 sementara tanpa flag itu exit=0;
+  //     --read-only menolak penulisan; --read-only --tmpfs /tmp membolehkannya;
+  //     bind mount :ro membolehkan baca dan menolak tulis
+  //   - biaya isi dari alat luar diukur dengan mengambil satu halaman dokumentasi publik:
+  //     HTTP 200, 255.418 byte, ~63.836 token sebagai HTML mentah melawan ~20.307 token
+  //     sesudah tag dibuang
+  //   - audit-context-budget.py dan audit-obedience.py dijalankan; yang kedua melaporkan
+  //     9 sesi dan 180 giliran dengan angka pelanggaran nyata, beserta pernyataan batas
+  //     ukurnya sendiri yang ikut dikutip di materi
+  //   - ketiadaan AGENTS.md dan .agents/ di repositori ini diperiksa dan dipakai sebagai
+  //     contoh, bukan disamarkan
+  //
+  // YANG SENGAJA TIDAK DILAKUKAN:
+  //   - Codex TIDAK dijalankan; `command -v codex` tidak menemukannya di mesin ini, dan
+  //     tidak ada pemanggilan API model. Karena itu bab ini tidak mengklaim perbandingan
+  //     mutu keluaran antar alat. Yang dibandingkan hanya mekanisme yang bisa diuji lokal.
+  reviewedAt: '2026-09-15',
   lessons: lessonsCodex,
   quiz: [
     q(

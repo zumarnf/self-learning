@@ -18,7 +18,7 @@ export const lessons: LessonDraft[] = [
   written(
     'event-loop',
     'Model Eksekusi: Call Stack, Web API, Task Queue, Event Loop',
-    14,
+    24,
     'Bagaimana bahasa bertugas-tunggal bisa menangani banyak hal sekaligus.',
     [
       p(
@@ -174,6 +174,222 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Dashboard admin punya tombol Hitung Ulang Ringkasan. Saat ditekan, halaman membeku selama beberapa saat. Tombolnya tidak berubah warna saat ditekan, indikator memuat yang sudah kamu pasang tidak pernah muncul, dan pengguna menekan tombolnya dua tiga kali karena mengira kliknya tidak terbaca. Setelah selesai, semua klik itu diproses sekaligus.',
+      ),
+      p(
+        'Yang menarik, tidak ada satu pun jaringan yang terlibat. Datanya sudah ada di memori. Yang membekukan halaman adalah perhitungannya sendiri, dan sub-bab ini menjelaskan kenapa satu perhitungan bisa menghentikan seluruh halaman.',
+      ),
+      code(
+        'js',
+        `
+        // 2 juta baris transaksi yang sudah ada di memori.
+        function hitungRingkasan(baris) {
+          const peta = new Map();
+          for (const b of baris) {
+            peta.set(b.kategori, (peta.get(b.kategori) ?? 0) + b.nilai);
+          }
+          return peta;
+        }
+
+        tombol.addEventListener('click', () => {
+          tampilkanSpinner();            // baris ini TIDAK akan terlihat
+          const ringkasan = hitungRingkasan(baris);
+          sembunyikanSpinner();
+          gambar(ringkasan);
+        });
+        `,
+        { filename: 'src/ringkasan.js — versi yang membekukan' },
+      ),
+      p(
+        'Baris `tampilkanSpinner()` benar-benar dijalankan, dan ia benar-benar mengubah DOM. Yang tidak terjadi adalah **menggambarnya ke layar**. Peramban hanya bisa menggambar ulang di antara dua tugas, dan seluruh isi handler ini adalah satu tugas yang tak terputus. Spinner baru akan digambar setelah `sembunyikanSpinner()` juga selesai dijalankan, sehingga hasil akhirnya spinner yang muncul lalu hilang dalam nol detik, yaitu tidak terlihat sama sekali.',
+      ),
+      p(
+        'Angkanya bisa diukur, dan hasil pengukuran di mesin pengembangan yang cepat menunjukkan agregasi dua juta baris memakan sekitar 162 milidetik. Angka itu terdengar kecil, dan justru di situ jebakannya. Baseline performa yang dipakai project ini menuntut Interaction to Next Paint di bawah 200 milidetik, jadi 162 milidetik sudah hampir memenuhi seluruh anggaran hanya untuk satu perhitungan. Di ponsel kelas menengah yang biasanya tiga sampai lima kali lebih lambat, angka yang sama menjadi lima ratus sampai delapan ratus milidetik, dan itu pembekuan yang jelas terasa.',
+      ),
+      code(
+        'js',
+        `
+        // Potong pekerjaannya, dan serahkan kembali ke event loop tiap potongan.
+        async function hitungRingkasanBertahap(baris, ukuran = 50_000) {
+          const peta = new Map();
+
+          for (let i = 0; i < baris.length; i += ukuran) {
+            const akhir = Math.min(i + ukuran, baris.length);
+            for (let j = i; j < akhir; j += 1) {
+              const b = baris[j];
+              peta.set(b.kategori, (peta.get(b.kategori) ?? 0) + b.nilai);
+            }
+            // Beri kesempatan peramban menggambar dan memproses klik.
+            await new Promise((teruskan) => setTimeout(teruskan, 0));
+          }
+
+          return peta;
+        }
+
+        tombol.addEventListener('click', async () => {
+          tombol.disabled = true;
+          tampilkanSpinner();             // sekarang benar-benar terlihat
+          try {
+            gambar(await hitungRingkasanBertahap(baris));
+          } finally {
+            sembunyikanSpinner();
+            tombol.disabled = false;
+          }
+        });
+        `,
+        { filename: 'src/ringkasan.js — versi yang tetap responsif' },
+      ),
+      p(
+        'Baris `await new Promise((teruskan) => setTimeout(teruskan, 0))` adalah seluruh perbaikannya. Ia mengakhiri tugas yang sedang berjalan dan menjadwalkan sisanya sebagai tugas baru. Di sela itulah peramban sempat menggambar ulang dan memproses klik yang menumpuk. Total waktunya justru sedikit lebih lama karena ada biaya penjadwalan, dan itu pertukaran yang disengaja, yaitu selesai sedikit lebih lambat tapi halaman tetap hidup.',
+      ),
+      p(
+        'Dua baris lain juga penting dan sering dilupakan. `tombol.disabled = true` mencegah klik ganda yang tadi terjadi, dan `finally` memastikan tombolnya kembali aktif bahkan kalau perhitungannya melempar error. Tanpa `finally`, satu kegagalan meninggalkan tombol mati selamanya dan pengguna harus memuat ulang halaman.',
+      ),
+      callout(
+        'tip',
+        'Untuk pekerjaan yang benar-benar berat, Web Worker lebih tepat',
+        'Memotong pekerjaan menjaga halaman tetap responsif, tapi seluruh perhitungan tetap berebut satu utas dengan penggambaran. Kalau pekerjaannya lebih dari sekitar satu detik, pindahkan ke Web Worker yang berjalan di utas terpisah. Ongkosnya, data harus dikirim bolak-balik dan Worker tidak bisa menyentuh DOM sama sekali.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan yang berhubungan dengan event loop punya sifat khas, yaitu sebagian besarnya tidak menghasilkan pesan apa pun. Dua yang pertama di bawah adalah gejala tanpa error, dan dua sisanya barulah pesan sungguhan.',
+      ),
+      code(
+        'text',
+        `
+        (Halaman berhenti merespons. Tab menjadi putih atau abu.)
+
+        Chrome akhirnya menampilkan:
+        "Halaman ini tidak merespons" — Tunggu / Keluar
+        `,
+        { caption: 'Tugas sinkron yang terlalu panjang, atau loop tak berujung.' },
+      ),
+      p(
+        'Peramban menampilkan dialog itu setelah utas utama tidak menjawab selama beberapa detik. Dua penyebabnya berbeda jauh. Kalau ia akhirnya selesai sendiri, itu perhitungan berat yang perlu dipotong seperti di atas. Kalau ia tidak pernah selesai, itu loop tak berujung. Cara membedakannya, buka tab Performance di DevTools lalu rekam beberapa detik. Perhitungan berat muncul sebagai satu balok panjang dengan nama fungsimu, sedangkan loop tak berujung muncul sebagai balok yang tidak pernah berakhir.',
+      ),
+      code(
+        'text',
+        `
+        console.log('mulai');
+        setTimeout(() => console.log('timer 0ms'), 0);
+        for (let i = 0; i < 2_000_000_000; i += 1) {}
+        console.log('selesai');
+
+        mulai
+        selesai
+        timer 0ms      <- muncul beberapa detik kemudian
+        `,
+        { caption: 'Angka nol pada `setTimeout` bukan janji waktu.' },
+      ),
+      p(
+        'Ini bukan error, tapi ia sumber kesalahpahaman yang sangat sering. Angka pada `setTimeout` adalah **waktu tunggu minimum sebelum antre**, bukan waktu eksekusi. Callback baru dijalankan setelah seluruh kode sinkron selesai dan giliran antreannya tiba. Kalau kamu memakai `setTimeout(..., 0)` untuk menunda sesuatu lalu hasilnya tetap terlambat, penyebabnya hampir selalu ada kode sinkron panjang di depannya.',
+      ),
+      code(
+        'text',
+        `
+        const salinan = new Array(1e9).fill(0);
+                        ^
+
+        RangeError: Array buffer allocation failed
+        `,
+        { caption: 'Memori habis sebelum perhitungannya sempat berjalan.' },
+      ),
+      p(
+        'Pada data yang benar-benar besar, batas yang lebih dulu tercapai sering kali memori, bukan waktu. Menyalin array dua juta baris menjadi array baru pada tiap tahap pengolahan menggandakan pemakaian memori tiap kali. Kalau kamu bertemu error ini, periksa berapa salinan penuh yang dibuat sepanjang alur, dan pertimbangkan mengolahnya per potongan seperti pada bagian studi kasus.',
+      ),
+      code(
+        'text',
+        `
+        [Violation] 'click' handler took 1840ms
+        [Violation] 'setTimeout' handler took 612ms
+        `,
+        { caption: 'Peringatan Chrome untuk handler yang terlalu lama.' },
+      ),
+      p(
+        'Pesan berawalan `[Violation]` adalah peringatan Chrome, bukan error, dan ia sangat berguna karena menyebut jenis handler beserta durasinya. Ia muncul otomatis saat sebuah handler melewati ambang tertentu. Kalau console-mu penuh pesan seperti ini, kamu punya daftar tepat bagian mana yang perlu dipotong, tanpa perlu menebak.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '"Halaman ini tidak merespons"',
+            'Tugas sinkron sangat panjang, atau loop tak berujung',
+            'Rekam di tab Performance untuk membedakannya, lalu potong atau perbaiki loopnya',
+          ],
+          [
+            'Indikator memuat tidak pernah terlihat',
+            'DOM diubah dan dikembalikan dalam satu tugas yang sama',
+            'Serahkan giliran dengan `await` sebelum pekerjaan beratnya dimulai',
+          ],
+          [
+            '`setTimeout(..., 0)` berjalan jauh lebih lambat dari nol',
+            'Antreannya menunggu seluruh kode sinkron selesai',
+            'Pendekkan tugas sinkron di depannya',
+          ],
+          [
+            '`RangeError: Array buffer allocation failed`',
+            'Terlalu banyak salinan penuh dari data besar',
+            'Olah per potongan, dan hindari menyalin seluruh data tiap tahap',
+          ],
+          [
+            '`[Violation] handler took ...ms`',
+            'Satu handler melewati ambang waktu peramban',
+            'Pakai daftar itu sebagai antrean kerja, potong yang paling lama dulu',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Event loop paling sering disalahpahami dalam satu hal, yaitu mengira asinkron berarti berjalan bersamaan. JavaScript di peramban punya satu utas untuk kodemu, dan asinkron hanya mengatur **giliran**, bukan menambah pekerja.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membungkus perhitungan berat dengan `setTimeout` supaya tidak membekukan',
+            'Ia jadi asinkron, jadi seharusnya tidak menghalangi',
+            'Perhitungannya tetap berjalan di utas yang sama, hanya bergeser gilirannya. Yang menolong adalah memotongnya menjadi banyak giliran, bukan menggeser satu giliran',
+          ],
+          [
+            'Menambah `async` pada fungsi berat supaya tidak memblokir',
+            'Kata `async` terdengar seperti berjalan di latar',
+            '`async` hanya mengubah nilai kembaliannya menjadi janji. Isi fungsinya tetap berjalan sinkron sampai bertemu `await`',
+          ],
+          [
+            'Mengira `setTimeout(fn, 100)` berjalan tepat 100 milidetik',
+            'Angkanya jelas tertulis',
+            'Itu waktu tunggu minimum sebelum masuk antrean. Kalau utas sedang sibuk, ia menunggu lebih lama',
+          ],
+          [
+            'Memakai `setInterval` untuk pekerjaan yang lamanya tidak pasti',
+            'Ia menjaga jarak waktu tetap',
+            'Kalau satu putaran lebih lama daripada intervalnya, putaran menumpuk dan saling tindih. Pakai `setTimeout` yang dijadwalkan ulang setelah pekerjaannya selesai',
+          ],
+          [
+            'Menganggap animasi CSS ikut membeku saat utas sibuk',
+            'Semuanya kan berjalan di peramban yang sama',
+            'Sebagian animasi CSS berjalan di utas komposisi dan tetap mulus. Itu sebabnya spinner CSS kadang tetap berputar padahal halaman tidak bisa diklik, dan itu justru menyesatkan pengguna',
+          ],
+          [
+            'Menyimpulkan halaman lambat dari perasaan saat mengembangkan',
+            'Di mesin sendiri semuanya terasa cepat',
+            'Mesin pengembangan biasanya jauh lebih cepat daripada perangkat pengguna. Pakai pembatas CPU di tab Performance untuk melihat angka yang mendekati kenyataan',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima layak diingat karena ia menyesatkan dua arah sekaligus. Spinner berbasis CSS yang tetap berputar saat halaman membeku membuat pengujian manualmu menyimpulkan halaman baik-baik saja, sedangkan pengguna justru bingung karena spinner berputar tapi tidak ada yang bisa diklik. Cara memeriksanya jujur adalah mencoba mengklik sesuatu, bukan melihat apakah ada yang bergerak.',
+      ),
+      callout(
+        'warning',
+        'Satu utas berarti satu bagian bisa merusak seluruh halaman',
+        'Widget pihak ketiga, pustaka grafik, dan skrip analitik semuanya berbagi utas yang sama dengan kodemu. Satu di antaranya yang melakukan perhitungan panjang akan membekukan halamanmu, dan di console errornya menunjuk berkas mereka bukan berkasmu. Tab Performance adalah satu-satunya cara memastikan siapa yang memakai waktunya.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Mesin JS menjalankan satu hal pada satu waktu; runtime yang mengerjakan sisanya di luar.',
@@ -220,7 +436,7 @@ export const lessons: LessonDraft[] = [
   written(
     'microtask-macrotask',
     'Microtask vs Macrotask',
-    11,
+    23,
     'Kenapa Promise selalu mendahului `setTimeout`, meski ditulis belakangan.',
     [
       p(
@@ -361,6 +577,235 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Kamu memasang indikator penyimpanan otomatis di editor catatan. Alurnya sederhana, yaitu tampilkan teks Menyimpan, panggil server, lalu ganti menjadi Tersimpan. Setelah dipasang, teks Menyimpan tidak pernah terlihat sama sekali. Yang muncul langsung Tersimpan, seolah penyimpanannya seketika, padahal permintaan jaringannya jelas memakan ratusan milidetik.',
+      ),
+      p(
+        'Penyebabnya bukan jaringan dan bukan React. Penyebabnya urutan antrean, yaitu pekerjaan yang kamu kira ditunda ternyata masuk antrean microtask yang seluruhnya dihabiskan **sebelum** peramban sempat menggambar satu pixel pun.',
+      ),
+      code(
+        'js',
+        `
+        // Bukti urutannya, jalankan di Node.js atau di console peramban.
+        setTimeout(() => console.log('macrotask A'), 0);
+
+        Promise.resolve()
+          .then(() => { console.log('micro 1'); return Promise.resolve(); })
+          .then(() => console.log('micro 2'))
+          .then(() => console.log('micro 3'));
+
+        setTimeout(() => console.log('macrotask B'), 0);
+
+        // Keluaran sungguhan:
+        // micro 1
+        // micro 2
+        // micro 3
+        // macrotask A
+        // macrotask B
+        `,
+        { caption: 'Tiga microtask berurutan tetap mendahului macrotask yang antre lebih dulu.' },
+      ),
+      p(
+        'Perhatikan `setTimeout` pertama dijadwalkan sebelum rantai janjinya, tapi ketiga microtask tetap berjalan lebih dulu. Aturannya satu kalimat, yaitu setelah satu tugas selesai, event loop menghabiskan **seluruh** antrean microtask sampai kosong sebelum mengambil tugas berikutnya. Rantai `then` yang panjang berarti antrean microtask yang panjang, dan selama antrean itu belum kosong, tidak ada penggambaran dan tidak ada macrotask yang tersentuh.',
+      ),
+      code(
+        'js',
+        `
+        // Kenapa teks 'Menyimpan' tidak pernah terlihat.
+        async function simpanOtomatis(isi) {
+          status.textContent = 'Menyimpan…';        // DOM berubah, tapi belum digambar
+
+          const respons = await fetch('/api/catatan', {
+            method: 'PUT',
+            body: JSON.stringify({ isi }),
+          });
+
+          status.textContent = respons.ok ? 'Tersimpan' : 'Gagal';
+        }
+        `,
+        { filename: 'Versi yang terlihat benar tapi tidak bekerja seperti dugaan' },
+      ),
+      p(
+        'Kode di atas sebenarnya **benar** untuk kasus jaringan lambat, dan teks Menyimpan memang akan terlihat. Yang membuatnya tidak terlihat adalah situasi lain, yaitu ketika responsnya datang sangat cepat karena tersimpan di cache atau karena server berjalan lokal. Bagian pengujian di komputer sendiri hampir selalu jatuh pada situasi itu, sehingga kamu menyimpulkan kodenya rusak padahal ia hanya kelewat cepat.',
+      ),
+      code(
+        'js',
+        `
+        // Jaminan agar keadaan memuat selalu terlihat cukup lama untuk dibaca.
+        const tidur = (ms) => new Promise((teruskan) => setTimeout(teruskan, ms));
+
+        async function simpanOtomatis(isi) {
+          status.textContent = 'Menyimpan…';
+
+          const mulai = performance.now();
+          const respons = await fetch('/api/catatan', {
+            method: 'PUT',
+            body: JSON.stringify({ isi }),
+          });
+
+          // Tahan minimal 400 ms supaya tidak berkedip.
+          const berlalu = performance.now() - mulai;
+          if (berlalu < 400) await tidur(400 - berlalu);
+
+          status.textContent = respons.ok ? 'Tersimpan' : 'Gagal';
+        }
+        `,
+        { filename: 'src/simpan-otomatis.js' },
+      ),
+      p(
+        '`setTimeout` di dalam `tidur` adalah macrotask, dan itu justru yang dibutuhkan di sini. Karena ia macrotask, event loop wajib mengosongkan antrean microtask lebih dulu, dan di sela itu peramban mendapat kesempatan menggambar. Kalau kamu memakai `queueMicrotask` atau `Promise.resolve().then(...)` untuk maksud yang sama, penggambaran justru tidak akan pernah terjadi karena keduanya tetap berada di antrean yang sama.',
+      ),
+      p(
+        'Pola menahan minimal beberapa ratus milidetik ini disebut ambang antikedip, dan ia menyelesaikan masalah pengalaman pengguna bukan masalah teknis. Perubahan keadaan yang muncul dan hilang dalam lima puluh milidetik terbaca sebagai kedipan yang mengganggu, dan sering justru terasa lebih lambat daripada tidak ada indikator sama sekali. Aturan yang dipakai baseline frontend project ini sejalan, yaitu jangan pasang spinner untuk operasi yang hampir selalu seketika.',
+      ),
+      callout(
+        'danger',
+        'Rantai microtask tak berujung membekukan halaman tanpa satu pun peringatan',
+        'Fungsi yang memanggil dirinya sendiri lewat `Promise.resolve().then(...)` membuat antrean microtask tidak pernah kosong. Event loop tidak akan pernah sampai ke penggambaran maupun ke macrotask, dan tab benar-benar mati tanpa pesan `[Violation]` karena tiap microtask-nya sendiri sangat cepat. Untuk perulangan yang perlu memberi napas, selalu pakai `setTimeout` atau `requestAnimationFrame`.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Bagian ini hampir seluruhnya berisi gejala tanpa pesan, sebab masalah urutan antrean memang jarang melempar apa pun. Satu-satunya error sungguhan justru datang dari pemakaian yang berlebihan.',
+      ),
+      code(
+        'text',
+        `
+        (Tab membeku total. Tidak ada [Violation], tidak ada error.)
+
+        function ulang() {
+          Promise.resolve().then(ulang);
+        }
+        ulang();
+        `,
+        { caption: 'Antrean microtask yang tidak pernah kosong.' },
+      ),
+      p(
+        'Inilah kegagalan paling senyap di seluruh bab ini. Tiap microtask selesai dalam waktu yang sangat singkat, jadi tidak ada satu tugas panjang yang bisa dilaporkan peramban. Yang terjadi adalah antreannya diisi ulang secepat ia dikosongkan, sehingga event loop tidak pernah keluar dari tahap microtask. Bandingkan dengan versi `setTimeout(ulang, 0)` yang tetap membuat halaman berat tapi masih bisa diklik, sebab macrotask memberi celah di antaranya.',
+      ),
+      code(
+        'text',
+        `
+        console.log('sebelum');
+        await Promise.resolve();
+        console.log('sesudah');
+
+        // Di antara kedua baris itu TIDAK ada penggambaran.
+        // Elemen yang diubah sebelum await tidak akan terlihat.
+        `,
+        { caption: 'Menunggu janji yang sudah selesai tetap tidak memberi kesempatan menggambar.' },
+      ),
+      p(
+        '`await` pada nilai yang sudah tersedia tetap menunda sisanya ke antrean microtask, dan itu memang gunanya untuk menjaga urutan tetap terduga. Yang tidak ia berikan adalah kesempatan menggambar. Kalau kamu perlu perubahan DOM benar-benar terlihat sebelum pekerjaan berikutnya dimulai, tunggu dengan `setTimeout` atau dengan dua kali `requestAnimationFrame`, bukan dengan `await` pada janji kosong.',
+      ),
+      code(
+        'text',
+        `
+        Uncaught (in promise) Error: gagal simpan
+        `,
+        {
+          caption:
+            'Kegagalan janji yang tidak ditangkap, dilaporkan setelah antrean microtask kosong.',
+        },
+      ),
+      p(
+        'Peramban menunggu sampai antrean microtask kosong sebelum memutuskan sebuah kegagalan benar-benar tidak tertangkap, dan itu keputusan yang masuk akal karena `catch` bisa saja dipasang beberapa microtask kemudian. Efek praktisnya, pesan ini muncul terlambat dan sering tidak sejajar dengan baris yang menyebabkannya. Kalau kamu melihat error yang seakan datang dari ketiadaan, telusuri janji yang dibuat tanpa `await` dan tanpa `catch`.',
+      ),
+      code(
+        'text',
+        `
+        const b = document.body;
+        b.style.background = 'red';
+        for (let i = 0; i < 3e8; i += 1) {}
+        b.style.background = 'blue';
+
+        // Layar tidak pernah menjadi merah.
+        `,
+        { caption: 'Dua perubahan gaya dalam satu tugas hanya menghasilkan satu penggambaran.' },
+      ),
+      p(
+        'Peramban tidak menggambar tiap kali kamu mengubah DOM, melainkan sekali di akhir tugas, dan yang digambar adalah keadaan terakhir. Ini bukan pengoptimalan yang bisa dimatikan melainkan cara kerja dasarnya. Karena itu, urutan tampilkan lalu sembunyikan di dalam satu tugas selalu berarti tidak pernah tampil, dan satu-satunya jalan keluar adalah memberi jeda berupa macrotask di antaranya.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Tab membeku tanpa pesan `[Violation]` apa pun',
+            'Rantai microtask yang mengisi ulang dirinya sendiri',
+            'Ganti penjadwalannya menjadi `setTimeout` atau `requestAnimationFrame`',
+          ],
+          [
+            'Perubahan DOM tidak terlihat padahal barisnya dijalankan',
+            'Belum ada penggambaran di antara dua perubahan',
+            'Sisipkan macrotask, misalnya `await new Promise((r) => setTimeout(r, 0))`',
+          ],
+          [
+            'Indikator memuat berkedip lalu hilang',
+            'Responsnya datang lebih cepat daripada waktu baca manusia',
+            'Tahan minimal sekitar 400 milidetik sebelum mengganti keadaannya',
+          ],
+          [
+            '`Uncaught (in promise)` muncul terlambat',
+            'Peramban menunggu antrean microtask kosong dulu',
+            'Telusuri janji tanpa `await` dan tanpa `catch`',
+          ],
+          [
+            'Urutan `console.log` tidak seperti urutan penulisan',
+            'Sebagian masuk antrean microtask dan sebagian macrotask',
+            'Kelompokkan mana yang sinkron, microtask, dan macrotask sebelum menyimpulkan',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Perbedaan microtask dan macrotask jarang terasa sampai kamu butuh sesuatu benar-benar terlihat di layar. Sebagian besar kesalahan di bawah berasal dari memakai antrean yang salah untuk maksud yang benar.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `await Promise.resolve()` untuk menunggu DOM tergambar',
+            'Ia jelas menunda eksekusi',
+            'Ia menunda ke antrean microtask, dan penggambaran terjadi setelah antrean itu kosong. Pakai `setTimeout` atau dua kali `requestAnimationFrame`',
+          ],
+          [
+            'Mengira `queueMicrotask` dan `setTimeout(..., 0)` sama saja',
+            'Keduanya sama-sama menunda ke lain waktu',
+            'Yang pertama berjalan sebelum penggambaran, yang kedua sesudahnya. Untuk hal yang harus terlihat, hanya yang kedua bekerja',
+          ],
+          [
+            'Merangkai belasan `then` untuk merapikan alur',
+            'Tiap tahap jadi terlihat jelas',
+            'Tiap `then` menambah satu putaran microtask, dan seluruh rantainya berjalan sebelum satu pun penggambaran. Untuk alur panjang, `async` dan `await` lebih terbaca dan lebih mudah disisipi jeda',
+          ],
+          [
+            'Memasang spinner untuk operasi yang biasanya di bawah 100 milidetik',
+            'Lebih baik ada indikator daripada tidak',
+            'Kedipan terbaca lebih lambat daripada tidak ada indikator sama sekali. Tunda memunculkan spinner, atau tahan minimalnya',
+          ],
+          [
+            'Menguji kecepatan hanya di komputer sendiri dengan server lokal',
+            'Alurnya sama saja',
+            'Respons lokal hampir seketika, sehingga seluruh keadaan memuat tidak pernah teruji. Pakai pembatas jaringan di DevTools',
+          ],
+          [
+            'Memakai `process.nextTick` di Node.js seperti `setTimeout`',
+            'Namanya terdengar seperti giliran berikutnya',
+            'Ia berjalan sebelum antrean microtask janji, sehingga rantai `nextTick` yang panjang bisa menahan seluruh event loop Node.js',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir khusus berlaku di Node.js, dan layak disebut karena kamu akan menemuinya di kategori Backend. Node.js punya satu antrean tambahan di depan antrean janji, dan pekerjaan yang dijadwalkan ke sana dihabiskan lebih dulu. Untuk pekerjaan biasa, pakai `queueMicrotask` yang perilakunya sama di peramban dan di Node.js, sehingga satu kode berperilaku sama di kedua tempat.',
+      ),
+      callout(
+        'tip',
+        'Cara membuktikan urutan tanpa menebak',
+        'Tulis empat baris di console, yaitu satu `console.log` biasa, satu `queueMicrotask`, satu `Promise.resolve().then`, dan satu `setTimeout` nol. Jalankan, lalu baca urutannya. Percobaan lima detik itu memberi model mental yang jauh lebih kuat daripada membaca penjelasan mana pun, termasuk penjelasan ini.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Dua antrean: microtask (Promise, `await`) berprioritas di atas macrotask (`setTimeout`).',
@@ -406,7 +851,7 @@ export const lessons: LessonDraft[] = [
   written(
     'callback',
     'Callback & Callback Hell',
-    10,
+    21,
     'Pola asinkron generasi pertama, dan masalah nyata yang melahirkan Promise.',
     [
       p(
@@ -548,6 +993,215 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Kamu diminta menambahkan unggah foto produk ke sebuah aplikasi lama. Pustaka pengolah gambar yang sudah dipakai project itu berumur bertahun-tahun dan seluruh API-nya berbasis callback, sedangkan kode barumu memakai `async` dan `await`. Alurnya empat langkah, yaitu baca berkas, ubah ukuran, unggah, lalu simpan alamatnya ke database. Ditulis dengan callback apa adanya, hasilnya menjorok ke kanan sampai setengah layar.',
+      ),
+      code(
+        'js',
+        `
+        // Bentuk yang lahir kalau callback dipakai apa adanya.
+        bacaBerkas(berkas, (galat, data) => {
+          if (galat) return tampilkanGagal(galat);
+
+          ubahUkuran(data, 800, (galat2, kecil) => {
+            if (galat2) return tampilkanGagal(galat2);
+
+            unggah(kecil, (galat3, alamat) => {
+              if (galat3) return tampilkanGagal(galat3);
+
+              simpanAlamat(produkId, alamat, (galat4) => {
+                if (galat4) return tampilkanGagal(galat4);
+                tampilkanBerhasil(alamat);
+              });
+            });
+          });
+        });
+        `,
+        { filename: 'Empat langkah, empat tingkat, empat pemeriksaan galat yang sama' },
+      ),
+      p(
+        'Yang paling merugikan dari bentuk ini bukan indentasinya melainkan **pengulangan penanganan galat**. Empat baris `if (galat) return ...` isinya sama persis, dan keempatnya harus diingat. Melewatkan satu saja berarti satu jalur kegagalan yang berlanjut diam-diam membawa `undefined` ke langkah berikutnya. Nama variabel `galat2`, `galat3`, dan `galat4` juga bukan pilihan gaya melainkan keharusan, sebab keempatnya berada di scope yang saling bersarang.',
+      ),
+      p(
+        'Perhatikan juga urutan argumen `(galat, data)`. Konvensi Node.js menaruh galat di posisi pertama justru supaya ia sulit diabaikan, sebab ia adalah hal pertama yang kamu tulis saat membongkar parameter. Konvensi ini bukan aturan bahasa melainkan kesepakatan, dan pustaka yang tidak mengikutinya harus dibaca dokumentasinya lebih dulu.',
+      ),
+      code(
+        'js',
+        `
+        // Bungkus SEKALI di satu berkas, lalu seluruh aplikasi memakai janji.
+        function janjikan(fn) {
+          return (...arg) =>
+            new Promise((teruskan, tolak) => {
+              fn(...arg, (galat, hasil) => (galat ? tolak(galat) : teruskan(hasil)));
+            });
+        }
+
+        export const bacaBerkasAsync = janjikan(bacaBerkas);
+        export const ubahUkuranAsync = janjikan(ubahUkuran);
+        export const unggahAsync = janjikan(unggah);
+        export const simpanAlamatAsync = janjikan(simpanAlamat);
+        `,
+        { filename: 'src/pustaka-lama/bungkus.js' },
+      ),
+      code(
+        'js',
+        `
+        // Alur yang sama, empat langkah, satu penanganan galat.
+        async function unggahFoto(berkas, produkId) {
+          try {
+            const data = await bacaBerkasAsync(berkas);
+            const kecil = await ubahUkuranAsync(data, 800);
+            const alamat = await unggahAsync(kecil);
+            await simpanAlamatAsync(produkId, alamat);
+            tampilkanBerhasil(alamat);
+          } catch (galat) {
+            tampilkanGagal(galat);
+          }
+        }
+        `,
+        { filename: 'src/unggah-foto.js' },
+      ),
+      p(
+        'Fungsi `janjikan` hanya tujuh baris dan ia menyelesaikan seluruh masalah di atas sekaligus. Bentuk `(...arg)` mengumpulkan argumen apa pun yang diberikan pemanggil, lalu `fn(...arg, callback)` menyebarkannya kembali dan menambahkan callback di posisi terakhir. Itu bekerja untuk fungsi berapa pun jumlah parameternya, selama ia mengikuti dua konvensi, yaitu callback di posisi terakhir dan galat di posisi pertama callback.',
+      ),
+      p(
+        'Hasilnya, empat pemeriksaan galat berubah menjadi satu `catch`. Bukan karena galatnya berkurang, melainkan karena `await` melempar saat janjinya ditolak, dan satu `try` bisa membungkus keempat langkah sekaligus. Kalau kamu perlu tahu langkah mana yang gagal, bungkus galatnya dengan `cause` seperti dibahas di Sub-bab 1.14, sehingga pesannya menyebut langkahnya tanpa mengembalikan empat blok terpisah.',
+      ),
+      callout(
+        'info',
+        'Node.js sudah menyediakan pembungkus ini',
+        'Untuk fungsi Node.js yang mengikuti konvensi galat di depan, `util.promisify` melakukan hal yang sama dan menangani beberapa kasus khusus. Banyak modul inti Node.js bahkan sudah punya versi janjinya sendiri, misalnya `node:fs/promises`. Tulis pembungkusmu sendiri hanya untuk pustaka yang tidak menyediakannya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Callback punya satu sifat yang membuat kegagalannya sulit dilacak, yaitu galat yang dilempar di dalamnya tidak bisa ditangkap `try` di luarnya. Tiga bentuk di bawah semuanya berakar di situ.',
+      ),
+      code(
+        'text',
+        `
+        try {
+          bacaBerkas(berkas, (galat, data) => {
+            throw new Error('gagal memproses');
+          });
+        } catch (e) {
+          console.log('tidak pernah sampai sini');
+        }
+
+        Uncaught Error: gagal memproses
+        `,
+        { caption: '`try` di luar tidak menangkap galat dari dalam callback.' },
+      ),
+      p(
+        'Alasannya urutan waktu. Blok `try` sudah selesai jauh sebelum callbacknya dijalankan, sebab `bacaBerkas` hanya mendaftarkan callback lalu segera kembali. Saat callbacknya akhirnya berjalan, ia berada di tugas yang sama sekali berbeda dan tidak ada `try` yang aktif di sekitarnya. Inilah salah satu alasan terkuat memindahkan kode callback ke janji, sebab `await` mengembalikan galat ke alur yang bisa dibungkus `try`.',
+      ),
+      code(
+        'text',
+        `
+        bacaBerkas(berkas, (galat, data) => {
+          proses(data.isi);
+                     ^
+
+        TypeError: Cannot read properties of undefined (reading 'isi')
+        `,
+        { caption: 'Parameter galat tidak diperiksa, dan `data` ternyata `undefined`.' },
+      ),
+      p(
+        'Saat sebuah operasi gagal, konvensi galat di depan mengisi parameter pertama dan membiarkan parameter kedua `undefined`. Kalau pemeriksaan galat dilewati, kegagalan yang sebenarnya jelas berubah menjadi `TypeError` di baris yang sama sekali lain. Pesan aslinya, yang mungkin berbunyi berkas tidak ditemukan, hilang sepenuhnya. Inilah kenapa `if (galat)` bukan formalitas melainkan syarat.',
+      ),
+      code(
+        'text',
+        `
+        let jumlahDipanggil = 0;
+        pustakaLama.proses(data, () => { jumlahDipanggil += 1; });
+
+        // jumlahDipanggil bernilai 3
+        `,
+        { caption: 'Callback dipanggil lebih dari sekali oleh pustaka yang tidak rapi.' },
+      ),
+      p(
+        'Ini masalah yang disebut penyerahan kendali, yaitu kamu menyerahkan fungsimu kepada kode lain dan kode itu yang menentukan kapan dan berapa kali ia dipanggil. Pustaka yang bermasalah bisa memanggilnya dua kali, tidak sama sekali, atau memanggilnya secara sinkron padahal kamu mengira asinkron. Janji tidak punya masalah ini sama sekali, sebab sebuah janji hanya bisa selesai satu kali dan panggilan sesudahnya diabaikan.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Galat di dalam callback tidak tertangkap `try` di luar',
+            'Callback berjalan di tugas yang berbeda dari blok `try`',
+            'Bungkus jadi janji lalu pakai `await` di dalam `try`',
+          ],
+          [
+            '`Cannot read properties of undefined` di dalam callback',
+            'Parameter galat tidak diperiksa, sehingga hasilnya kosong',
+            'Selalu tulis `if (galat)` sebagai baris pertama callback',
+          ],
+          [
+            'Callback berjalan lebih dari sekali',
+            'Pustaka memanggilnya berulang, dan callback tidak bisa mencegahnya',
+            'Bungkus jadi janji, sebab janji hanya bisa selesai satu kali',
+          ],
+          [
+            'Callback berjalan sinkron padahal diduga asinkron',
+            'Sebagian pustaka memanggilnya langsung untuk kasus cepat',
+            'Bungkus jadi janji supaya urutannya selalu asinkron dan bisa diprediksi',
+          ],
+          [
+            '`RangeError: Maximum call stack size exceeded` pada rantai callback',
+            'Callback saling memanggil secara sinkron tanpa jeda',
+            'Sisipkan `setTimeout` nol, atau ubah menjadi janji',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Callback bukan bentuk yang usang, sebab seluruh penangan peristiwa peramban memakainya dan itu memang tepat. Yang keliru adalah memakainya untuk urutan operasi yang bisa gagal, dan beberapa baris di bawah adalah gejalanya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Melupakan `return` pada baris `if (galat) tampilkanGagal(galat)`',
+            'Pesan gagalnya sudah muncul, jadi terasa selesai',
+            'Tanpa `return`, eksekusi melanjutkan ke baris di bawahnya dengan data kosong. Pesan gagal muncul, lalu menyusul `TypeError`',
+          ],
+          [
+            'Mencampur callback dan janji dalam satu fungsi',
+            'Keduanya sama-sama asinkron',
+            'Urutannya jadi sulit diikuti dan galatnya keluar lewat dua jalur berbeda. Bungkus callbacknya di batas, lalu pakai satu gaya di dalam',
+          ],
+          [
+            'Mengembalikan nilai dari dalam callback',
+            'Bentuknya sama dengan fungsi biasa',
+            'Nilai itu kembali ke pemanggil callback, yaitu pustakanya, bukan ke fungsimu. Fungsimu sudah selesai jauh sebelumnya',
+          ],
+          [
+            'Memakai variabel di luar callback untuk menampung hasilnya',
+            'Terlihat seperti cara mengeluarkan nilainya',
+            'Baris yang membaca variabel itu berjalan sebelum callbacknya dipanggil, jadi nilainya masih kosong. Pakai janji, atau lanjutkan pekerjaannya di dalam callback',
+          ],
+          [
+            'Membungkus fungsi yang callbacknya dipanggil berkali-kali menjadi janji',
+            'Pembungkusnya kan sudah terbukti bekerja',
+            'Janji hanya menangkap panggilan pertama, dan sisanya hilang tanpa jejak. Untuk peristiwa berulang, pakai penangan peristiwa atau async iterator',
+          ],
+          [
+            'Menghapus callback lama dan menulis ulang seluruh alur sekaligus',
+            'Sekalian dibereskan',
+            'Risikonya tinggi dan sulit diuji bertahap. Bungkus di batas lebih dulu, jalankan test, baru rapikan alur di dalamnya',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama layak diingat karena ia adalah bug yang paling sering lolos dari tinjauan kode. Bentuk `if (galat) tampilkanGagal(galat)` tanpa `return` terlihat lengkap, dan pengujian jalur suksesnya lulus. Kegagalannya hanya muncul pada jalur galat, dan justru jalur itulah yang paling jarang diuji. Kebiasaan menulis `return` di baris yang sama menutup seluruh kelas bug ini.',
+      ),
+      callout(
+        'tip',
+        'Callback tetap bentuk yang benar untuk peristiwa berulang',
+        'Yang cocok diubah menjadi janji adalah operasi yang selesai **satu kali**, misalnya membaca berkas atau memanggil server. Yang tidak cocok adalah hal yang terjadi berkali-kali seperti klik, scroll, atau pesan dari WebSocket. Untuk itu, callback lewat `addEventListener` justru bentuk yang tepat, dan versi asinkronnya adalah async iterator yang dibahas di Sub-bab 3.10.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Callback bekerja, dan masih dipakai di `map`, event listener, dan API Node.',
@@ -587,7 +1241,7 @@ export const lessons: LessonDraft[] = [
   written(
     'promise',
     'Promise: `then`, `catch`, `finally`',
-    13,
+    25,
     'Objek yang mewakili nilai yang belum ada — dan bisa dioper, dirangkai, dikembalikan.',
     [
       p(
@@ -762,6 +1416,217 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman detail pesanan mengambil datanya dari server, lalu memvalidasi bentuknya, lalu memperkaya tiap barisnya dengan harga terkini, lalu menampilkannya. Empat tahap, dan tiap tahap bisa gagal dengan cara yang berbeda. Jaringan bisa mati, server bisa mengirim bentuk yang tidak sesuai, dan harga terkini bisa tidak ditemukan untuk produk yang sudah dihapus.',
+      ),
+      p(
+        'Alur seperti ini adalah tempat aturan pengembalian nilai `then` benar-benar terasa. Kalau satu tahap lupa mengembalikan sesuatu, tahap berikutnya menerima `undefined` dan kegagalannya muncul di tempat yang salah.',
+      ),
+      code(
+        'js',
+        `
+        function muatPesanan(id) {
+          return fetch(\`/api/pesanan/\${id}\`)
+            .then((respons) => {
+              // fetch TIDAK menolak untuk 404 atau 500, jadi periksa sendiri.
+              if (!respons.ok) {
+                throw new Error(\`Server menjawab \${respons.status} untuk pesanan \${id}\`);
+              }
+              return respons.json();          // janji, dan rantai menunggunya
+            })
+            .then((data) => {
+              if (!Array.isArray(data.item)) {
+                throw new TypeError('Bentuk respons tidak sesuai, item bukan array');
+              }
+              return data;                    // nilai biasa, diteruskan apa adanya
+            })
+            .then((data) =>
+              // Janji dari dalam then ikut ditunggu sebelum lanjut.
+              ambilHargaTerkini(data.item.map((i) => i.produkId)).then((harga) => ({
+                ...data,
+                item: data.item.map((i) => ({ ...i, hargaKini: harga[i.produkId] ?? null })),
+              })),
+            )
+            .catch((galat) => {
+              catatKeLog(galat);
+              throw galat;                    // lempar ulang supaya pemanggil tahu
+            });
+        }
+        `,
+        { filename: 'src/pesanan/muat.js' },
+      ),
+      p(
+        'Tiga `then` di atas memperlihatkan tiga jenis nilai kembalian yang berbeda, dan ketiganya diperlakukan berbeda oleh rantai. `then` pertama mengembalikan `respons.json()` yang berupa janji, sehingga rantai menunggunya selesai lebih dulu dan `then` berikutnya menerima datanya bukan janjinya. `then` kedua mengembalikan `data` yang berupa nilai biasa, sehingga langsung diteruskan. `then` ketiga mengembalikan janji dari `ambilHargaTerkini`, dan sekali lagi rantai menunggunya.',
+      ),
+      p(
+        'Aturan yang menyatukan ketiganya satu kalimat, yaitu apa pun yang kamu kembalikan dari `then` akan dibuka bungkusnya kalau ia janji. Inilah yang membuat rantai bisa datar tanpa bersarang, dan inilah yang hilang begitu satu `then` lupa menulis `return`. Bagian error di bawah menunjukkan bentuk kegagalannya.',
+      ),
+      p(
+        'Blok `catch` di ujung menangkap kegagalan dari **tahap mana pun** di atasnya, termasuk `throw` yang kamu tulis sendiri di dalam `then`. Yang perlu diperhatikan adalah `throw galat` di dalam `catch` itu. Tanpa baris itu, `catch` dianggap sudah menyelesaikan masalahnya dan rantai berlanjut sebagai berhasil dengan nilai `undefined`. Pemanggil `muatPesanan` akan mengira semuanya baik-baik saja lalu gagal saat membaca `data.item`.',
+      ),
+      code(
+        'js',
+        `
+        // Letak catch menentukan apa yang ia lindungi.
+        muatPesanan(id)
+          .then(gambarHalaman)      // kalau INI gagal, catch di bawah menangkapnya
+          .catch(tampilkanGagal);
+
+        muatPesanan(id)
+          .catch(tampilkanGagal)    // hanya melindungi muatPesanan
+          .then(gambarHalaman);     // ini tetap jalan walau muatPesanan gagal
+        `,
+        { caption: 'Dua bentuk yang terlihat mirip dengan perilaku yang berbeda.' },
+      ),
+      p(
+        'Bentuk kedua adalah kesalahan yang sangat sering. Karena `catch` menangani kegagalannya, rantai berlanjut sebagai berhasil dan `gambarHalaman` tetap dipanggil, kali ini dengan `undefined`. Hasilnya pengguna melihat pesan gagal **dan** halaman kosong sekaligus. Aturan praktisnya, taruh `catch` di paling ujung kecuali kamu memang sengaja ingin memulihkan lalu melanjutkan.',
+      ),
+      callout(
+        'warning',
+        '`fetch` hanya menolak untuk kegagalan jaringan',
+        'Respons 404, 422, dan 500 semuanya dianggap berhasil oleh `fetch`, sebab permintaannya memang sampai dan dijawab. Kalau kamu tidak memeriksa `respons.ok`, `catch`-mu tidak akan pernah berjalan untuk kesalahan server, dan aplikasi akan mencoba membaca badan respons error sebagai data yang sah.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat bentuk berikut mencakup hampir seluruh kegagalan rantai janji yang akan kamu temui.',
+      ),
+      code(
+        'text',
+        `
+        fetch(url)
+          .then((r) => { r.json(); })      // kurung kurawal tanpa return
+          .then((data) => console.log(data.nama));
+
+        TypeError: Cannot read properties of undefined (reading 'nama')
+        `,
+        { caption: '`return` yang hilang membuat tahap berikutnya menerima `undefined`.' },
+      ),
+      p(
+        'Ini kesalahan nomor satu pada rantai janji, dan bentuknya sama persis dengan jebakan `map` di Bab 1. Fungsi panah berkurung kurawal tidak mengembalikan apa pun tanpa `return`, sehingga `then` berikutnya menerima `undefined`. Perhatikan errornya muncul di tahap **berikutnya**, bukan di tahap yang lupa `return`, dan itu yang membuatnya sulit dilacak. Kalau sebuah tahap hanya berisi satu ekspresi, hapus kurung kurawalnya dan masalah ini tidak bisa terjadi.',
+      ),
+      code(
+        'text',
+        `
+        muatPesanan(id).then(gambar);
+
+        Uncaught (in promise) Error: Server menjawab 500 untuk pesanan 7
+        `,
+        { caption: 'Rantai tanpa `catch` di ujungnya.' },
+      ),
+      p(
+        'Tanpa `catch`, kegagalan tidak hilang melainkan menjadi kegagalan yang tidak tertangani. Di peramban ia muncul sebagai `Uncaught (in promise)` di console dan tidak menghentikan halaman, sehingga sangat mudah terlewat saat pengujian manual. Di Node.js versi modern, kegagalan tidak tertangani justru **menghentikan proses**, dan itu perbedaan penting yang perlu diingat saat kode yang sama dipakai di kedua tempat.',
+      ),
+      code(
+        'text',
+        `
+        muatPesanan(id)
+          .catch(tampilkanGagal)
+          .then(gambarHalaman);
+
+        // tampilkanGagal berjalan, LALU gambarHalaman(undefined) juga berjalan.
+        TypeError: Cannot read properties of undefined (reading 'item')
+        `,
+        {
+          caption:
+            '`catch` di tengah rantai memulihkan alur, sehingga tahap sesudahnya tetap jalan.',
+        },
+      ),
+      p(
+        'Setelah `catch` menangani sebuah kegagalan tanpa melempar ulang, rantai kembali ke jalur berhasil. Nilai yang diteruskan adalah nilai kembalian `catch`, dan kalau `tampilkanGagal` tidak mengembalikan apa pun, nilainya `undefined`. Kalau kamu memang ingin memulihkan, kembalikan nilai cadangan yang sah dari dalam `catch`, misalnya `return { item: [] }`.',
+      ),
+      code(
+        'text',
+        `
+        const hasil = Promise.resolve(1).then(2).then((v) => console.log('v', v));
+
+        v 1
+        `,
+        { caption: 'Argumen `then` yang bukan fungsi diabaikan diam-diam.' },
+      ),
+      p(
+        'Ini perilaku yang jarang diketahui dan tidak melempar apa pun. Kalau argumen `then` bukan fungsi, ia diabaikan dan nilainya diteruskan apa adanya. Akibat praktisnya, salah ketik seperti `then(prosesData())` yang seharusnya `then(prosesData)` bisa lolos tanpa satu pun tanda, sebab `prosesData()` dipanggil terlalu awal dan hasilnya yang bukan fungsi diabaikan.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`Cannot read properties of undefined` di tahap berikutnya',
+            'Tahap sebelumnya lupa `return`',
+            'Hapus kurung kurawalnya, atau tambahkan `return`',
+          ],
+          [
+            '`Uncaught (in promise)`',
+            'Rantai tidak punya `catch` di ujungnya',
+            'Tambahkan `catch`, dan ingat Node.js akan menghentikan proses untuk kasus ini',
+          ],
+          [
+            'Pesan gagal muncul bersamaan dengan halaman kosong',
+            '`catch` diletakkan di tengah, sehingga rantai pulih dan lanjut',
+            'Pindahkan `catch` ke ujung, atau kembalikan nilai cadangan yang sah',
+          ],
+          [
+            'Tahap `then` tidak pernah berjalan',
+            'Argumennya bukan fungsi, biasanya karena tanda kurung ikut ditulis',
+            'Berikan nama fungsinya tanpa tanda kurung',
+          ],
+          [
+            'Respons 500 diperlakukan sebagai data yang sah',
+            '`fetch` tidak menolak untuk status kegagalan',
+            'Periksa `respons.ok` dan lempar sendiri',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Rantai janji mudah ditulis dan mudah salah dalam cara yang tidak berbunyi. Enam baris di bawah adalah yang paling sering lolos ke produksi.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyarangkan `then` di dalam `then`',
+            'Bentuknya mirip callback yang sudah dikenal',
+            'Itu membuang keuntungan terbesar janji. Kembalikan janji dalamnya, dan rantainya tetap datar',
+          ],
+          [
+            'Membungkus fungsi yang sudah mengembalikan janji dengan `new Promise`',
+            'Supaya bentuknya seragam',
+            'Ini disebut anti-pola constructor janji. Tanpa penanganan galat yang teliti, kegagalannya justru hilang. Kembalikan janji aslinya',
+          ],
+          [
+            'Memakai `then` dan `await` bercampur dalam satu fungsi',
+            'Keduanya sama-sama menangani janji',
+            'Alurnya jadi sulit dibaca dan urutan galatnya tidak jelas. Pilih satu gaya per fungsi',
+          ],
+          [
+            'Membuat janji tanpa mengembalikannya dari fungsi',
+            'Ia toh tetap berjalan',
+            'Pemanggil tidak punya cara menunggunya maupun menangkap kegagalannya. Selalu kembalikan janji yang kamu buat',
+          ],
+          [
+            'Menulis `.catch(console.error)` sebagai penanganan akhir',
+            'Setidaknya kegagalannya tercatat',
+            'Pengguna tidak melihat apa pun dan aplikasi berlanjut dengan data kosong. Catat, lalu tentukan apa yang ditampilkan',
+          ],
+          [
+            'Mengira `finally` menerima nilai hasilnya',
+            'Ia bagian dari rantai yang sama',
+            '`finally` tidak menerima argumen dan tidak mengubah nilai yang diteruskan. Ia hanya untuk pembersihan seperti mematikan indikator memuat',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua perlu dijelaskan lebih jauh karena bentuknya sangat sering muncul di kode pemula. Menulis `new Promise((teruskan) => { fetch(url).then(teruskan); })` menambah satu lapisan yang tidak menangani penolakan sama sekali, sehingga kegagalan `fetch` menghilang tanpa jejak. Kalau sebuah fungsi sudah mengembalikan janji, kembalikan saja janji itu. `new Promise` hanya untuk membungkus hal yang **belum** berupa janji, dan itu topik sub-bab berikutnya.',
+      ),
+      callout(
+        'tip',
+        'Cara cepat memastikan rantaimu benar',
+        'Baca rantainya dan tanyakan tiga hal. Apakah setiap `then` mengembalikan sesuatu, apakah ada `catch` di ujung, dan apakah `catch` itu melempar ulang atau memang sengaja memulihkan. Tiga pertanyaan itu menutup hampir seluruh isi bagian error di atas.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Promise adalah objek — bisa disimpan, dioper, dan dikembalikan.',
@@ -808,7 +1673,7 @@ export const lessons: LessonDraft[] = [
   written(
     'membuat-promise',
     'Membuat Promise Sendiri & Promisify',
-    11,
+    24,
     'Membungkus API berbasis callback menjadi Promise.',
     [
       p(
@@ -962,6 +1827,230 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Fitur unggah foto profil butuh menampilkan pratinjau sebelum berkasnya dikirim. API peramban untuk membaca berkas, yaitu `FileReader`, berbasis peristiwa dan bukan janji. Ia punya tiga peristiwa yang bisa terjadi, yaitu selesai membaca, gagal membaca, dan dibatalkan pengguna. Ketiganya harus ditangani, dan hanya satu di antaranya yang boleh menentukan hasil akhirnya.',
+      ),
+      p(
+        'Inilah situasi yang benar-benar membutuhkan `new Promise`, yaitu membungkus sesuatu yang belum berupa janji. Perhatikan bagaimana ketiga peristiwa itu dipetakan ke dua jalan keluar sebuah janji.',
+      ),
+      code(
+        'js',
+        `
+        export function bacaSebagaiDataUrl(berkas, { batasByte = 5 * 1024 * 1024 } = {}) {
+          return new Promise((teruskan, tolak) => {
+            // Periksa yang bisa diperiksa SEBELUM memulai pekerjaan asinkron.
+            if (!(berkas instanceof Blob)) {
+              tolak(new TypeError('Argumen harus berupa File atau Blob'));
+              return;
+            }
+            if (berkas.size > batasByte) {
+              tolak(new RangeError(\`Berkas \${berkas.size} byte melebihi batas \${batasByte}\`));
+              return;
+            }
+
+            const pembaca = new FileReader();
+
+            pembaca.onload = () => teruskan(pembaca.result);
+            pembaca.onerror = () => tolak(pembaca.error ?? new Error('Gagal membaca berkas'));
+            pembaca.onabort = () => tolak(new DOMException('Dibatalkan', 'AbortError'));
+
+            pembaca.readAsDataURL(berkas);
+          });
+        }
+        `,
+        { filename: 'src/baca-berkas.js' },
+      ),
+      p(
+        'Dua pemeriksaan di awal sengaja diletakkan **di dalam** executor, bukan di luar sebelum `new Promise`. Alasannya konsistensi jalur kegagalan. Kalau pemeriksaan ditaruh di luar dan melempar, pemanggil harus membungkusnya dengan `try` selain memasang `catch`, yaitu dua jalur galat untuk satu fungsi. Dengan menaruhnya di dalam, seluruh kegagalan keluar lewat satu pintu, yaitu penolakan janjinya.',
+      ),
+      p(
+        'Baris `return` setelah tiap `tolak(...)` bukan hiasan. Memanggil `tolak` tidak menghentikan eksekusi executor, jadi tanpa `return` kode di bawahnya tetap berjalan dan `FileReader` tetap dibuat untuk berkas yang sudah ditolak. Janjinya memang tetap berakhir sebagai ditolak, karena panggilan sesudahnya diabaikan, tapi pekerjaan sia-sia itu tetap terjadi.',
+      ),
+      p(
+        "Ketiga penangan peristiwa memetakan tiga kemungkinan ke dua jalan keluar. Hanya `onload` yang memanggil `teruskan`, sedangkan gagal dan dibatalkan sama-sama menolak dengan jenis error yang berbeda. Pemakaian `DOMException` bernama `AbortError` untuk pembatalan mengikuti konvensi peramban, sehingga kode pemanggil bisa membedakannya dengan `if (e.name === 'AbortError')` persis seperti saat memakai `AbortController` di Sub-bab 3.8.",
+      ),
+      code(
+        'js',
+        `
+        // Sifat yang membuat janji aman dipakai untuk membungkus peristiwa.
+        const p = new Promise((teruskan, tolak) => {
+          teruskan('pertama');
+          teruskan('kedua');            // diabaikan
+          tolak(new Error('diabaikan'));  // diabaikan juga
+        });
+
+        p.then((v) => console.log('hasil:', v));
+        // hasil: pertama
+
+        const q = new Promise(() => {
+          throw new Error('lempar di dalam executor');
+        });
+
+        q.catch((e) => console.log('executor throw ->', e.message));
+        // executor throw -> lempar di dalam executor
+        `,
+        {
+          caption:
+            'Janji hanya bisa selesai sekali, dan lemparan di executor otomatis menjadi penolakan.',
+        },
+      ),
+      p(
+        'Dua sifat di atas yang membuat `new Promise` cocok untuk membungkus API berbasis peristiwa. Sifat pertama, janji hanya bisa selesai satu kali, sehingga pustaka yang memanggil callback berkali-kali tidak bisa merusak alurmu. Sifat kedua, `throw` di dalam executor otomatis berubah menjadi penolakan, sehingga kesalahan sinkron di dalamnya tidak lolos begitu saja. Perhatikan sifat kedua ini **tidak** berlaku untuk `throw` di dalam callback asinkron seperti `pembaca.onload`, dan itu dibahas di bagian error di bawah.',
+      ),
+      callout(
+        'warning',
+        'Jangan pakai `new Promise` untuk hal yang sudah berupa janji',
+        'Menulis `new Promise((teruskan) => { fetch(url).then(teruskan); })` adalah anti-pola yang punya nama tersendiri, yaitu promise constructor antipattern. Ia menambah satu lapisan yang biasanya lupa meneruskan penolakan, sehingga kegagalan `fetch` hilang tanpa jejak. Kalau sesuatu sudah mengembalikan janji, kembalikan janji itu apa adanya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Membuat janji sendiri punya beberapa cara gagal yang khas, dan yang paling berbahaya adalah janji yang tidak pernah selesai sama sekali.',
+      ),
+      code(
+        'text',
+        `
+        const p = new Promise((teruskan, tolak) => {
+          if (berkas.size > batas) return;    // lupa memanggil tolak
+          teruskan(baca(berkas));
+        });
+
+        await p;
+        // Tidak ada error. Tidak ada apa pun. Menunggu selamanya.
+        `,
+        { caption: 'Executor selesai tanpa memanggil `teruskan` maupun `tolak`.' },
+      ),
+      p(
+        'Ini kegagalan paling senyap dari seluruh materi janji. Janji yang executornya berakhir tanpa memanggil salah satu dari dua fungsi itu akan tetap berada di keadaan menunggu selamanya. Kode yang meng-`await`-nya berhenti di situ tanpa pesan, tanpa timeout, dan tanpa jejak di console. Di antarmuka, gejalanya berupa indikator memuat yang berputar tanpa akhir. Pastikan **setiap** jalur di dalam executor berakhir pada `teruskan` atau `tolak`.',
+      ),
+      code(
+        'text',
+        `
+        new Promise((teruskan) => {
+          pembaca.onload = () => {
+            throw new Error('bentuk data salah');    // TIDAK menjadi penolakan
+          };
+          pembaca.readAsText(berkas);
+        });
+
+        Uncaught Error: bentuk data salah
+        `,
+        { caption: '`throw` di dalam callback asinkron tidak ditangkap janjinya.' },
+      ),
+      p(
+        'Perbedaannya dengan `throw` langsung di badan executor sangat penting. Janji hanya menangkap lemparan yang terjadi **selama executor berjalan**, yaitu secara sinkron. Callback `onload` berjalan jauh kemudian di tugas yang berbeda, dan pada saat itu executornya sudah lama selesai. Akibatnya janji tetap menunggu selamanya sekaligus ada error tidak tertangkap di console. Bungkus isi callback dengan `try` lalu panggil `tolak(e)` di dalam `catch`-nya.',
+      ),
+      code(
+        'text',
+        `
+        function ambil() {
+          return new Promise((teruskan) => {
+            fetch(url).then((r) => teruskan(r.json()));
+          });
+        }
+
+        await ambil();
+        // Kalau fetch gagal: menunggu selamanya, plus Uncaught (in promise).
+        `,
+        { caption: 'Anti-pola constructor janji yang menelan penolakan.' },
+      ),
+      p(
+        'Karena `tolak` tidak pernah dipanggil, kegagalan `fetch` tidak punya jalan keluar dari janji pembungkusnya. Yang terjadi dua hal sekaligus, yaitu janji luar menunggu selamanya dan penolakan `fetch` menjadi tidak tertangani. Bentuk yang benar adalah `function ambil() { return fetch(url).then((r) => r.json()); }`, yaitu tanpa `new Promise` sama sekali.',
+      ),
+      code(
+        'text',
+        `
+        const p = new Promise((teruskan) => teruskan());
+        p.then((v) => console.log(v.nama));
+                                     ^
+
+        TypeError: Cannot read properties of undefined (reading 'nama')
+        `,
+        { caption: '`teruskan()` tanpa argumen menghasilkan `undefined`.' },
+      ),
+      p(
+        'Memanggil `teruskan` tanpa argumen sah dan menghasilkan janji yang berhasil dengan nilai `undefined`. Ini sering terjadi saat kamu menyalin bentuk pembungkus lalu lupa mengisi nilainya, misalnya menulis `teruskan()` alih-alih `teruskan(pembaca.result)`. Karena janjinya benar-benar berhasil, tidak ada satu pun tanda sampai nilainya dibaca di tempat lain.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Menunggu selamanya tanpa pesan apa pun',
+            'Ada jalur di executor yang tidak memanggil `teruskan` maupun `tolak`',
+            'Telusuri setiap `return` dan setiap percabangan di dalam executor',
+          ],
+          [
+            '`Uncaught Error` dari dalam callback, dan janjinya tetap menunggu',
+            '`throw` di callback asinkron tidak ditangkap janjinya',
+            'Bungkus isi callback dengan `try`, lalu `tolak(e)` di `catch`',
+          ],
+          [
+            'Kegagalan bagian dalam hilang tanpa jejak',
+            'Anti-pola constructor janji yang lupa meneruskan penolakan',
+            'Hapus `new Promise`, kembalikan janji aslinya',
+          ],
+          [
+            'Nilai hasil `undefined` padahal seharusnya ada',
+            '`teruskan()` dipanggil tanpa argumen',
+            'Isi argumennya dengan nilai yang dimaksud',
+          ],
+          [
+            'Pekerjaan tetap berjalan setelah ditolak',
+            '`tolak` tidak diikuti `return`',
+            'Tulis `return` setelah tiap `tolak` dan `teruskan` yang mengakhiri jalur',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Membuat janji sendiri lebih jarang dibutuhkan daripada yang orang kira, dan sebagian besar kesalahan di bawah berasal dari memakainya di tempat yang tidak membutuhkannya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membungkus fungsi `async` dengan `new Promise`',
+            'Supaya bentuknya seragam dengan pembungkus lain',
+            'Fungsi `async` sudah mengembalikan janji. Pembungkusnya hanya menambah lapisan yang bisa menelan penolakan',
+          ],
+          [
+            'Memakai `async` pada executor, misalnya `new Promise(async (t) => ...)`',
+            'Isi executornya memang perlu `await`',
+            'Kegagalan di dalam executor `async` menjadi penolakan janji yang berbeda dan tidak tertangkap. Pakai fungsi `async` biasa, tanpa `new Promise`',
+          ],
+          [
+            'Memanggil `teruskan` di dalam `setTimeout` tanpa jalur galat',
+            'Yang ditunggu hanya waktunya, jadi tidak mungkin gagal',
+            'Benar untuk `tidur`, tapi begitu ada pekerjaan lain di dalamnya, jalur galatnya hilang. Sediakan `tolak` sejak awal',
+          ],
+          [
+            'Membuat janji lalu menyimpannya sebagai variabel modul',
+            'Supaya hasilnya bisa dipakai bersama',
+            'Janji hanya berjalan sekali, jadi kegagalan pertama akan terus terulang selamanya bagi semua pemakai. Simpan fungsinya, bukan janjinya',
+          ],
+          [
+            'Menulis pembungkus baru untuk tiap fungsi callback',
+            'Tiap fungsi kan berbeda',
+            'Untuk pustaka yang mengikuti konvensi galat di depan, satu pembungkus umum cukup untuk semuanya, seperti dibahas di Sub-bab 3.3',
+          ],
+          [
+            'Membungkus penangan peristiwa berulang dengan janji',
+            'Bentuknya sama dengan membungkus `FileReader`',
+            'Janji selesai sekali, sehingga peristiwa kedua dan seterusnya hilang. Untuk peristiwa berulang, pakai penangan biasa atau async iterator',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua layak diwaspadai karena editor tidak menandainya sama sekali. Bentuk `new Promise(async (teruskan, tolak) => { ... })` menghasilkan dua janji yang tidak berhubungan, yaitu janji luar yang menunggu `teruskan` dan janji dalam dari fungsi `async`. Kalau bagian dalam melempar, penolakannya menjadi milik janji dalam yang tidak dipegang siapa pun, sedangkan janji luar tetap menunggu selamanya. Kalau kamu merasa butuh `await` di dalam executor, yang sebenarnya kamu butuhkan adalah fungsi `async` biasa.',
+      ),
+      callout(
+        'tip',
+        'Tiga fungsi bantu yang layak ditulis sekali di tiap project',
+        'Pertama `tidur(ms)` yang membungkus `setTimeout`. Kedua `janjikan(fn)` untuk pustaka callback, seperti di Sub-bab 3.3. Ketiga `denganTimeout(janji, ms)` yang memakai `Promise.race`. Ketiganya pendek, dipakai berulang kali, dan menutup hampir seluruh kebutuhan `new Promise` di aplikasi biasa.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         '`new Promise` hanya untuk membungkus API yang belum berbasis promise.',
@@ -1001,7 +2090,7 @@ export const lessons: LessonDraft[] = [
   written(
     'async-await',
     '`async`/`await` dan Cara Menangani Error-nya',
-    13,
+    27,
     'Sintaks yang membuat kode asinkron terbaca seperti kode biasa — tanpa mengubah cara kerjanya.',
     [
       p(
@@ -1170,6 +2259,236 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Alur pendaftaran pengguna baru punya lima langkah yang harus berurutan, yaitu periksa email belum terpakai, buat akun, buat dompet awal, kirim email verifikasi, lalu catat ke analitik. Tiap langkah bergantung pada hasil langkah sebelumnya, jadi tidak ada yang bisa dijalankan bersamaan. Yang menjadi pertanyaan bukan bagaimana menulisnya, melainkan apa yang terjadi kalau langkah keempat gagal setelah tiga langkah pertama sudah mengubah data.',
+      ),
+      code(
+        'js',
+        `
+        export async function daftar({ email, sandi }) {
+          const sudahAda = await cariPenggunaLewatEmail(email);
+          if (sudahAda) {
+            throw new ErrorValidasi('Email sudah terdaftar', 'email');
+          }
+
+          const pengguna = await buatPengguna({ email, sandi });
+
+          try {
+            await buatDompet(pengguna.id);
+          } catch (penyebab) {
+            // Langkah ini wajib berhasil. Bersihkan, lalu naikkan kegagalannya.
+            await hapusPengguna(pengguna.id);
+            throw new Error('Gagal menyiapkan akun', { cause: penyebab });
+          }
+
+          // Dua langkah terakhir TIDAK boleh menggagalkan pendaftaran.
+          try {
+            await kirimEmailVerifikasi(pengguna);
+          } catch (penyebab) {
+            catatKeLog('email verifikasi gagal', { id: pengguna.id, penyebab });
+          }
+
+          analitik.catat('pengguna_daftar', { id: pengguna.id });   // sengaja tanpa await
+
+          return pengguna;
+        }
+        `,
+        { filename: 'src/pendaftaran.js' },
+      ),
+      p(
+        'Yang membuat fungsi ini layak dipelajari adalah **tiga perlakuan berbeda** untuk tiga jenis kegagalan, dan ketiganya ditulis dengan alat yang sama. Langkah pertama dan kedua dibiarkan melempar apa adanya, sebab kalau email sudah terpakai atau pembuatan akun gagal, tidak ada yang bisa dilanjutkan. Langkah ketiga dibungkus `try` karena kegagalannya menuntut pembersihan lebih dulu. Langkah keempat dibungkus `try` yang hanya mencatat, sebab email verifikasi bisa dikirim ulang nanti dan pendaftarannya sendiri sudah berhasil.',
+      ),
+      p(
+        'Langkah kelima ditulis tanpa `await`, dan itu keputusan yang disengaja bukan kelalaian. Pencatatan analitik tidak boleh menahan respons kepada pengguna, dan kegagalannya tidak boleh mempengaruhi apa pun. Yang perlu diingat, janji tanpa `await` seperti ini kegagalannya menjadi tidak tertangani, jadi fungsi `analitik.catat` sendiri wajib punya `catch` di dalamnya. Kalau tidak, ia akan menghentikan proses di Node.js.',
+      ),
+      p(
+        "Bentuk `new Error('Gagal menyiapkan akun', { cause: penyebab })` menyimpan error asli di dalam error baru. Pesan yang sampai ke pengguna tetap ramah, sedangkan penyebab teknisnya utuh untuk log. Tanpa `cause`, kamu harus memilih antara pesan yang berguna bagi pengguna atau pesan yang berguna bagi penelusuran, dan biasanya yang dipilih salah.",
+      ),
+      code(
+        'js',
+        `
+        // Bentuk yang sama ditulis dengan then, untuk perbandingan.
+        function daftarDenganThen({ email, sandi }) {
+          return cariPenggunaLewatEmail(email)
+            .then((sudahAda) => {
+              if (sudahAda) throw new ErrorValidasi('Email sudah terdaftar', 'email');
+              return buatPengguna({ email, sandi });
+            })
+            .then((pengguna) =>
+              buatDompet(pengguna.id)
+                .catch((penyebab) =>
+                  hapusPengguna(pengguna.id).then(() => {
+                    throw new Error('Gagal menyiapkan akun', { cause: penyebab });
+                  }),
+                )
+                .then(() => pengguna),        // kembalikan pengguna ke rantai
+            );
+          // ... dan dua langkah sisanya membuatnya makin bersarang
+        }
+        `,
+        { caption: 'Alur yang sama dengan `then`, sudah bersarang pada langkah ketiga.' },
+      ),
+      p(
+        'Perbandingan ini memperlihatkan alasan `async` dan `await` menang untuk alur berurutan. Masalahnya bukan panjang melainkan **akses ke variabel sebelumnya**. Pada versi `await`, `pengguna` tetap terlihat sampai baris terakhir fungsi. Pada versi `then`, tiap tahap punya scope-nya sendiri, sehingga `pengguna` harus diteruskan manual lewat `.then(() => pengguna)` atau disarangkan supaya tetap terlihat. Kedua jalan keluarnya sama-sama menambah kerumitan yang tidak ada hubungannya dengan masalah aslinya.',
+      ),
+      callout(
+        'info',
+        'Kalau beberapa langkah wajib berhasil bersama, ini bukan urusan `await`',
+        'Contoh di atas membersihkan secara manual dengan `hapusPengguna`, dan itu jalan keluar seadanya. Untuk operasi yang benar-benar harus berhasil atau gagal bersama, yang dibutuhkan transaksi database, bukan pengaturan `await`. Pembahasannya ada di Kategori Backend Basic pada bab basis data.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat bentuk berikut adalah kegagalan `async` dan `await` yang paling sering ditemui, dan dua di antaranya tidak melempar apa pun.',
+      ),
+      code(
+        'text',
+        `
+        function muat() {
+          const data = await ambil();
+                       ^^^^^
+
+        SyntaxError: Unexpected reserved word
+        `,
+        { caption: '`await` dipakai di fungsi yang tidak `async`.' },
+      ),
+      p(
+        'Pesannya tidak menyebut kata `await` sama sekali, dan itu yang membingungkan saat pertama kali bertemu. Yang perlu dibaca adalah **posisi tanda panahnya**, yang menunjuk tepat ke `await`. Perbaikannya menambahkan `async` di depan `function`. Perlu diingat menambahkan `async` mengubah nilai kembalian fungsi itu menjadi janji, jadi seluruh pemanggilnya juga perlu ikut menyesuaikan, dan itu sering merambat ke atas beberapa tingkat.',
+      ),
+      code(
+        'text',
+        `
+        async function simpan() { throw new Error('gagal simpan'); }
+
+        try {
+          simpan();                 // tanpa await
+        } catch (e) {
+          console.log('tidak pernah sampai sini');
+        }
+        console.log('try selesai tanpa menangkap apa pun');
+
+        try selesai tanpa menangkap apa pun
+        Error: gagal simpan
+        `,
+        { caption: '`try` tanpa `await` tidak menangkap apa pun.' },
+      ),
+      p(
+        'Perhatikan urutan keluarannya, yaitu pesan dari `console.log` muncul **sebelum** errornya. Tanpa `await`, `simpan()` hanya mengembalikan janji dan blok `try` langsung selesai. Kegagalannya baru terjadi setelah itu, saat tidak ada lagi `try` yang aktif. Ini salah satu bug paling sering pada kode `async`, dan karena `try`-nya terlihat ada, tinjauan kode sekilas justru meloloskannya.',
+      ),
+      code(
+        'text',
+        `
+        async function total() {
+          const a = await hargaA();
+          const b = await hargaB();
+          return a + b;
+        }
+
+        const t = total();
+        console.log(t.toFixed(2));
+                      ^
+
+        TypeError: t.toFixed is not a function
+        `,
+        { caption: 'Nilai kembalian fungsi `async` selalu janji.' },
+      ),
+      p(
+        'Fungsi `async` **selalu** mengembalikan janji, bahkan kalau `return`-nya berupa angka biasa. Nilai `t` di atas adalah janji, dan janji tidak punya `toFixed`. Kalau kamu melihat `[object Promise]` di layar atau error seperti ini, tersangka pertamanya selalu `await` yang lupa ditulis di titik pemanggilan.',
+      ),
+      code(
+        'text',
+        `
+        for (const id of daftarId) {
+          await kirimEmail(id);      // 200 email, masing-masing 300 ms
+        }
+
+        // Tidak ada error. Selesai setelah 60 detik.
+        `,
+        { caption: 'Operasi yang sebenarnya independen dijalankan berurutan.' },
+      ),
+      p(
+        'Ini bukan error melainkan pemborosan yang tidak berbunyi, dan ia sangat sering muncul justru karena `await` di dalam loop terbaca sangat wajar. Kalau tiap panggilan tidak bergantung pada hasil panggilan sebelumnya, bentuk yang benar adalah menjalankannya bersamaan, dan itu topik Sub-bab 3.7. Kalau memang harus berurutan, misalnya karena batas laju permintaan penyedia, bentuk ini benar dan layak diberi komentar yang menyebut alasannya.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`SyntaxError: Unexpected reserved word`',
+            '`await` dipakai di fungsi tanpa `async`',
+            'Tambahkan `async`, lalu sesuaikan pemanggilnya',
+          ],
+          [
+            '`try` tidak menangkap kegagalan',
+            '`await` tidak ditulis, jadi `try` selesai sebelum kegagalannya terjadi',
+            'Tambahkan `await` pada pemanggilan di dalam `try`',
+          ],
+          [
+            '`[object Promise]` atau `x is not a function`',
+            'Hasil fungsi `async` dipakai tanpa `await`',
+            'Tambahkan `await`, atau rangkaikan `then`',
+          ],
+          [
+            'Alur berjalan jauh lebih lama daripada perkiraan',
+            '`await` di dalam loop untuk operasi yang independen',
+            'Jalankan bersamaan dengan `Promise.all`, lihat Sub-bab 3.7',
+          ],
+          [
+            '`Uncaught (in promise)` dari fungsi yang punya `try`',
+            'Ada pemanggilan `async` lain di fungsi itu yang tidak di-`await`',
+            'Telusuri pemanggilan yang hasilnya tidak dipakai sama sekali',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        '`async` dan `await` membuat kode asinkron terbaca seperti kode sinkron, dan justru kemiripan itu yang menjadi sumber kesalahan. Enam baris di bawah semuanya berasal dari memperlakukannya benar-benar sinkron.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menambahkan `async` ke setiap fungsi untuk berjaga-jaga',
+            'Tidak ada ruginya',
+            'Nilai kembaliannya berubah menjadi janji, sehingga seluruh pemanggilnya wajib menyesuaikan. Tambahkan `async` hanya kalau di dalamnya benar-benar ada `await`',
+          ],
+          [
+            'Memakai `await` pada nilai yang bukan janji',
+            'Ia tetap bekerja dan hasilnya benar',
+            'Benar, tapi ia tetap menunda sisanya ke antrean microtask tanpa alasan. Di dalam loop panjang, penundaan itu menumpuk',
+          ],
+          [
+            'Memakai `await` di dalam `forEach`',
+            'Bentuknya sama dengan loop lain',
+            '`forEach` tidak menunggu, sehingga seluruh pekerjaan berjalan bersamaan dan fungsi luarnya selesai lebih dulu. Pakai `for...of`',
+          ],
+          [
+            'Membungkus seluruh isi fungsi dalam satu `try` besar',
+            'Semua kegagalan jadi tertangani',
+            'Kamu kehilangan informasi langkah mana yang gagal, dan perlakuannya terpaksa seragam. Bungkus per langkah yang memang butuh perlakuan berbeda',
+          ],
+          [
+            'Menganggap `await` menghentikan seluruh program',
+            'Baris di bawahnya memang menunggu',
+            'Yang berhenti hanya fungsi itu. Kode lain, penangan klik, dan timer tetap berjalan, dan itu sumber race condition yang dibahas di Sub-bab 3.11',
+          ],
+          [
+            'Menaruh `await` di dalam blok `finally` untuk membersihkan',
+            'Pembersihan memang perlu ditunggu',
+            'Sah, tapi kalau `await` di `finally` melempar, kegagalan aslinya tertimpa. Bungkus isi `finally` dengan `try` sendiri',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima adalah pemahaman yang paling menentukan untuk bab-bab berikutnya. `await` menghentikan **fungsi tempat ia ditulis**, bukan aplikasinya. Selama sebuah fungsi menunggu, pengguna masih bisa mengklik tombol lain, timer masih berjalan, dan respons lain masih bisa tiba. Dua alur yang mengubah data yang sama bisa saling menimpa, dan itu bukan kasus langka melainkan kejadian sehari-hari pada kotak pencarian dan formulir yang bisa disimpan dua kali.',
+      ),
+      callout(
+        'tip',
+        'Aturan tiga baris untuk `await`',
+        'Tulis `await` kalau baris berikutnya benar-benar membutuhkan hasilnya. Jangan tulis `await` di dalam loop kalau tiap putaran tidak saling bergantung. Dan kalau kamu sengaja tidak menulis `await`, pastikan janji itu punya `catch`-nya sendiri, atau tandai dengan komentar supaya pembaca berikutnya tahu itu disengaja.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Fungsi `async` selalu mengembalikan Promise, apa pun isinya.',
@@ -1216,7 +2535,7 @@ export const lessons: LessonDraft[] = [
   written(
     'paralel-vs-berurutan',
     'Paralel vs Berurutan: `all`, `allSettled`, `race`, `any`',
-    13,
+    24,
     'Kesalahan performa paling umum di kode asinkron — dan empat alat untuk memperbaikinya.',
     [
       p(
@@ -1402,6 +2721,229 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman detail produk butuh empat potong data, yaitu data produk itu sendiri, daftar ulasan, jumlah stok, dan daftar rekomendasi. Keempatnya datang dari endpoint yang berbeda dan tidak ada satu pun yang membutuhkan hasil yang lain. Ditulis apa adanya dengan empat `await` berurutan, halaman terasa lambat padahal tiap panggilan sendiri cepat.',
+      ),
+      p(
+        'Angkanya bisa diukur, dan pengukuran di bawah memakai penundaan tiruan yang meniru latensi nyata, yaitu 120, 150, 90, dan 200 milidetik.',
+      ),
+      code(
+        'js',
+        `
+        const tunda = (ms, nilai) => new Promise((r) => setTimeout(() => r(nilai), ms));
+        const ambilProduk = () => tunda(120, { nama: 'Kaos' });
+        const ambilUlasan = () => tunda(150, [1, 2, 3]);
+        const ambilStok = () => tunda(90, 12);
+        const ambilRekomendasi = () => tunda(200, ['A', 'B']);
+
+        // BERURUTAN — tiap await menunggu yang sebelumnya selesai.
+        let t = performance.now();
+        const a1 = await ambilProduk();
+        const a2 = await ambilUlasan();
+        const a3 = await ambilStok();
+        const a4 = await ambilRekomendasi();
+        console.log('berurutan :', Math.round(performance.now() - t), 'ms');
+        // berurutan : 562 ms
+
+        // PARALEL — keempatnya dimulai bersamaan.
+        t = performance.now();
+        const [b1, b2, b3, b4] = await Promise.all([
+          ambilProduk(), ambilUlasan(), ambilStok(), ambilRekomendasi(),
+        ]);
+        console.log('paralel   :', Math.round(performance.now() - t), 'ms');
+        // paralel   : 200 ms
+        `,
+        { filename: 'Diukur sungguhan, bukan diperkirakan' },
+      ),
+      p(
+        'Selisihnya 562 melawan 200 milidetik, dan dua angka itu punya arti yang berbeda. Versi berurutan memakan **jumlah** seluruh waktu, yaitu 120 ditambah 150 ditambah 90 ditambah 200. Versi paralel memakan waktu yang **terlama** saja, yaitu 200. Aturan itu berlaku umum, dan artinya menambah satu panggilan lagi ke versi paralel hampir tidak menambah waktu selama panggilan baru itu tidak lebih lambat dari yang terlama.',
+      ),
+      p(
+        'Yang membuat `Promise.all` bekerja adalah keempat fungsi **dipanggil lebih dulu**, baru hasilnya dikumpulkan. Tanda kurung pemanggilan ada di dalam array, sehingga saat baris itu dijalankan keempat permintaan sudah melayang bersamaan. Ini bagian yang sering salah, dan bentuk `Promise.all([ambilProduk, ambilUlasan])` tanpa tanda kurung justru tidak memanggil apa pun.',
+      ),
+      code(
+        'js',
+        `
+        // Masalah Promise.all: satu gagal, semuanya hilang.
+        // Rekomendasi hanya pelengkap, jadi kegagalannya tidak boleh
+        // mengosongkan seluruh halaman.
+        const [produk, ulasan, stok, rekomendasi] = await Promise.all([
+          ambilProduk(),
+          ambilUlasan(),
+          ambilStok(),
+          ambilRekomendasi().catch(() => []),   // pelengkap, boleh gagal
+        ]);
+        `,
+        { caption: 'Memberi `catch` sendiri pada bagian yang boleh gagal.' },
+      ),
+      code(
+        'js',
+        `
+        // Alternatifnya allSettled kalau BANYAK bagian boleh gagal.
+        const hasil = await Promise.allSettled([ambilProduk(), ambilUlasan(), ambilStok()]);
+        // 120 ms, dan tidak ada yang membatalkan yang lain
+
+        const [produk, ulasan, stok] = hasil.map((h) =>
+          h.status === 'fulfilled' ? h.value : null,
+        );
+
+        for (const h of hasil) {
+          if (h.status === 'rejected') catatKeLog('bagian halaman gagal', h.reason);
+        }
+        `,
+        { caption: '`allSettled` selalu berhasil, dan tiap hasilnya menyebut statusnya sendiri.' },
+      ),
+      p(
+        'Perbedaan keduanya menentukan pilihan, dan aturannya bisa diringkas. Pakai `Promise.all` kalau **semua** bagian wajib ada untuk halaman bisa berarti, misalnya data produk dan harganya. Pakai `allSettled` kalau sebagian bagian hanya pelengkap dan halaman tetap berguna tanpanya, misalnya rekomendasi dan ulasan. Kalau hanya satu bagian yang boleh gagal, memberi `catch` sendiri pada bagian itu lebih ringkas daripada memindahkan semuanya ke `allSettled`.',
+      ),
+      p(
+        'Perhatikan bentuk hasil `allSettled` yang berbeda dari `all`. Ia selalu berupa array object berisi `status`, ditambah `value` untuk yang berhasil atau `reason` untuk yang gagal. Ia tidak pernah menolak, sehingga `try` di sekitarnya tidak akan pernah berjalan. Yang sering salah adalah memperlakukan hasilnya seperti hasil `all`, dan membaca `hasil[0].nama` alih-alih `hasil[0].value.nama`.',
+      ),
+      callout(
+        'warning',
+        'Paralel bukan berarti tanpa batas',
+        'Menjalankan lima panggilan bersamaan bagus. Menjalankan lima ratus bersamaan justru memperlambat semuanya, sebab peramban membatasi jumlah koneksi per domain dan sisanya mengantre. Server juga bisa menganggapnya serangan lalu memblokirmu. Untuk daftar panjang, olah per kelompok, misalnya sepuluh sekaligus.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Menjalankan banyak hal bersamaan menghasilkan kegagalan yang bentuknya berbeda dari kegagalan berurutan, terutama karena satu kegagalan bisa menutupi yang lain.',
+      ),
+      code(
+        'text',
+        `
+        const r = await Promise.all([
+          Promise.resolve(1),
+          Promise.reject(new Error('B gagal')),
+          Promise.resolve(3),
+        ]);
+
+        Error: B gagal
+        `,
+        { caption: 'Satu penolakan membatalkan seluruh hasil.' },
+      ),
+      p(
+        '`Promise.all` menolak begitu **salah satu** anggotanya menolak, dan nilai dari anggota yang sudah berhasil ikut hilang. Yang perlu diingat, anggota lain **tidak dibatalkan**. Permintaan jaringan yang sudah melayang tetap berjalan sampai selesai, hanya hasilnya tidak lagi dipakai siapa pun. Kalau kamu memang ingin membatalkannya, itu tugas `AbortController` yang dibahas di sub-bab berikutnya.',
+      ),
+      code(
+        'text',
+        `
+        const hasil = await Promise.allSettled([ambilProduk(), gagal()]);
+        console.log(hasil[0].nama);
+                              ^
+
+        undefined
+        `,
+        { caption: 'Bentuk hasil `allSettled` berbeda dari `all`.' },
+      ),
+      p(
+        'Tiap anggota hasil `allSettled` adalah object pembungkus, bukan nilainya langsung. Yang berhasil punya `status` bernilai `fulfilled` dan `value`, sedangkan yang gagal punya `status` bernilai `rejected` dan `reason`. Karena tidak ada error yang dilempar, kesalahan membaca seperti ini menghasilkan `undefined` dan merambat ke tempat lain. Selalu petakan hasilnya lebih dulu sebelum dipakai.',
+      ),
+      code(
+        'text',
+        `
+        await Promise.any([Promise.reject(new Error('a')), Promise.reject(new Error('b'))]);
+
+        AggregateError: All promises were rejected
+        `,
+        { caption: '`Promise.any` menolak hanya kalau semuanya gagal.' },
+      ),
+      p(
+        'Pesan `AggregateError` tidak menyebut satu pun penyebab aslinya, dan itu sering membingungkan. Penyebab lengkapnya ada di properti `errors`, yaitu array berisi seluruh error dari anggota yang gagal. Saat mencatat kegagalan `Promise.any`, cetak `e.errors.map((x) => x.message)` supaya lognya berguna, sebab pesan bawaannya sendiri tidak memberi tahu apa pun.',
+      ),
+      code(
+        'text',
+        `
+        const hasil = await Promise.all(daftar.map(async (x) => olah(x)));
+        // 5.000 permintaan berangkat bersamaan
+
+        TypeError: Failed to fetch
+        `,
+        { caption: 'Terlalu banyak permintaan bersamaan sampai peramban menyerah.' },
+      ),
+      p(
+        'Bentuk `Promise.all(arr.map(async ...))` sangat ringkas dan sangat mudah disalahgunakan. Untuk lima elemen ia sempurna, sedangkan untuk lima ribu ia membanjiri peramban dan server sekaligus. Gejalanya bermacam-macam, mulai dari `Failed to fetch`, respons 429 dari server, sampai halaman yang membeku. Untuk daftar yang panjangnya tidak kamu kendalikan, olah per kelompok dengan ukuran tetap.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Seluruh data hilang padahal hanya satu bagian gagal',
+            '`Promise.all` menolak begitu ada satu yang menolak',
+            'Beri `catch` pada bagian pelengkap, atau pakai `allSettled`',
+          ],
+          [
+            'Nilai dari `allSettled` selalu `undefined`',
+            'Hasilnya berupa object pembungkus, bukan nilainya',
+            'Baca lewat `.value`, dan periksa `.status` lebih dulu',
+          ],
+          [
+            '`AggregateError: All promises were rejected`',
+            'Seluruh anggota `Promise.any` gagal',
+            'Cetak `e.errors` untuk melihat penyebab masing-masing',
+          ],
+          [
+            '`Failed to fetch` atau 429 saat memproses daftar panjang',
+            'Terlalu banyak permintaan berangkat bersamaan',
+            'Olah per kelompok dengan ukuran tetap',
+          ],
+          [
+            '`Promise.all` selesai seketika dengan hasil aneh',
+            'Fungsinya diberikan tanpa tanda kurung, jadi isinya bukan janji',
+            'Panggil fungsinya di dalam array, yaitu `f()` bukan `f`',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan terbesar di sub-bab ini bukan memilih fungsi yang salah melainkan salah menilai apakah dua operasi benar-benar saling bergantung.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis `await` berurutan untuk panggilan yang independen',
+            'Terbaca rapi dari atas ke bawah',
+            'Waktunya menjadi jumlah seluruhnya, bukan yang terlama. Empat panggilan 150 milidetik menjadi 600 milidetik',
+          ],
+          [
+            'Memberikan nama fungsi tanpa tanda kurung ke `Promise.all`',
+            'Bentuknya mirip memberikan callback',
+            '`Promise.all` menerima nilai, bukan fungsi. Nilai yang bukan janji langsung dianggap selesai, jadi ia selesai seketika tanpa memanggil apa pun',
+          ],
+          [
+            'Memakai `Promise.all` untuk operasi yang saling bergantung',
+            'Keduanya kan sama-sama perlu dijalankan',
+            'Kalau yang kedua butuh hasil yang pertama, ia harus berurutan. Paralel hanya untuk yang benar-benar independen',
+          ],
+          [
+            'Memakai `Promise.race` untuk mengambil yang tercepat dari beberapa server',
+            'Namanya memang balapan',
+            '`race` juga menyelesaikan diri pada **penolakan** pertama, jadi satu server yang gagal cepat mengalahkan yang berhasil lambat. Untuk keberhasilan pertama, pakai `Promise.any`',
+          ],
+          [
+            'Menganggap `Promise.all` membatalkan sisanya saat satu gagal',
+            'Hasilnya toh sudah tidak dipakai',
+            'Semuanya tetap berjalan sampai selesai. Untuk membatalkan sungguhan, butuh `AbortController`',
+          ],
+          [
+            'Menjalankan seluruh isi array secara paralel tanpa memeriksa panjangnya',
+            'Untuk data uji yang sepuluh baris memang cepat',
+            'Panjang array di produksi sering ribuan. Batasi jumlah yang berjalan bersamaan',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama punya cara pemeriksaan yang sangat cepat. Baca dua baris `await` yang berurutan, lalu tanyakan apakah baris kedua memakai variabel dari baris pertama. Kalau tidak, keduanya seharusnya paralel. Pemeriksaan sepuluh detik itu sering memangkas separuh waktu muat sebuah halaman, dan ia salah satu perbaikan performa dengan rasio hasil terhadap usaha yang paling tinggi.',
+      ),
+      callout(
+        'tip',
+        'Pola pengelompokan untuk daftar panjang',
+        'Potong daftarnya menjadi kelompok berukuran tetap dengan `slice`, lalu jalankan `Promise.all` per kelompok di dalam `for...of`. Bentuk itu menjaga jumlah permintaan bersamaan tetap terkendali sambil tetap jauh lebih cepat daripada satu per satu, dan ia cukup pendek untuk ditulis ulang setiap kali tanpa pustaka tambahan.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Dua `await` berurutan yang tidak saling bergantung = kesempatan paralel yang terlewat.',
@@ -1448,7 +2990,7 @@ export const lessons: LessonDraft[] = [
   written(
     'abort-timeout',
     'Membatalkan Pekerjaan: `AbortController` & timeout',
-    12,
+    22,
     'Menghentikan permintaan yang sudah tidak relevan — dan kenapa permintaan tanpa timeout akhirnya menggantung aplikasi.',
     [
       p(
@@ -1610,6 +3152,215 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Kotak pencarian produk memanggil server tiap kali pengguna berhenti mengetik. Dengan debounce dari Bab 1, jumlah panggilannya sudah jauh berkurang. Yang belum selesai adalah masalah kedua, yaitu pengguna mengetik kaos lalu melanjutkan menjadi kaos polos, dan jaringan sedang tidak stabil sehingga jawaban untuk kaos justru datang belakangan. Layar menampilkan hasil yang salah, dan pengguna melihat daftarnya berkedip ke isi lama.',
+      ),
+      p(
+        'Ada dua tingkat perbaikan. Tingkat pertama membuang hasil yang sudah usang, dan itu sudah dibahas di Bab 1 dengan penomoran antrean. Tingkat kedua lebih baik, yaitu **membatalkan permintaannya** sehingga jaringan dan server tidak lagi mengerjakan sesuatu yang tidak akan dipakai.',
+      ),
+      code(
+        'js',
+        `
+        let kendaliTerakhir = null;
+
+        export async function cari(kata, { batasMs = 8000 } = {}) {
+          // Batalkan pencarian sebelumnya, kalau masih berjalan.
+          kendaliTerakhir?.abort(new DOMException('Pencarian baru dimulai', 'AbortError'));
+
+          const kendali = new AbortController();
+          kendaliTerakhir = kendali;
+
+          // Gabungkan dua alasan berhenti: dibatalkan manual, atau kehabisan waktu.
+          const sinyal = AbortSignal.any([kendali.signal, AbortSignal.timeout(batasMs)]);
+
+          try {
+            const respons = await fetch(\`/api/cari?q=\${encodeURIComponent(kata)}\`, { signal: sinyal });
+            if (!respons.ok) throw new Error(\`Server menjawab \${respons.status}\`);
+            return await respons.json();
+          } catch (galat) {
+            if (galat.name === 'AbortError') return null;      // sengaja dibatalkan, bukan bug
+            if (galat.name === 'TimeoutError') {
+              throw new Error(\`Pencarian melebihi \${batasMs} ms\`, { cause: galat });
+            }
+            throw galat;
+          }
+        }
+        `,
+        { filename: 'src/cari.js' },
+      ),
+      p(
+        'Baris `kendaliTerakhir?.abort(...)` di awal adalah inti polanya. Setiap pencarian baru membatalkan pendahulunya sebelum memulai dirinya sendiri, sehingga hanya ada satu permintaan hidup pada satu waktu. Tanda tanya di depan `abort` menangani pemanggilan pertama saat belum ada pendahulu. Memberi alasan berupa `DOMException` bernama `AbortError` membuat penanganan di `catch` bisa membedakan pembatalan yang disengaja dari kegagalan sungguhan.',
+      ),
+      p(
+        '`AbortSignal.any([...])` menggabungkan beberapa sinyal menjadi satu yang berhenti begitu **salah satu** anggotanya berhenti. Di sini alasannya dua, yaitu pengguna mengetik lagi atau permintaannya kelewat lama. Tanpa penggabungan ini, kamu perlu mengatur timer sendiri lalu memanggil `abort` dari dalamnya, dan itu lebih panjang sekaligus lebih mudah bocor.',
+      ),
+      p(
+        'Bagian `catch` memisahkan tiga jenis akhir dengan tiga perlakuan. `AbortError` mengembalikan `null` tanpa melempar, sebab pembatalan yang kamu lakukan sendiri bukan kesalahan yang perlu ditampilkan kepada pengguna. `TimeoutError` diubah menjadi pesan yang menyebut batas waktunya, dengan error aslinya disimpan di `cause`. Sisanya dilempar apa adanya. Pemanggil yang menerima `null` cukup tidak melakukan apa pun, sebab pasti ada pencarian yang lebih baru sedang berjalan.',
+      ),
+      code(
+        'js',
+        `
+        // Membatalkan saat komponen ditutup, supaya tidak menulis ke DOM yang sudah hilang.
+        function pasangPencarian(elemen) {
+          const kendali = new AbortController();
+
+          // addEventListener juga menerima signal, dan itu melepas listener otomatis.
+          elemen.addEventListener('input', tangani, { signal: kendali.signal });
+          window.addEventListener('resize', aturLebar, { signal: kendali.signal });
+
+          // Satu panggilan melepas SEMUA listener yang memakai sinyal ini.
+          return () => kendali.abort();
+        }
+        `,
+        { caption: '`AbortController` juga melepas penangan peristiwa, bukan hanya `fetch`.' },
+      ),
+      p(
+        'Kemampuan ini jarang diketahui dan sangat menghemat kode. Dengan memberikan `signal` ke `addEventListener`, satu panggilan `abort` melepas seluruh listener yang memakai sinyal itu sekaligus. Ini menggantikan daftar `removeEventListener` yang panjang, dan sekaligus menutup masalah dari Bab 2 yaitu `removeEventListener` yang gagal karena rujukan fungsinya berbeda. Pola ini persis yang dipakai fungsi pembersih `useEffect` di React.',
+      ),
+      callout(
+        'warning',
+        'Membatalkan `fetch` tidak selalu membatalkan pekerjaan di server',
+        'Pembatalan memutus koneksi dari sisi peramban. Server yang sudah mulai memproses permintaan biasanya tetap menyelesaikannya, dan untuk operasi yang mengubah data itu berarti perubahannya tetap terjadi. Jangan pernah mengandalkan `abort` untuk membatalkan sebuah pembayaran atau penyimpanan. Untuk itu, yang dibutuhkan kunci idempoten di sisi server.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Pembatalan menghasilkan error yang **disengaja**, dan kesalahan terbesar biasanya memperlakukannya sebagai kegagalan sungguhan.',
+      ),
+      code(
+        'text',
+        `
+        const c = new AbortController();
+        c.abort();
+        await fetch(url, { signal: c.signal });
+
+        AbortError: This operation was aborted
+        `,
+        { caption: 'Pembatalan muncul sebagai error yang dilempar `fetch`.' },
+      ),
+      p(
+        "Yang perlu dipegang, ini bukan bug melainkan cara `fetch` memberi tahu bahwa permintaannya berhenti. Kalau `catch`-mu tidak membedakannya, pengguna akan melihat pesan gagal setiap kali ia mengetik satu huruf lagi, padahal yang terjadi justru sistem bekerja sebagaimana mestinya. Periksa `galat.name === 'AbortError'` sebagai baris pertama di dalam `catch`.",
+      ),
+      code(
+        'text',
+        `
+        await fetch(url, { signal: AbortSignal.timeout(300) });
+
+        TimeoutError: The operation was aborted due to timeout
+        `,
+        { caption: 'Kehabisan waktu punya nama error yang berbeda.' },
+      ),
+      p(
+        'Sejak `AbortSignal.timeout` tersedia, pembatalan karena waktu punya nama tersendiri, yaitu `TimeoutError`, terpisah dari `AbortError`. Perbedaan itu berguna, sebab keduanya menuntut tanggapan yang berbeda. Pembatalan manual berarti sudah ada permintaan baru dan tidak perlu berbuat apa-apa. Kehabisan waktu berarti jaringan atau server bermasalah, dan pengguna perlu diberi tahu beserta tombol coba lagi.',
+      ),
+      code(
+        'text',
+        `
+        const kendali = new AbortController();
+        kendali.abort();
+        const kedua = new AbortController();
+        await fetch(url, { signal: kendali.signal });   // salah sinyal
+
+        AbortError: This operation was aborted
+        `,
+        { caption: 'Sinyal lama dipakai untuk permintaan baru.' },
+      ),
+      p(
+        'Sebuah `AbortController` hanya bisa dipakai satu kali, sebab begitu ia dibatalkan, sinyalnya selamanya berada di keadaan dibatalkan. Permintaan baru yang diberi sinyal itu langsung gagal sebelum sempat berangkat. Kesalahan ini muncul saat controller dibuat sekali di luar fungsi lalu dipakai berulang. Buat controller **baru** untuk tiap permintaan, seperti pada studi kasus di atas.',
+      ),
+      code(
+        'text',
+        `
+        const respons = await fetch(url, { signal });
+        const data = await respons.json();   // dibatalkan di antara dua baris ini
+
+        AbortError: BodyStreamBuffer was aborted
+        `,
+        { caption: 'Pembatalan bisa terjadi saat badan respons sedang dibaca.' },
+      ),
+      p(
+        'Pembatalan tidak hanya berlaku untuk permintaan yang belum dijawab, melainkan juga untuk pembacaan badan responsnya. Pesannya berbeda, tapi `name`-nya tetap `AbortError`, sehingga pemeriksaan berbasis `name` tetap menangkapnya. Ini alasan lain untuk memeriksa `name` alih-alih mencocokkan teks pesan, sebab teks pesannya berbeda antar-peramban dan antar-tahap.',
+      ),
+      table(
+        ['Pesan error', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`AbortError: This operation was aborted`',
+            'Permintaan sengaja dibatalkan',
+            "Periksa `galat.name === 'AbortError'` lalu keluar diam-diam",
+          ],
+          [
+            '`TimeoutError: The operation was aborted due to timeout`',
+            'Batas waktu tercapai',
+            'Tampilkan pesan beserta tombol coba lagi',
+          ],
+          [
+            'Permintaan gagal langsung sebelum berangkat',
+            'Controller yang sudah dibatalkan dipakai ulang',
+            'Buat `AbortController` baru untuk tiap permintaan',
+          ],
+          [
+            '`AbortError: BodyStreamBuffer was aborted`',
+            'Pembatalan terjadi saat badan respons dibaca',
+            'Perlakukan sama, sebab `name`-nya tetap `AbortError`',
+          ],
+          [
+            'Pesan gagal muncul tiap kali pengguna mengetik',
+            'Pembatalan diperlakukan seperti kegagalan sungguhan',
+            'Bedakan berdasarkan `name` sebelum menampilkan apa pun',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Pembatalan sering dianggap penyempurnaan yang bisa ditunda. Untuk halaman yang punya kotak pencarian atau navigasi cepat, ia justru bagian dari perilaku yang benar.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai satu `AbortController` untuk seluruh umur halaman',
+            'Cukup satu, lebih sederhana',
+            'Sekali dibatalkan ia mati selamanya, sehingga seluruh permintaan sesudahnya langsung gagal. Buat satu per permintaan',
+          ],
+          [
+            'Menampilkan pesan error untuk setiap kegagalan `fetch`',
+            'Semua kegagalan kan perlu diberitahukan',
+            'Pembatalan yang kamu lakukan sendiri ikut ditampilkan, sehingga pengguna melihat error saat ia hanya mengetik lebih lanjut',
+          ],
+          [
+            'Mengandalkan debounce saja tanpa pembatalan',
+            'Jumlah panggilan sudah jauh berkurang',
+            'Permintaan yang sudah berangkat tetap bisa datang tidak berurutan. Debounce mengurangi jumlah, pembatalan menjaga urutan',
+          ],
+          [
+            'Membatalkan permintaan yang mengubah data untuk membatalkan aksinya',
+            'Permintaannya kan berhenti',
+            'Server bisa sudah memprosesnya. Pembatalan hanya memutus koneksi, bukan membatalkan pekerjaan',
+          ],
+          [
+            'Lupa memasang batas waktu karena jaringan lokal selalu cepat',
+            'Belum pernah ada yang menggantung',
+            'Permintaan tanpa batas waktu bisa menggantung selamanya di jaringan seluler yang buruk, dan indikator memuat tidak pernah berhenti',
+          ],
+          [
+            'Memeriksa jenis kegagalan dengan mencocokkan teks pesannya',
+            'Pesannya jelas menyebut aborted',
+            'Teks pesan berbeda antar-peramban dan antar-tahap. Periksa `galat.name`',
+          ],
+        ],
+      ),
+      p(
+        'Baris ketiga menjelaskan kenapa debounce dan pembatalan bukan dua pilihan melainkan dua bagian dari satu solusi. Debounce mengurangi **jumlah** permintaan, dan itu menghemat kuota serta beban server. Pembatalan menjamin **urutan**, yaitu hanya hasil dari permintaan terbaru yang boleh sampai ke layar. Kotak pencarian yang benar memakai keduanya, dan tanpa salah satunya masih ada kelas bug yang tersisa.',
+      ),
+      callout(
+        'tip',
+        'Nilai batas waktu yang masuk akal untuk dipakai sebagai titik awal',
+        'Untuk permintaan yang menghalangi tampilan, sekitar 8 sampai 10 detik sudah termasuk lama bagi pengguna. Untuk unggah berkas besar, batasnya harus jauh lebih longgar atau diganti dengan pemantauan kemajuan. Yang penting bukan angkanya melainkan adanya batas, sebab tanpa batas keadaan memuat tidak punya jalan keluar sama sekali.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Promise tidak bisa dibatalkan; operasi di baliknya bisa.',
@@ -1656,7 +3407,7 @@ export const lessons: LessonDraft[] = [
   written(
     'retry-backoff',
     'Pola Retry dengan Exponential Backoff',
-    11,
+    21,
     'Mencoba lagi tanpa memperparah keadaan.',
     [
       p(
@@ -1806,6 +3557,226 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Aplikasi memanggil API pihak ketiga untuk menghitung ongkos kirim. Penyedianya cukup andal, tapi sekitar satu dari lima puluh permintaan gagal dengan status 503 atau kehabisan waktu, dan permintaan yang sama berhasil kalau diulang sedetik kemudian. Tanpa pengulangan, satu dari lima puluh pengguna melihat checkout yang gagal tanpa sebab yang bisa ia perbaiki.',
+      ),
+      p(
+        'Yang perlu diputuskan bukan apakah harus mengulang, melainkan **apa yang layak diulang** dan **berapa lama menunggu di antaranya**. Mengulang hal yang salah justru memperburuk keadaan.',
+      ),
+      code(
+        'js',
+        `
+        const tidur = (ms) => new Promise((teruskan) => setTimeout(teruskan, ms));
+
+        class ErrorHttp extends Error {
+          constructor(status, retryAfter) {
+            super(\`HTTP \${status}\`);
+            this.name = 'ErrorHttp';
+            this.status = status;
+            this.retryAfter = retryAfter;    // detik, dari header Retry-After
+          }
+        }
+
+        // Hanya kegagalan SEMENTARA yang layak diulang.
+        function bolehDiulang(galat) {
+          if (galat.name === 'TimeoutError') return true;
+          if (galat.name === 'TypeError') return true;          // jaringan putus
+          if (galat instanceof ErrorHttp) {
+            return galat.status === 429 || galat.status >= 500;
+          }
+          return false;
+        }
+
+        export async function denganUlang(kerja, { maks = 4, dasarMs = 200 } = {}) {
+          for (let percobaan = 1; ; percobaan += 1) {
+            try {
+              return await kerja(percobaan);
+            } catch (galat) {
+              if (!bolehDiulang(galat) || percobaan >= maks) throw galat;
+
+              const jeda =
+                galat.retryAfter != null
+                  ? galat.retryAfter * 1000
+                  : Math.round(dasarMs * 2 ** (percobaan - 1) * (0.5 + Math.random() * 0.5));
+
+              await tidur(jeda);
+            }
+          }
+        }
+        `,
+        { filename: 'src/dengan-ulang.js' },
+      ),
+      p(
+        'Fungsi `bolehDiulang` adalah bagian terpenting dan paling sering dilupakan. Status 400, 401, 403, dan 404 **tidak pernah** layak diulang, sebab permintaan yang sama akan gagal dengan cara yang sama selamanya. Mengulangnya hanya memperlambat pesan kegagalan yang seharusnya langsung sampai ke pengguna. Yang layak diulang hanya kegagalan yang sifatnya sementara, yaitu kehabisan waktu, jaringan putus, 429 karena batas laju, dan 5xx.',
+      ),
+      p(
+        'Perhitungan `dasarMs * 2 ** (percobaan - 1)` adalah backoff eksponensial, yaitu jeda yang berlipat tiap percobaan sehingga menjadi 200, 400, 800, dan seterusnya. Alasannya, kalau server sedang kewalahan, mengulang cepat justru menambah beban dan memperpanjang gangguannya. Bagian `(0.5 + Math.random() * 0.5)` adalah jitter, yaitu pengacakan yang membuat jedanya berada antara separuh dan penuh.',
+      ),
+      p(
+        'Jitter terlihat sepele dan justru bagian yang paling penting saat gangguan nyata terjadi. Bayangkan seribu pengguna gagal pada detik yang sama karena server sempat mati. Tanpa jitter, keseribunya akan mengulang tepat 200 milidetik kemudian, lalu tepat 400 milidetik kemudian, sehingga server yang baru pulih langsung dihantam gelombang serentak dan mati lagi. Ini disebut kawanan bergemuruh, dan pengacakan kecil sudah cukup memecah gelombangnya.',
+      ),
+      code(
+        'text',
+        `
+        # Keluaran sungguhan, dengan server yang gagal dua kali lalu berhasil.
+        percobaan 1 gagal (HTTP 503), tunggu 145ms
+        percobaan 2 gagal (HTTP 503), tunggu 244ms
+        berhasil di percobaan 3
+
+        # Dan untuk kegagalan yang tidak layak diulang:
+        404 tidak diulang: HTTP 404
+        `,
+        { caption: 'Perhatikan jedanya bukan 200 dan 400 persis, sebab ada jitter.' },
+      ),
+      p(
+        'Baris terakhir keluaran itu sama pentingnya dengan tiga baris di atasnya. Status 404 langsung dilempar tanpa satu pun pengulangan, sehingga pengguna mendapat jawabannya seketika. Kalau `bolehDiulang` tidak ada, pengguna akan menunggu empat percobaan dengan total lebih dari satu detik hanya untuk mendapat pesan yang sudah pasti sejak percobaan pertama.',
+      ),
+      callout(
+        'danger',
+        'Jangan mengulang operasi yang mengubah data tanpa kunci idempoten',
+        'Kalau permintaan pembayaran kehabisan waktu, kamu tidak tahu apakah server sudah memprosesnya atau belum. Mengulangnya bisa berarti pengguna dibebankan dua kali. Untuk operasi yang mengubah data, kirimkan kunci idempoten yang sama pada tiap percobaan supaya server bisa mengenali dan mengabaikan permintaan yang sudah pernah diproses. Rancangannya dibahas di Kategori Backend Intermediate.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Pengulangan menghasilkan kelas kegagalan barunya sendiri, dan sebagian di antaranya justru disebabkan oleh pengulangan itu.',
+      ),
+      code(
+        'text',
+        `
+        HTTP 429
+        HTTP 429
+        HTTP 429
+        HTTP 429
+        Error: HTTP 429
+        `,
+        { caption: 'Diulang empat kali dan tetap gagal, sebab jedanya terlalu pendek.' },
+      ),
+      p(
+        'Status 429 berarti kamu melebihi batas laju permintaan, dan sebagian besar penyedia menyertakan header `Retry-After` yang menyebut berapa detik harus menunggu. Kalau header itu diabaikan dan kamu memakai backoff sendiri yang jauh lebih pendek, keempat percobaan akan ditolak dengan alasan yang sama. Baca `Retry-After` dan patuhi, sebab penyedia lebih tahu kapan pintunya dibuka lagi.',
+      ),
+      code(
+        'text',
+        `
+        // Pengguna menekan Bayar sekali.
+        POST /bayar  -> timeout setelah 5 detik
+        POST /bayar  -> timeout setelah 5 detik
+        POST /bayar  -> 200 OK
+
+        // Di sisi server: tiga transaksi tercatat.
+        `,
+        { caption: 'Pengulangan pada operasi yang mengubah data tanpa kunci idempoten.' },
+      ),
+      p(
+        'Ini kegagalan paling mahal dari seluruh sub-bab, dan ia tidak menghasilkan satu pun error di sisi klien. Dari sudut pandang aplikasimu, permintaannya kehabisan waktu dua kali lalu berhasil. Dari sudut pandang server, ketiganya sampai dan ketiganya diproses. Kehabisan waktu berarti kamu **tidak tahu** apakah permintaannya sampai, dan ketidaktahuan itu yang membuat pengulangan berbahaya.',
+      ),
+      code(
+        'text',
+        `
+        await denganUlang(() => ambil(url), { maks: 8, dasarMs: 1000 });
+
+        // Pengguna menunggu 1 + 2 + 4 + 8 + 16 + 32 + 64 = 127 detik
+        // sebelum melihat pesan gagal.
+        `,
+        { caption: 'Batas percobaan dan jeda dasar yang terlalu besar.' },
+      ),
+      p(
+        'Backoff eksponensial tumbuh sangat cepat, dan delapan percobaan dengan jeda dasar satu detik berarti lebih dari dua menit menunggu. Untuk pekerjaan latar itu mungkin wajar, sedangkan untuk permintaan yang ditunggu pengguna di depan layar itu tidak bisa diterima. Sediakan batas total waktu di samping batas jumlah percobaan, dan untuk alur yang ditunggu pengguna biasanya tiga percobaan sudah cukup.',
+      ),
+      code(
+        'text',
+        `
+        for (const id of daftar) {
+          await denganUlang(() => kirim(id));
+        }
+
+        // Server sedang mati. 500 item x 4 percobaan = 2.000 permintaan.
+        `,
+        { caption: 'Pengulangan di dalam loop memperbanyak beban saat gangguan.' },
+      ),
+      p(
+        'Saat gangguan sungguhan terjadi, seluruh item akan gagal dan seluruhnya akan diulang. Jumlah permintaan justru berlipat tepat pada saat server paling tidak mampu melayaninya. Pola yang benar untuk kasus ini adalah pemutus arus, yaitu setelah sejumlah kegagalan berurutan, berhenti mencoba sama sekali untuk sementara. Pembahasannya ada di Kategori System Design.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Empat kali 429 berturut-turut',
+            'Header `Retry-After` diabaikan',
+            'Baca dan patuhi `Retry-After` kalau ada',
+          ],
+          [
+            'Transaksi tercatat berkali-kali',
+            'Operasi yang mengubah data diulang tanpa kunci idempoten',
+            'Kirim kunci idempoten yang sama pada tiap percobaan',
+          ],
+          [
+            'Pengguna menunggu lebih dari satu menit sebelum tahu gagal',
+            'Batas percobaan dan jeda dasar terlalu besar',
+            'Batasi total waktu, dan pakai tiga percobaan untuk alur interaktif',
+          ],
+          [
+            'Beban ke server justru melonjak saat gangguan',
+            'Setiap item mengulang sendiri-sendiri',
+            'Tambahkan pemutus arus yang berhenti setelah sejumlah kegagalan berurutan',
+          ],
+          [
+            'Kegagalan 400 atau 404 tetap diulang',
+            'Tidak ada penyaringan jenis kegagalan',
+            'Ulang hanya kegagalan sementara, yaitu 429, 5xx, kehabisan waktu, dan jaringan putus',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Pengulangan mudah ditambahkan dan sulit diatur dengan benar. Sebagian besar kesalahan di bawah membuat sistem menjadi lebih rapuh, bukan lebih tangguh.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Mengulang semua kegagalan tanpa memilah',
+            'Semakin banyak dicoba semakin besar peluang berhasil',
+            'Kegagalan 400 dan 404 tidak akan pernah berubah, jadi pengulangannya hanya memperlambat pesan yang sudah pasti',
+          ],
+          [
+            'Memakai jeda tetap, misalnya selalu satu detik',
+            'Lebih mudah diprediksi',
+            'Kalau server sedang kewalahan, jeda tetap dari banyak klien menghasilkan gelombang serentak. Backoff yang berlipat memberi server ruang untuk pulih',
+          ],
+          [
+            'Melewatkan jitter karena terlihat tidak penting',
+            'Pengacakan kecil tidak mungkin berpengaruh',
+            'Tanpa jitter, seluruh klien yang gagal bersamaan akan mengulang bersamaan juga. Ini penyebab gangguan yang berulang setelah server baru pulih',
+          ],
+          [
+            'Mengulang di beberapa lapisan sekaligus',
+            'Tiap lapisan menjaga bagiannya sendiri',
+            'Tiga lapisan yang masing-masing mengulang tiga kali menghasilkan dua puluh tujuh percobaan. Pilih satu lapisan yang bertanggung jawab mengulang',
+          ],
+          [
+            'Tidak mencatat percobaan keberapa yang akhirnya berhasil',
+            'Yang penting hasilnya berhasil',
+            'Kamu kehilangan tanda bahwa penyedia sedang memburuk. Angka percobaan adalah sinyal awal gangguan yang paling murah',
+          ],
+          [
+            'Menaruh pengulangan di dalam fungsi yang juga membangun permintaannya',
+            'Lebih ringkas jadi satu',
+            'Pengulangan menjadi sulit diuji dan sulit dimatikan. Pisahkan sebagai pembungkus umum seperti `denganUlang`',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat sering terjadi tanpa disadari, terutama saat memakai pustaka klien HTTP yang sudah punya pengulangan bawaan. Kalau pustakanya mengulang tiga kali dan kamu membungkusnya lagi dengan tiga kali, satu kegagalan menghasilkan sembilan permintaan. Periksa perilaku bawaan pustaka yang kamu pakai sebelum menambahkan lapisanmu sendiri, dan matikan salah satunya.',
+      ),
+      callout(
+        'tip',
+        'Angka awal yang masuk akal untuk alur yang ditunggu pengguna',
+        'Tiga percobaan, jeda dasar dua ratus milidetik, jitter antara separuh dan penuh, dan total waktu dibatasi sekitar lima detik. Untuk pekerjaan latar yang tidak ditunggu siapa pun, batasnya boleh jauh lebih longgar. Yang membedakan keduanya bukan pentingnya pekerjaan melainkan ada tidaknya manusia yang sedang menunggu di depan layar.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Hanya ulangi kegagalan yang benar-benar bisa berbeda hasilnya.',
@@ -1852,7 +3823,7 @@ export const lessons: LessonDraft[] = [
   written(
     'async-iterator',
     'Async Iterator & `for await...of`',
-    10,
+    21,
     'Mengolah data yang datang bertahap, tanpa menunggu semuanya lengkap.',
     [
       p(
@@ -1988,6 +3959,217 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Tombol Unduh Semua Transaksi di halaman laporan harus menghasilkan berkas CSV. Jumlah barisnya bisa lima ratus untuk toko kecil dan bisa dua ratus ribu untuk toko yang sudah berjalan bertahun-tahun. Server mengirimnya per halaman berisi seribu baris. Kalau seluruh halaman dikumpulkan dulu ke satu array lalu diubah menjadi CSV, dua ratus ribu baris berarti dua salinan penuh di memori sekaligus, dan tab bisa mati sebelum berkasnya jadi.',
+      ),
+      p(
+        'Async iterator menyelesaikan ini dengan mengubah bentuk masalahnya. Alih-alih mengumpulkan dulu lalu mengolah, tiap baris diolah begitu ia tiba lalu dilepas.',
+      ),
+      code(
+        'js',
+        `
+        export async function* halamanDemiHalaman(ambil, { batasHalaman = 500 } = {}) {
+          let kursor = null;
+
+          for (let i = 0; i < batasHalaman; i += 1) {
+            const { data, kursorBerikut } = await ambil(kursor);
+
+            yield* data;                 // keluarkan tiap baris satu per satu
+
+            if (!kursorBerikut) return;  // server bilang sudah habis
+            kursor = kursorBerikut;
+          }
+
+          throw new Error(\`Berhenti setelah \${batasHalaman} halaman, server tidak pernah selesai\`);
+        }
+        `,
+        { filename: 'src/laporan/paginasi.js' },
+      ),
+      code(
+        'js',
+        `
+        // Pemakaiannya terbaca seperti loop biasa, padahal tiap putaran bisa memanggil server.
+        async function unduhCsv(ambil) {
+          const potongan = ['tanggal,produk,total\\n'];
+          let jumlah = 0;
+
+          for await (const baris of halamanDemiHalaman(ambil)) {
+            potongan.push(\`\${baris.tanggal},\${baris.produk},\${baris.total}\\n\`);
+            jumlah += 1;
+
+            if (jumlah % 1000 === 0) {
+              perbaruiKemajuan(jumlah);           // pengguna melihat angkanya naik
+            }
+          }
+
+          return new Blob(potongan, { type: 'text/csv;charset=utf-8' });
+        }
+        `,
+        { filename: 'src/laporan/unduh.js' },
+      ),
+      p(
+        'Tanda bintang pada `async function*` menandai generator asinkron, yaitu fungsi yang bisa `await` di dalamnya sekaligus mengeluarkan nilai satu per satu lewat `yield`. Bentuk `yield* data` mengeluarkan **tiap elemen** array itu satu per satu, bukan arraynya sebagai satu nilai. Tanpa tanda bintang pada `yield`, konsumennya akan menerima array per halaman dan bukan baris per baris.',
+      ),
+      p(
+        'Yang paling berharga dari bentuk ini adalah pemisahan tanggung jawabnya. Fungsi `halamanDemiHalaman` hanya tahu cara berpindah halaman, dan sama sekali tidak tahu bahwa hasilnya akan menjadi CSV. Fungsi `unduhCsv` hanya tahu cara membentuk baris CSV, dan sama sekali tidak tahu datanya datang per halaman. Kalau nanti ada fitur baru yang perlu menghitung total dari data yang sama, ia cukup memakai iterator yang sama tanpa satu baris pun disalin.',
+      ),
+      p(
+        'Baris `if (jumlah % 1000 === 0)` menunjukkan keuntungan praktis yang tidak dimiliki pendekatan kumpulkan dulu. Karena datanya mengalir, kemajuannya bisa dilaporkan sepanjang jalan. Pengguna melihat angka yang naik alih-alih spinner diam selama satu menit, dan perbedaan itu besar bagi persepsi kecepatan meskipun waktu totalnya sama.',
+      ),
+      p(
+        'Batas `batasHalaman` mengikuti pola yang sama dengan loop paginasi di Bab 1, dan alasannya sama. Bug di sisi server yang selalu mengirim kursor berikutnya akan membuat iterator ini berjalan selamanya. Perhatikan `throw` diletakkan **setelah** loop, sehingga ia hanya tercapai kalau loopnya habis tanpa pernah bertemu `return`.',
+      ),
+      callout(
+        'info',
+        '`for await` juga bekerja untuk respons yang mengalir',
+        'Badan sebuah `Response` dari `fetch` bisa dibaca sebagai aliran, dan `for await (const potongan of respons.body)` mengeluarkan potongan byte begitu tiba. Itu yang memungkinkan menampilkan jawaban model bahasa kata demi kata alih-alih menunggu seluruhnya selesai. Bentuk konsumsinya sama persis dengan contoh di atas.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Generator asinkron punya beberapa cara gagal yang khas, dan sebagian di antaranya berupa kebocoran yang tidak berbunyi sama sekali.',
+      ),
+      code(
+        'text',
+        `
+        for await (const v of 5) console.log(v);
+                              ^
+
+        TypeError: 5 is not async iterable
+        `,
+        { caption: '`for await` dipakai pada nilai yang tidak bisa ditelusuri.' },
+      ),
+      p(
+        'Pesannya menyebut `async iterable`, dan itu berbeda dari `iterable` biasa. Yang bisa dipakai `for await` adalah generator asinkron, aliran, dan juga iterable biasa seperti array. Yang tidak bisa adalah angka, object biasa, dan janji tunggal. Kesalahan yang sering terjadi adalah menulis `for await (const x of ambilSemua())` padahal `ambilSemua` mengembalikan janji berisi array, dan bukan generator. Untuk kasus itu, `await` dulu janjinya baru telusuri hasilnya.',
+      ),
+      code(
+        'text',
+        `
+        const arr = [Promise.resolve(1), Promise.resolve(2)];
+        for await (const v of arr) console.log('v', v);
+
+        v 1
+        v 2
+        `,
+        { caption: 'Bukan error, dan hasilnya benar, tapi keduanya berjalan berurutan.' },
+      ),
+      p(
+        '`for await` pada array berisi janji memang bekerja dan menunggu tiap janji satu per satu. Yang perlu disadari, ia **berurutan** bukan paralel. Kalau kedua janji itu adalah panggilan jaringan yang independen, bentuk ini memakan jumlah seluruh waktunya sementara `Promise.all` hanya memakan yang terlama. Pakai `for await` kalau urutannya penting atau kalau datanya memang datang bertahap, dan pakai `Promise.all` kalau seluruhnya sudah ada dan independen.',
+      ),
+      code(
+        'text',
+        `
+        for await (const baris of halamanDemiHalaman(ambil)) {
+          if (baris.total > 1_000_000) break;      // berhenti di tengah
+        }
+
+        // Tidak ada error. Tapi apakah 'finally' di dalam generator berjalan?
+        `,
+        {
+          caption:
+            '`break` di tengah menghentikan generator, dan pembersihannya perlu diperhatikan.',
+        },
+      ),
+      p(
+        'Saat `for await` dihentikan dengan `break`, `return`, atau `throw`, JavaScript memanggil `return()` pada generatornya. Kalau generatormu punya blok `try` dan `finally`, blok `finally` itu akan berjalan, dan di situlah tempat menutup koneksi atau membatalkan permintaan yang menggantung. Kalau kamu tidak menyediakannya, permintaan halaman berikutnya yang sudah melayang tetap berjalan tanpa ada yang memakai hasilnya.',
+      ),
+      code(
+        'text',
+        `
+        async function* ambilTerus() {
+          while (true) {
+            yield await ambilSatu();
+          }
+        }
+
+        // Dipanggil tanpa break dan tanpa batas.
+        for await (const x of ambilTerus()) simpan(x);
+        `,
+        { caption: 'Generator tak berujung tanpa jalan keluar.' },
+      ),
+      p(
+        'Berbeda dari loop sinkron tak berujung yang membekukan tab, bentuk ini justru **tidak** membekukan apa pun, sebab tiap putaran menunggu dan memberi giliran ke event loop. Halaman tetap responsif, dan itu yang membuatnya berbahaya. Yang terjadi adalah permintaan jaringan yang tidak pernah berhenti, memori yang terus bertambah kalau hasilnya disimpan, dan kuota yang habis tanpa ada yang menyadari. Selalu sediakan batas atau syarat berhenti.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`x is not async iterable`',
+            'Yang ditelusuri janji atau nilai biasa, bukan generator',
+            '`await` dulu janjinya, atau ubah sumbernya menjadi generator asinkron',
+          ],
+          [
+            'Terasa lambat padahal sudah memakai `for await`',
+            'Ia berurutan, bukan paralel',
+            'Pakai `Promise.all` kalau seluruhnya sudah ada dan independen',
+          ],
+          [
+            'Permintaan tetap berjalan setelah loop di-`break`',
+            'Generator tidak punya pembersihan di `finally`',
+            'Bungkus isi generator dengan `try` dan `finally`, lalu batalkan di sana',
+          ],
+          [
+            'Memori terus naik selama pengunduhan',
+            'Hasil tiap putaran tetap disimpan ke satu array besar',
+            'Olah lalu lepas, atau tulis langsung ke tujuan alirannya',
+          ],
+          [
+            'Konsumennya menerima array per halaman, bukan baris',
+            '`yield` dipakai, seharusnya `yield*`',
+            'Ganti menjadi `yield*` untuk mengeluarkan tiap elemen',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Async iterator adalah alat yang cocok untuk satu jenis masalah saja, yaitu data yang datang bertahap. Sebagian besar kesalahan di bawah berasal dari memakainya di luar itu.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `for await` untuk daftar janji yang sudah lengkap',
+            'Bentuknya lebih terbaca daripada `Promise.all`',
+            'Ia menunggu satu per satu, sehingga waktunya menjadi jumlah seluruhnya. Untuk yang sudah lengkap dan independen, `Promise.all` yang tepat',
+          ],
+          [
+            'Mengumpulkan seluruh hasil generator ke array lalu mengolahnya',
+            'Lebih mudah dipikirkan',
+            'Itu membuang seluruh keuntungan mengalir, sebab memorinya kembali menampung semuanya. Olah tiap elemen di dalam loop',
+          ],
+          [
+            'Menulis generator tanpa batas jumlah putaran',
+            'Server pasti akan bilang kapan habis',
+            'Bug di server membuatnya berjalan selamanya tanpa membekukan halaman, jadi tidak ada gejala yang terlihat',
+          ],
+          [
+            'Melupakan `finally` untuk pembersihan',
+            'Loopnya toh selalu selesai sampai habis',
+            '`break`, `return`, dan error dari konsumen semuanya menghentikan generator di tengah. Tanpa `finally`, koneksi dan permintaan tergantung',
+          ],
+          [
+            'Memakai generator untuk data yang jumlahnya pasti kecil',
+            'Bentuknya lebih canggih',
+            'Untuk lima puluh baris, satu panggilan biasa lebih pendek dan lebih mudah dibaca. Generator berguna saat jumlahnya besar atau tidak diketahui',
+          ],
+          [
+            'Menggabungkan `yield` dan nilai kembalian dalam satu generator',
+            'Keduanya sama-sama mengeluarkan nilai',
+            'Nilai dari `return` tidak muncul di `for await`, jadi ia hilang tanpa jejak. Keluarkan seluruh hasil lewat `yield`',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir sering menghabiskan waktu penelusuran yang tidak perlu. Kalau generatormu menulis `return jumlahTotal` di akhir, nilai itu **tidak** akan pernah muncul di loop `for await`, sebab loop berhenti tepat saat generator selesai. Nilainya hanya bisa diambil kalau kamu memanggil `next()` secara manual dan membaca propertinya. Untuk hal seperti total dan ringkasan, hitung di sisi konsumen selama loop berjalan.',
+      ),
+      callout(
+        'tip',
+        'Cara memutuskan antara `Promise.all` dan `for await`',
+        'Tanyakan apakah seluruh pekerjaannya sudah bisa dimulai sekarang. Kalau ya dan jumlahnya wajar, `Promise.all` lebih cepat. Kalau pekerjaan berikutnya baru bisa dimulai setelah yang sekarang selesai, misalnya karena butuh kursor halaman berikutnya, `for await` adalah satu-satunya bentuk yang benar.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         '`async function*` menghasilkan nilai bertahap; `for await...of` mengonsumsinya.',
@@ -2033,7 +4215,7 @@ export const lessons: LessonDraft[] = [
   written(
     'jebakan-async',
     'Jebakan Umum di Kode Asinkron',
-    12,
+    23,
     'Kesalahan yang lolos review tapi muncul di produksi.',
     [
       p(
@@ -2209,6 +4391,244 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman checkout punya tombol Bayar. Pengguna menekannya, jaringan sedang lambat, tidak ada yang berubah di layar selama dua detik, lalu ia menekannya lagi. Di server tercatat dua pesanan. Setelah diperbaiki dengan menonaktifkan tombol, muncul laporan kedua, yaitu total di ringkasan kadang tidak cocok dengan total yang tercetak di faktur.',
+      ),
+      p(
+        'Dua bug ini bukan kejadian yang berdiri sendiri, melainkan dua wajah dari satu kesalahpahaman yang sama, yaitu mengira `await` membuat sebuah alur kebal dari gangguan alur lain. Fungsi checkout di bawah memuat lima jebakan sekaligus dari sub-bab ini.',
+      ),
+      code(
+        'js',
+        `
+        // Versi yang memuat lima jebakan sekaligus.
+        let totalTampil = 0;
+
+        async function bayar(keranjang) {
+          const harga = [];
+          for (const item of keranjang) {
+            harga.push(await ambilHarga(item.id));      // 1. berurutan padahal independen
+          }
+
+          totalTampil = harga.reduce((a, b) => a + b, 0);  // 2. race condition
+
+          keranjang.forEach(async (item) => {
+            await kurangiStok(item.id);                 // 3. forEach tidak menunggu
+          });
+
+          try {
+            kirimPesanan(keranjang, totalTampil);       // 4. tanpa await, try tidak berguna
+          } catch (e) {
+            tampilkanGagal(e);
+          }
+
+          catatAnalitik('bayar', totalTampil);          // 5. floating promise
+        }
+        `,
+        { filename: 'src/checkout.js — jangan ditiru' },
+      ),
+      p(
+        'Jebakan pertama ada di loop. Sepuluh item berarti sepuluh panggilan berurutan, dan pada 150 milidetik per panggilan itu 1,5 detik yang seharusnya 150 milidetik. Jebakan kedua, `totalTampil` adalah variabel modul yang ditulis oleh fungsi ini. Kalau pengguna sempat mengubah keranjang lalu memicu `bayar` lagi, dua alur menulis ke variabel yang sama dan yang selesai belakangan menang, tanpa peduli mana yang lebih baru.',
+      ),
+      p(
+        'Jebakan ketiga membuat pengurangan stok tidak pernah ditunggu, sehingga `bayar` selesai dan pesanan terkirim sebelum stoknya sempat berkurang. Jebakan keempat, `kirimPesanan` tanpa `await` berarti `try` sudah selesai jauh sebelum kegagalannya terjadi, jadi `catch` itu tidak akan pernah berjalan. Jebakan kelima, `catatAnalitik` yang tidak ditunggu dan tidak diberi `catch` akan menjadi penolakan tidak tertangani kalau ia gagal.',
+      ),
+      code(
+        'js',
+        `
+        // Versi yang menutup kelima jebakan.
+        let idPermintaan = 0;
+
+        async function bayar(keranjang) {
+          const idSaya = ++idPermintaan;
+
+          // 1. Independen, jadi jalankan bersamaan.
+          const harga = await Promise.all(keranjang.map((item) => ambilHarga(item.id)));
+          const total = harga.reduce((a, b) => a + b, 0);
+
+          // 2. Kalau sudah ada permintaan yang lebih baru, hasil ini sudah usang.
+          if (idSaya !== idPermintaan) return null;
+
+          // 3. for...of menunggu, dan urutan pengurangan stok memang penting.
+          for (const item of keranjang) {
+            await kurangiStok(item.id);
+          }
+
+          // 4. await di dalam try, supaya catch benar-benar bekerja.
+          try {
+            await kirimPesanan(keranjang, total, { kunciIdempoten: idKunci(keranjang) });
+          } catch (galat) {
+            tampilkanGagal(galat);
+            throw galat;
+          }
+
+          // 5. Sengaja tidak ditunggu, tapi kegagalannya ditangani sendiri.
+          void catatAnalitik('bayar', total).catch(() => {});
+
+          return total;
+        }
+        `,
+        { filename: 'src/checkout.js — versi yang benar' },
+      ),
+      p(
+        'Perubahan nomor dua layak diperhatikan lebih lama, sebab ia satu-satunya yang tidak bisa diselesaikan dengan mengganti bentuk sintaks. Penomoran `idSaya` dan pemeriksaan sesudah `await` adalah pola penjaga respons basi yang sudah muncul di Bab 1 dan Bab 3. Ia diperlukan karena `await` **tidak** mengunci apa pun, dan selama sebuah fungsi menunggu, pengguna masih bisa menekan tombol lagi.',
+      ),
+      p(
+        'Perhatikan juga `total` sekarang variabel lokal, bukan variabel modul. Ini perbaikan yang lebih dalam daripada penjaga id, sebab dua alur yang berjalan bersamaan tidak lagi berebut tempat penyimpanan yang sama. Aturan umum yang bisa dipegang, keadaan yang bisa disentuh dua alur asinkron sekaligus adalah sumber bug yang paling sulit direproduksi, dan cara termurah menghindarinya adalah tidak membuatnya menjadi bersama sejak awal.',
+      ),
+      p(
+        'Kata `void` di depan `catatAnalitik` adalah penanda yang bisa dibaca manusia maupun alat lint, artinya janji ini memang sengaja tidak ditunggu. Ditambah `.catch(() => {})` di belakangnya, kegagalannya tidak akan menjadi penolakan tidak tertangani. Tanpa dua penanda itu, pembaca berikutnya tidak punya cara membedakan mana yang sengaja dan mana yang lupa.',
+      ),
+      callout(
+        'danger',
+        'Kunci idempoten adalah satu-satunya perlindungan sungguhan dari pesanan ganda',
+        'Menonaktifkan tombol menutup kasus klik ganda, dan itu perlu. Yang tidak ia tutup adalah pengguna yang menekan muat ulang, jaringan yang mengirim ulang permintaan, dan pengulangan otomatis dari Sub-bab 3.9. Server harus bisa mengenali bahwa dua permintaan adalah permintaan yang sama, dan itu hanya mungkin kalau klien mengirimkan kunci yang sama.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Jebakan asinkron punya sifat yang membuatnya mahal, yaitu sebagian besarnya tidak melempar apa pun di tempat kesalahannya dibuat.',
+      ),
+      code(
+        'text',
+        `
+        keranjang.forEach(async (item) => {
+          await kurangiStok(item.id);
+        });
+        console.log('semua stok berkurang');
+
+        semua stok berkurang        <- tercetak lebih dulu
+        (lalu sepuluh pengurangan stok berjalan bersamaan)
+        `,
+        { caption: '`forEach` tidak menunggu fungsi `async` yang diberikan kepadanya.' },
+      ),
+      p(
+        '`forEach` memanggil fungsimu untuk tiap elemen lalu langsung lanjut, tanpa peduli fungsi itu mengembalikan janji. Hasilnya sepuluh janji melayang tanpa ada yang memegangnya, dan baris sesudah `forEach` berjalan sebelum satu pun selesai. Kalau urutannya penting, pakai `for...of` dengan `await`. Kalau tidak penting dan boleh bersamaan, pakai `await Promise.all(arr.map(...))` supaya tetap ada yang menunggunya.',
+      ),
+      code(
+        'text',
+        `
+        try {
+          simpan();                  // fungsi async, tanpa await
+        } catch (e) {
+          tampilkanGagal(e);         // tidak pernah berjalan
+        }
+
+        Uncaught (in promise) Error: gagal simpan
+        `,
+        { caption: '`try` tanpa `await` tidak melindungi apa pun.' },
+      ),
+      p(
+        'Blok `try` hanya aktif selama kode di dalamnya berjalan. `simpan()` tanpa `await` selesai seketika dengan mengembalikan janji, jadi blok `try` sudah tutup sebelum kegagalannya terjadi. Bentuk ini sangat berbahaya karena terlihat aman saat ditinjau sekilas. Kalau sebuah fungsi `async` dipanggil di dalam `try`, hampir pasti ia butuh `await`.',
+      ),
+      code(
+        'text',
+        `
+        // Pengguna mengetik cepat, dua permintaan berangkat.
+        cari('kaos');        // lambat, 800 ms
+        cari('kaos polos');  // cepat, 100 ms
+
+        // Layar akhirnya menampilkan hasil untuk 'kaos'.
+        `,
+        { caption: 'Respons yang datang tidak berurutan saling menimpa.' },
+      ),
+      p(
+        'Tidak ada error, tidak ada peringatan, dan bugnya hanya muncul kalau jaringan kebetulan berperilaku seperti itu. Karena di komputer pengembangan jaringan biasanya cepat dan stabil, bug ini hampir tidak pernah muncul saat pengujian manual dan sangat sering muncul di ponsel pengguna. Pakai pembatas jaringan di DevTools untuk membuatnya bisa direproduksi.',
+      ),
+      code(
+        'text',
+        `
+        async function muat() {
+          const data = await ambil();
+          setState(data);            // komponen sudah dilepas
+        }
+
+        Warning: Can't perform a React state update on an unmounted component.
+        `,
+        { caption: 'Hasil datang setelah bagian yang menampilkannya sudah tidak ada.' },
+      ),
+      p(
+        'Peringatan ini khas React, tapi masalahnya berlaku umum, yaitu menulis ke sesuatu yang sudah tidak ada. Versi tanpa React-nya berupa `Cannot set properties of null` saat kamu menulis ke elemen yang sudah dihapus dari halaman. Perbaikannya sama untuk keduanya, yaitu batalkan permintaannya saat bagian itu ditutup, memakai `AbortController` seperti di Sub-bab 3.8.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Baris sesudah `forEach` berjalan terlalu cepat',
+            '`forEach` tidak menunggu fungsi `async`',
+            'Pakai `for...of` dengan `await`, atau `Promise.all` dengan `map`',
+          ],
+          [
+            '`catch` tidak pernah berjalan padahal ada `try`',
+            'Pemanggilan di dalamnya tidak di-`await`',
+            'Tambahkan `await`',
+          ],
+          [
+            'Layar menampilkan hasil yang sudah usang',
+            'Respons datang tidak berurutan',
+            'Pakai penjaga nomor permintaan, atau batalkan yang lama',
+          ],
+          [
+            'Peringatan menulis ke komponen yang sudah dilepas',
+            'Hasil datang setelah tujuannya hilang',
+            'Batalkan permintaan saat komponen ditutup',
+          ],
+          [
+            '`Uncaught (in promise)` tanpa baris yang jelas',
+            'Ada janji yang dibuat tanpa `await` dan tanpa `catch`',
+            'Cari pemanggilan `async` yang hasilnya tidak dipakai sama sekali',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Sub-bab ini sendiri adalah kumpulan kesalahan, jadi tabel di bawah memuat yang belum disebut di atas, ditambah kebiasaan yang membuat kesalahan itu sulit ditemukan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menguji alur asinkron hanya di jaringan cepat',
+            'Alurnya kan sama saja',
+            'Race condition, respons yang saling menimpa, dan keadaan memuat yang berkedip semuanya hanya muncul saat lambat. Pakai pembatas jaringan di DevTools',
+          ],
+          [
+            'Menyimpan hasil asinkron ke variabel di luar fungsi',
+            'Supaya bisa dipakai bagian lain',
+            'Dua alur yang berjalan bersamaan menulis ke tempat yang sama. Simpan hasilnya sebagai variabel lokal, lalu kembalikan',
+          ],
+          [
+            'Menambahkan `setTimeout` supaya urutannya benar',
+            'Setelah ditunda, urutannya jadi cocok',
+            'Itu menebak berapa lama sesuatu memakan waktu, dan tebakan itu salah di perangkat lain. Tunggu hal yang benar dengan `await`',
+          ],
+          [
+            'Menonaktifkan tombol saja untuk mencegah kiriman ganda',
+            'Klik gandanya memang tertutup',
+            'Muat ulang halaman, pengulangan otomatis, dan pengiriman ulang jaringan tetap bisa menggandakan. Perlindungan sungguhan ada di server',
+          ],
+          [
+            'Membungkus seluruh isi fungsi dengan satu `try` besar',
+            'Semua kegagalan tertangani',
+            'Kamu kehilangan informasi langkah mana yang gagal, dan biasanya tetap ada satu pemanggilan yang lupa di-`await` di dalamnya',
+          ],
+          [
+            'Mengabaikan peringatan lint tentang janji yang tidak ditunggu',
+            'Kodenya jalan',
+            'Aturan seperti `no-floating-promises` justru dibuat untuk menangkap tepat kelas bug di sub-bab ini. Kalau memang sengaja, tandai dengan `void` dan beri `catch`',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama layak dijadikan kebiasaan tetap. Buka DevTools, pilih pembatas jaringan Slow 4G, lalu jalankan alur yang baru kamu tulis. Sebagian besar bug di sub-bab ini akan muncul dalam percobaan pertama, dan menemukannya di mejamu sendiri jauh lebih murah daripada menerima laporan yang berbunyi kadang totalnya salah.',
+      ),
+      callout(
+        'tip',
+        'Lima pertanyaan untuk memeriksa fungsi asinkron sebelum selesai',
+        'Apakah ada `await` di dalam loop yang sebenarnya independen. Apakah ada janji yang dibuat tanpa `await` dan tanpa `catch`. Apakah setiap pemanggilan di dalam `try` benar-benar di-`await`. Apakah ada keadaan bersama yang ditulis setelah `await`. Dan apakah ada jalan keluar kalau bagian yang menampilkannya sudah ditutup lebih dulu.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         '`await` dalam loop untuk operasi independen membuang waktu tanpa alasan.',
@@ -2256,7 +4676,7 @@ export const lessons: LessonDraft[] = [
   written(
     'praktik-fetch-paralel',
     'Praktik: Fetch berurutan vs paralel',
-    13,
+    25,
     'Mengukur sendiri selisihnya, bukan mempercayai teori.',
     [
       p(
@@ -2408,6 +4828,218 @@ export const lessons: LessonDraft[] = [
         'Berapa lama `AbortSignal.timeout` benar-benar menunggu sebelum melempar.',
       ),
 
+      divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Praktik di atas mengukur perbedaan berurutan dan paralel pada sumber tiruan. Sekarang bentuk yang benar-benar dipakai di halaman produk, yaitu satu fungsi yang menggabungkan seluruh materi bab ini. Empat sumber data, dua di antaranya wajib dan dua lainnya pelengkap, dengan batas waktu, pembatalan, pengulangan untuk kegagalan sementara, dan pelaporan yang cukup untuk menelusuri kalau nanti ada yang lambat.',
+      ),
+      code(
+        'js',
+        `
+        import { denganUlang } from './dengan-ulang.js';
+
+        export async function muatHalamanProduk(id, { sinyalLuar, batasMs = 8000 } = {}) {
+          const kendali = new AbortController();
+          const sinyal = sinyalLuar
+            ? AbortSignal.any([kendali.signal, sinyalLuar, AbortSignal.timeout(batasMs)])
+            : AbortSignal.any([kendali.signal, AbortSignal.timeout(batasMs)]);
+
+          const ambil = (jalur) =>
+            denganUlang(async () => {
+              const r = await fetch(jalur, { signal: sinyal });
+              if (r.status === 429 || r.status >= 500) {
+                throw new ErrorHttp(r.status, Number(r.headers.get('Retry-After')) || null);
+              }
+              if (!r.ok) throw new Error(\`\${r.status} pada \${jalur}\`);
+              return r.json();
+            }, { maks: 3, dasarMs: 200 });
+
+          const mulai = performance.now();
+
+          try {
+            // Dua yang WAJIB. Kalau salah satu gagal, halaman tidak berarti.
+            const wajib = Promise.all([ambil(\`/api/produk/\${id}\`), ambil(\`/api/stok/\${id}\`)]);
+
+            // Dua yang PELENGKAP. Kegagalannya tidak boleh mengosongkan halaman.
+            const pelengkap = Promise.allSettled([
+              ambil(\`/api/ulasan/\${id}\`),
+              ambil(\`/api/rekomendasi/\${id}\`),
+            ]);
+
+            const [[produk, stok], [ulasan, rekomendasi]] = await Promise.all([wajib, pelengkap]);
+
+            return {
+              produk,
+              stok,
+              ulasan: ulasan.status === 'fulfilled' ? ulasan.value : [],
+              rekomendasi: rekomendasi.status === 'fulfilled' ? rekomendasi.value : [],
+              gagalSebagian: [ulasan, rekomendasi]
+                .filter((h) => h.status === 'rejected')
+                .map((h) => h.reason.message),
+              msTotal: Math.round(performance.now() - mulai),
+            };
+          } finally {
+            // Apa pun hasilnya, jangan tinggalkan permintaan menggantung.
+            kendali.abort();
+          }
+        }
+        `,
+        { filename: 'src/produk/muat-halaman.js' },
+      ),
+      p(
+        'Bagian paling menentukan ada di dua baris pembentukan `wajib` dan `pelengkap`. Keduanya **tidak** di-`await` di baris pembuatannya, sehingga keempat permintaan sudah berangkat bersamaan pada saat itu juga. Barulah `Promise.all([wajib, pelengkap])` di bawahnya menunggu keduanya. Kalau `wajib` di-`await` lebih dulu di barisnya sendiri, dua permintaan pelengkap baru berangkat sesudahnya dan seluruh keuntungan paralel hilang.',
+      ),
+      p(
+        'Pemisahan wajib dan pelengkap adalah keputusan produk, bukan keputusan teknis, dan itu perlu ditegaskan. `Promise.all` untuk yang wajib berarti halaman menolak tampil tanpa data produk atau stok, dan itu benar sebab harga tanpa stok bisa menyesatkan pembeli. `allSettled` untuk yang pelengkap berarti ulasan yang mati tidak menghalangi orang membeli. Yang menentukan pembagian ini bukan seberapa penting datanya menurut pemrogram, melainkan apakah halaman masih berguna tanpanya.',
+      ),
+      p(
+        'Field `gagalSebagian` mengembalikan daftar pesan dari bagian yang gagal, dan itu sengaja dibuat bagian dari hasil bukan sekadar dicatat diam-diam. Tampilan bisa memakainya untuk menampilkan pemberitahuan kecil di bagian ulasan alih-alih membiarkan area itu kosong tanpa penjelasan. Ini penerapan langsung dari aturan empat keadaan tampilan, yaitu kegagalan sebagian tetap harus punya wujud yang bisa dilihat pengguna.',
+      ),
+      p(
+        'Blok `finally` yang memanggil `kendali.abort()` berjalan pada ketiga kemungkinan, yaitu berhasil, gagal, dan dibatalkan dari luar. Pada jalur berhasil ia tidak melakukan apa-apa yang terasa, sebab seluruh permintaan sudah selesai. Pada jalur gagal ia penting, sebab `Promise.all` yang menolak tidak membatalkan anggota lain, dan tanpa baris ini dua permintaan pelengkap tetap berjalan tanpa ada yang memakai hasilnya.',
+      ),
+      p(
+        'Parameter `sinyalLuar` membuat fungsi ini bisa dibatalkan oleh pemanggilnya, misalnya saat pengguna berpindah halaman sebelum pemuatan selesai. Menggabungkannya dengan `AbortSignal.any` berarti ada tiga alasan berhenti yang berlaku sekaligus, yaitu pembersihan internal, permintaan dari luar, dan kehabisan waktu. Pemanggil tidak perlu tahu ketiganya, ia cukup memberikan sinyalnya sendiri.',
+      ),
+      callout(
+        'tip',
+        'Kembalikan angka waktunya, jangan hanya mencatatnya',
+        'Field `msTotal` terlihat sepele dan sangat berguna. Begitu angka itu ikut dikembalikan, ia bisa dikirim ke pemantauan, ditampilkan di mode pengembangan, atau dipakai di test yang memastikan pemuatan tidak melewati anggaran. Angka yang hanya dicetak ke console hilang begitu tab ditutup.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Fungsi yang menggabungkan banyak teknik punya kegagalan gabungan juga. Empat berikut adalah yang paling sering muncul saat pola ini dipasang pertama kali.',
+      ),
+      code(
+        'text',
+        `
+        const [produk, stok] = await Promise.all([ambil(a), ambil(b)]);
+        const [ulasan] = await Promise.allSettled([ambil(c)]);
+
+        // Total 340 ms, padahal seharusnya 200 ms.
+        `,
+        { caption: 'Kelompok kedua baru berangkat setelah kelompok pertama selesai.' },
+      ),
+      p(
+        'Ini kesalahan paralel yang paling halus, sebab kedua barisnya sendiri sudah memakai `Promise.all` dengan benar. Yang salah adalah `await` pertama menahan seluruh baris berikutnya. Aturan yang bisa dipegang, buat **seluruh** janji lebih dulu tanpa `await`, baru tunggu semuanya di satu tempat. Kalau kamu melihat dua `await Promise.all` berurutan, hampir selalu keduanya bisa digabung.',
+      ),
+      code(
+        'text',
+        `
+        const hasil = await muatHalamanProduk(7);
+        console.log(hasil.ulasan.length);
+                                 ^
+
+        TypeError: Cannot read properties of undefined (reading 'length')
+        `,
+        { caption: 'Hasil `allSettled` dibaca tanpa memeriksa statusnya.' },
+      ),
+      p(
+        "Kalau baris pemetaan `ulasan.status === 'fulfilled' ? ulasan.value : []` dilupakan, yang tersimpan di field `ulasan` adalah object pembungkus `{ status, reason }` dan bukan arraynya. Pemakainya lalu membaca `.length` dari sesuatu yang tidak punya `length`. Perhatikan nilai cadangannya berupa array kosong, bukan `null`, sehingga pemakainya bisa langsung memetakannya tanpa pemeriksaan tambahan.",
+      ),
+      code(
+        'text',
+        `
+        Error: 8000 ms terlampaui
+
+        # Padahal tiap permintaan sendiri hanya 200 ms.
+        `,
+        { caption: 'Batas waktu total termakan oleh pengulangan.' },
+      ),
+      p(
+        'Ini jebakan gabungan antara batas waktu dan pengulangan yang mudah terlewat. Sinyal batas waktu berlaku untuk **seluruh** rangkaian, sedangkan `denganUlang` menambahkan jeda di antara percobaan. Tiga percobaan dengan backoff bisa menghabiskan lebih dari satu detik hanya untuk menunggu, dan itu sebelum permintaan terakhirnya berjalan. Kalau angka batas waktunya ketat, kurangi jumlah percobaannya, atau berikan batas waktu per percobaan alih-alih untuk keseluruhan.',
+      ),
+      code(
+        'text',
+        `
+        AbortError: This operation was aborted
+
+        # Muncul pada pemuatan yang seharusnya berhasil.
+        `,
+        { caption: 'Sinyal dari `finally` membatalkan pengulangan yang sedang berjalan.' },
+      ),
+      p(
+        'Kalau `kendali.abort()` di `finally` dijalankan sementara masih ada percobaan ulang yang tertunda dalam jeda, percobaan itu akan langsung gagal dengan `AbortError`. Pada contoh di atas hal ini tidak terjadi karena `finally` baru berjalan setelah seluruh `await` selesai. Ia menjadi masalah kalau kamu memindahkan `abort` ke tempat lain, misalnya ke penangan `catch` yang berjalan lebih awal. Urutan antara pembatalan dan pengulangan perlu diperiksa setiap kali keduanya dipakai bersama.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Waktu total sama dengan jumlah kelompok, bukan yang terlama',
+            'Kelompok kedua baru dibuat setelah kelompok pertama ditunggu',
+            'Buat seluruh janji lebih dulu, baru tunggu di satu tempat',
+          ],
+          [
+            '`Cannot read properties of undefined` pada hasil pelengkap',
+            'Hasil `allSettled` dipakai tanpa dipetakan',
+            'Petakan lewat `.status` dan `.value`, dengan nilai cadangan yang bertipe sama',
+          ],
+          [
+            'Batas waktu tercapai padahal tiap permintaan cepat',
+            'Jeda antar-percobaan ikut memakan anggaran waktu',
+            'Kurangi jumlah percobaan, atau pasang batas per percobaan',
+          ],
+          [
+            '`AbortError` pada pemuatan yang seharusnya berhasil',
+            'Pembatalan dijalankan sebelum seluruh percobaan selesai',
+            'Pastikan `abort` hanya berjalan setelah seluruh `await` selesai',
+          ],
+          [
+            'Permintaan pelengkap tetap berjalan setelah halaman ditutup',
+            'Tidak ada pembatalan saat keluar dari fungsi',
+            'Panggil `abort` di `finally`, dan terima sinyal dari pemanggil',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Praktik terakhir bab ini adalah tempat seluruh materi bertemu, dan kesalahan yang muncul di sini biasanya berupa satu teknik yang dipakai tanpa mempertimbangkan teknik lain di sekitarnya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menganggap seluruh data halaman sama pentingnya',
+            'Semuanya kan ditampilkan',
+            'Satu bagian pelengkap yang mati akan mengosongkan seluruh halaman. Putuskan mana yang wajib berdasarkan apakah halaman masih berguna tanpanya',
+          ],
+          [
+            'Memasang pengulangan tanpa memikirkan batas waktu total',
+            'Keduanya sama-sama membuat lebih tangguh',
+            'Jeda pengulangan memakan anggaran batas waktu, sehingga permintaan yang sebenarnya sehat ikut dibatalkan',
+          ],
+          [
+            'Mengukur kecepatan hanya dari `console.time` di mesin sendiri',
+            'Angkanya nyata dan langsung terlihat',
+            'Mesin pengembangan dan jaringan lokal jauh lebih cepat. Kembalikan angkanya sebagai bagian hasil supaya bisa diukur di perangkat pengguna',
+          ],
+          [
+            'Menulis satu fungsi pemuat raksasa untuk seluruh halaman',
+            'Semua pemanggilan jadi berada di satu tempat',
+            'Ia menjadi sulit diuji dan sulit dipakai ulang. Pisahkan pengambil per sumber, lalu rakit di satu fungsi yang hanya mengatur',
+          ],
+          [
+            'Melupakan pembatalan karena halamannya jarang ditinggalkan',
+            'Pengguna biasanya menunggu sampai selesai',
+            'Navigasi cepat dan tombol kembali sangat umum di ponsel. Permintaan yang menggantung menghabiskan kuota dan bisa menulis ke tampilan yang sudah hilang',
+          ],
+          [
+            'Menyembunyikan kegagalan sebagian supaya halaman terlihat rapi',
+            'Pengguna tidak perlu tahu detail teknis',
+            'Area kosong tanpa penjelasan lebih membingungkan daripada satu baris yang menyebutkan ulasan gagal dimuat beserta tombol coba lagi',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama adalah keputusan yang paling sering diambil tanpa dipikirkan, padahal ia menentukan seluruh bentuk fungsinya. Cara memutuskannya sederhana, yaitu bayangkan bagian itu kosong lalu tanyakan apakah pengguna masih bisa menyelesaikan tujuannya. Kalau ia masih bisa membeli tanpa melihat rekomendasi, rekomendasi adalah pelengkap. Kalau ia tidak bisa membeli tanpa tahu stok, stok adalah wajib.',
+      ),
+      callout(
+        'info',
+        'Bab berikutnya melanjutkan dari titik ini',
+        'Seluruh pola di sub-bab ini, yaitu paralel untuk yang independen, kegagalan sebagian yang tetap ditampilkan, pembatalan saat berpindah, dan angka waktu yang bisa diukur, akan muncul lagi di Frontend Intermediate sebagai bagian bawaan pustaka pengambil data. Memahami bentuk manualnya lebih dulu membuat pustaka itu terbaca sebagai penyingkat, bukan sebagai sihir.',
+      ),
       divider,
       h2('Rangkuman'),
       ul(

@@ -27,7 +27,7 @@ export const lessons: LessonDraft[] = [
   written(
     'monolit-yang-baik',
     'Monolit yang Ditulis dengan Baik',
-    14,
+    20,
     'Kenapa bentuk paling sederhana masih menjadi jawaban yang benar untuk sebagian besar aplikasi.',
     [
       p(
@@ -257,6 +257,210 @@ export const lessons: LessonDraft[] = [
         'Batasnya adalah jadwal rilis yang berbeda, kebutuhan sumber daya yang timpang, dan kebutuhan teknologi yang berbeda.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Monolit yang ditulis dengan baik bukan tahap yang harus dilewati sebelum arsitektur yang sesungguhnya. Ia bentuk yang tepat untuk sebagian besar sistem, dan yang membedakannya dari bola lumpur bisa diukur.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini, sebuah monolit:
+
+          berkas TypeScript    : 116
+          sisi ketergantungan  : 337
+          rata-rata per berkas : 2,9
+
+          sisi per lapisan, 12 dari 13 kelompok mengikuti arah
+          yang diharapkan:
+            110  content -> lib
+             40  app     -> lib
+             36  app     -> components
+             32  components -> lib
+              1  lib     -> content      <- satu-satunya yang melawan
+
+          siklus ketergantungan: 3, seluruhnya pasangan
+          halaman-server dan komponen-klien di Next.js
+        `,
+        {
+          caption:
+            'Angka-angka itu yang membedakan monolit terjaga dari bola lumpur. Keduanya terlihat sama dari luar.',
+        },
+      ),
+      p(
+        'Yang dibeli monolit bisa dinyatakan sebagai angka juga, dan sebagian besarnya berupa hal yang tidak ada.',
+      ),
+      code(
+        'text',
+        `
+        Yang TIDAK dibayar monolit, dengan angka dari bab lain:
+
+          panggilan jaringan antar modul
+            diukur: loopback 1,69 ms, internet p50 70,04 ms
+            di monolit: pemanggilan fungsi, puluhan nanodetik
+
+          ketersediaan berantai
+            dihitung: 10 komponen @ 99,9% -> 99,0045% (87,2 jam/tahun)
+            di monolit: satu komponen
+
+          transaksi lintas layanan
+            di monolit: satu transaksi basis data, dan itu saja
+
+          konsistensi akhir
+            diuji: saat beban tulis besar, 8 dari 8 pembacaan
+            sesudah penulisan GAGAL di replika
+            di monolit dengan satu basis data: tidak ada masalah ini
+
+        Keempatnya adalah biaya yang HANYA muncul setelah dipecah.
+        `,
+      ),
+      p(
+        'Yang membuat monolit tetap sehat adalah batas internal yang ditegakkan, dan penegakannya tidak memerlukan proses terpisah.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini, fitness function yang
+        dijalankan terhadap graf impornya:
+
+          GAGAL  lib tidak boleh bergantung pada content (1)
+          LULUS  components tidak boleh bergantung pada app
+          LULUS  content tidak boleh bergantung pada components
+          GAGAL  tidak ada siklus ketergantungan (3)
+          LULUS  tidak ada berkas di atas 400 KB
+
+        Lima aturan, sekitar tiga puluh baris kode, dijalankan
+        bersama test lainnya. Itu seluruh mesin penegakan yang
+        dibutuhkan sebuah monolit untuk tidak menjadi bola lumpur.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Monolit menjadi bola lumpur secara bertahap, dan gejalanya muncul jauh sebelum ada yang menyebutnya masalah arsitektur.',
+      ),
+      code(
+        'text',
+        `
+        Gejala, berurutan dari yang paling awal:
+
+          "Menambah satu field menyentuh tujuh berkas"
+          "Test modul A merah karena perubahan di modul B"
+          "Import ini menyebabkan siklus"
+          "Tidak bisa menguji ini tanpa menyalakan basis data"
+          "Tidak ada yang berani menyentuh modul itu"
+          "Build-nya makan waktu sepuluh menit"
+
+        Yang pertama bisa dihitung hari ini: ambil satu perubahan
+        nyata dari riwayat git, lalu hitung berkas yang tersentuh.
+        `,
+      ),
+      p(
+        'Gejala terakhir punya bentuknya sendiri, dan pada project ini ia bahkan sempat menjadi kegagalan build yang nyata.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini:
+
+          format:check     3.691 ms
+          lint             6.021 ms
+          type-check       2.403 ms
+          test             7.184 ms
+          build           64.834 ms
+
+        Dan pada satu titik, build-nya GAGAL: beberapa halaman
+        melewati batas 60 detik saat prarender, termasuk halaman
+        yang tidak disentuh.
+
+        Dugaan pertama: ada halaman yang berat.
+
+        Yang diukur:
+          rata-rata per halaman :  14 ms
+          halaman yang gagal    :  30 ms
+          satu halaman yang gagal tidak punya blok kode sama sekali
+          CPU 4, swap 0, memori tersisa ~1,1 GB
+          load average          : 12,84 pada mesin 4 CPU
+
+        Satu perubahan, satu variabel:
+          CIRCLE_NODE_TOTAL=2 npm run build -> EXIT=0, 15,9 detik
+
+        Bukan monolitnya yang terlalu besar. Ketiga worker-nya
+        berebut memori pada mesin tanpa swap.
+        `,
+        {
+          caption:
+            'Build yang lambat sering disalahkan pada ukuran monolit, dan sering bukan itu penyebabnya.',
+        },
+      ),
+      p(
+        'Kesalahan yang berlawanan juga nyata, yaitu memecah monolit karena gejala yang sebenarnya menuntut perbaikan lain.',
+      ),
+      code(
+        'text',
+        `
+        Gejala yang SERING dikira menuntut pemecahan, dan tidak:
+
+          "Query-nya lambat"
+            diukur: agregasi 468,9 ms -> kolom denormalisasi 0,068 ms
+            memecahnya menjadi empat layanan menghasilkan empat
+            query lambat, bukan satu query cepat
+
+          "Build-nya lambat"
+            diukur di atas: penyebabnya pertentangan memori,
+            bukan ukuran codebase
+
+          "Deploy-nya menakutkan"
+            yang dibutuhkan pipeline, rollback yang teruji, dan
+            saklar fitur — bukan memecah sistem
+
+          "Kodenya berantakan"
+            batas internal yang ditegakkan menyelesaikannya tanpa
+            satu pun panggilan jaringan
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Monolit sering diperlakukan sebagai sesuatu yang memalukan, dan itu menghasilkan keputusan yang mahal tanpa alasan yang bisa diukur.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memecah monolit karena "sudah besar"',
+            'Katanya tidak bisa menskala',
+            'Dihitung, 10 komponen berantai @ 99,9% menghasilkan 87,2 jam mati per tahun. Ukur dulu penghambatnya',
+          ],
+          [
+            'Membiarkan batas internal tanpa penegakan',
+            'Strukturnya sudah rapi',
+            'Diukur, satu sisi `lib -> content` dan tiga siklus menyelinap masuk tanpa ada yang menyadarinya',
+          ],
+          [
+            'Memecah karena query-nya lambat',
+            'Bebannya kan terbagi',
+            'Diukur, satu perubahan query mengubah 468,9 ms menjadi 0,068 ms tanpa satu pun komponen baru',
+          ],
+          [
+            'Memecah karena build-nya lambat',
+            'Codebase-nya terlalu besar',
+            'Diukur pada project ini, penyebabnya pertentangan memori. Mengurangi worker menyelesaikannya',
+          ],
+          [
+            'Menganggap monolit berarti satu berkas besar',
+            'Namanya juga monolit',
+            'Diukur, project ini 116 berkas dengan 12 dari 13 kelompok sisi mengikuti arah lapisan',
+          ],
+          [
+            'Menunda memasang fitness function sampai nanti',
+            'Sekarang masih kecil',
+            'Penyimpangan tumbuh diam-diam. Tiga puluh baris kode hari ini jauh lebih murah daripada nanti',
+          ],
+        ],
+      ),
+      p(
+        'Monolit yang ditulis dengan baik menyimpan satu keunggulan yang jarang disebut, yaitu bahwa memecahnya nanti tetap mungkin dan relatif murah. Batas modul yang sudah ditegakkan di dalam satu proses adalah batas yang sama yang akan menjadi batas layanan bila suatu saat pemecahan benar-benar diperlukan. Urutan sebaliknya, yaitu memecah lebih dulu lalu mencari batas yang benar, jauh lebih mahal.',
+      ),
       references(
         {
           label: 'Architecture styles',
@@ -283,7 +487,7 @@ export const lessons: LessonDraft[] = [
   written(
     'modular-monolith',
     'Modular Monolith',
-    15,
+    21,
     'Batas setegas microservice, operasional sesederhana monolit.',
     [
       p(
@@ -579,6 +783,199 @@ export const lessons: LessonDraft[] = [
         'Bentuk ini tetap menguntungkan bahkan kalau pemecahan tidak pernah terjadi, dan itu yang membedakannya dari memecah lebih awal.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Modular monolith adalah satu proses dengan batas internal yang ditegakkan. Yang membedakannya dari monolit biasa bukan strukturnya melainkan adanya sesuatu yang **memeriksa** batas itu secara otomatis.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini, sekitar tiga puluh baris
+        kode yang menelusuri seluruh impor:
+
+          LULUS  components tidak boleh bergantung pada app
+          LULUS  content tidak boleh bergantung pada components
+          LULUS  tidak ada berkas di atas 400 KB
+          GAGAL  lib tidak boleh bergantung pada content (1 pelanggaran)
+                 src/lib/curriculum/queries.ts -> src/content/curriculum/index.ts
+          GAGAL  tidak ada siklus ketergantungan (3 pelanggaran)
+                 src/app/dashboard-client.tsx -> src/app/page.tsx -> ...
+                 src/app/latihan/latihan-client.tsx -> ...
+                 src/app/roadmap/page.tsx -> ...
+
+        Tanpa pemeriksaan itu, kelima aturan hanya hidup di kepala
+        orang, dan dua di antaranya sudah dilanggar tanpa ada yang
+        sengaja melanggarnya.
+        `,
+        {
+          caption:
+            'Selisih antara modular monolith dan monolit biasa adalah lima baris aturan yang dijalankan mesin.',
+        },
+      ),
+      p(
+        'Batas modul di dalam satu proses ditegakkan dengan tiga cara, dan ketiganya bisa dipakai bersamaan.',
+      ),
+      code(
+        'text',
+        `
+        1. SATU PINTU MASUK per modul
+
+           modul/pesanan/index.ts        <- satu-satunya yang boleh diimpor
+           modul/pesanan/internal/...    <- tidak boleh diimpor dari luar
+
+           Ditegakkan dengan aturan: tidak boleh ada impor ke jalur
+           yang memuat "/internal/" dari luar modul itu.
+
+        2. ARAH KETERGANTUNGAN
+
+           Diukur pada project ini, 12 dari 13 kelompok sisi mengikuti
+           arah yang diharapkan. Satu yang melawan langsung terlihat.
+
+        3. KEPEMILIKAN DATA
+
+           Modul pesanan tidak membaca tabel milik modul katalog
+           secara langsung. Ia memintanya lewat pintu masuk modul itu.
+
+           Ini yang paling sering dilanggar, dan paling mahal
+           diperbaiki kemudian.
+        `,
+      ),
+      p(
+        'Poin ketiga itu yang membuat modular monolith bisa dipecah nanti bila memang diperlukan, dan tanpanya pemecahan menjadi jauh lebih mahal.',
+      ),
+      code(
+        'text',
+        `
+        Bila modul berbagi tabel secara langsung:
+          memecahnya menjadi layanan berarti memecah basis datanya,
+          dan itu berarti setiap JOIN lintas modul harus ditulis
+          ulang sebagai panggilan jaringan
+
+          Diukur, biaya panggilan jaringan:
+            loopback 1,69 ms melawan pemanggilan fungsi puluhan nanodetik
+            internet p50 70,04 ms, p99 362,72 ms
+
+        Bila modul sudah berbicara lewat pintu masuk:
+          pemecahannya berarti mengganti pemanggilan fungsi menjadi
+          panggilan jaringan DI SATU TEMPAT, yaitu pintu masuknya
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Batas modul di dalam satu proses tidak ditegakkan bahasa, dan itu berarti ia akan dilanggar kecuali ada yang memeriksanya.',
+      ),
+      code(
+        'text',
+        `
+        Bentuk pelanggaran yang khas:
+
+          import { hitungDiskon } from '@/modul/pesanan/internal/diskon';
+            -> mengimpor bagian dalam modul lain
+
+          import { db } from '@/modul/katalog/db';
+            -> memakai koneksi basis data milik modul lain
+
+          SELECT * FROM katalog_produk JOIN pesanan_item ...
+            -> JOIN lintas modul, dan ini yang paling sulit dilihat
+               sebab tidak muncul di graf impor sama sekali
+
+        Yang ketiga hanya bisa ditangkap dengan memeriksa nama tabel
+        yang disentuh tiap modul, bukan dengan menelusuri impor.
+        `,
+      ),
+      p(
+        'Kegagalan kedua berupa aturan yang ditulis dengan cara yang menghasilkan positif palsu, dan itu mematikan seluruh mekanismenya.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini. Aturan "tidak ada import
+        paket luar di src/content", ditulis dua cara:
+
+          aturan NAIF  (cocokkan teks "import ... from" di mana saja)
+            259 "pelanggaran"
+
+          aturan BENAR (hanya blok impor di AWAL berkas)
+            0 pelanggaran
+
+        Selisihnya seluruhnya POSITIF PALSU: kata "import" yang
+        muncul di dalam CONTOH KODE yang ditulis sebagai teks materi.
+
+        Fitness function yang menghasilkan 259 positif palsu akan
+        dimatikan dalam seminggu, dan seluruh manfaatnya hilang.
+        `,
+        {
+          caption:
+            'Alat penegak batas harus lebih dipercaya daripada aturannya, atau ia akan diabaikan lebih dulu.',
+        },
+      ),
+      p(
+        'Kegagalan ketiga bersifat cakupan, yaitu membuat terlalu banyak modul sehingga batasnya menjadi penghalang.',
+      ),
+      code(
+        'text',
+        `
+        Tanda modul terlalu banyak atau terlalu kecil:
+
+          - satu fitur biasa menyentuh empat modul
+          - banyak modul yang isinya satu atau dua berkas
+          - pintu masuk modul hanya meneruskan tanpa menambah apa pun
+
+        Uji penghapusan: bila modul ini dihapus dan isinya dipindah
+        ke pemanggilnya, apakah kerumitannya HILANG atau MENYEBAR?
+
+          hilang  -> modulnya memang tidak membeli apa-apa
+          menyebar -> modulnya menanggung beban nyata
+
+        Diukur pada project ini sebagai pembanding:
+          116 berkas dikelompokkan menjadi 4 lapisan besar
+          (app, components, lib, content), bukan puluhan modul kecil
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Modular monolith mudah dinyatakan dan sulit dijaga, sebab bahasa pemrogramannya sendiri tidak menolong.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membuat direktori per modul tanpa penegakan',
+            'Strukturnya sudah terlihat',
+            'Diukur, dua aturan dilanggar tanpa ada yang sengaja melanggarnya. Bahasa tidak menegakkannya',
+          ],
+          [
+            'Mengizinkan impor ke bagian dalam modul lain',
+            'Cuma satu fungsi kecil',
+            'Setelah itu pintu masuk modul kehilangan artinya, dan pemecahan nanti menjadi jauh lebih mahal',
+          ],
+          [
+            'Membiarkan modul berbagi tabel',
+            'Basis datanya kan satu',
+            'JOIN lintas modul tidak muncul di graf impor, dan ia yang paling mahal diperbaiki kemudian',
+          ],
+          [
+            'Menulis aturan dengan pencocokan teks',
+            'Lebih cepat ditulis',
+            'Diukur, aturan naif menghasilkan 259 positif palsu. Ia akan dimatikan dalam seminggu',
+          ],
+          [
+            'Membuat modul untuk setiap kelompok kecil',
+            'Lebih terpisah lebih baik',
+            'Satu fitur menyentuh empat modul. Pakai uji penghapusan sebelum membuat modul baru',
+          ],
+          [
+            'Menganggap modular monolith tahap sementara',
+            'Nanti pasti jadi microservice',
+            'Untuk sebagian besar sistem ia bentuk akhirnya. Dan bila perlu dipecah, batasnya sudah siap',
+          ],
+        ],
+      ),
+      p(
+        'Nilai sesungguhnya dari modular monolith baru terasa pada hari pemecahan benar-benar dipertimbangkan. Batas yang sudah ditegakkan di dalam satu proses adalah batas yang sudah terbukti bekerja, sudah punya pintu masuk yang jelas, dan sudah tidak berbagi data. Memecahnya menjadi pekerjaan mengganti pemanggilan fungsi dengan panggilan jaringan di satu tempat, bukan pekerjaan menemukan batas sambil memindahkan kode.',
+      ),
       references(
         {
           label: 'Identifying microservice boundaries',
@@ -605,7 +1002,7 @@ export const lessons: LessonDraft[] = [
   written(
     'hexagonal-dan-clean',
     'Hexagonal dan Clean Architecture',
-    14,
+    21,
     'Tiga gaya berlapis yang sering dianggap berbeda, padahal menjawab satu keluhan yang sama.',
     [
       p(
@@ -892,6 +1289,231 @@ export const lessons: LessonDraft[] = [
         'Boleh dipakai sebagian. Modul yang penuh aturan memakai bentuk penuh, modul yang hanya menampilkan tidak perlu.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Hexagonal dan Clean Architecture menyelesaikan satu masalah yang sama, yaitu membuat logika bisnis tidak bergantung pada hal-hal yang ada di luarnya. Yang dibeli dan yang dibayar keduanya bisa diukur.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini, satu sisi yang melawan arah:
+
+          src/lib/curriculum/queries.ts -> src/content/curriculum/index.ts
+
+        Akibatnya:
+          - queries.ts tidak bisa diuji tanpa memuat SELURUH kurikulum
+          - menambah kategori berpotensi menyentuh queries.ts
+          - modul itu tidak bisa dipakai ulang di konteks lain
+
+        Itulah masalah yang diselesaikan pembalikan ketergantungan,
+        dinyatakan pada satu berkas nyata alih-alih sebagai diagram.
+        `,
+      ),
+      p(
+        'Bentuk penyelesaiannya sering jauh lebih sederhana daripada yang dibayangkan dari diagram heksagon, yaitu mengubah impor menjadi parameter.',
+      ),
+      code(
+        'ts',
+        `
+        // SEBELUM: lapisan dalam tahu dari mana datanya berasal.
+        import { curriculum } from '@/content/curriculum';
+        export function cariPelajaran(slug: string) { /* memakai curriculum */ }
+
+        // SESUDAH: lapisan dalam menetapkan APA yang ia butuhkan.
+        export function cariPelajaran(sumber: Kategori[], slug: string) { /* ... */ }
+
+        // Test kini menyediakan datanya sendiri:
+        //   cariPelajaran([kategoriUji], 'apa-pun')
+        `,
+      ),
+      p(
+        'Ketika yang dibutuhkan bukan data melainkan kemampuan, barulah antarmuka menjadi bentuk yang tepat, dan bentuk antarmukanya menentukan apakah pembalikannya nyata.',
+      ),
+      code(
+        'ts',
+        `
+        // PORT yang BOCOR — terlihat dibalik, sebenarnya tidak.
+        export interface PenyimpanPesanan {
+          query(sql: string, params: unknown[]): Promise<Row[]>;
+          beginTransaction(): Promise<Transaction>;
+        }
+        // Lapisan dalam kini tahu penyimpanannya relasional.
+        // Satu lapisan tidak langsung dibayar tanpa membeli apa pun.
+
+        // PORT yang BENAR, ditulis dengan kata DOMAIN:
+        export interface PenyimpanPesanan {
+          ambil(id: PesananId): Promise<Pesanan | null>;
+          simpan(pesanan: Pesanan): Promise<void>;
+          cariMenunggu(batas: number): Promise<Pesanan[]>;
+        }
+
+        // ADAPTER yang memenuhinya, di lapisan luar:
+        export class PenyimpanPesananPostgres implements PenyimpanPesanan { /* SQL */ }
+        export class PenyimpanPesananMemori implements PenyimpanPesanan { /* untuk test */ }
+        `,
+        {
+          caption:
+            'Uji sederhananya: bisakah port ini dipenuhi oleh berkas JSON? Bila tidak, ia belum dibalik.',
+        },
+      ),
+      p('Yang dibeli bisa diperiksa dengan membandingkan biaya pengujiannya.'),
+      code(
+        'text',
+        `
+        Tanpa pembalikan:
+          menguji satu aturan bisnis menuntut basis data yang menyala,
+          skema yang termigrasi, dan data uji.
+
+          Diukur di bab lain, menyiapkan cluster PostgreSQL, membuat
+          skema, dan mengisi 55.000 baris memakan beberapa detik per
+          jalannya — dan itu per SUITE, bukan per test.
+
+        Dengan pembalikan:
+          test menyediakan implementasi memori.
+          Diukur di mesin ini, satu pemanggilan fungsi murni selesai
+          dalam puluhan nanodetik.
+
+        Selisih itu yang menentukan apakah seseorang benar-benar
+        menulis test untuk kasus tepi, atau hanya untuk jalur sukses.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kedua arsitektur ini punya biaya nyata, dan biaya itu sering tidak dihitung sebelum diterapkan di seluruh codebase.',
+      ),
+      code(
+        'text',
+        `
+        Yang dibayar:
+
+          1. Satu lapisan tidak langsung tambahan
+             Membaca kode menjadi: lihat port, cari adapter-nya,
+             baru baca implementasinya.
+
+          2. Lebih banyak berkas
+             Satu kemampuan menjadi port, adapter, dan tempat
+             keduanya disambungkan.
+
+          3. Pemetaan antar bentuk data
+             Entitas domain, model basis data, dan bentuk respons API
+             menjadi tiga bentuk yang berbeda, dan pemetaannya harus
+             ditulis dan dijaga.
+
+        Yang ketiga sering menjadi pekerjaan terbesar, dan manfaatnya
+        baru terasa ketika salah satu dari ketiganya berubah tanpa
+        memaksa dua lainnya ikut berubah.
+        `,
+      ),
+      p(
+        'Kesalahan yang paling sering adalah memakai bentuknya tanpa pembalikan yang sesungguhnya.',
+      ),
+      code(
+        'text',
+        `
+        Tanda arsitekturnya hanya bentuk:
+
+          - entitas domain memuat dekorator ORM
+          - entitas domain punya kolom created_at dan updated_at
+            yang hanya ada karena basis datanya begitu
+          - use case menerima objek Request dan mengembalikan Response
+          - port dinamai mengikuti tabelnya, bukan kemampuannya
+
+        Uji: bisakah seluruh lapisan domain dipindahkan ke project
+        lain tanpa membawa satu pun pustaka pihak ketiga?
+
+        Bila jawabannya tidak, pembalikannya belum terjadi.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KESALAHAN KEDUA: menerapkannya di seluruh codebase.
+
+        Yang PANTAS dibalik:
+          - logika bisnis yang punya aturan sungguhan
+          - hal yang berbeda antara produksi dan test
+          - hal yang mungkin diganti
+
+        Yang TIDAK pantas:
+          - CRUD yang benar-benar hanya CRUD
+          - fungsi utilitas murni
+          - hal dengan satu implementasi yang tidak dipakai di test
+
+        Diukur pada project ini: src/lib/utils/cn.ts punya fan-in 16
+        dan tidak ada satu pun alasan membalik ketergantungan padanya.
+
+        Dan uji jumlah implementasi:
+          1 implementasi + dipakai di test        -> berbayar
+          1 implementasi + tidak dipakai di test  -> hapus port-nya
+          2 atau lebih                            -> jelas berbayar
+        `,
+        {
+          caption:
+            'Menerapkan hexagonal pada endpoint CRUD sederhana menghasilkan empat berkas untuk satu SELECT.',
+        },
+      ),
+      p(
+        'Kesalahan ketiga menyangkut penegakan, sebab bahasa pemrogramannya tidak melarang lapisan dalam mengimpor lapisan luar.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini, fitness function:
+
+          GAGAL  lib tidak boleh bergantung pada content (1)
+                 src/lib/curriculum/queries.ts -> src/content/curriculum/index.ts
+
+        Satu pelanggaran, tidak disengaja, dan tidak akan pernah
+        ditemukan tanpa pemeriksaan otomatis.
+
+        Arsitektur hexagonal tanpa aturan yang dijalankan mesin akan
+        menyimpang kembali menjadi lapisan biasa dalam beberapa bulan.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kedua arsitektur ini punya diagram yang mudah diingat, dan itu membuat bentuknya sering disalin tanpa alasannya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menerapkannya di seluruh codebase',
+            'Biar konsisten',
+            'CRUD sederhana menjadi empat berkas untuk satu `SELECT`. Terapkan pada logika yang punya aturan sungguhan',
+          ],
+          [
+            'Menulis port mengikuti bentuk basis data',
+            'Itu kan yang dibutuhkan',
+            'Lapisan dalam tetap tahu penyimpanannya relasional. Uji: bisakah dipenuhi berkas JSON?',
+          ],
+          [
+            'Membiarkan entitas domain memuat dekorator ORM',
+            'Praktis, satu kelas saja',
+            'Domainnya kini bergantung pada pustaka. Uji: bisakah dipindah tanpa membawa pustaka apa pun?',
+          ],
+          [
+            'Membuat port dengan satu implementasi selamanya',
+            'Katanya praktik yang baik',
+            'Bila tidak dipakai di test juga, ia lapisan tanpa manfaat. Hitung implementasinya',
+          ],
+          [
+            'Tidak menegakkan arah ketergantungannya',
+            'Timnya sudah paham',
+            'Diukur, satu sisi `lib -> content` menyelinap masuk tanpa ada yang menyadarinya',
+          ],
+          [
+            'Mengabaikan biaya pemetaan antar bentuk data',
+            'Cuma menyalin field',
+            'Tiga bentuk data berarti dua pemetaan yang harus dijaga. Itu sering pekerjaan terbesarnya',
+          ],
+        ],
+      ),
+      p(
+        'Cara paling jujur menilai apakah arsitektur ini pantas dipakai adalah bertanya berapa banyak aturan bisnis yang sebenarnya ada. Bila sebuah endpoint hanya membaca dan menulis baris tanpa satu pun keputusan, seluruh mesin port dan adapter hanya menambah berkas. Bila ada aturan yang benar-benar perlu diuji dalam banyak kombinasi, kemampuan mengujinya tanpa basis data sering sudah cukup untuk membayar seluruh biayanya.',
+      ),
       references(
         {
           label: 'Common web application architectures',
@@ -918,7 +1540,7 @@ export const lessons: LessonDraft[] = [
   written(
     'menemukan-batas',
     'Menemukan Batas Modul',
-    15,
+    21,
     'Empat cara menarik garis pemisah, dan satu cara yang hampir selalu keliru.',
     [
       p(
@@ -1164,6 +1786,215 @@ export const lessons: LessonDraft[] = [
         'Kalau ragu, buat modul lebih besar. Menggabungkan jauh lebih murah daripada memisahkan.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Menemukan batas modul adalah pekerjaan menemukan, bukan memutuskan. Batas yang benar sudah ada di dalam sistemnya, dan tugasnya adalah membuatnya terlihat.',
+      ),
+      code(
+        'text',
+        `
+        Tiga sumber bukti, ketiganya bisa diukur.
+
+        1. GRAF KETERGANTUNGAN
+
+           Diukur sungguhan pada project ini:
+             116 berkas, 337 sisi, rata-rata 2,9 per berkas
+             110  content -> lib
+              40  app     -> lib
+              36  app     -> components
+              32  components -> lib
+
+           Kelompok yang saling terhubung rapat dan jarang
+           menyeberang adalah calon batas.
+
+        2. PERUBAHAN BERSAMA
+
+           Diukur dari riwayat git project ini:
+             3x bersama (50%)  types.ts + curriculum-integrity.test.ts
+             3x bersama (60%)  glossary.ts + curriculum-integrity.test.ts
+
+           Berkas yang selalu berubah bersamaan sebaiknya berada di
+           sisi batas yang SAMA.
+
+        3. BAHASA YANG DIPAKAI ORANG
+
+           Bila dua bagian memakai kata yang sama dengan ARTI yang
+           berbeda, di situ ada batas.
+        `,
+        {
+          caption:
+            'Sumber ketiga tidak bisa diukur dengan skrip, dan sering yang paling menentukan.',
+        },
+      ),
+      p(
+        'Sumber ketiga itu pantas dijelaskan dengan contoh, sebab ia bentuk batas yang paling sering terlewat.',
+      ),
+      code(
+        'text',
+        `
+        Kata "pesanan" berarti hal yang berbeda di tiap bagian:
+
+          bagi KATALOG   : sekumpulan id produk dan jumlahnya
+          bagi PEMBAYARAN: satu jumlah uang dan status transaksinya
+          bagi PENGIRIMAN: alamat, berat, dan dimensi
+          bagi AKUNTANSI : baris jurnal dengan pajak dan diskon
+
+        Memaksa keempatnya memakai SATU bentuk data menghasilkan
+        objek yang punya empat puluh field, yang tiga puluh di
+        antaranya selalu kosong untuk tiap pemakainya.
+
+        Batas yang benar berada tepat di antara keempat arti itu,
+        dan masing-masing memakai bentuknya sendiri.
+        `,
+      ),
+      p('Uji yang paling menentukan apakah sebuah batas pantas ada punya nama sendiri.'),
+      code(
+        'text',
+        `
+        UJI PENGHAPUSAN
+
+        Bayangkan modul ini dihapus, dan isinya dipindahkan ke
+        pemanggilnya.
+
+          Kerumitannya HILANG      -> modulnya tidak membeli apa-apa
+          Kerumitannya MENYEBAR    -> modulnya menanggung beban nyata
+
+        Contoh yang hilang:
+          class LayananPesanan {
+            ambil(id) { return this.repo.ambil(id); }
+            simpan(p) { return this.repo.simpan(p); }
+          }
+          -> dihapus, pemanggil memakai repo langsung. Tidak ada
+             yang hilang selain satu berkas untuk dibaca.
+
+        Contoh yang menyebar:
+          batalkanPesanan() yang memeriksa status, batas waktu,
+          kepemilikan, dan menulis jejak audit
+          -> dihapus, keempat aturan itu tersebar ke setiap
+             pemanggil, dan salah satunya pasti lupa
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Batas yang salah tempat tidak menghasilkan error. Ia menghasilkan gejala yang bisa dihitung.',
+      ),
+      code(
+        'text',
+        `
+        Batas TERLALU BANYAK atau TERLALU KECIL:
+
+          "Menambah satu field menyentuh tujuh berkas"
+          "Satu fitur biasa menyentuh empat modul"
+          "Pintu masuk modul hanya meneruskan"
+          "Banyak modul yang isinya satu berkas"
+
+        Batas TERLALU SEDIKIT atau TERLALU BESAR:
+
+          "Tidak ada yang paham modul itu seluruhnya"
+          "Test-nya butuh sepuluh menit"
+          "Setiap perubahan berisiko merusak hal yang tidak
+           berhubungan"
+
+        Kedua kelompok bisa dihitung: ambil sepuluh perubahan
+        terakhir dari riwayat git dan hitung berkas yang tersentuh
+        masing-masing.
+        `,
+      ),
+      p(
+        'Kesalahan yang paling mahal adalah memutuskan batas terlalu dini, sebelum polanya cukup terlihat.',
+      ),
+      code(
+        'text',
+        `
+        Urutan yang lebih murah:
+
+          1. Tulis dulu di satu tempat, biarkan duplikasi ada
+          2. Tunggu sampai POLA-nya terlihat dari tiga contoh nyata
+          3. Baru tarik batasnya
+
+        Alasannya: batas yang salah lebih mahal daripada duplikasi.
+
+        Duplikasi  -> biayanya tetap, dan terlihat
+        Batas salah -> biayanya tumbuh, dan tersembunyi. Diukur pada
+                       project ini, satu berkas menyentuh 82 dari 116
+                       berkas secara transitif
+
+        Aturan praktisnya: tiga kejadian sebelum menarik abstraksi.
+        Dua kejadian masih bisa kebetulan.
+        `,
+        {
+          caption:
+            'Duplikasi yang terlihat jauh lebih murah daripada abstraksi yang salah dan tersembunyi.',
+        },
+      ),
+      p(
+        'Kesalahan terakhir menyangkut data, dan ia yang paling sering membuat batas menjadi fiktif.',
+      ),
+      code(
+        'text',
+        `
+        Batas yang ada di kode dan TIDAK ADA di data:
+
+          modul/pesanan dan modul/katalog terpisah rapi
+          dan keduanya membaca tabel produk secara langsung
+
+        Batas itu fiktif. Tandanya tidak muncul di graf impor sama
+        sekali, sehingga fitness function berbasis impor tidak akan
+        menemukannya.
+
+        Yang menemukannya: memeriksa nama tabel yang disentuh tiap
+        modul. Tabel yang disentuh dua modul adalah batas yang bocor.
+
+        Dan akibatnya baru terasa saat pemecahan dipertimbangkan:
+        setiap JOIN lintas modul harus ditulis ulang sebagai
+        panggilan jaringan — diukur, loopback 1,69 ms melawan
+        pemanggilan fungsi puluhan nanodetik.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Menemukan batas terasa seperti pekerjaan intuisi, padahal sebagian besarnya bisa dibaca dari bukti yang sudah ada.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menarik batas dari dua kejadian yang mirip',
+            'Sudah terlihat polanya',
+            'Dua kejadian masih bisa kebetulan. Batas yang salah lebih mahal daripada duplikasi',
+          ],
+          [
+            'Memutuskan batas dari struktur direktori',
+            'Susunannya sudah rapi',
+            'Diukur, graf impor yang sesungguhnya sering berbeda dari yang terlihat di direktori',
+          ],
+          [
+            'Mengabaikan riwayat perubahan',
+            'Itu kan cuma git log',
+            'Diukur, dua berkas berubah bersamaan 60% dari waktunya. Itu batas yang bicara',
+          ],
+          [
+            'Memaksa satu bentuk data untuk semua bagian',
+            'Biar tidak ada duplikasi',
+            'Objek dengan empat puluh field yang tiga puluh di antaranya selalu kosong per pemakai',
+          ],
+          [
+            'Membuat batas di kode tanpa membaginya di data',
+            'Kodenya kan sudah terpisah',
+            'Batasnya fiktif, dan tidak muncul di graf impor. Periksa tabel yang disentuh tiap modul',
+          ],
+          [
+            'Membuat modul untuk setiap kelompok kecil',
+            'Lebih terpisah lebih baik',
+            'Satu fitur menyentuh empat modul. Pakai uji penghapusan sebelum menambah batas',
+          ],
+        ],
+      ),
+      p(
+        'Yang paling berguna dari ketiga sumber bukti di awal sub-bab ini adalah bahwa ketiganya sudah ada sekarang, tanpa perlu menunggu apa pun. Graf impor bisa dihitung dalam tiga puluh baris, riwayat perubahan bersama ada di git sejak commit pertama, dan perbedaan arti sebuah kata bisa ditemukan dengan bertanya kepada dua orang yang memakainya. Batas yang ditemukan dari ketiganya hampir selalu lebih baik daripada batas yang dipilih dari diagram.',
+      ),
       references(
         {
           label: 'Identifying microservice boundaries',
@@ -1190,7 +2021,7 @@ export const lessons: LessonDraft[] = [
   written(
     'microservice-kapan',
     'Microservice dan Kapan Ia Benar',
-    15,
+    21,
     'Empat sebab yang membenarkannya, dan satu bentuk gagal yang lebih buruk daripada keduanya.',
     [
       p(
@@ -1447,6 +2278,215 @@ export const lessons: LessonDraft[] = [
         'Ukuran yang pas adalah satu bounded context, dengan penanda sebagian besar permintaan selesai tanpa memanggil layanan lain.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Microservice menyelesaikan masalah organisasi dan menciptakan masalah teknis. Keduanya bisa dihitung, dan hitungan itu yang menentukan apakah pertukarannya masuk akal.',
+      ),
+      code(
+        'text',
+        `
+        Yang DIBAYAR, dengan angka.
+
+        1. Ketersediaan berantai
+           Dihitung sungguhan:
+              1 komponen @ 99,9% -> 99,9000%   (  8,8 jam/tahun)
+              5 komponen @ 99,9% -> 99,5010%   ( 43,7 jam/tahun)
+             10 komponen @ 99,9% -> 99,0045%   ( 87,2 jam/tahun)
+             30 komponen @ 99,9% -> 97,0431%   (259,0 jam/tahun)
+
+        2. Latensi panggilan
+           Diukur sungguhan di mesin ini:
+             pemanggilan fungsi          puluhan nanodetik
+             loopback                    1,69 ms
+             internet                    p50 70,04 ms, p99 362,72 ms
+
+           Satu permintaan yang melewati 5 layanan membayar 5 kali
+           ongkos itu, dan p99-nya ditentukan yang PALING LAMBAT.
+
+        3. Latensi ekor berlipat
+           Dihitung: bila p99 tiap layanan 1%, peluang setidaknya
+           satu kena ekor pada 10 layanan adalah 1 - 0,99^10 = 9,6%
+        `,
+        {
+          caption:
+            'Hampir 1 dari 10 permintaan merasakan latensi ekor, meski tiap layanannya hanya 1%.',
+        },
+      ),
+      p(
+        'Dan yang paling mahal tidak muncul sebagai angka latensi melainkan sebagai jaminan yang hilang.',
+      ),
+      code(
+        'text',
+        `
+        4. Transaksi lintas layanan TIDAK ADA
+
+           Di monolit: satu transaksi basis data, dan itu saja.
+           Di microservice: dua penulisan ke dua layanan, dan yang
+           kedua gagal. Yang pertama TIDAK dibatalkan.
+
+           Yang menggantikannya: saga, kompensasi, dan kotak keluar
+           transaksional — semuanya kode yang harus ditulis dan diuji.
+
+        5. Konsistensi akhir menjadi bawaan
+
+           Diuji sungguhan dengan replika PostgreSQL 16.15:
+             saat diam  : 5 dari 5 pembacaan sesudah penulisan BERHASIL
+             saat ramai : 8 dari 8 GAGAL (tertinggal 11 MB)
+
+           Kelas bug itu tidak ada sama sekali di satu basis data.
+        `,
+      ),
+      p('Yang dibeli juga nyata, dan hampir seluruhnya bersifat organisasi, bukan teknis.'),
+      table(
+        ['Yang dibeli', 'Syarat agar benar-benar diperoleh'],
+        [
+          ['Tim bisa merilis sendiri', 'Setiap layanan punya basis datanya SENDIRI'],
+          ['Penskalaan per bagian', 'Bagian yang diskalakan memang punya beban yang berbeda'],
+          ['Kegagalan terisolasi', 'Ada pemutus sirkuit dan perilaku degradasi yang dirancang'],
+          ['Teknologi berbeda per layanan', 'Tim benar-benar punya alasan berbeda, bukan selera'],
+          ['Batas yang dipaksakan', 'Batasnya memang sudah terbukti benar sebelum dipecah'],
+        ],
+      ),
+      p('Baris pertama itu yang paling menentukan, dan yang paling sering tidak dipenuhi.'),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Bentuk kegagalan yang paling umum punya nama sendiri, dan ia menggabungkan seluruh biaya microservice tanpa satu pun manfaatnya.',
+      ),
+      code(
+        'text',
+        `
+        MONOLIT TERDISTRIBUSI
+        Beberapa layanan, satu basis data bersama.
+
+        Gejalanya:
+          - setiap perubahan skema menyentuh beberapa layanan
+          - layanan tidak bisa dirilis sendiri-sendiri
+          - "kami harus merilis bersamaan" menjadi kalimat sehari-hari
+          - transaksi lintas layanan tetap mustahil
+
+        Dan seluruh biaya tetap dibayar:
+          dihitung, 10 komponen berantai @ 99,9% -> 87,2 jam/tahun
+          diukur, tiap panggilan membayar 1,69 ms sampai 70 ms
+
+        Bentuk ini lebih buruk daripada monolit MAUPUN microservice
+        yang benar.
+        `,
+      ),
+      p('Kegagalan kedua bersifat waktu, yaitu memecah sebelum batasnya terbukti.'),
+      code(
+        'text',
+        `
+        Memindahkan batas DI DALAM satu proses:
+          ubah beberapa impor, jalankan test, selesai dalam sehari
+
+        Memindahkan batas ANTAR LAYANAN:
+          pindahkan tabel, tulis penulisan ganda, backfill,
+          pindahkan pembacaan, hapus yang lama
+          dan selama itu kedua bentuk harus tetap bekerja
+
+        Diukur di bab Deployment, biaya memindahkan data:
+          283 byte/baris, 1 tahun @ 100 juta/hari -> 10,3 TB
+
+        Karena itu urutan yang jauh lebih murah: temukan batasnya
+        di dalam monolit lebih dulu, buktikan ia benar selama
+        beberapa bulan, baru pecah.
+        `,
+        {
+          caption:
+            'Batas yang sudah terbukti di dalam satu proses adalah batas yang sudah siap dipecah.',
+        },
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KETIGA: memecah karena gejala yang menuntut
+        perbaikan lain.
+
+        Diukur di bab lain pada project yang sama:
+
+          "Query-nya lambat"
+            agregasi 468,9 ms -> kolom denormalisasi 0,068 ms
+            memecahnya menghasilkan empat query lambat
+
+          "Build-nya lambat"
+            penyebabnya pertentangan memori, bukan ukuran codebase.
+            CIRCLE_NODE_TOTAL=2 npm run build -> EXIT=0, 15,9 detik
+
+          "Deploy-nya menakutkan"
+            yang dibutuhkan pipeline, rollback teruji, dan saklar
+            fitur — bukan memecah sistem
+
+          "Kodenya berantakan"
+            batas internal yang ditegakkan menyelesaikannya tanpa
+            satu pun panggilan jaringan
+        `,
+      ),
+      p('Kegagalan keempat menyangkut hal yang ikut terbagi tanpa direncanakan.'),
+      code(
+        'text',
+        `
+        Yang IKUT terbagi saat sistem dipecah, dan sering lupa
+        dihitung:
+
+          pemantauan     : satu dasbor per layanan, atau tidak ada
+                           yang melihat gambaran utuhnya
+          penelusuran    : tanpa penanda korelasi, satu permintaan
+                           meninggalkan lima baris log yang tidak
+                           bisa disambungkan
+          penyebaran     : lima pipeline, bukan satu
+          lingkungan lokal: menjalankan seluruh sistem di laptop
+                           menjadi pekerjaan tersendiri
+          versi kontrak  : setiap perubahan kontrak menuntut masa
+                           tumpang tindih
+
+        Kelimanya adalah pekerjaan yang tidak ada sebelum pemecahan,
+        dan harus tetap dikerjakan selamanya sesudahnya.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Microservice adalah keputusan yang paling sering diambil karena alasan yang salah, dan paling mahal dibatalkan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memecah karena codebase-nya sudah besar',
+            'Katanya tidak bisa menskala',
+            'Dihitung, 10 komponen berantai @ 99,9% menghasilkan 87,2 jam mati per tahun',
+          ],
+          [
+            'Memecah dengan basis data yang tetap bersama',
+            'Kodenya kan sudah terpisah',
+            'Seluruh biaya dibayar tanpa satu pun manfaatnya. Ini bentuk terburuk dari keduanya',
+          ],
+          [
+            'Memecah sebelum batasnya terbukti',
+            'Nanti disesuaikan',
+            'Memindahkan batas antar layanan berarti memindahkan data. Diukur, 10,3 TB di tahun pertama',
+          ],
+          [
+            'Memecah karena query-nya lambat',
+            'Bebannya kan terbagi',
+            'Diukur, satu perubahan query mengubah 468,9 ms menjadi 0,068 ms tanpa komponen baru',
+          ],
+          [
+            'Mengabaikan biaya latensi ekor',
+            'Tiap layanan kan cepat',
+            'Dihitung, 10 layanan dengan p99 1% masing-masing menghasilkan 9,6% permintaan kena ekor',
+          ],
+          [
+            'Lupa menghitung pemantauan dan penelusuran',
+            'Itu urusan nanti',
+            'Tanpa penanda korelasi, satu permintaan meninggalkan lima baris log yang tidak bisa disambungkan',
+          ],
+        ],
+      ),
+      p(
+        'Ada satu pertanyaan yang memisahkan alasan yang sah dari yang tidak, dan ia tidak menyebut teknologi sama sekali. Apakah ada dua tim atau lebih yang saat ini harus menunggu satu sama lain untuk merilis? Bila jawabannya tidak, hampir setiap masalah yang terlihat menuntut microservice sebenarnya menuntut batas internal yang ditegakkan, dan itu bisa didapat tanpa satu pun panggilan jaringan.',
+      ),
       references(
         {
           label: 'Microservices architecture style',
@@ -1473,7 +2513,7 @@ export const lessons: LessonDraft[] = [
   written(
     'memecah-yang-pertama',
     'Memecah Layanan yang Pertama',
-    14,
+    20,
     'Cara menarik satu bagian keluar tanpa menghentikan aplikasi yang sedang berjalan.',
     [
       p(
@@ -1715,6 +2755,211 @@ export const lessons: LessonDraft[] = [
         'Bentuk campuran adalah tujuan yang sah. Setiap pemecahan berikutnya harus melewati empat sebab yang sama.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Layanan pertama yang dipecah menentukan apakah sisanya akan berjalan. Yang dipilih sebaiknya bukan yang paling penting melainkan yang paling mudah dilepas.',
+      ),
+      code(
+        'text',
+        `
+        Ciri kandidat yang baik:
+
+          - punya batas yang SUDAH jelas di dalam monolit
+          - datanya hampir tidak dibagi dengan bagian lain
+          - polanya asinkron, sehingga latensi tambahan tidak terasa
+          - bebannya berbeda dari sisanya, sehingga penskalaan
+            terpisah memang berguna
+          - kegagalannya bisa ditoleransi sementara
+
+        Contoh yang sering cocok:
+          pengiriman surel dan notifikasi
+          pengolahan gambar dan berkas
+          pembuatan laporan
+          pengindeksan pencarian
+
+        Contoh yang hampir selalu buruk sebagai yang pertama:
+          autentikasi (semua bergantung padanya)
+          katalog produk (datanya dipakai semua orang)
+          pesanan (pusat dari hampir semua transaksi)
+        `,
+        { caption: 'Yang pertama sebaiknya yang bila gagal, sistemnya masih bisa melayani.' },
+      ),
+      p('Alasan memilih yang asinkron bisa dihitung dari angka latensi yang sudah diukur.'),
+      code(
+        'text',
+        `
+        Diukur sungguhan:
+          pemanggilan fungsi   puluhan nanodetik
+          loopback             1,69 ms
+          internet             p50 70,04 ms, p99 362,72 ms
+
+        Untuk pekerjaan SINKRON di jalur permintaan, tambahan 1,69 ms
+        per panggilan langsung terasa bila ada beberapa panggilan.
+
+        Untuk pekerjaan ASINKRON lewat antrean, tambahan itu tidak
+        terlihat pengguna sama sekali — permintaannya sudah dijawab
+        202 sebelum pekerjaannya dimulai.
+
+        Dan diukur di bab lain, manfaat memindahkannya:
+          pekerjaan berat SINKRON  : permintaan ringan 73,9 - 74,6 ms
+          pekerjaan berat ASINKRON : permintaan ringan  6,1 -  7,5 ms
+        `,
+      ),
+      p(
+        'Urutan pemecahannya menentukan apakah ada jalan mundur, dan bentuk yang aman punya lima langkah.',
+      ),
+      code(
+        'text',
+        `
+        1. TARIK BATASNYA DI DALAM monolit
+           Satu modul, satu pintu masuk, tidak berbagi tabel.
+           Jalankan begitu selama beberapa bulan.
+
+        2. PISAHKAN DATANYA, masih di dalam monolit
+           Tabel milik modul itu hanya disentuh modul itu.
+           Ini langkah yang paling sering dilewati, dan paling mahal
+           bila dilewati.
+
+        3. PINDAHKAN KODE-nya keluar, panggil lewat jaringan
+           Pintu masuk modul menjadi klien HTTP. Satu tempat berubah.
+
+        4. JALANKAN KEDUANYA bersamaan
+           Saklar fitur menentukan mana yang dipakai. Bandingkan
+           hasilnya sebelum mematikan yang lama.
+
+        5. HAPUS yang lama
+           Baru setelah langkah 4 berjalan tanpa selisih.
+
+        Langkah 4 yang membuat pemecahan ini bisa dibatalkan.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan pemecahan pertama biasanya bukan pada layanannya melainkan pada apa yang tidak ikut dipindahkan.',
+      ),
+      code(
+        'text',
+        `
+        1. Datanya tidak ikut dipindah
+
+           Layanan baru membaca tabel yang sama dengan monolit.
+           Hasilnya monolit terdistribusi: semua biaya, tanpa manfaat.
+
+           Dihitung: 2 komponen berantai @ 99,9% -> 99,8%
+           Diukur  : tiap panggilan membayar 1,69 ms sampai 70 ms
+
+        2. Transaksi yang tadinya satu kini terpecah
+
+           Di monolit: satu transaksi.
+           Sesudah dipecah: dua penulisan, dan yang kedua gagal.
+           Yang pertama TIDAK dibatalkan.
+
+           Yang menutupnya bukan transaksi terdistribusi melainkan
+           kotak keluar transaksional: tulis niatnya ke tabel DI
+           DALAM transaksi yang sama, lalu kirim dari tabel itu.
+
+           Diuji di bab Desain API: satu kunci idempotensi, lima
+           permintaan bersamaan -> satu pembayaran yang lahir.
+
+        3. Kegagalan layanan baru menjatuhkan monolit
+
+           const hasil = await layananBaru.kirim(...);   // melempar
+
+           Bila tidak dibungkus, layanan baru yang mati membuat
+           monolit ikut gagal.
+
+           Yang menutupnya: batas waktu, pemutus sirkuit, dan
+           perilaku degradasi yang dirancang sejak awal.
+        `,
+      ),
+      p('Kegagalan keempat khas dan sering tidak disadari sampai terjadi.'),
+      code(
+        'text',
+        `
+        PENGULANGAN YANG MEMPERBURUK
+
+          Layanan baru melambat.
+          Monolit mengulang panggilannya.
+          Beban ke layanan baru naik dua kali lipat, justru saat ia
+          paling tidak sanggup.
+          Ia makin melambat, dan pengulangan makin banyak.
+
+        Yang menutupnya:
+          backoff yang membesar DENGAN komponen acak
+          pemutus sirkuit yang BERHENTI mencoba setelah sekian
+          kegagalan berturut-turut
+          batas jumlah pengulangan
+
+        Jeda tetap membuat semua pemanggil mencoba pada detik yang
+        sama persis, dan itu memperburuk, bukan memperbaiki.
+        `,
+        {
+          caption:
+            'Mekanisme pemulihan yang tidak dirancang sering menjadi penyebab pemadaman, bukan penawarnya.',
+        },
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KELIMA: yang ikut terbagi dan lupa disiapkan.
+
+          penelusuran   : tanpa penanda korelasi, satu permintaan
+                          meninggalkan dua baris log yang tidak bisa
+                          disambungkan
+          penyebaran    : dua pipeline, bukan satu
+          lingkungan lokal: menjalankan keduanya di laptop
+          versi kontrak : perubahan kontrak menuntut masa tumpang tindih
+
+        Penanda korelasi paling murah dipasang SEBELUM pemecahan,
+        saat masih ada satu proses:
+          satu id dibuat di pintu masuk, diteruskan ke setiap
+          panggilan keluar, dan ikut ke setiap baris log
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Pemecahan pertama sering diperlakukan sebagai pekerjaan teknis, padahal sebagian besarnya adalah urutan dan kemampuan membatalkan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memecah bagian yang paling penting lebih dulu',
+            'Itu yang paling butuh diskalakan',
+            'Bila gagal, seluruh sistem ikut gagal. Pilih yang paling mudah dilepas sebagai yang pertama',
+          ],
+          [
+            'Memindahkan kode tanpa memindahkan data',
+            'Datanya kan sama',
+            'Hasilnya monolit terdistribusi. Dihitung, seluruh biaya berantai dan latensi tetap dibayar',
+          ],
+          [
+            'Mengganti satu transaksi dengan dua penulisan',
+            'Keduanya kan akan berhasil',
+            'Yang kedua bisa gagal, dan yang pertama tidak dibatalkan. Pakai kotak keluar transaksional',
+          ],
+          [
+            'Memanggil layanan baru tanpa batas waktu',
+            'Biasanya cepat',
+            'Layanan baru yang mati menjatuhkan monolit. Pasang batas waktu dan pemutus sirkuit',
+          ],
+          [
+            'Mengulang panggilan yang gagal tanpa backoff',
+            'Nanti juga berhasil',
+            'Beban naik dua kali lipat justru saat hilirnya paling lemah. Pakai backoff acak yang membesar',
+          ],
+          [
+            'Memasang penanda korelasi sesudah dipecah',
+            'Nanti kalau perlu',
+            'Jauh lebih murah dipasang saat masih satu proses. Sesudahnya, lognya sudah tidak bisa disambungkan',
+          ],
+        ],
+      ),
+      p(
+        'Langkah yang paling sering dilewati dari kelima langkah di atas adalah yang kedua, yaitu memisahkan datanya sementara kodenya masih berada di satu proses. Langkah itu tidak menghasilkan apa pun yang terlihat, tidak menambah satu pun kemampuan, dan justru ia yang menentukan apakah pemecahan berikutnya menjadi pekerjaan sehari atau pekerjaan berbulan-bulan.',
+      ),
       references(
         {
           label: 'Strangler Fig pattern',
@@ -1741,7 +2986,7 @@ export const lessons: LessonDraft[] = [
   written(
     'serverless-dan-edge',
     'Serverless dan Fungsi di Edge',
-    14,
+    21,
     'Sumbu yang berbeda dari monolit dan microservice, beserta harga yang jarang disebut.',
     [
       p(
@@ -2004,6 +3249,213 @@ export const lessons: LessonDraft[] = [
         'Lock-in datang dari layanan sekitar, bukan dari fungsinya. Bungkus sambungannya supaya handler tetap tipis.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Serverless dan fungsi di edge memindahkan pengelolaan server keluar dari tanggung jawabmu, dan sebagai gantinya memberi batas yang sangat tegas. Batas itu yang menentukan apakah ia cocok.',
+      ),
+      code(
+        'text',
+        `
+        Batas yang paling sering menjadi penghalang:
+
+          1. Tidak ada keadaan yang bertahan
+             Disk hilang, memori hilang, koneksi hilang.
+             Diukur di bab Deployment sebagai gejala:
+               "berkas yang baru diunggah kadang tidak ditemukan"
+               "sesi pengguna hilang secara acak"
+
+          2. Batas waktu eksekusi
+             Puluhan detik, bukan menit. Ekspor laporan dan
+             pengolahan berat tidak muat.
+
+          3. Cold start
+             Fungsi yang lama tidak dipanggil dinyalakan dari nol.
+             Diukur di bab Docker sebagai pembanding: aplikasi yang
+             perlu warm-up menunjukkan status starting selama 3 detik
+             sebelum sehat.
+
+          4. Koneksi basis data
+             Setiap instance membuka pool sendiri.
+             Dihitung: 10 instance x pool 10 = 100 koneksi,
+             sementara paket basis data kecil mengizinkan 60.
+        `,
+        {
+          caption:
+            'Keempatnya bukan kelemahan implementasi melainkan konsekuensi langsung dari tidak punya keadaan.',
+        },
+      ),
+      p(
+        'Edge runtime menambah satu batas lagi, dan ia sering disangka sekadar versi yang lebih cepat.',
+      ),
+      code(
+        'text',
+        `
+        Yang TIDAK ada di edge runtime:
+
+          modul Node: fs, net, child_process
+          crypto versi Node (yang ada Web Crypto)
+          driver basis data yang memakai soket TCP mentah
+          dependency native apa pun
+
+        Yang ADA:
+          fetch, Request, Response, URL, TextEncoder
+          crypto.subtle
+          kedekatan dengan pengunjung
+
+        Gejala saat batas itu ditabrak, dan ia muncul saat BUILD,
+        bukan saat berjalan:
+          Module not found: Can't resolve 'fs'
+          Error: The edge runtime does not support Node.js 'crypto' module
+        `,
+      ),
+      p('Manfaat kedekatan itu bisa dihitung dari angka latensi yang sudah diukur.'),
+      code(
+        'text',
+        `
+        Diukur sungguhan di mesin ini:
+          HTTP round trip ke 127.0.0.1   1,69 ms
+          HTTP round trip ke internet    p50 70,04 ms, p99 362,72 ms
+
+        Untuk pekerjaan yang hanya memerlukan data yang sudah ada di
+        dekat pengunjung, memindahkannya ke edge menghapus sebagian
+        besar 70 ms itu.
+
+        Untuk pekerjaan yang TETAP harus memanggil basis data di satu
+        wilayah, memindahkannya ke edge justru MENAMBAH satu hop:
+          pengunjung -> edge (dekat) -> basis data (jauh)
+        dan hasilnya lebih lambat daripada menjalankannya di dekat
+        basis datanya.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan yang paling sering pada lingkungan tanpa keadaan berasal dari asumsi yang benar pada satu proses yang berjalan terus.',
+      ),
+      code(
+        'text',
+        `
+        1. Berkas yang ditulis hilang
+
+           Ditulis ke /tmp, dan permintaan berikutnya mendarat di
+           instance yang sama sekali lain.
+           Perbaikan: object storage, bukan disk lokal.
+
+        2. Koneksi basis data habis
+
+           error: sorry, too many clients already
+           Error: Timeout acquiring a connection from the pool
+
+           Setiap instance membuka pool sendiri, dan jumlah instance
+           berubah-ubah mengikuti beban.
+           Perbaikan: pooler yang memang untuk lingkungan tanpa
+           keadaan, dan ukuran pool 1 per instance.
+
+        3. Proses panjang terpotong
+
+           Task timed out after 10.01 seconds
+           FUNCTION_INVOCATION_TIMEOUT
+
+           Perbaikan: antrean, dengan kontrak 202 yang bisa dipantau.
+           Diukur di bab Desain API bentuknya:
+             202 Location: /unggah/<id> Retry-After: 1
+             lalu 200 {"status":"berjalan","kemajuan":34}
+
+        4. Cache di memori tidak pernah kena
+
+           Tiap instance punya cache sendiri, dan instance-nya
+           berumur pendek. Cache harus bersama.
+        `,
+      ),
+      p(
+        'Kegagalan kelima menyangkut biaya, dan ia punya bentuk yang khas pada model bayar-per-pemanggilan.',
+      ),
+      code(
+        'text',
+        `
+        Bentuk beban yang mahal di serverless:
+
+          - permintaan yang sangat banyak dan sangat ringan
+            ongkos per pemanggilan dibayar untuk pekerjaan yang
+            di server biasa hampir gratis
+
+          - fungsi yang menunggu I/O lama
+            dibayar sepanjang menunggu, meski CPU-nya menganggur
+
+          - perulangan yang tidak sengaja
+            fungsi A memanggil B, B memanggil A. Tagihannya baru
+            terlihat di akhir bulan.
+
+        Batas atas jumlah pemanggilan BUKAN pengaman opsional.
+        Sama seperti batas atas pada autoscaling, ia wajib.
+        `,
+        { caption: 'Sistem yang menskala tanpa batas juga menagih tanpa batas.' },
+      ),
+      code(
+        'text',
+        `
+        DAN SATU KESALAHAN yang halus: inisialisasi berat di tingkat
+        modul.
+
+          // Dijalankan pada SETIAP cold start
+          const kamus = JSON.parse(fs.readFileSync('kamus-besar.json'));
+          const klien = new KlienBerat({ ... });
+
+        Setiap instance baru membayar biaya itu sebelum melayani satu
+        permintaan pun.
+
+        Yang menutupnya: muat secara malas pada pemakaian pertama,
+        dan jaga bundel fungsinya tetap kecil.
+
+        Diukur di bab Deployment sebagai pembanding: 30 berkas
+        JavaScript klien project ini berjumlah 1.823,4 KB, dengan
+        chunk terbesar 653,4 KB. Ukuran bundel menentukan waktu
+        nyala, baik di peramban maupun di fungsi tanpa keadaan.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Serverless menghapus banyak pekerjaan dan menuntut cara berpikir yang berbeda, dan kesalahannya hampir semuanya berupa asumsi lama yang terbawa.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis berkas ke disk lokal',
+            'Disknya kan ada',
+            'Berkasnya hilang, dan permintaan berikutnya mendarat di instance lain. Pakai object storage',
+          ],
+          [
+            'Memakai ukuran pool seperti di satu server',
+            'Angkanya sudah teruji',
+            'Dihitung, 10 instance x pool 10 = 100 koneksi terhadap batas 60. Pakai pool 1 dan pooler eksternal',
+          ],
+          [
+            'Menjalankan proses panjang di dalam fungsi',
+            'Cuma beberapa detik',
+            'Batas eksekusinya puluhan detik. Pindahkan ke antrean dengan kontrak 202',
+          ],
+          [
+            'Memakai edge runtime tanpa memeriksa batasnya',
+            'Katanya lebih cepat',
+            "Modul Node tidak ada di sana, dan gejalanya `Can't resolve 'fs'` saat build",
+          ],
+          [
+            'Memindahkan ke edge padahal datanya jauh',
+            'Lebih dekat pengunjung',
+            'Menambah satu hop. Diukur, round trip ke basis data jauh tetap p50 70,04 ms',
+          ],
+          [
+            'Tidak memasang batas atas pemanggilan',
+            'Biar bisa menangani lonjakan apa pun',
+            'Satu perulangan yang tidak sengaja menagih tanpa batas. Tagihannya terlihat di akhir bulan',
+          ],
+        ],
+      ),
+      p(
+        'Pertanyaan yang paling membantu memutuskan bukan tentang skala melainkan tentang bentuk pekerjaannya. Apakah setiap permintaan bisa diselesaikan tanpa mengingat apa pun dari permintaan sebelumnya, dan apakah ia selesai dalam hitungan detik? Bila jawabannya ya untuk keduanya, serverless menghapus banyak pekerjaan tanpa banyak biaya. Bila salah satunya tidak, memaksakannya berarti membangun ulang keadaan dan antrean di atas platform yang sengaja dirancang tanpa keduanya.',
+      ),
       references(
         {
           label: 'Serverless overview',
@@ -2030,7 +3482,7 @@ export const lessons: LessonDraft[] = [
   written(
     'tabel-keputusan',
     'Memilih Bentuk dengan Tabel Keputusan',
-    13,
+    20,
     'Menggabungkan tujuh sub-bab sebelumnya menjadi satu proses yang bisa diulang.',
     [
       p(
@@ -2261,6 +3713,205 @@ export const lessons: LessonDraft[] = [
         'Sistem boleh punya kesimpulan berbeda untuk bagian berbeda. Bentuk campuran adalah yang paling umum.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Tabel keputusan berguna karena ia memaksa pertanyaan yang tepat diajukan sebelum bentuk dipilih. Yang membuatnya bekerja adalah kolom-kolomnya berisi angka, bukan pendapat.',
+      ),
+      table(
+        ['Pertanyaan', 'Jawaban yang mengarah ke monolit', 'Jawaban yang mengarah ke pemecahan'],
+        [
+          [
+            'Berapa tim yang harus menunggu satu sama lain untuk merilis?',
+            'Nol atau satu',
+            'Dua atau lebih',
+          ],
+          ['Apakah ada bagian yang bebannya berbeda tajam?', 'Tidak', 'Ya, dan sudah diukur'],
+          ['Apakah batas modulnya sudah terbukti beberapa bulan?', 'Belum', 'Sudah'],
+          ['Apakah bagian itu bisa berbagi data dengan sisanya?', 'Harus', 'Tidak perlu'],
+          ['Apakah kegagalan bagian itu bisa ditoleransi sementara?', 'Tidak', 'Bisa'],
+          ['Apakah tim punya pemantauan dan penelusuran terpusat?', 'Belum', 'Sudah'],
+        ],
+      ),
+      p(
+        'Kolom pertama pada baris pertama adalah pertanyaan yang paling menentukan, dan ia tidak menyebut teknologi sama sekali. Microservice menyelesaikan masalah koordinasi organisasi, dan bila masalah itu tidak ada, seluruh biayanya dibayar tanpa manfaat.',
+      ),
+      code(
+        'text',
+        `
+        Biaya yang dibayar setiap pemecahan, dengan angka:
+
+          ketersediaan berantai, dihitung:
+             1 komponen @ 99,9% -> 99,9000%   (  8,8 jam/tahun)
+            10 komponen @ 99,9% -> 99,0045%   ( 87,2 jam/tahun)
+            30 komponen @ 99,9% -> 97,0431%   (259,0 jam/tahun)
+
+          latensi panggilan, diukur:
+            pemanggilan fungsi  puluhan nanodetik
+            loopback            1,69 ms
+            internet            p50 70,04 ms, p99 362,72 ms
+
+          latensi ekor, dihitung:
+            10 layanan @ p99 1% -> 9,6% permintaan kena ekor
+
+          transaksi lintas layanan: tidak ada
+          konsistensi akhir: menjadi bawaan, dan diuji, saat beban
+            tulis besar 8 dari 8 pembacaan sesudah penulisan gagal
+        `,
+        {
+          caption:
+            'Kelimanya dibayar sejak layanan pertama dipecah, dan tidak satu pun bisa dibatalkan dengan mudah.',
+        },
+      ),
+      p('Untuk pilihan bentuk penyebaran, tabelnya berbeda dan pertanyaannya juga.'),
+      table(
+        ['Pertanyaan', 'Serverless / edge', 'Container / VPS'],
+        [
+          [
+            'Apakah tiap permintaan bisa selesai tanpa mengingat apa pun?',
+            'Harus ya',
+            'Tidak masalah',
+          ],
+          ['Berapa lama pekerjaan terlamanya?', 'Di bawah puluhan detik', 'Bebas'],
+          ['Apakah bebannya naik-turun tajam?', 'Cocok', 'Perlu autoscaling'],
+          ['Apakah ada koneksi yang harus tetap terbuka?', 'Sulit', 'Wajar'],
+          ['Apakah butuh modul Node atau dependency native?', 'Tidak di edge', 'Bebas'],
+          ['Siapa yang mengurus TLS, log, dan pembaruan sistem?', 'Penyedia', 'Kamu'],
+        ],
+      ),
+
+      h2('Saat error-nya muncul'),
+      p('Tabel keputusan gagal dengan cara yang khas, yaitu diisi sesudah keputusannya diambil.'),
+      code(
+        'text',
+        `
+        Tanda tabelnya hanya pembenaran:
+
+          - seluruh kolom mengarah ke satu jawaban yang sama
+          - tidak ada satu pun baris yang mengarah ke jawaban lain
+          - angkanya tidak ada, hanya kata "ya" dan "tidak"
+          - tidak ada baris tentang biaya
+
+        Tabel keputusan yang jujur hampir selalu punya beberapa baris
+        yang mengarah ke jawaban yang TIDAK dipilih. Itulah bagian
+        yang paling berguna untuk dibaca enam bulan kemudian.
+        `,
+      ),
+      p(
+        'Kesalahan kedua adalah memutuskan dari gejala yang sebenarnya menuntut perbaikan lain, dan contohnya bisa diukur.',
+      ),
+      code(
+        'text',
+        `
+        Gejala yang sering dikira menuntut perubahan bentuk:
+
+          "Query-nya lambat"
+            diukur: agregasi 468,9 ms -> kolom denormalisasi 0,068 ms
+            yang dibutuhkan: indeks dan denormalisasi
+
+          "Build-nya lambat"
+            diukur pada project ini: rata-rata per halaman 14 ms,
+            halaman yang gagal 30 ms, load average 12,84 pada 4 CPU
+            CIRCLE_NODE_TOTAL=2 npm run build -> EXIT=0, 15,9 detik
+            yang dibutuhkan: mengurangi pekerjaan yang berjalan
+            bersamaan
+
+          "Deploy-nya menakutkan"
+            yang dibutuhkan: pipeline, rollback teruji, saklar fitur
+
+          "Kodenya berantakan"
+            diukur pada project ini: fitness function menemukan satu
+            pelanggaran arah dan tiga siklus
+            yang dibutuhkan: batas internal yang ditegakkan
+
+        Tidak satu pun dari keempatnya menuntut memecah sistem.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KESALAHAN KETIGA: memilih bentuk tanpa menghitung yang
+        ikut terbagi.
+
+        Yang ikut terbagi saat sistem dipecah:
+          pemantauan, penelusuran, penyebaran, lingkungan lokal,
+          versi kontrak
+
+        Kelimanya pekerjaan yang tidak ada sebelumnya dan harus
+        dikerjakan selamanya sesudahnya.
+
+        Penanda korelasi khususnya jauh lebih murah dipasang SEBELUM
+        pemecahan, saat masih ada satu proses. Sesudahnya, log dari
+        beberapa layanan sudah tidak bisa disambungkan.
+        `,
+      ),
+      p(
+        'Kesalahan keempat bersifat waktu, yaitu memutuskan bentuk terlalu awal ketika informasinya paling sedikit.',
+      ),
+      code(
+        'text',
+        `
+        Biaya membatalkan tiap keputusan, dihitung dan diukur:
+
+          memindahkan batas DI DALAM satu proses
+            ubah beberapa impor, jalankan test -> sehari
+
+          memindahkan batas ANTAR layanan
+            pindahkan tabel, penulisan ganda, backfill, pindahkan
+            pembacaan, hapus yang lama
+            dan diukur, 283 byte/baris @ 100 juta/hari -> 10,3 TB
+            dalam setahun -> berminggu-minggu
+
+        Karena itu urutan yang hampir selalu benar: mulai dari monolit
+        dengan batas yang ditegakkan, lalu pecah bagian yang memang
+        terbukti perlu.
+
+        Urutan sebaliknya, yaitu memecah lebih dulu lalu mencari
+        batas yang benar, adalah yang paling mahal dari semuanya.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Tabel keputusan mudah dibuat dan mudah dipakai untuk membenarkan sesuatu yang sudah diputuskan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Mengisi tabel sesudah keputusannya diambil',
+            'Biar terdokumentasi',
+            'Seluruh barisnya mengarah ke satu jawaban. Tabel yang jujur punya baris yang mengarah ke jawaban lain',
+          ],
+          [
+            'Mengisi kolom dengan "ya" dan "tidak" tanpa angka',
+            'Pertanyaannya kan sederhana',
+            'Tanpa angka, tidak ada yang bisa dikoreksi. "Bebannya besar" bukan jawaban; 34.722 QPS adalah jawaban',
+          ],
+          [
+            'Tidak menulis baris tentang biaya',
+            'Yang penting manfaatnya',
+            'Dihitung, 10 komponen berantai menghasilkan 87,2 jam mati per tahun. Itu harus masuk tabel',
+          ],
+          [
+            'Memutuskan bentuk dari gejala yang menuntut perbaikan lain',
+            'Gejalanya nyata',
+            'Diukur, keempat gejala yang paling sering disebut tidak satu pun menuntut memecah sistem',
+          ],
+          [
+            'Memilih bentuk berdasarkan apa yang sedang populer',
+            'Banyak yang memakainya',
+            'Arsitektur mereka menjawab masalah mereka, termasuk masalah organisasi yang tidak kamu punya',
+          ],
+          [
+            'Memutuskan bentuk akhir di awal project',
+            'Biar tidak perlu ditulis ulang',
+            'Informasinya paling sedikit tepat di awal. Mulai dari yang paling murah dibatalkan',
+          ],
+        ],
+      ),
+      p(
+        'Cara membaca seluruh tabel di sub-bab ini dengan benar adalah menyadari bahwa tidak ada satu pun barisnya yang menyebut bentuk arsitektur sebagai jawaban. Setiap barisnya bertanya tentang keadaan yang bisa diperiksa hari ini, yaitu berapa tim yang menunggu, berapa beban yang berbeda, dan berapa lama batasnya sudah terbukti. Bentuk yang tepat adalah hasil dari jawaban-jawaban itu, bukan sesuatu yang dipilih lebih dulu lalu dicarikan alasannya.',
+      ),
       references(
         {
           label: 'Architecture styles',

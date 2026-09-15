@@ -29,7 +29,7 @@ export const lessons: LessonDraft[] = [
   written(
     'broken-access-control',
     'Broken Access Control',
-    13,
+    19,
     'Peringkat satu OWASP, dan kegagalan yang paling mahal.',
     [
       p(
@@ -268,6 +268,174 @@ export const lessons: LessonDraft[] = [
         'Kamu akan ingat memeriksa otorisasi pada endpoint pertama, kedua, dan kelima. Endpoint kesepuluh, yang ditambahkan buru-buru enam bulan kemudian, adalah yang bocor. Tes parametrik seperti di atas membuatnya mustahil terlewat.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Broken Access Control menempati peringkat satu OWASP bukan karena sulit diperbaiki melainkan karena sangat mudah terlewat. Bentuk paling umumnya hanya satu baris, yaitu id dari klien dipakai langsung untuk mengambil data.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan node:sqlite pada Node 26.5.0.
+        Ana (id=1) login. Faktur 102 dan 103 milik Budi (id=2).
+
+        TANPA scoping - SELECT * FROM faktur WHERE id = ?
+          Ana meminta /faktur/101 -> {"id":101,"pemilik_id":1,"nomor":"INV-2026-0001","jumlah":250000}
+          Ana meminta /faktur/102 -> {"id":102,"pemilik_id":2,"nomor":"INV-2026-0002","jumlah":9500000}
+          Ana meminta /faktur/103 -> {"id":103,"pemilik_id":2,"nomor":"INV-2026-0003","jumlah":12000}
+
+        DENGAN scoping - SELECT * FROM faktur WHERE id = ? AND pemilik_id = ?
+          Ana meminta /faktur/101 -> {"id":101,"pemilik_id":1,...}
+          Ana meminta /faktur/102 -> 404
+          Ana meminta /faktur/103 -> 404
+        `,
+        {
+          caption:
+            'Perbedaannya satu klausa WHERE, dan itu satu-satunya hal yang memisahkan data Ana dari data Budi.',
+        },
+      ),
+      p(
+        'Yang membuat kelas kerentanan ini murah dieksploitasi adalah **biaya mencobanya**, dan itu juga bisa diukur.',
+      ),
+      code(
+        'text',
+        `
+        200.000 percobaan id berurutan: 52 ms, 3 faktur ditemukan
+        laju: 3.882.229 percobaan/detik (tanpa jaringan)
+
+        Lewat jaringan angkanya jauh lebih kecil, dan tetap tidak
+        menolong: dengan 20 permintaan/detik pun, seluruh rentang
+        id 1 sampai 100.000 habis dalam sekitar 83 menit.
+        `,
+      ),
+      p(
+        'Karena itu mengganti id berurutan dengan UUID **bukan** perbaikan. Ia hanya membuat penebakan mahal, dan id yang bocor lewat tautan, tangkapan layar, atau log tetap bisa dipakai. Yang memperbaiki adalah pemeriksaan kepemilikan di lapisan data.',
+      ),
+      code(
+        'ts',
+        `
+        // Bentuk yang menutup seluruh kelas ini sekaligus: konteks pengguna
+        // ikut masuk ke query, bukan diperiksa terpisah SESUDAH data terambil.
+        function faktur(idFaktur: number, pengguna: Pengguna) {
+          if (pengguna.peran === 'admin') {
+            return db.prepare('SELECT * FROM faktur WHERE id = ?').get(idFaktur);
+          }
+          return db
+            .prepare('SELECT * FROM faktur WHERE id = ? AND pemilik_id = ?')
+            .get(idFaktur, pengguna.id);
+        }
+
+        // Untuk DAFTAR, batasnya WAJIB ikut ke query. Menyaring di memori
+        // berarti baris orang lain sudah terbaca — dan di bab Laravel Lanjutan
+        // itu terukur: pengguna MEMINTA 20 baris dan MENERIMA 9, sementara
+        // 11 baris milik orang lain sudah masuk ke memori proses.
+        function daftarFaktur(pengguna: Pengguna, limit: number) {
+          return db
+            .prepare('SELECT * FROM faktur WHERE pemilik_id = ? ORDER BY id DESC LIMIT ?')
+            .all(pengguna.id, Math.min(limit, 100));
+        }
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kerentanan ini punya sifat yang membuatnya sulit ditemukan, yaitu **tidak menghasilkan error sama sekali**. Servernya menjawab 200, log-nya bersih, dan pengujiannya lolos.',
+      ),
+      code(
+        'text',
+        `
+        Yang tercatat di log ketika Ana membaca faktur Budi:
+
+          200 GET /v1/faktur/102  12ms  pengguna=1
+
+        Tidak ada peringatan. Tidak ada pengecualian. Satu-satunya
+        petunjuk adalah bahwa pengguna 1 membaca sumber daya milik
+        pengguna 2, dan tidak ada yang memeriksanya.
+        `,
+      ),
+      p(
+        'Kesalahan berikutnya justru muncul saat perbaikannya dipasang, dan bentuknya adalah memilih kode status yang membocorkan informasi.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan:
+
+          /faktur/102 -> {"status":403,"arti":"faktur ini ADA, tapi bukan milikmu"}
+          /faktur/999 -> {"status":404,"arti":"faktur ini TIDAK ADA"}
+
+        Penyerang yang menyapu id 1 sampai 100.000 kini bisa
+        memisahkan mana yang NYATA hanya dari kode statusnya,
+        tanpa pernah melihat satu pun isinya.
+        `,
+        {
+          caption:
+            'Untuk sumber daya yang keberadaannya sendiri bersifat rahasia, jawab 404 untuk keduanya.',
+        },
+      ),
+      p(
+        'Pilihannya keputusan produk, bukan keputusan teknis. Untuk data yang keberadaannya memang publik, misalnya profil pengguna, `403` lebih jujur dan lebih mudah dipahami. Untuk faktur, dokumen, atau percakapan, `404` untuk keduanya menutup saluran kebocoran itu sepenuhnya.',
+      ),
+      code(
+        'text',
+        `
+        TIGA TEMPAT LAIN yang sering luput, dan gejalanya juga diam:
+
+        1. Endpoint tulis diperiksa, endpoint baca tidak
+           PATCH /faktur/102 -> 403
+           GET   /faktur/102 -> 200      <- lubangnya di sini
+
+        2. Mass assignment: field peran ikut terkirim
+           PATCH /profil {"nama":"Ana","peran":"admin"}
+           -> bila body-nya di-spread langsung, penggunanya naik pangkat sendiri
+
+        3. Endpoint yang "tidak ada di menu"
+           /admin/ekspor tidak pernah ditautkan di antarmuka
+           -> tetap bisa dipanggil langsung. Menyembunyikan tombol bukan otorisasi
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Hampir semua kesalahan di kategori ini berasal dari satu keyakinan yang tidak pernah diuji, yaitu bahwa pengguna hanya akan mengirim permintaan yang disediakan antarmuka.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai id dari klien tanpa klausa kepemilikan',
+            'Id-nya kan dari halaman kita sendiri',
+            'Diukur, Ana membaca tiga faktur yang dua di antaranya milik Budi. Tidak ada error apa pun',
+          ],
+          [
+            'Mengganti id berurutan dengan UUID lalu merasa aman',
+            'Tidak bisa ditebak lagi',
+            'Id yang bocor lewat tautan atau tangkapan layar tetap berlaku. Yang memperbaiki adalah pemeriksaan, bukan bentuk id',
+          ],
+          [
+            'Menyaring daftar di memori setelah query',
+            'Hasil akhirnya kan sudah benar',
+            'Baris orang lain sudah terbaca ke proses. Batasnya harus ikut ke klausa `WHERE`',
+          ],
+          [
+            'Menyembunyikan tombol admin di antarmuka',
+            'Penggunanya tidak akan melihatnya',
+            'Endpoint-nya tetap bisa dipanggil langsung. Menyembunyikan bukan menolak',
+          ],
+          [
+            'Memeriksa otorisasi hanya pada endpoint tulis',
+            'Yang berbahaya kan yang mengubah data',
+            'Membaca faktur orang lain sudah merupakan kebocoran data. Baca dan tulis sama-sama perlu dijaga',
+          ],
+          [
+            'Menjawab `403` untuk sumber daya rahasia',
+            'Lebih jujur ke pengguna',
+            'Diukur, `403` memberi tahu penyerang id mana yang nyata. Untuk data rahasia, `404` untuk keduanya',
+          ],
+        ],
+      ),
+      p(
+        'Baris ketiga pantas diulang karena ia yang paling sering terlihat benar dari luar. Endpoint daftar yang menyaring hasilnya di memori memang menampilkan data yang tepat kepada pengguna, dan pada saat yang sama sudah membaca baris milik orang lain ke dalam proses. Satu kesalahan pencatatan, satu pesan error yang terlalu rinci, atau satu bug serialisasi sudah cukup untuk membuatnya keluar.',
+      ),
       references(
         {
           label: 'A01:2021 — Broken Access Control',
@@ -300,7 +468,7 @@ export const lessons: LessonDraft[] = [
   written(
     'cryptographic-failures',
     'Cryptographic Failures & Data Sensitif',
-    12,
+    19,
     'Melindungi data saat bergerak dan saat diam.',
     [
       p(
@@ -535,6 +703,203 @@ export const lessons: LessonDraft[] = [
         'Ia tidak dirancang kriptografis — keluarannya bisa diprediksi dari beberapa nilai sebelumnya. Token reset password, id sesi, dan kunci idempotensi yang dibuat dengannya bisa ditebak. Selalu `crypto.randomBytes()` atau `crypto.randomUUID()`.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Kategori ini jarang berarti "enkripsinya dibobol". Hampir selalu ia berarti sesuatu yang seharusnya dilindungi ternyata tidak dilindungi sama sekali, atau dilindungi dengan cara yang salah pilih. Contoh paling mahalnya adalah cara menyimpan sandi.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan PHP 8.3.6 di mesin ini:
+
+          sha256          : 2.395.136 tebakan / detik
+          bcrypt cost=10  :        20,0 tebakan / detik
+          bcrypt cost=12  :         5,0 tebakan / detik
+
+        Selisihnya bukan persen melainkan kelipatan:
+          sha256 vs bcrypt cost=12  ->  479.027 kali lebih cepat
+
+        Artinya, bila basis datamu bocor:
+          dengan sha256, daftar sandi umum sepanjang 10 juta
+          selesai dicoba dalam sekitar 4 detik.
+          dengan bcrypt cost=12, butuh sekitar 23 hari.
+        `,
+        { caption: 'Angka-angka ini mesin-spesifik. Yang tidak berubah adalah urutan besarannya.' },
+      ),
+      p(
+        'Alasan kedua kenapa hash tujuan umum tidak boleh dipakai adalah **garam**, dan efeknya terlihat langsung.',
+      ),
+      code(
+        'text',
+        `
+        Dua pengguna berbeda dengan sandi yang sama persis:
+
+          sha256("rahasia123") Ana  : bee5688aea66a47460b19c76f8f199c6b9585eb726f8322b1429793863609ca2
+          sha256("rahasia123") Budi : bee5688aea66a47460b19c76f8f199c6b9585eb726f8322b1429793863609ca2
+                                      ^ IDENTIK
+
+          bcrypt Ana  : $2y$08$VoQiCHaXFg/3QyxEurkYk.YsKSuSGBgtPaMV/Ic17y0q61isLCype
+          bcrypt Budi : $2y$08$BU3zOAAsEpa8mKxdfpdEw.h18NVVR6W.w5oTMADJKW5VUw/.JoSW.
+                                ^ garamnya berbeda, jadi hash-nya berbeda
+
+        Hash sha256 yang identik memberi tahu penyerang bahwa keduanya
+        memakai sandi yang sama, dan satu kali pecah membuka dua akun.
+        `,
+      ),
+      p(
+        'Menaikkan biaya di kemudian hari juga tidak perlu memaksa semua orang mengganti sandinya, dan itu sudah ada mekanismenya.',
+      ),
+      code(
+        'php',
+        `
+        // Saat login berhasil, periksa apakah hash lamanya perlu dinaikkan.
+        if (password_verify($sandi, $baris['sandi_hash'])) {
+            if (password_needs_rehash($baris['sandi_hash'], PASSWORD_BCRYPT, ['cost' => 12])) {
+                // Kita sedang memegang sandi mentahnya SEKARANG — satu-satunya
+                // momen ia bisa di-hash ulang tanpa mengganggu pengguna.
+                simpanHash($baris['id'], password_hash($sandi, PASSWORD_BCRYPT, ['cost' => 12]));
+            }
+            masuk($baris['id']);
+        }
+
+        // Diuji sungguhan pada PHP 8.3.6:
+        //   password_needs_rehash(hash cost=8,  target cost=12) -> true
+        //   password_needs_rehash(hash cost=12, target cost=12) -> false
+        //   algoritma tersedia: bcrypt, argon2i, argon2id  (ketiganya ada)
+        `,
+      ),
+      p(
+        'Untuk data yang benar-benar perlu dienkripsi, pilihan modenya menentukan apakah perubahan diam-diam bisa terdeteksi, dan selisihnya bisa dilihat langsung.',
+      ),
+      code(
+        'text',
+        `
+        Pesan asli: "saldo=1000000;pemilik=ana"
+        Satu byte ciphertext dibalik oleh penyerang.
+
+        AES-256-CBC:
+          DEKRIPSI BERHASIL padahal ciphertext-nya diubah:
+            "���\`�7*����|�s߇milik�ana"
+
+        AES-256-GCM (pesan sama, perubahan sama):
+          DITOLAK: Error: Unsupported state or unable to authenticate data
+        `,
+        {
+          caption:
+            'CBC tidak punya cara tahu isinya diubah. GCM punya, dan menolak sebelum satu byte pun dipakai.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan kriptografi hampir tidak pernah muncul sebagai pesan error, dan itulah bagian yang paling berbahaya. Yang berikut ini semuanya dari kode yang berjalan tanpa keluhan.',
+      ),
+      code(
+        'text',
+        `
+        1. JWT: payload dikira terenkripsi
+
+           token : eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjQyLCJwZXJhbiI...
+           siapa pun bisa membacanya TANPA kunci apa pun:
+             {"sub":42,"peran":"admin","surel":"ana@contoh.id","nik":"3273xxxxxxxx"}
+
+           JWT DITANDATANGANI, bukan dienkripsi. Base64 bukan penyandian rahasia.
+
+        2. Payload diubah -> tanda tangan cocok? false
+
+           Tanda tangannya memang bekerja. Yang TIDAK ia lakukan
+           adalah menyembunyikan isinya.
+
+        3. alg:none
+
+           eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOjQyLC...
+           Verifier yang membaca alg DARI TOKEN akan menerimanya
+           tanpa memeriksa apa pun.
+        `,
+      ),
+      p(
+        'Kesalahan berikutnya muncul saat membandingkan token, dan di sini ada satu perilaku yang perlu diketahui sebelum dipakai.',
+      ),
+      code(
+        'text',
+        `
+        Diuji sungguhan pada Node 26.5.0:
+
+          timingSafeEqual, panjang berbeda
+            -> RangeError: Input buffers must have the same byte length
+
+          timingSafeEqual, panjang sama, isi beda  -> false
+          timingSafeEqual, identik                 -> true
+
+        Jadi timingSafeEqual MELEMPAR bila panjangnya berbeda.
+        Bandingkan panjangnya lebih dulu, atau bandingkan hash
+        keduanya yang panjangnya selalu sama.
+        `,
+      ),
+      code(
+        'ts',
+        `
+        // Bentuk yang aman dan tidak melempar: bandingkan digest,
+        // yang panjangnya selalu 32 byte berapa pun masukannya.
+        function tokenCocok(diberikan: string, tersimpan: string) {
+          const a = crypto.createHash('sha256').update(diberikan).digest();
+          const b = crypto.createHash('sha256').update(tersimpan).digest();
+          return crypto.timingSafeEqual(a, b);
+        }
+
+        // Catatan jujur dari pengukuran di bab Auth: perbandingan === pada
+        // string 64 karakter TIDAK menunjukkan gradien waktu yang bisa dibaca
+        // (3,23 / 0,79 / 0,59 / 0,59 / 0,62 ns). Alasan memakai timingSafeEqual
+        // bukan "=== pasti bocor", melainkan "waktu di JavaScript tidak bisa
+        // diprediksi" — mesin, versi, dan JIT bisa mengubahnya kapan saja.
+        `,
+      ),
+      p(
+        'Perhatikan kenapa kedua masukan di-hash lebih dulu. `timingSafeEqual` melempar begitu panjang kedua buffer berbeda, dan panjang token yang dikirim penyerang jelas bisa berbeda-beda. Men-digest keduanya membuat panjangnya selalu 32 byte, sehingga perbandingannya aman dijalankan tanpa perlu memeriksa panjang lebih dulu, dan pemeriksaan panjang itu sendiri justru yang akan membocorkan informasi.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kategori ini penuh pilihan yang terlihat setara padahal tidak, dan hampir semuanya berakhir sebagai kode yang berjalan mulus sampai datanya bocor.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyimpan sandi dengan `sha256` atau `md5`',
+            'Itu kan hash juga',
+            'Diukur, sha256 479.027 kali lebih cepat dicoba daripada bcrypt cost=12. Cepat adalah kelemahannya',
+          ],
+          [
+            'Menambahkan garam sendiri lalu memakai `sha256`',
+            'Kan sudah bergaram',
+            'Garam menutup tabel pelangi, bukan kecepatan. `password_hash` mengurus garam DAN biaya sekaligus',
+          ],
+          [
+            'Menaruh data sensitif di dalam payload JWT',
+            'Tokennya kan ditandatangani',
+            'Diukur, payload terbaca tanpa kunci apa pun. JWT ditandatangani, bukan dienkripsi',
+          ],
+          [
+            'Membaca `alg` dari token lalu memakainya untuk verifikasi',
+            'Tokennya yang tahu algoritmanya',
+            'Itu membiarkan penyerang memilih `none`. Tentukan daftar algoritma yang diizinkan di sisi server',
+          ],
+          [
+            'Memakai AES-CBC untuk data yang bisa disentuh pengguna',
+            'AES kan kuat',
+            'Diukur, ciphertext yang diubah tetap terdekripsi. Pakai mode berautentikasi seperti GCM',
+          ],
+          [
+            'Membandingkan token dengan `===`',
+            'Hasilnya kan sama',
+            'Waktu eksekusi di JavaScript tidak bisa diprediksi. Pakai `timingSafeEqual` atas digest yang panjangnya tetap',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir layak dibaca dengan jujur. Pengukuran di bab Auth tidak berhasil menunjukkan kebocoran waktu dari `===` pada string 64 karakter, dan itu dilaporkan apa adanya. Alasan tetap memakai `timingSafeEqual` bukan karena kebocorannya terbukti, melainkan karena tidak ada yang menjamin perilaku itu bertahan pada mesin lain, versi Node lain, atau setelah JIT memutuskan hal yang berbeda. Kontrol keamanan dipilih berdasarkan jaminan, bukan berdasarkan hasil pengukuran di satu mesin.',
+      ),
       references(
         {
           label: 'A02:2021 — Cryptographic Failures',
@@ -573,7 +938,7 @@ export const lessons: LessonDraft[] = [
   written(
     'injection',
     'Injection: SQL, NoSQL, Command',
-    13,
+    18,
     'Ketika data berubah menjadi perintah.',
     [
       p(
@@ -868,6 +1233,181 @@ export const lessons: LessonDraft[] = [
         '**Pemantauan** — permintaan yang cocok dengan pola injeksi layak dicatat dan diberi alert.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Injection terjadi ketika masukan pengguna berhenti diperlakukan sebagai **data** dan mulai dibaca sebagai **perintah**. Contohnya paling mudah dilihat pada query yang dirakit dengan penggabungan string.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan node:sqlite pada Node 26.5.0.
+        Query: SELECT id, nama, surel, sandi_hash FROM pengguna WHERE nama = '<masukan>'
+
+        masukan: "ana"
+          -> 1 baris: [{"id":1,"nama":"ana","surel":"ana@contoh.id","sandi_hash":"$2y$12$abc"}]
+
+        masukan: "ana' OR '1'='1"
+          -> 2 baris: SELURUH tabel, sandi_hash ikut terbawa
+
+        masukan: "x' UNION SELECT id, nama, surel, sandi_hash FROM pengguna --"
+          -> 2 baris: SELURUH tabel
+
+        Query yang SAMA dengan prepared statement:
+          "ana"                              -> 1 baris
+          "ana' OR '1'='1"                   -> 0 baris
+          "x' UNION SELECT ... --"           -> 0 baris
+        `,
+        {
+          caption:
+            'Prepared statement tidak "membersihkan" masukannya. Ia mengirimkannya di saluran yang terpisah dari perintahnya.',
+        },
+      ),
+      p(
+        'Perbedaan itu yang menentukan. Pembersihan masukan berusaha menebak mana yang berbahaya, sementara prepared statement membuat pertanyaan itu tidak relevan, sebab nilainya tidak pernah ikut diurai sebagai SQL.',
+      ),
+      code(
+        'text',
+        `
+        Dan kerusakannya tidak berhenti di pembacaan:
+
+          exec("SELECT * FROM audit WHERE pesan = 'x'; DELETE FROM audit; --'")
+          baris audit sebelum : 1
+          baris audit sesudah : 0
+
+        Perintah bertumpuk berjalan. Satu kolom pencarian sudah cukup.
+        `,
+      ),
+      p('Bentuk yang sama berlaku untuk perintah sistem, dan selisihnya juga bisa diukur.'),
+      code(
+        'text',
+        `
+        Nama berkas dari pengguna: "catatan.txt; id"
+
+          exec(\`cat /tmp/\${berkas}\`)
+            -> "uid=1000(zum) gid=1000(zum) groups=1000(zum),4(adm),24(cdrom),
+                27(sudo),30(dip),46(plugdev),100(users),105(lpadmin),125(s..."
+
+          execFile('cat', [\`/tmp/\${berkas}\`])
+            -> gagal: Command failed: cat /tmp/catatan.txt; id
+        `,
+        {
+          caption:
+            'exec menyerahkan teksnya ke shell. execFile memperlakukan seluruh teks sebagai SATU nama berkas.',
+        },
+      ),
+      p(
+        'Titik koma itu tidak pernah punya arti khusus bagi `execFile`, sebab tidak ada shell yang membacanya. Itulah alasan memilih bentuk berargumen jauh lebih kuat daripada berapa pun banyaknya karakter yang kamu blokir.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Injection yang berhasil biasanya tidak memunculkan error apa pun, sehingga yang perlu dikenali justru **error yang muncul saat ia setengah berhasil** — itulah yang dipakai penyerang untuk memetakan basis datamu.',
+      ),
+      code(
+        'text',
+        `
+        Pesan yang membocorkan struktur, dan sering dikirim apa adanya ke klien:
+
+          SqliteError: no such column: xyz
+          SqliteError: near "UNION": syntax error
+          SQLSTATE[42S22]: Column not found: 1054 Unknown column 'peran' in 'where clause'
+          error: relation "pengguna" does not exist
+
+        Penyerang mengirim masukan yang SENGAJA salah, lalu membaca
+        pesannya untuk menebak nama tabel dan kolom satu per satu.
+        Teknik ini punya nama sendiri: error-based SQL injection.
+        `,
+      ),
+      p(
+        'Menutupnya tidak berarti menyembunyikan errornya dari dirimu sendiri, melainkan memisahkan siapa yang boleh melihatnya.',
+      ),
+      code(
+        'ts',
+        `
+        // Detail TETAP dicatat lengkap di server. Klien hanya menerima
+        // penanda yang bisa dicocokkan dengan log.
+        try {
+          return db.prepare(sql).all(...nilai);
+        } catch (e) {
+          const jejak = crypto.randomUUID();
+          log.error({ jejak, sql, pesan: (e as Error).message });   // server
+          throw new GagalApi(
+            { type: 'about:blank', title: 'Terjadi kesalahan', status: 500, jejak },
+            500,
+          );                                                        // klien
+        }
+        `,
+      ),
+      p(
+        'Ada satu jalur injeksi yang tidak bisa ditutup prepared statement, dan justru karena itu ia sering terlewat.',
+      ),
+      code(
+        'ts',
+        `
+        // Placeholder TIDAK bisa dipakai untuk nama kolom atau arah urutan.
+        // Ini GAGAL, bukan aman:
+        //   db.prepare('SELECT * FROM artikel ORDER BY ? ?').all(kolom, arah)
+
+        // Satu-satunya cara yang benar adalah daftar izin.
+        const KOLOM_BOLEH = { judul: 'judul', dibuat: 'created_at', populer: 'view_count' } as const;
+        const ARAH_BOLEH = { naik: 'ASC', turun: 'DESC' } as const;
+
+        function daftar(kolom: string, arah: string) {
+          const k = KOLOM_BOLEH[kolom as keyof typeof KOLOM_BOLEH];
+          const a = ARAH_BOLEH[arah as keyof typeof ARAH_BOLEH];
+          if (!k || !a) throw new GagalApi({ title: 'Urutan tidak dikenal', status: 422 }, 422);
+          // Nilainya kini berasal dari KONSTANTA di kode, bukan dari pengguna.
+          return db.prepare(\`SELECT * FROM artikel ORDER BY \${k} \${a} LIMIT 50\`).all();
+        }
+        `,
+        {
+          caption:
+            'Diuji di bab Desain API: percobaan injeksi lewat ORDER BY ditolak 422 dan jumlah baris tabel tetap utuh.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan di kategori ini hampir selalu berupa upaya membersihkan masukan, padahal yang dibutuhkan adalah memisahkan masukan dari perintahnya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyaring kata seperti `SELECT`, `DROP`, `--`',
+            'Yang berbahaya kan kata-kata itu',
+            "Diukur, `ana' OR '1'='1` tidak mengandung satu pun kata itu dan membocorkan seluruh tabel",
+          ],
+          [
+            'Meng-escape tanda kutip sendiri',
+            'Masalahnya kan tanda kutip',
+            'Aturan escape berbeda per basis data dan per encoding. Prepared statement membuatnya tidak relevan',
+          ],
+          [
+            'Merasa aman karena memakai ORM',
+            'ORM kan sudah mengurus itu',
+            'Setiap ORM punya jalan keluar untuk SQL mentah. Yang dirakit dengan string di sana tetap rentan',
+          ],
+          [
+            'Memakai `exec` dengan nama berkas dari pengguna',
+            'Cuma menjalankan `cat`',
+            'Diukur, `catatan.txt; id` menjalankan perintah kedua dan membocorkan identitas proses server',
+          ],
+          [
+            'Memakai placeholder untuk nama kolom `ORDER BY`',
+            'Kan sama-sama parameter',
+            'Placeholder hanya untuk NILAI. Nama kolom dan arah urutan wajib lewat daftar izin',
+          ],
+          [
+            'Mengirim pesan error basis data ke klien',
+            'Biar pengguna tahu masalahnya',
+            'Pesannya menyebut nama tabel dan kolom. Itulah bahan utama error-based SQL injection',
+          ],
+        ],
+      ),
+      p(
+        'Baris ketiga paling sering menimpa project yang justru sudah rapi. ORM menutup jalur yang biasa, lalu satu laporan yang butuh query rumit ditulis sebagai SQL mentah dengan penggabungan string, dan seluruh perlindungan itu dilewati di satu tempat. Aturannya tidak berubah oleh alat: selama ada nilai dari pengguna yang ikut dirakit menjadi teks perintah, kerentanannya ada di sana.',
+      ),
       references(
         {
           label: 'A03:2021 — Injection',
@@ -906,7 +1446,7 @@ export const lessons: LessonDraft[] = [
   written(
     'insecure-design',
     'Insecure Design & Threat Modeling Ringkas',
-    11,
+    18,
     'Kerentanan yang tidak bisa ditambal karena ia ada di rancangannya.',
     [
       p(
@@ -1065,6 +1605,204 @@ export const lessons: LessonDraft[] = [
         ],
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Insecure Design adalah satu-satunya kategori OWASP yang **tidak bisa ditutup dengan menulis kode lebih hati-hati**. Bugnya ada pada aturan yang tidak pernah ditetapkan, dan kodenya bekerja persis seperti yang diminta.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan. Validasi tipe dan format LENGKAP dan lolos semuanya.
+
+        total = harga * jumlah + ongkir      harga=150.000  ongkir=20.000
+
+          jumlah=     2 -> {"total":320000}
+          jumlah=     0 -> {"total":20000}
+          jumlah=    -5 -> {"total":-730000}
+          jumlah= -1000 -> {"total":-149980000}
+
+        Tipe benar. Format benar. Skemanya lolos.
+        Dan pelanggan terakhir memesan seratus empat puluh sembilan
+        juta rupiah UNTUK DIRINYA SENDIRI.
+        `,
+        {
+          caption:
+            'Validasi menjawab "bentuknya benar?". Ia tidak pernah menjawab "ini masuk akal?".',
+        },
+      ),
+      p(
+        'Perbaikannya bukan validasi yang lebih ketat melainkan **aturan bisnis yang ditulis sebagai batas**, dan bedanya terlihat langsung.',
+      ),
+      code(
+        'text',
+        `
+        jumlah harus 1 sampai 10, dan tidak boleh melebihi stok:
+
+          jumlah=   2 -> {"status":200,"total":320000}
+          jumlah=   0 -> {"status":422,"error":"jumlah harus 1 sampai 10"}
+          jumlah=  -5 -> {"status":422,"error":"jumlah harus 1 sampai 10"}
+          jumlah=  50 -> {"status":422,"error":"jumlah harus 1 sampai 10"}
+        `,
+      ),
+      p(
+        'Kelas kedua yang khas Insecure Design adalah **cek-lalu-tulis**, dan ia tidak pernah muncul saat diuji satu per satu.',
+      ),
+      code(
+        'text',
+        `
+        Kupon HEMAT50 sisa 1. Dua permintaan tiba hampir bersamaan.
+        Diukur sungguhan dengan node:sqlite:
+
+          A membaca sisa=1, B membaca sisa=1  (keduanya SEBELUM ada yang menulis)
+          A -> DITERIMA
+          B -> DITERIMA
+
+          penukaran tercatat : 2   (seharusnya 1)
+          sisa kupon         : -1  (NEGATIF)
+
+        Kodenya benar bila dibaca baris demi baris. Yang salah adalah
+        asumsi bahwa antara CEK dan TULIS tidak terjadi apa-apa.
+        `,
+      ),
+      code(
+        'text',
+        `
+        Bentuk yang benar: satu pernyataan bersyarat, dijaga basis data.
+
+          UPDATE kupon SET sisa = sisa - 1 WHERE kode = ? AND sisa > 0
+
+          A -> DITERIMA
+          B -> DITOLAK
+          C -> DITOLAK
+          sisa kupon : 0
+
+        Dan pagarnya ikut dipasang di skema:
+          CHECK (sisa >= 0)
+          memaksa sisa negatif -> Error: CHECK constraint failed: sisa >= 0
+        `,
+        {
+          caption:
+            'Basis data memeriksa syaratnya SAAT menulis, jadi tidak ada celah antara cek dan tulis.',
+        },
+      ),
+      p(
+        'Threat modeling ringkas adalah cara menemukan hal-hal ini sebelum ditulis, dan tidak memerlukan kerangka kerja formal. Empat pertanyaan sudah cukup untuk sebagian besar fitur.',
+      ),
+      code(
+        'text',
+        `
+        1. Apa yang berharga di sini?
+           Uang, data pribadi, reputasi, kapasitas server, kepercayaan.
+
+        2. Siapa yang diuntungkan bila aturannya dilanggar?
+           Pengguna nakal, pesaing, bot, ATAU karyawan sendiri.
+
+        3. Apa yang terjadi bila langkah ini dilakukan:
+           - dua kali bersamaan?      -> perlombaan
+           - seribu kali per detik?   -> penyalahgunaan sumber daya
+           - dengan nilai di luar dugaan (nol, negatif, sangat besar)?
+           - dengan urutan yang dibalik?
+           - berhenti di tengah?      -> keadaan setengah jadi
+
+        4. Bagaimana kita TAHU kalau itu terjadi?
+           Bila jawabannya "tidak tahu", itu temuannya.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Ciri khas kategori ini adalah errornya muncul jauh dari tempat masalahnya, dan seringkali baru berbulan-bulan kemudian.',
+      ),
+      code(
+        'text',
+        `
+        Yang akhirnya terlihat, dan sudah terlambat:
+
+          laporan keuangan  : "total penjualan bulan ini: -12.400.000"
+          basis data        : kolom stok berisi -47
+          dukungan pelanggan: "kenapa saldo saya naik setelah membatalkan pesanan?"
+          audit             : satu kupon sekali-pakai terpakai 312 kali
+
+        Tidak satu pun dari ini pernah muncul sebagai pengecualian
+        di log aplikasi pada saat kejadiannya.
+        `,
+      ),
+      p(
+        'Ketika pagarnya akhirnya dipasang, error yang muncul justru **pesan yang bagus**, sebab ia berbunyi tepat saat pelanggaran terjadi.',
+      ),
+      code(
+        'text',
+        `
+        Error: CHECK constraint failed: sisa >= 0
+        SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry
+        error: new row for relation "saldo" violates check constraint "saldo_non_negatif"
+
+        Ketiganya BUKAN kegagalan sistem melainkan sistem yang
+        menolak menyimpan keadaan yang mustahil. Jangan ditangkap
+        lalu didiamkan — terjemahkan menjadi 409 atau 422 yang jelas.
+        `,
+      ),
+      code(
+        'ts',
+        `
+        // Terjemahkan pelanggaran batas menjadi jawaban yang bisa ditindaklanjuti.
+        try {
+          await tukarKupon(kode, pengguna.id);
+        } catch (e) {
+          if (kodeBasisData(e) === 'UNIQUE_VIOLATION') {
+            // Bukan bug. Aturannya bekerja.
+            throw new GagalApi({ title: 'Kupon sudah pernah kamu pakai', status: 409 }, 409);
+          }
+          throw e;   // sisanya benar-benar tidak terduga — biarkan naik
+        }
+        `,
+      ),
+      p(
+        'Yang membedakan potongan ini dari `try/catch` yang meredam gejala adalah baris terakhirnya. Hanya pelanggaran yang memang kamu rancang sendiri yang diterjemahkan menjadi jawaban, sementara error lain dibiarkan naik apa adanya. Menangkap semuanya lalu membalas 409 akan menyamarkan bug yang tidak terduga menjadi pesan yang terdengar wajar bagi pengguna.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kategori ini menghukum kebiasaan yang di tempat lain justru dipuji, yaitu mempercayai bahwa kode yang lolos semua test berarti fiturnya benar.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menganggap validasi skema sudah mengamankan fitur',
+            'Semua field sudah divalidasi',
+            'Diukur, `jumlah: -1000` lolos validasi dan menghasilkan total negatif seratus empat puluh sembilan juta',
+          ],
+          [
+            'Menguji fitur hanya satu permintaan pada satu waktu',
+            'Begitu cara pemakaian normalnya',
+            'Diukur, dua permintaan bersamaan menukar kupon sisa 1 sebanyak dua kali dan sisanya jadi -1',
+          ],
+          [
+            'Menjaga invarian hanya di kode aplikasi',
+            'Logikanya kan sudah benar',
+            'Dua proses menjalankan logika yang sama bersamaan. Pasang `CHECK` dan `UNIQUE` di basis data juga',
+          ],
+          [
+            'Menangkap pelanggaran constraint lalu mengabaikannya',
+            'Supaya tidak ada error ke pengguna',
+            'Itu mematikan satu-satunya alarm yang berbunyi tepat waktu. Terjemahkan ke 409, jangan didiamkan',
+          ],
+          [
+            'Menunda pertanyaan "bagaimana kita tahu kalau ini terjadi"',
+            'Nanti saja setelah fiturnya jalan',
+            'Tanpa jawabannya, pelanggaran pertama baru ketahuan dari laporan keuangan bulan berikutnya',
+          ],
+          [
+            'Menganggap penyerang selalu dari luar',
+            'Yang internal kan sudah dipercaya',
+            'Kupon terpakai 312 kali biasanya bukan peretas, melainkan satu orang yang menemukan celahnya dan memberitahu teman',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima adalah yang paling menentukan, dan ia tidak menuntut alat mahal. Satu baris log terstruktur yang mencatat siapa menukar kupon apa, ditambah satu query mingguan yang menghitung penukaran per kupon, sudah cukup untuk mengubah temuan berbulan-bulan menjadi temuan berhari-hari. Keamanan desain sebagian besar adalah kebiasaan bertanya apa yang bisa salah, lalu memastikan ada yang akan memberi tahu ketika itu terjadi.',
+      ),
       references(
         {
           label: 'A04:2021 — Insecure Design',
@@ -1097,7 +1835,7 @@ export const lessons: LessonDraft[] = [
   written(
     'security-misconfiguration',
     'Security Misconfiguration & Header',
-    12,
+    19,
     'Kodenya benar, pengaturannya yang membuka pintu.',
     [
       terms(
@@ -1347,6 +2085,217 @@ export const lessons: LessonDraft[] = [
         'Konfigurasi yang benar di berkas tapi tidak diterapkan di server adalah kegagalan yang paling mudah terlewat — dan paling mudah dideteksi. Sepuluh baris `curl` di atas menangkap sebagian besar kesalahan konfigurasi yang pernah menyebabkan kebocoran.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Security Misconfiguration jarang berupa satu pengaturan yang salah. Lebih sering ia berupa **pengaturan bawaan yang tidak pernah diubah**, dan yang paling mahal di antaranya adalah respons error yang terlalu ramah.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan node:http. Pola "biar gampang debug":
+
+          status: 500
+          badan : {"error":"relation 'produk' does not exist at
+                   /srv/app/src/db/produk.repo.ts:48",
+                   "stack":["Error: relation 'produk' does not exist at
+                   /srv/app/src/db/produk.repo.ts:48",
+                   "    at Server.<anonymous> (file:///srv/app/src/server.mjs:6:38)",
+                   "    at Server.emit (node:events:509:20)"]}
+
+          header keamanan yang ada: (tidak ada satu pun)
+
+        Dalam satu respons, penyerang mendapat: nama tabel, jalur berkas
+        di server, struktur direktori, dan versi runtime.
+        `,
+      ),
+      p(
+        'Versi yang benar tidak menghapus informasinya melainkan memindahkannya, sehingga kamu tetap bisa menelusuri dan penyerang tidak mendapat apa pun.',
+      ),
+      code(
+        'text',
+        `
+        Di LOG SERVER:
+          [LOG SERVER] req_ezj2c4in relation 'produk' does not exist at
+                       /srv/app/src/db/produk.repo.ts:48
+
+        Yang dikirim ke KLIEN:
+          {"type":"about:blank","title":"Terjadi kesalahan","status":500,
+           "jejak":"req_ezj2c4in"}
+
+        Header yang ikut terpasang:
+          content-security-policy: default-src 'self'; script-src 'self';
+                                   object-src 'none'; frame-ancestors 'none'
+          strict-transport-security: max-age=31536000; includeSubDomains
+          x-content-type-options: nosniff
+          referrer-policy: strict-origin-when-cross-origin
+          permissions-policy: geolocation=(), camera=(), microphone=()
+        `,
+        {
+          caption:
+            'Penanda jejak itu yang menyambungkan keluhan pengguna ke baris log yang tepat tanpa membocorkan apa pun.',
+        },
+      ),
+      p(
+        'Tiap header di atas menutup sesuatu yang spesifik, dan mengetahui apa yang ditutupnya jauh lebih berguna daripada menyalin daftarnya.',
+      ),
+      table(
+        ['Header', 'Yang ditutupnya', 'Yang terjadi bila tidak ada'],
+        [
+          [
+            '`Content-Security-Policy`',
+            'Menentukan dari mana skrip dan sumber daya boleh dimuat',
+            'Satu celah XSS bisa memuat skrip dari domain mana pun dan mengirim data ke sana',
+          ],
+          [
+            '`Strict-Transport-Security`',
+            'Memaksa peramban selalu memakai HTTPS untuk domain ini',
+            'Kunjungan pertama lewat `http://` bisa dibajak sebelum pengalihan ke HTTPS terjadi',
+          ],
+          [
+            '`X-Content-Type-Options: nosniff`',
+            'Melarang peramban menebak tipe berkas dari isinya',
+            'Berkas unggahan bertipe teks bisa dieksekusi sebagai skrip oleh peramban lama',
+          ],
+          [
+            '`Referrer-Policy`',
+            'Membatasi seberapa banyak URL asal ikut terkirim ke situs lain',
+            'URL berisi token atau id pesanan bocor ke setiap situs yang ditautkan',
+          ],
+          [
+            "`frame-ancestors 'none'`",
+            'Melarang halamanmu dimuat di dalam bingkai situs lain',
+            'Clickjacking: tombolmu ditumpuk di bawah halaman penyerang',
+          ],
+          [
+            '`Permissions-Policy`',
+            'Mematikan akses ke kamera, mikrofon, dan lokasi',
+            'Skrip pihak ketiga yang dimuat halamanmu bisa memintanya atas nama situsmu',
+          ],
+        ],
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kesalahan konfigurasi punya dua wajah. Yang pertama tidak menghasilkan error sama sekali, dan yang kedua menghasilkan error yang menyesatkan karena datang dari lapisan yang salah.',
+      ),
+      code(
+        'text',
+        `
+        YANG DIAM — tidak ada error, dan itu masalahnya:
+
+          X-Powered-By: PHP/8.3.6        <- versi runtime diumumkan
+          Server: nginx/1.24.0           <- versi server web diumumkan
+          /debug, /metrics, /health?full=1 terbuka tanpa autentikasi
+          direktori unggahan bisa dijelajahi
+          akun bawaan masih memakai sandi bawaan
+          CORS: Access-Control-Allow-Origin dipantulkan dari Origin
+
+        Semua itu menjawab 200. Tidak ada satu pun yang tercatat
+        sebagai kesalahan di mana pun.
+        `,
+      ),
+      p(
+        'Contoh nyata dari pengukuran di bab sebelumnya menunjukkan betapa mudahnya header seperti ini terkirim tanpa disadari.',
+      ),
+      code(
+        'text',
+        `
+        Server PHP bawaan yang dipakai menguji kontrak API mengirim:
+
+          HTTP/1.0 500 Internal Server Error
+          X-Powered-By: PHP/8.3.6
+          Access-Control-Allow-Origin: http://localhost:3000
+
+        Tidak seorang pun menulis baris X-Powered-By itu.
+        Ia bawaan, dan ia ikut terkirim sampai seseorang mematikannya
+        (expose_php = Off).
+        `,
+      ),
+      p(
+        'Wajah kedua adalah CSP yang dipasang terlalu cepat, dan gejalanya sangat khas karena muncul di konsol peramban, bukan di log server.',
+      ),
+      code(
+        'text',
+        `
+        Refused to execute inline script because it violates the following
+        Content Security Policy directive: "script-src 'self'". Either the
+        'unsafe-inline' keyword, a hash ('sha256-...'), or a nonce is required.
+
+        Refused to apply inline style because it violates the following
+        Content Security Policy directive: "style-src 'self'".
+
+        Refused to connect to 'https://api.pihakketiga.com/' because it
+        violates the following Content Security Policy directive:
+        "connect-src 'self'".
+        `,
+        {
+          caption:
+            'Halamannya tampak rusak tanpa satu pun error di sisi server. Konsol peramban satu-satunya tempat pesan ini ada.',
+        },
+      ),
+      p(
+        'Jalan keluarnya bukan menambahkan `unsafe-inline`, sebab itu mematikan sebagian besar manfaat CSP. Yang benar adalah memulai dari mode laporan sehingga kamu melihat apa saja yang akan diblokir sebelum benar-benar memblokirnya.',
+      ),
+      code(
+        'text',
+        `
+        Tahap 1 — hanya melapor, tidak memblokir apa pun:
+          Content-Security-Policy-Report-Only: default-src 'self';
+            report-uri /csp-laporan
+
+        Tahap 2 — baca laporannya selama beberapa hari, perbaiki
+          skrip dan gaya inline yang ternyata masih dipakai.
+
+        Tahap 3 — barulah ganti headernya menjadi
+          Content-Security-Policy: ...
+
+        Melewati tahap 1 hampir selalu berakhir dengan 'unsafe-inline'
+        ditambahkan karena terburu-buru, dan CSP-nya jadi hiasan.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Sebagian besar kesalahan di sini bukan tindakan yang salah melainkan tindakan yang tidak pernah dilakukan, dan itulah yang membuatnya sulit terlihat saat review kode.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Mengirim pesan dan stack error ke klien',
+            'Biar gampang debug di produksi',
+            'Diukur, satu respons membocorkan nama tabel, jalur berkas, dan struktur direktori server',
+          ],
+          [
+            'Memakai konfigurasi yang sama untuk dev dan produksi',
+            'Biar tidak ada kejutan',
+            'Mode debug, CORS `localhost`, dan akun uji ikut terbawa ke produksi',
+          ],
+          [
+            'Menambahkan `unsafe-inline` supaya CSP tidak mengganggu',
+            'Halamannya jadi jalan lagi',
+            'Itu mematikan perlindungan utamanya. Mulai dari `Report-Only`, perbaiki, baru tegakkan',
+          ],
+          [
+            'Membiarkan `/metrics` atau `/debug` terbuka',
+            'Tidak ditautkan dari mana pun',
+            'Tidak ditautkan bukan berarti tidak bisa diakses. Pemindai menemukannya dalam hitungan menit',
+          ],
+          [
+            'Membiarkan `X-Powered-By` dan `Server` apa adanya',
+            'Cuma nama dan versi',
+            'Itu memberi penyerang daftar kerentanan yang tepat untuk versi itu tanpa perlu menebak',
+          ],
+          [
+            'Memasang header keamanan hanya di halaman utama',
+            'Yang penting kan halaman depan',
+            'Header dipasang per respons. Endpoint API dan halaman error juga membutuhkannya',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir sering terlewat karena cara pemasangannya. Header yang ditambahkan di satu handler tidak berlaku untuk handler lain, dan justru halaman error adalah tempat yang paling sering lupa dipasangi. Pasang di satu tempat yang dilalui semua respons, yaitu middleware paling luar atau konfigurasi server web, lalu buktikan dengan `curl -i` pada beberapa rute yang berbeda, termasuk satu rute yang sengaja dibuat gagal.',
+      ),
       references(
         {
           label: 'A05:2021 — Security Misconfiguration',
@@ -1385,7 +2334,7 @@ export const lessons: LessonDraft[] = [
   written(
     'vulnerable-components',
     'Komponen Rentan & Audit Dependency',
-    11,
+    18,
     'Kerentanan yang kamu warisi tanpa menulis satu baris pun.',
     [
       p(
@@ -1599,6 +2548,188 @@ export const lessons: LessonDraft[] = [
         'Project yang diperbarui mingguan hampir tidak pernah menghadapi lompatan besar. Project yang dibiarkan setahun akan menemukan bahwa menutup satu kerentanan membutuhkan upgrade mayor tiga paket sekaligus — biasanya pada hari kerentanannya diumumkan publik.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Sebagian besar kode yang berjalan di aplikasimu bukan kode yang kamu tulis. Angka itu bisa diukur, dan biasanya jauh lebih besar daripada dugaan.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan di project ini dengan npm:
+
+          dependencies      :   4
+          devDependencies   :  17
+          langsung total    :  21
+
+          total paket terpasang : 651
+            untuk produksi      :  62
+            untuk pengembangan  : 552
+
+        Dua puluh satu keputusan sadar berubah menjadi 651 paket.
+        `,
+        { caption: 'Setiap paket itu berjalan dengan hak yang sama dengan kodemu sendiri.' },
+      ),
+      p('Dan hasil pemindaiannya juga nyata, bukan contoh karangan.'),
+      code(
+        'text',
+        `
+        npm audit pada project ini, saat materi ini ditulis:
+
+          6 vulnerabilities (2 moderate, 3 high, 1 critical)
+
+          @vitest/mocker   moderate   langsung=tidak   lewat: vitest
+          js-yaml          high       langsung=tidak
+          nanoid           high       langsung=tidak
+          next             critical   langsung=YA
+          sharp            high       langsung=tidak   lewat: next
+          vitest           moderate   langsung=YA
+
+        Empat dari enam TIDAK pernah dipasang siapa pun secara sadar.
+        Mereka ikut terbawa.
+        `,
+      ),
+      p(
+        'Bagian yang paling sering tidak dibaca orang adalah kalimat yang menyertai saran perbaikannya, dan justru di situ letak keputusannya.',
+      ),
+      code(
+        'text',
+        `
+        sharp  <0.35.4
+        Severity: high
+        fix available via \`npm audit fix --force\`
+        Will install next@16.3.5, which is outside the stated dependency range
+
+        Artinya:
+          - perbaikan otomatisnya menaikkan Next.js ke versi MAYOR berikutnya
+          - versi itu di luar rentang yang project ini nyatakan
+          - menjalankannya bisa merusak hal yang sekarang bekerja
+
+        Ini keputusan, bukan perintah yang dijalankan buta.
+        `,
+        {
+          caption:
+            'Aturan project ini juga menuntutnya: menaikkan versi dependency harus ditanyakan lebih dulu ke pemilik project.',
+        },
+      ),
+      p(
+        'Cara membacanya sederhana. `npm audit fix` tanpa `--force` hanya menaikkan versi di dalam rentang yang sudah dinyatakan, jadi risikonya kecil. Begitu `--force` diperlukan, yang sedang ditawarkan adalah perubahan mayor, dan itu masuk ke daftar pekerjaan tersendiri dengan pengujian tersendiri.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Yang membuat kategori ini sulit adalah errornya sering muncul **jauh dari paket yang bermasalah**, atau tidak muncul sama sekali sampai seseorang memanfaatkannya.',
+      ),
+      code(
+        'text',
+        `
+        BENTUK 1 — muncul saat memasang, bukan saat menjalankan
+
+          npm error code ERESOLVE
+          npm error ERESOLVE unable to resolve dependency tree
+          npm error Found: react@19.2.8
+          npm error Could not resolve dependency:
+          npm error peer react@"^18.0.0" from paket-lama@2.1.0
+
+          Godaan terbesarnya adalah menambahkan --legacy-peer-deps
+          supaya pesannya hilang. Yang terjadi: paketnya tetap terpasang
+          dan ketidakcocokannya muncul nanti sebagai bug runtime
+          yang tidak menyebut nama paket mana pun.
+
+        BENTUK 2 — muncul di CI, bukan di mesin siapa pun
+
+          npm error \`npm ci\` can only install packages when your
+          package.json and package-lock.json are in sync
+
+          Itu tanda lockfile-nya tidak ikut diperbarui bersama
+          package.json. Perbaikannya bukan menghapus lockfile.
+        `,
+      ),
+      p(
+        'Bentuk ketiga tidak menghasilkan pesan apa pun, dan itulah yang paling berbahaya, sebab ia berupa paket yang memang berjalan sesuai deskripsinya sambil melakukan hal lain.',
+      ),
+      code(
+        'text',
+        `
+        Yang perlu diperiksa SEBELUM sebuah paket masuk:
+
+          - kapan rilis terakhirnya, dan berapa isu terbuka yang menumpuk
+          - berapa orang yang berhak menerbitkannya
+          - apakah namanya mirip paket populer (typosquatting):
+              cross-env  vs  crossenv
+              lodash     vs  lodahs
+          - apakah ada skrip postinstall, dan apa isinya
+          - berapa dependency yang ikut terbawa
+
+        Pertanyaan terakhir sering menentukan: satu paket kecil yang
+        membawa 40 dependency menambah 40 pintu, bukan satu.
+        `,
+      ),
+      code(
+        'bash',
+        `
+        # Lihat apa yang sebenarnya ikut terbawa SEBELUM memasang.
+        npm view <paket> dependencies
+        npm view <paket> maintainers
+        npm view <paket> time.modified
+
+        # Lihat siapa yang meminta sebuah paket transitif ada di sini.
+        npm ls sharp
+        npm explain nanoid
+
+        # Pasang tanpa menjalankan skrip lifecycle paket mana pun.
+        npm install --ignore-scripts
+
+        # Di CI: pasang PERSIS seperti lockfile, jangan menyelesaikan ulang.
+        npm ci
+        `,
+        {
+          caption:
+            '`npm explain` menjawab pertanyaan "kenapa paket ini ada di project saya" — pertanyaan yang paling sering tidak terjawab.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan di kategori ini hampir semuanya berupa mengambil jalan tercepat untuk menghilangkan pesan, bukan untuk menyelesaikan masalahnya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menjalankan `npm audit fix --force` sampai bersih',
+            'Tujuannya kan nol kerentanan',
+            'Diukur, `--force` di project ini menaikkan Next.js ke luar rentang yang dinyatakan. Bisa merusak yang sekarang bekerja',
+          ],
+          [
+            'Menambahkan `--legacy-peer-deps` agar pemasangan lolos',
+            'Pesannya hilang dan paketnya terpasang',
+            'Ketidakcocokannya tidak hilang, hanya ditunda menjadi bug runtime yang tidak menyebut nama paket',
+          ],
+          [
+            'Menghapus `package-lock.json` saat CI mengeluh',
+            'Biar dibuat ulang yang bersih',
+            'Lockfile adalah catatan versi yang benar-benar teruji. Menghapusnya membuang satu-satunya jaminan reproduktifitas',
+          ],
+          [
+            'Menganggap `devDependencies` tidak berisiko',
+            'Tidak ikut ke produksi',
+            'Diukur, 552 dari 651 paket ada di sisi dev. Semuanya berjalan di mesinmu dan di CI, tempat kredensial berada',
+          ],
+          [
+            'Memasang paket kecil tanpa melihat dependency-nya',
+            'Cuma satu fungsi kecil',
+            'Satu paket bisa membawa puluhan paket lain. Periksa dengan `npm view <paket> dependencies` lebih dulu',
+          ],
+          [
+            'Mengabaikan `npm audit` karena "cuma dev"',
+            'Tidak menyentuh pengguna',
+            'CI memegang token deploy dan kunci penerbitan. Itu target yang lebih berharga daripada satu server aplikasi',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir pantas ditegaskan karena arah serangannya berlawanan dengan dugaan. Menyerang server produksi berarti mendapat satu sistem, sementara menyerang pipeline pembangunan berarti mendapat kemampuan menyisipkan kode ke setiap rilis berikutnya, sekaligus semua kredensial yang dipegang pipeline itu. Karena itulah `npm ci`, `--ignore-scripts` saat memeriksa paket baru, dan kebiasaan membaca siapa penerbit sebuah paket bukan formalitas, melainkan tempat pertahanan yang sebenarnya berada.',
+      ),
       references(
         {
           label: 'A06:2021 — Vulnerable and Outdated Components',
@@ -1637,7 +2768,7 @@ export const lessons: LessonDraft[] = [
   written(
     'auth-failures',
     'Kegagalan Identifikasi & Autentikasi',
-    12,
+    19,
     'Cara masuk yang bisa ditembus tanpa mengetahui password.',
     [
       terms(
@@ -1911,6 +3042,221 @@ export const lessons: LessonDraft[] = [
         'Pasang alert untuk lonjakan kegagalan login, login dari lokasi yang tidak biasa, dan banyak akun berbeda yang dicoba dari satu IP — pola credential stuffing.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Kegagalan autentikasi jarang berupa sandi yang bisa ditebak. Lebih sering ia berupa **saluran sampingan** yang memberi tahu penyerang lebih banyak daripada yang dimaksudkan, dan yang paling murah dieksploitasi adalah pesan errornya sendiri.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan Node 26.5.0. Pesan yang "membantu pengguna":
+
+          ana@contoh.id  -> {"status":401,"pesan":"Password salah"}
+          budi@contoh.id -> {"status":404,"pesan":"Email tidak terdaftar"}
+
+        Penyerang kini tahu ana@contoh.id TERDAFTAR dan budi@contoh.id tidak,
+        tanpa pernah menebak satu sandi pun.
+
+        Pesan seragam:
+          ana@contoh.id  -> {"status":401,"pesan":"Email atau password salah"}
+          budi@contoh.id -> {"status":401,"pesan":"Email atau password salah"}
+        `,
+      ),
+      p(
+        'Menyeragamkan pesannya belum cukup, sebab ada saluran kedua yang tidak terlihat di badan respons, yaitu **berapa lama** server menjawab.',
+      ),
+      code(
+        'text',
+        `
+        Diukur, median dari 40 percobaan login yang GAGAL:
+
+          pengguna ADA   : 28,05 ms
+          pengguna TIADA :  0,00 ms
+
+        Selisih 28 milidetik itu cukup untuk memisahkan email yang
+        terdaftar dari yang tidak, meski pesannya identik.
+
+        Sebabnya sederhana: bila penggunanya tidak ada, kodenya
+        keluar lebih awal dan TIDAK PERNAH menjalankan hash.
+        `,
+      ),
+      p(
+        'Perbaikan yang tampak jelas adalah tetap menghitung hash meski penggunanya tidak ada. Perbaikan itu diukur, dan hasilnya **membuat kebocorannya lebih besar**.',
+      ),
+      code(
+        'text',
+        `
+        Diukur, median dari 40 percobaan:
+
+          patokan dihitung TIAP permintaan
+            ada=27,96 ms   tiada=56,54 ms   selisih=28,58 ms
+
+          patokan dihitung SEKALI saat boot
+            ada=28,19 ms   tiada=27,82 ms   selisih= 0,37 ms
+
+        Versi pertama menjalankan scrypt DUA KALI untuk pengguna
+        yang tidak ada — sekali untuk patokan palsu, sekali untuk
+        masukannya. Selisihnya justru lebih besar daripada tanpa
+        perbaikan sama sekali, hanya arahnya terbalik.
+        `,
+        {
+          caption:
+            'Perbaikan yang masuk akal secara logika bisa memperburuk keadaan. Itulah sebabnya diukur, bukan dikira.',
+        },
+      ),
+      code(
+        'ts',
+        `
+        // Patokan dihitung SEKALI saat proses dinyalakan, bukan per permintaan.
+        const HASH_PALSU = crypto.scryptSync('tidak-akan-pernah-cocok', GARAM, 32).toString('hex');
+
+        function masuk(surel: string, sandi: string) {
+          const u = cariPengguna(surel);
+          const patokan = u?.hash ?? HASH_PALSU;              // konstanta, bukan kerja baru
+          const h = crypto.scryptSync(sandi, GARAM, 32).toString('hex');
+          const cocok = crypto.timingSafeEqual(Buffer.from(h), Buffer.from(patokan));
+          return Boolean(u) && cocok;
+        }
+
+        // Kebenarannya tetap sama, diuji:
+        //   masuk(ana, benar123)  -> true
+        //   masuk(ana, salah)     -> false
+        //   masuk(budi, apa pun)  -> false
+        `,
+      ),
+      p(
+        'Kunci perbaikannya ada pada kata sekali. Menghitung hash palsu pada tiap permintaan justru menambahkan kerja baru yang waktunya ikut berubah-ubah, dan pengukuran di bab ini menunjukkan selisihnya malah membesar. Karena patokannya dihitung saat proses menyala, jalur pengguna yang tidak ada dan jalur sandi yang salah mengerjakan jumlah kerja yang sama.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Dua kegagalan berikutnya juga tidak menghasilkan pesan error, dan keduanya sering ada bersamaan di aplikasi yang sama.',
+      ),
+      code(
+        'text',
+        `
+        SESSION FIXATION — diukur sungguhan
+
+          penyerang menanam id      : id-yang-DITANAM-penyerang
+          tanpa regenerasi, sesudah login id-nya : id-yang-DITANAM-penyerang
+            -> penyerang memegang id yang SAMA, dan kini id itu
+               menunjuk sesi Ana yang SUDAH LOGIN
+
+          dengan regenerasi, sesudah login id-nya:
+            77565be0-8f10-4549-b97a-36d97ad1b30b
+            -> id lama dibuang; id yang dipegang penyerang tidak
+               lagi menunjuk sesi mana pun
+        `,
+        { caption: 'Satu baris regenerasi id sesudah login menutup seluruh serangan ini.' },
+      ),
+      code(
+        'text',
+        `
+        TANPA PEMBATASAN LAJU — diukur, lalu diskalakan
+
+          tanpa pembatasan laju : ~350 tebakan / 10 detik
+            (diukur 200 ms lalu diskalakan; batasnya di sini adalah
+             biaya scrypt itu sendiri, bukan aturan apa pun)
+
+          dengan 5 percobaan / 15 menit per akun:
+            5 tebakan / 10 detik, sisanya 429
+
+        Perhatikan: hash yang lambat SUDAH menjadi pembatas alami.
+        Tapi 350 tebakan per 10 detik tetap berarti 3.000 per menit,
+        dan daftar seribu sandi terpopuler habis dalam 20 detik.
+        `,
+      ),
+      p(
+        'Pembatasan lajunya harus dipasang di dua sumbu sekaligus, sebab masing-masing menutup serangan yang berbeda.',
+      ),
+      code(
+        'text',
+        `
+        PER AKUN   : melindungi satu pengguna dari ditebak berulang
+                     5 gagal -> kunci 15 menit
+
+        PER IP     : melindungi dari satu penyerang yang mencoba
+                     BANYAK akun sekaligus
+                     100 percobaan/jam per IP
+
+        Keduanya diperlukan:
+          - hanya per akun  -> penyerang mencoba satu sandi populer
+                               ke 10.000 akun berbeda (credential stuffing)
+          - hanya per IP    -> penyerang memakai 10.000 IP berbeda
+                               untuk menyerang satu akun
+
+        Dan ada jebakannya: penguncian per akun bisa dipakai untuk
+        MENGUNCI pengguna lain dengan sengaja. Karena itu pakai
+        penundaan bertingkat, bukan penguncian keras, untuk akun biasa.
+        `,
+      ),
+      code(
+        'ts',
+        `
+        // Token setel-ulang sandi: tiga sifat yang wajib ada sekaligus.
+        async function buatTokenSetelUlang(penggunaId: number) {
+          const mentah = crypto.randomBytes(32).toString('base64url');   // 1. acak kriptografis
+          await db.simpanToken({
+            penggunaId,
+            // 2. yang DISIMPAN adalah hash-nya. Bocornya basis data
+            //    tidak memberi penyerang token yang bisa dipakai.
+            hash: crypto.createHash('sha256').update(mentah).digest('hex'),
+            kedaluwarsa: Date.now() + 15 * 60 * 1000,                    // 3. berumur pendek
+            terpakai: false,
+          });
+          return mentah;   // hanya ini yang dikirim lewat surel
+        }
+
+        // Dan saat dipakai: tandai terpakai DI DALAM transaksi yang sama,
+        // supaya satu token tidak bisa dipakai dua kali secara bersamaan.
+        `,
+      ),
+      p(
+        'Ketiga sifat itu menutup lubang yang berbeda, dan menghilangkan satu saja membatalkan dua lainnya. Acak kriptografis menutup tebakan, menyimpan hash menutup akibat bocornya basis data, dan umur pendek menutup token lama yang tertinggal di kotak surel. Penandaan terpakai di dalam transaksi yang sama menutup yang keempat, yaitu dua permintaan yang tiba bersamaan dan sama-sama lolos.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan di sini hampir semuanya lahir dari niat baik, yaitu keinginan membuat pengalaman masuk terasa membantu dan ramah.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membedakan "email tidak terdaftar" dan "password salah"',
+            'Pengguna jadi tahu masalahnya',
+            'Diukur, itu memberi penyerang daftar email yang terdaftar tanpa menebak satu sandi pun',
+          ],
+          [
+            'Menyeragamkan pesan lalu menganggapnya selesai',
+            'Pesannya sudah sama',
+            'Diukur, selisih waktunya 28 ms — cukup untuk membedakan keduanya meski pesannya identik',
+          ],
+          [
+            'Menghitung hash palsu di setiap permintaan agar seragam',
+            'Biar waktunya sama',
+            'Diukur, itu menjalankan hash DUA KALI dan selisihnya justru naik jadi 28,58 ms. Hitung patokan sekali saat boot',
+          ],
+          [
+            'Tidak meregenerasi id sesi sesudah login',
+            'Sesinya kan sudah ada',
+            'Diukur, id yang ditanam penyerang tetap berlaku dan kini menunjuk sesi yang sudah login',
+          ],
+          [
+            'Membatasi laju hanya per akun',
+            'Yang diserang kan akunnya',
+            'Credential stuffing mencoba satu sandi ke ribuan akun. Batasi per IP juga',
+          ],
+          [
+            'Menyimpan token setel-ulang apa adanya di basis data',
+            'Kan sudah acak',
+            'Basis data yang bocor langsung memberi token yang bisa dipakai. Simpan hash-nya, kirim yang mentah',
+          ],
+        ],
+      ),
+      p(
+        'Hasil pengukuran di baris ketiga pantas diingat melampaui topiknya. Perbaikan itu benar secara penalaran, ditulis dengan niat yang tepat, dan membuat keadaannya lebih buruk. Satu-satunya yang menunjukkannya adalah pengukuran. Untuk kontrol keamanan, keyakinan bahwa sesuatu seharusnya bekerja tidak pernah setara dengan bukti bahwa ia bekerja.',
+      ),
       references(
         {
           label: 'A07:2021 — Identification and Authentication Failures',
@@ -1949,7 +3295,7 @@ export const lessons: LessonDraft[] = [
   written(
     'integrity-failures',
     'Integritas Software & Data',
-    11,
+    16,
     'Memastikan yang berjalan memang yang kamu maksud.',
     [
       p(
@@ -2201,6 +3547,175 @@ export const lessons: LessonDraft[] = [
         'Tidak ada yang bisa menyunting kode langsung di server produksi.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Kategori ini menanyakan satu hal, yaitu apakah kamu bisa memastikan bahwa kode dan data yang masuk ke sistemmu benar-benar berasal dari sumber yang kamu percaya. Contoh paling langsungnya adalah data terserialisasi yang dibangkitkan kembali menjadi objek.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan PHP 8.3.6.
+
+        Data sah yang dibuat server sendiri:
+          O:4:"Sesi":2:{s:8:"pengguna";s:3:"ana";s:5:"peran";s:4:"user";}
+          -> Sesi peran=user
+
+        Data yang DITULIS SENDIRI oleh penyerang:
+          O:4:"Sesi":2:{s:8:"pengguna";s:3:"ana";s:5:"peran";s:5:"admin";}
+          -> Sesi peran=admin
+
+        Penyerang menaikkan perannya sendiri tanpa menyentuh basis data.
+        `,
+      ),
+      p(
+        'Yang membuatnya jauh lebih berbahaya daripada sekadar mengubah nilai adalah kemampuan memilih **kelas mana** yang dibangkitkan, termasuk kelas yang sama sekali tidak berhubungan dengan sesi.',
+      ),
+      code(
+        'text',
+        `
+        Payload: O:6:"Berkas":1:{s:5:"jalur";s:17:"/etc/passwd-PALSU";}
+
+          [__destruct Berkas berjalan] akan menghapus: /etc/passwd-PALSU
+
+        Penyerang tidak pernah memanggil kelas Berkas. unserialize
+        yang membangunnya, lalu __destruct berjalan SENDIRI dengan
+        jalur pilihan penyerang.
+
+        Di aplikasi sungguhan, kelas seperti ini ada di mana-mana:
+        pembersih berkas sementara, penulis cache, pengirim log.
+        Rangkaiannya punya nama sendiri: gadget chain.
+        `,
+        {
+          caption:
+            'Kerentanannya bukan pada kelas Berkas. Kelas itu benar. Kerentanannya pada siapa yang boleh memilih kelas.',
+        },
+      ),
+      code(
+        'php',
+        `
+        // Bila format asli benar-benar tidak bisa dihindari, batasi kelasnya.
+        $aman = unserialize($data, ['allowed_classes' => ['Sesi']]);
+        // Diuji: payload Berkas menjadi __PHP_Incomplete_Class,
+        //        dan __destruct kelas Berkas TIDAK berjalan.
+
+        // Yang jauh lebih baik: pakai format yang tidak bisa membangkitkan
+        // objek apa pun.
+        $data = json_decode($teks, true);
+        // Diuji: selalu array atau skalar. Tidak ada konstruktor,
+        //        tidak ada __destruct, tidak ada gadget.
+        `,
+      ),
+      p(
+        'Bentuk yang sama berlaku di stack lain dengan nama berbeda. Python punya `pickle`, Java punya serialisasi nativenya, Node punya `node-serialize`, dan YAML punya pemuat penuh yang bisa membangun objek. Semuanya menanyakan pertanyaan yang sama, yaitu apakah data ini boleh menentukan kode apa yang berjalan.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Serangan yang berhasil tidak menghasilkan error. Yang menghasilkan error justru percobaan yang **setengah berhasil**, dan pesannya perlu dikenali karena ia menandai adanya percobaan.',
+      ),
+      code(
+        'text',
+        `
+        Diukur saat payload penyerang panjang stringnya tidak tepat:
+
+          PHP Warning: unserialize(): Error at offset 50 of 54 bytes
+          [__destruct Berkas berjalan] akan menghapus:
+
+        Perhatikan urutannya. unserialize GAGAL, dan __destruct
+        TETAP BERJALAN — objeknya sempat dibangun sebagian sebelum
+        pengurainya menyerah.
+
+        Artinya: kegagalan unserialize BUKAN jaminan bahwa tidak
+        ada kode yang berjalan.
+        `,
+      ),
+      p(
+        'Sisi kedua dari kategori ini adalah integritas rantai pembangunan, dan di sinilah lockfile berhenti menjadi berkas yang mengganggu dan mulai menjadi kontrol keamanan.',
+      ),
+      code(
+        'text',
+        `
+        npm error \`npm ci\` can only install packages when your package.json
+        and package-lock.json are in sync. Please update your lock file with
+        \`npm install\` before continuing.
+
+        npm error code EINTEGRITY
+        npm error sha512-... integrity checksum failed when using sha512:
+        wanted sha512-abc... but got sha512-xyz...
+
+        Pesan kedua berarti isi paket yang diunduh TIDAK SAMA dengan
+        yang tercatat saat lockfile dibuat. Itu bisa berarti registry
+        bermasalah, atau berarti sesuatu yang jauh lebih serius.
+        Jangan pernah menyelesaikannya dengan menghapus lockfile.
+        `,
+      ),
+      code(
+        'text',
+        `
+        TIGA TEMPAT lain yang menentukan integritas, dan sering terlewat:
+
+        1. Skrip pihak ketiga di halaman tanpa Subresource Integrity
+
+           <script src="https://cdn.contoh.com/paket.js"></script>
+           -> bila CDN-nya dibajak, skrip apa pun berjalan di halamanmu
+
+           <script src="https://cdn.contoh.com/paket.js"
+                   integrity="sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"
+                   crossorigin="anonymous"></script>
+           -> peramban MENOLAK menjalankannya bila isinya berubah
+
+        2. Pembaruan otomatis tanpa verifikasi tanda tangan
+           -> saluran pembaruan adalah jalur masuk paling langsung
+              ke setiap mesin yang memasangnya
+
+        3. Data dari antrean atau webhook yang dipercaya begitu saja
+           -> "datang dari antrean kita sendiri" bukan autentikasi.
+              Pesan antrean tetap divalidasi dan tetap diotorisasi
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan di sini berakar pada satu asumsi yang jarang diucapkan, yaitu bahwa data yang bentuknya kita kenali pasti berasal dari kita.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyimpan sesi sebagai data terserialisasi di cookie',
+            'Praktis, tidak perlu basis data',
+            'Diukur, penyerang menulis sendiri datanya dan menjadi admin. Tanda tangani, atau simpan di server',
+          ],
+          [
+            'Memakai `unserialize` pada data dari pengguna',
+            'Formatnya kan dari kita',
+            'Diukur, penyerang memilih kelas apa pun yang ada di aplikasi dan `__destruct`-nya berjalan',
+          ],
+          [
+            'Menganggap `unserialize` yang gagal berarti aman',
+            'Kan errornya muncul',
+            'Diukur, `__destruct` TETAP berjalan meski pengurainya gagal di tengah',
+          ],
+          [
+            'Menghapus lockfile saat `npm ci` mengeluh',
+            'Biar dibuat ulang yang cocok',
+            'Lockfile menyimpan checksum tiap paket. Menghapusnya membuang pemeriksaan integritasnya',
+          ],
+          [
+            'Memuat skrip dari CDN tanpa `integrity`',
+            'CDN-nya besar dan terpercaya',
+            'Satu CDN yang dibajak menjalankan kode apa pun di halamanmu. `integrity` membuat peramban menolaknya',
+          ],
+          [
+            'Mempercayai pesan dari antrean internal',
+            'Pengirimnya sistem kita sendiri',
+            'Siapa pun yang bisa menulis ke antrean bisa mengirim pesan. Validasi dan otorisasi tetap berlaku',
+          ],
+        ],
+      ),
+      p(
+        'Hasil pengukuran di baris ketiga layak diingat karena ia melawan intuisi yang paling wajar. Melihat pesan `Warning: unserialize(): Error at offset` terasa seperti melihat serangan yang gagal, padahal `__destruct` sudah sempat berjalan dengan nilai pilihan penyerang. Pemeriksaan yang gagal di tengah tidak sama dengan pemeriksaan yang menolak sejak awal, dan hanya yang kedua yang benar-benar melindungi.',
+      ),
       references(
         {
           label: 'A08:2021 — Software and Data Integrity Failures',
@@ -2239,7 +3754,7 @@ export const lessons: LessonDraft[] = [
   written(
     'logging-monitoring-failures',
     'Kegagalan Logging & Monitoring',
-    11,
+    18,
     'Kerentanan yang membuat semua kerentanan lain lebih mahal.',
     [
       p(
@@ -2452,6 +3967,213 @@ export const lessons: LessonDraft[] = [
         'Aturan alert bisa salah tulis, saluran notifikasi bisa berubah, dan kunci integrasi bisa kedaluwarsa — semuanya tanpa gejala apa pun sampai kamu benar-benar membutuhkannya. Uji jalurnya secara berkala, seperti menguji cadangan.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Kategori ini berbeda dari yang lain karena ia tidak menutup satu pun lubang. Ia menentukan **berapa lama** lubang yang terbuka tetap tidak diketahui, dan itu biasanya selisih antara insiden kecil dan insiden besar.',
+      ),
+      p('Kegagalan pertamanya selalu sama, yaitu log yang mencatat terlalu banyak.'),
+      code(
+        'text',
+        `
+        Diukur sungguhan. Pola "log saja semuanya biar gampang debug":
+
+          {"metode":"POST","jalur":"/v1/masuk",
+           "headers":{"authorization":"Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOjQyfQ.abc",
+                      "cookie":"sesi=s%3Aabc123"},
+           "body":{"surel":"ana@contoh.id","sandi":"RahasiaSaya123!",
+                   "kartu":"4111111111111111"}}
+
+        Sandi, token, cookie sesi, dan nomor kartu kini ada di berkas
+        log yang dibaca lebih banyak orang daripada basis datamu,
+        disalin ke layanan pemantauan, dan disimpan berbulan-bulan.
+        `,
+      ),
+      code(
+        'text',
+        `
+        Dengan redaksi berbasis daftar kunci:
+
+          {"metode":"POST","jalur":"/v1/masuk",
+           "headers":{"authorization":"[DIREDAKSI]","cookie":"[DIREDAKSI]"},
+           "body":{"surel":"ana@contoh.id","sandi":"[DIREDAKSI]",
+                   "kartu":"[DIREDAKSI]"}}
+        `,
+      ),
+      p(
+        'Redaksi itu perlu, dan tidak cukup. Batasnya juga diukur, dan penting diketahui supaya tidak dipercaya melebihi kemampuannya.',
+      ),
+      code(
+        'text',
+        `
+        masuk  : {"catatan":"sandinya RahasiaSaya123!",
+                  "metadata":{"Authorization":"Bearer abc"},
+                  "q":"password=xyz"}
+
+        keluar : {"catatan":"sandinya RahasiaSaya123!",
+                  "metadata":{"Authorization":"[DIREDAKSI]"},
+                  "q":"password=xyz"}
+
+        "Authorization" berhuruf besar TERTANGKAP karena kuncinya
+        dicek dalam huruf kecil. Tapi rahasia yang berada di dalam
+        TEKS BEBAS lolos sepenuhnya.
+
+        Redaksi mengurangi paparan. Ia tidak menjaminnya.
+        `,
+        {
+          caption:
+            'Karena itu keputusan pertamanya bukan "bagaimana meredaksi" melainkan "apakah ini perlu dicatat sama sekali".',
+        },
+      ),
+      p(
+        'Kegagalan kedua berlawanan arah, yaitu log yang mencatat terlalu sedikit untuk bisa dipakai menyelidiki apa pun.',
+      ),
+      code(
+        'text',
+        `
+        BURUK : {"level":"error","pesan":"Gagal menyimpan"}
+        BURUK : {"level":"warn","pesan":"Akses ditolak"}
+
+        BAIK  : {"level":"warn","peristiwa":"otorisasi.ditolak",
+                 "aktor":{"id":1,"peran":"user"},
+                 "aksi":"faktur.baca",
+                 "sasaran":{"jenis":"faktur","id":102},
+                 "ip":"203.0.113.7","jejak":"req_ezj2c4in",
+                 "waktu":"2026-09-14T08:31:02.114Z"}
+
+        Hanya yang terakhir bisa menjawab pertanyaan yang sebenarnya
+        diajukan saat insiden: siapa mencoba apa, terhadap apa,
+        kapan, dari mana, dan BERAPA KALI.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Ada satu serangan yang menyasar log itu sendiri, dan ia bekerja persis seperti injection lain, yaitu dengan membuat data dibaca sebagai struktur.',
+      ),
+      code(
+        'text',
+        `
+        Nama yang dikirim pengguna berisi baris baru.
+
+        Log digabung dengan string:
+          {"level":"info","nama":"ana"}
+          {"level":"info","peristiwa":"otorisasi.diberikan","aktor":{"id":9,"peran":"admin"}"}
+
+        Pembaca log melihat DUA baris, dan yang kedua mengaku
+        memberikan hak admin. Baris itu tidak pernah terjadi.
+
+        Log dengan JSON.stringify:
+          {"level":"info","nama":"ana\\"}\\n{\\"level\\":\\"info\\",\\"peristiwa\\":\\"otorisasi.diberikan\\"...}
+
+        Baris barunya ikut di-escape menjadi \\n. Tetap SATU baris.
+        `,
+        { caption: 'Log terstruktur bukan sekadar lebih rapi. Ia menutup satu kelas serangan.' },
+      ),
+      p(
+        'Sisanya bukan error melainkan keheningan, dan itulah bentuk kegagalan yang khas kategori ini.',
+      ),
+      code(
+        'text',
+        `
+        Yang seharusnya membangunkan seseorang, dan biasanya tidak:
+
+          - 3.000 percobaan login gagal dari satu IP dalam 10 menit
+          - satu akun mengakses 4.000 faktur dalam satu jam
+          - lonjakan 403 dari satu pengguna, dari 0 menjadi 900
+          - permintaan berisi "../", "UNION SELECT", "169.254.169.254"
+          - job latar yang berhenti sama sekali tiga hari lalu
+          - ukuran berkas log yang turun drastis
+
+        Yang terakhir sering justru tanda paling serius: log yang
+        MENGECIL bisa berarti seseorang menghapus jejaknya.
+        `,
+      ),
+      p(
+        'Karena itu log yang berguna harus keluar dari mesin tempat ia dihasilkan, dan sifatnya ditentukan sejak awal.',
+      ),
+      code(
+        'text',
+        `
+        Tiga sifat yang membuat log bisa dipercaya saat insiden:
+
+        1. TERPUSAT  — dikirim keluar dari mesinnya. Penyerang yang
+                       menguasai satu server tidak bisa menghapus
+                       jejak yang sudah pergi.
+
+        2. HANYA-TAMBAH — aplikasi boleh menulis, tidak boleh mengubah
+                       atau menghapus. Kredensial pengirim log dibatasi
+                       ke satu izin itu saja.
+
+        3. BERWAKTU SERAGAM — seluruh mesin memakai UTC dan jam yang
+                       tersinkron. Tanpa ini, menyusun urutan kejadian
+                       lintas layanan mustahil dilakukan.
+        `,
+      ),
+      code(
+        'ts',
+        `
+        // Penanda korelasi: satu id yang ikut ke SELURUH lapisan.
+        // Tanpa ini, satu permintaan yang melewati empat layanan
+        // meninggalkan empat baris log yang tidak bisa disambungkan.
+        app.use((req, res, next) => {
+          const jejak = req.headers['x-request-id'] ?? crypto.randomUUID();
+          penyimpananKonteks.run({ jejak }, () => {
+            res.setHeader('X-Request-Id', String(jejak));
+            next();
+          });
+        });
+
+        // Diteruskan ke setiap panggilan keluar, sehingga jejaknya
+        // tetap satu meski melintasi batas layanan.
+        fetch(url, { headers: { 'X-Request-Id': konteks().jejak } });
+        `,
+      ),
+      p(
+        'Yang membuat penanda ini bekerja bukan pembuatannya melainkan penerusannya. Membuat id lalu lupa mengirimkannya pada panggilan keluar menghasilkan jejak yang terputus tepat di batas layanan, yaitu tempat penelusuran paling dibutuhkan. Membaca `x-request-id` yang mungkin sudah ada juga penting, sebab bila tiap layanan membuat id baru maka tiap layanan punya cerita sendiri-sendiri.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan di kategori ini jarang terasa mendesak, sebab akibatnya baru muncul pada hari yang paling tidak tepat untuk menemukannya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Mencatat seluruh badan permintaan',
+            'Biar lengkap kalau perlu debug',
+            'Diukur, sandi, token, cookie, dan nomor kartu ikut masuk ke berkas yang dibaca banyak orang',
+          ],
+          [
+            'Menganggap redaksi berbasis kunci sudah menjamin',
+            'Semua kunci rahasia sudah terdaftar',
+            'Diukur, rahasia di dalam teks bebas lolos. Redaksi mengurangi paparan, bukan menjaminnya',
+          ],
+          [
+            'Menulis log sebagai teks yang digabung',
+            'Lebih enak dibaca',
+            'Diukur, masukan berisi baris baru menyisipkan baris log palsu yang mengaku memberi hak admin',
+          ],
+          [
+            'Mencatat `"Akses ditolak"` tanpa konteks',
+            'Kejadiannya sudah tercatat',
+            'Tidak bisa menjawab siapa, terhadap apa, dan berapa kali. Baris seperti itu tidak bisa dipakai menyelidiki',
+          ],
+          [
+            'Menyimpan log hanya di mesin aplikasi',
+            'Di sana kan sumbernya',
+            'Penyerang yang menguasai mesin itu juga menguasai jejaknya. Kirim keluar, dan jadikan hanya-tambah',
+          ],
+          [
+            'Mengumpulkan log tanpa satu pun alarm',
+            'Datanya sudah ada kalau dibutuhkan',
+            'Log yang tidak dibaca siapa pun bukan deteksi. Tentukan ambang, dan pastikan ada yang dibangunkan',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir adalah inti seluruh kategori ini. Mengumpulkan log itu mudah dan terasa produktif, sementara yang benar-benar menentukan adalah satu pertanyaan yang jarang ditanyakan pada saat fiturnya dibangun, yaitu apa yang harus terjadi ketika angkanya tidak wajar. Bila jawabannya adalah "seseorang mungkin akan melihatnya nanti", maka yang kamu miliki adalah arsip, bukan deteksi.',
+      ),
       references(
         {
           label: 'A09:2021 — Security Logging and Monitoring Failures',
@@ -2481,7 +4203,7 @@ export const lessons: LessonDraft[] = [
     ],
   ),
 
-  written('ssrf', 'SSRF', 12, 'Membuat servermu mengirim permintaan atas nama penyerang.', [
+  written('ssrf', 'SSRF', 19, 'Membuat servermu mengirim permintaan atas nama penyerang.', [
     p(
       'Server-Side Request Forgery terjadi ketika penyerang mengendalikan URL yang **diambil servermu**. Karena permintaan itu berasal dari dalam jaringanmu, ia bisa menjangkau hal yang tidak bisa dijangkau penyerang dari luar.',
     ),
@@ -2658,6 +4380,201 @@ export const lessons: LessonDraft[] = [
       'Untuk fitur yang memang harus mengambil URL apa pun (pratinjau tautan, crawler), jalankan pengambilannya di **layanan terpisah** yang berada di jaringan terisolasi tanpa akses ke database, rahasia, maupun layanan internal. Dengan begitu, SSRF di sana tidak mendapat apa-apa.',
     ),
 
+    h2('Studi kasus di project nyata'),
+    p(
+      'SSRF muncul di fitur yang terdengar tidak berbahaya sama sekali, misalnya "impor dari URL", pratinjau tautan, pengambil gambar profil, pembuat PDF, atau webhook yang alamatnya ditentukan pengguna. Semuanya punya bentuk yang sama, yaitu servermu mengambil alamat pilihan orang lain.',
+    ),
+    p(
+      'Pertahanan pertama yang hampir selalu ditulis adalah daftar tolak berbasis teks, dan itu bisa diuji.',
+    ),
+    code(
+      'ts',
+      `
+        // Cara yang paling sering ditulis, dan paling sering gagal.
+        function bolehVersiNaif(url: string) {
+          const s = String(url).toLowerCase();
+          const dilarang = ['localhost', '127.0.0.1', '169.254.169.254', 'internal'];
+          return !dilarang.some((d) => s.includes(d));
+        }
+        `,
+    ),
+    code(
+      'text',
+      `
+        Diuji sungguhan terhadap layanan internal di 127.0.0.1:3980
+        yang menjawab {"rahasia":"DB_PASSWORD=rahasia-produksi"}:
+
+          http://127.0.0.1:3980/rahasia           filter=tolak  diblokir
+          http://localhost:3980/rahasia           filter=tolak  diblokir
+          http://2130706433:3980/rahasia          filter=LOLOS  BERHASIL MENGAMBIL
+          http://0x7f000001:3980/rahasia          filter=LOLOS  BERHASIL MENGAMBIL
+          http://[::ffff:127.0.0.1]:3980/rahasia  filter=tolak  diblokir
+          http://0:3980/rahasia                   filter=LOLOS  BERHASIL MENGAMBIL
+
+        Tiga bentuk penulisan alamat yang SAMA lolos filter dan
+        membocorkan kredensial basis data produksi.
+        `,
+      {
+        caption:
+          '2130706433 adalah 127.0.0.1 dalam desimal, 0x7f000001 dalam heksadesimal, dan 0 berarti alamat lokal juga.',
+      },
+    ),
+    p(
+      'Jalan keluarnya bukan menambahkan tiga pola lagi ke daftar tolak, sebab bentuk penulisan alamat masih banyak lagi. Yang benar adalah **menerjemahkan nama menjadi alamat dulu, lalu memeriksa alamatnya**.',
+    ),
+    code(
+      'text',
+      `
+        Diuji sungguhan, keenam varian yang sama:
+
+          127.0.0.1        -> 127.0.0.1       DITOLAK (rentang pribadi)
+          localhost        -> 127.0.0.1       DITOLAK (rentang pribadi)
+          127.0.0.1        -> 127.0.0.1       DITOLAK (rentang pribadi)
+          127.0.0.1        -> 127.0.0.1       DITOLAK (rentang pribadi)
+          ::ffff:7f00:1    -> ::ffff:7f00:1   DITOLAK (rentang pribadi)
+          0.0.0.0          -> 0.0.0.0         DITOLAK (rentang pribadi)
+
+        Perhatikan kolom kiri: new URL() sudah menormalkan 2130706433
+        dan 0x7f000001 menjadi 127.0.0.1 sebelum diresolve. Memeriksa
+        hostname dari URL yang sudah diurai jauh lebih baik daripada
+        memeriksa teks URL-nya apa adanya.
+        `,
+    ),
+    code(
+      'ts',
+      `
+        // Rentang yang wajib ditolak, bukan hanya localhost.
+        function alamatPribadi(ip: string) {
+          if (ip.startsWith('::ffff:')) ip = ip.slice(7);
+          const b = ip.split('.').map(Number);
+          if (b.length !== 4 || b.some(Number.isNaN)) return true;   // IPv6 dan bentuk aneh: tolak
+          return (
+            b[0] === 127 ||                               // loopback
+            b[0] === 10 ||                                // pribadi
+            b[0] === 0 ||                                 // "alamat ini"
+            (b[0] === 172 && b[1] >= 16 && b[1] <= 31) || // pribadi
+            (b[0] === 192 && b[1] === 168) ||             // pribadi
+            (b[0] === 169 && b[1] === 254)                // link-local + metadata cloud
+          );
+        }
+        `,
+      {
+        caption:
+          'Baris terakhir menutup 169.254.169.254, endpoint metadata cloud yang memuat kredensial instance.',
+      },
+    ),
+
+    h2('Saat error-nya muncul'),
+    p(
+      'SSRF yang berhasil terlihat seperti fitur yang bekerja, sehingga tandanya justru harus dicari di tempat lain.',
+    ),
+    code(
+      'text',
+      `
+        Yang muncul di log ketika seseorang memetakan jaringan dalammu:
+
+          200 POST /v1/impor  url=http://10.0.0.5:6379/   180ms
+          200 POST /v1/impor  url=http://10.0.0.5:5432/    12ms
+          504 POST /v1/impor  url=http://10.0.0.9:8080/  3010ms
+          200 POST /v1/impor  url=http://169.254.169.254/latest/meta-data/
+
+        Bukan kode statusnya yang membocorkan, melainkan WAKTUNYA.
+        Port yang tertutup menolak seketika. Port yang terbuka tapi
+        tidak menjawab menghabiskan waktu tunggu. Selisih itu sudah
+        cukup untuk memetakan port mana yang hidup.
+        `,
+      {
+        caption:
+          'Karena itu pesan gagal ke klien harus seragam, dan waktunya sebaiknya tidak mencerminkan hasil aslinya.',
+      },
+    ),
+    p(
+      'Ada satu celah yang tetap terbuka meski pemeriksaan alamatnya sudah benar, dan namanya pengalihan.',
+    ),
+    code(
+      'ts',
+      `
+        // URL yang diperiksa: https://contoh-sah.com/gambar.png   -> alamat publik, LOLOS
+        // Yang dijawab server itu: 302 Location: http://169.254.169.254/latest/meta-data/
+        // fetch mengikutinya SECARA BAWAAN, dan pemeriksaanmu sudah lewat.
+
+        const r = await fetch(url, {
+          redirect: 'manual',                    // JANGAN ikuti sendiri
+          signal: AbortSignal.timeout(5000),     // selalu ada batas waktu
+        });
+
+        if (r.status >= 300 && r.status < 400) {
+          const tujuan = r.headers.get('location');
+          // Periksa ULANG tujuannya dengan aturan yang sama, lalu
+          // batasi berapa kali pengalihan boleh diikuti.
+          return ambilDenganPemeriksaan(tujuan, sisaLompatan - 1);
+        }
+        `,
+    ),
+    code(
+      'text',
+      `
+        DUA CELAH LAIN yang sering tertinggal:
+
+        1. DNS rebinding — nama yang sama menjawab BERBEDA
+           pemeriksaan  : contoh.com -> 93.184.216.34   (publik, lolos)
+           pengambilan  : contoh.com -> 127.0.0.1       (TTL 0, jawaban berubah)
+
+           Namanya celah waktu-periksa ke waktu-pakai. Menutupnya:
+           resolve SEKALI, lalu sambungkan ke ALAMAT itu, bukan ke namanya.
+
+        2. Skema selain http dan https
+
+           file:///etc/passwd
+           gopher://10.0.0.5:6379/_SET%20kunci%20nilai
+           dict://10.0.0.5:11211/
+
+           Batasi skemanya ke http dan https saja, dengan daftar izin.
+        `,
+    ),
+
+    h2('Kesalahan umum pemula'),
+    p(
+      'Kesalahan di kategori ini hampir seluruhnya berupa memeriksa hal yang salah, yaitu memeriksa teks alamatnya alih-alih tujuan yang benar-benar dihubungi.',
+    ),
+    table(
+      ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+      [
+        [
+          'Memblokir teks `localhost` dan `127.0.0.1`',
+          'Itu kan alamat lokalnya',
+          'Diukur, `2130706433`, `0x7f000001`, dan `0` lolos filter dan membocorkan kredensial produksi',
+        ],
+        [
+          'Memeriksa teks URL-nya, bukan hostname hasil urai',
+          'Sama saja isinya',
+          'Diukur, `new URL()` menormalkan bentuk desimal dan heksadesimal. Periksa `new URL(u).hostname`, lalu resolve',
+        ],
+        [
+          'Hanya menolak loopback',
+          'Yang berbahaya kan server sendiri',
+          'Rentang `10.x`, `172.16-31.x`, `192.168.x`, dan `169.254.x` menjangkau seluruh jaringan dalam dan metadata cloud',
+        ],
+        [
+          'Membiarkan `fetch` mengikuti pengalihan',
+          'URL awalnya sudah diperiksa',
+          "Server jauh menjawab `302` ke alamat internal. Pakai `redirect: 'manual'` dan periksa ulang tujuannya",
+        ],
+        [
+          'Tidak memasang batas waktu pada panggilan keluar',
+          'Biasanya cepat kok',
+          'Selisih waktu antara port terbuka dan tertutup memetakan jaringanmu, dan koneksi menggantung menghabiskan kapasitas',
+        ],
+        [
+          'Membiarkan skema apa pun diterima',
+          'Penggunanya kan memasukkan alamat web',
+          '`file://`, `gopher://`, dan `dict://` membaca berkas lokal dan berbicara ke Redis atau Memcached',
+        ],
+      ],
+    ),
+    p(
+      'Pertahanan yang paling kuat untuk kategori ini justru bukan di kode aplikasi. Bila panggilan keluar dari server itu dijalankan melalui proxy khusus yang hanya boleh menghubungi alamat publik, seluruh daftar di atas menjadi lapisan kedua, bukan satu-satunya penghalang. Aturan jaringan tidak bisa dilewati dengan menulis alamat dalam bentuk desimal, dan ia tetap berlaku bahkan ketika ada satu jalur di kodemu yang lupa diperiksa.',
+    ),
     references(
       {
         label: 'A10:2021 — Server-Side Request Forgery (SSRF)',
@@ -2689,7 +4606,7 @@ export const lessons: LessonDraft[] = [
   written(
     'rahasia-konfigurasi',
     'Rahasia & Konfigurasi',
-    12,
+    18,
     'Tempat kebocoran paling umum, dan paling mudah dihindari.',
     [
       terms(
@@ -2937,6 +4854,198 @@ export const lessons: LessonDraft[] = [
         'Aplikasi gagal boot kalau ada rahasia yang hilang atau terlalu lemah.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Rahasia yang bocor jarang bocor lewat serangan. Jauh lebih sering ia bocor lewat tempat penyimpanan yang salah pilih, dan yang paling sering adalah riwayat versi.',
+      ),
+      code(
+        'text',
+        `
+        Diuji sungguhan dengan git. Berkas konfigurasi berisi kredensial
+        di-commit, lalu disadari salah dan dikeluarkan dari repo.
+
+          git status sesudah dihapus
+            (bersih)
+
+          git log
+            2a67de6 keluarkan konfigurasi dari repo
+            f102fd8 setup awal
+
+        Terlihat beres. Dan yang tetap terbaca siapa pun pemegang klon:
+
+          +  "db": "postgres://app:CONTOH-BUKAN-ASLI-123@db.internal:5432/app",
+          +  "kunciBayar": "sk_live_CONTOH_BUKAN_ASLI"
+        `,
+        { caption: 'Nilai di atas sengaja dibuat palsu. Yang nyata adalah mekanismenya.' },
+      ),
+      p('Dan penyerang tidak perlu tahu nama berkasnya, sebab riwayatnya bisa disisir seluruhnya.'),
+      code(
+        'text',
+        `
+        git rev-list --all | while read c; do git grep -h 'sk_live' "$c"; done
+
+          "kunciBayar": "sk_live_CONTOH_BUKAN_ASLI"
+
+        Objek blob yang masih menyimpannya juga masih ada:
+          blob 3bcef1d7ae2c788671135e94f392c0187cc5f88e 117
+        `,
+      ),
+      p(
+        'Kesimpulannya satu, dan ia mengikat. **Rahasia yang pernah masuk ke riwayat versi dihitung bocor**, bahkan setelah commit-nya dihapus. Menulis ulang riwayat hanya menyulitkan pembacaan, sementara setiap orang yang pernah mengklon repo itu masih memegangnya. Yang benar adalah merotasi rahasianya.',
+      ),
+      code(
+        'text',
+        `
+        Urutan yang benar saat menyadari sebuah rahasia ter-commit:
+
+          1. ROTASI dulu — terbitkan nilai baru, matikan yang lama.
+             Ini satu-satunya langkah yang benar-benar menutup.
+          2. Pasang nilai barunya di tempat yang tepat (vault atau
+             environment yang disuntik saat deploy).
+          3. Baru bereskan repo: tambahkan ke .gitignore, pertimbangkan
+             menulis ulang riwayat bila memang perlu.
+          4. Periksa apakah rahasia itu sempat terpakai oleh orang lain
+             (log akses penyedia layanan biasanya menyimpannya).
+
+        Melakukan 3 tanpa 1 memberi rasa aman tanpa keamanan apa pun.
+        `,
+      ),
+      p(
+        'Tempat kedua yang paling sering membocorkan rahasia adalah bundel klien, dan di Next.js batasnya ditandai satu awalan.',
+      ),
+      code(
+        'ts',
+        `
+        // Awalan NEXT_PUBLIC_ BUKAN penanda "boleh dipakai di komponen".
+        // Ia penanda "nilai ini AKAN ikut terkirim ke peramban", dan
+        // nilainya ditanam ke dalam bundel saat build.
+
+        const salah = process.env.NEXT_PUBLIC_STRIPE_SECRET;   // BOCOR ke semua pengunjung
+        const benar = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;  // memang publik
+
+        // Rahasia dibaca HANYA di kode yang berjalan di server:
+        //   Server Component, Route Handler, Server Action, atau middleware.
+        // Bila sebuah nilai dibutuhkan di komponen klien, yang perlu
+        // dipindahkan adalah PEKERJAANNYA ke server, bukan nilainya ke klien.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kesalahan konfigurasi punya satu sifat yang menentukan seberapa mahal ia, yaitu **kapan** ia ketahuan.',
+      ),
+      code(
+        'text',
+        `
+        KONFIGURASI DIBACA TERSEBAR — ketahuan saat permintaan pertama:
+
+          TypeError: Cannot read properties of undefined (reading 'length')
+          Error: connect ECONNREFUSED 127.0.0.1:5432
+          error: password authentication failed for user "undefined"
+
+        Ketiganya muncul dari dalam kode yang jauh dari penyebabnya,
+        dan tidak satu pun menyebutkan variabel mana yang hilang.
+
+        KONFIGURASI DIVALIDASI SAAT BOOT — ketahuan sebelum melayani
+        satu permintaan pun:
+
+          Konfigurasi tidak valid, proses dihentikan:
+            DATABASE_URL : wajib diisi
+            SESSION_SECRET : minimal 32 karakter, diterima 8
+            PORT : harus berupa angka, diterima "tiga ribu"
+        `,
+      ),
+      code(
+        'ts',
+        `
+        // Dibaca SEKALI saat boot, divalidasi, lalu dibekukan.
+        const SkemaEnv = z.object({
+          DATABASE_URL: z.string().url(),
+          SESSION_SECRET: z.string().min(32),
+          PORT: z.coerce.number().int().positive().default(3000),
+          NODE_ENV: z.enum(['development', 'test', 'production']),
+        });
+
+        const hasil = SkemaEnv.safeParse(process.env);
+        if (!hasil.success) {
+          console.error('Konfigurasi tidak valid, proses dihentikan:');
+          for (const [kunci, isu] of Object.entries(hasil.error.flatten().fieldErrors)) {
+            console.error(\`  \${kunci} : \${isu?.join(', ')}\`);
+          }
+          process.exit(1);          // gagal NYARING, bukan diam
+        }
+
+        export const env = Object.freeze(hasil.data);
+        // Sisa aplikasi mengimpor \`env\`, dan TIDAK PERNAH menyentuh
+        // process.env lagi. Itu yang membuat daftar di atas lengkap.
+        `,
+        {
+          caption:
+            'Membekukannya juga mencegah satu bagian aplikasi diam-diam mengubah konfigurasi bagian lain.',
+        },
+      ),
+      p(
+        'Kesalahan terakhir yang khas adalah nilai bawaan yang dipilih ke arah yang salah, dan gejalanya tidak pernah berupa error.',
+      ),
+      code(
+        'text',
+        `
+        Bawaan yang PERMISIF — tidak ada error, dan itu masalahnya:
+
+          const wajibHttps = process.env.WAJIB_HTTPS === 'false' ? false : true;
+          // variabelnya salah ketik di produksi -> tetap true. AMAN.
+
+          const wajibHttps = process.env.WAJIB_HTTPS === 'true';
+          // variabelnya salah ketik di produksi -> menjadi false. TERBUKA.
+
+        Aturannya: nilai yang hilang harus jatuh ke pilihan yang
+        PALING KETAT, bukan yang paling longgar. Konfigurasi yang
+        hilang tidak boleh pernah berarti "matikan pengamanannya".
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan di kategori ini biasanya berupa langkah yang masuk akal secara teknis tetapi menjawab pertanyaan yang berbeda dari yang seharusnya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menghapus commit berisi rahasia lalu menganggap selesai',
+            '`git status` sudah bersih',
+            'Diuji, nilainya tetap terbaca dari riwayat dan dari objek blob. Rahasianya harus DIROTASI',
+          ],
+          [
+            'Menulis ulang riwayat sebagai langkah pertama',
+            'Menghapus jejaknya sampai akar',
+            'Setiap orang yang pernah mengklon masih memegangnya. Rotasi dulu, baru bereskan repo',
+          ],
+          [
+            'Menaruh rahasia di variabel ber-awalan `NEXT_PUBLIC_`',
+            'Supaya bisa dipakai di komponen',
+            'Awalan itu menandai nilai yang ditanam ke bundel klien. Pindahkan pekerjaannya ke server, bukan nilainya ke klien',
+          ],
+          [
+            'Membaca `process.env` tersebar di banyak berkas',
+            'Praktis, langsung di tempat pakainya',
+            'Variabel yang hilang baru ketahuan saat permintaan pertama, sebagai error yang tidak menyebut namanya',
+          ],
+          [
+            'Menulis nilai bawaan ke arah yang permisif',
+            'Biar tidak merepotkan saat pengembangan',
+            'Satu salah ketik di produksi mematikan pengamanan tanpa satu pun error. Bawaan harus jatuh ke yang paling ketat',
+          ],
+          [
+            'Mencatat konfigurasi saat boot untuk memastikan benar',
+            'Biar kelihatan terbaca semua',
+            'Baris itu menuliskan kredensial ke log. Catat NAMA variabel yang terbaca, jangan nilainya',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir sering muncul justru karena kebiasaan yang baik, yaitu ingin memastikan konfigurasi benar-benar terbaca. Yang perlu diubah hanya apa yang dicetak. Menuliskan daftar nama variabel yang berhasil dibaca beserta jumlahnya sudah menjawab pertanyaan itu sepenuhnya, dan tidak meninggalkan satu pun kredensial di berkas yang akan disalin ke layanan pemantauan dan disimpan berbulan-bulan.',
+      ),
       references(
         {
           label: 'Secrets Management Cheat Sheet',
@@ -2975,7 +5084,7 @@ export const lessons: LessonDraft[] = [
   written(
     'praktik-checklist-keamanan',
     'Praktik: Checklist keamanan sebelum rilis',
-    13,
+    18,
     'Audit yang dijalankan, bukan dibaca.',
     [
       p(
@@ -3329,6 +5438,214 @@ export const lessons: LessonDraft[] = [
         'Temuan ditulis dan diurutkan berdasarkan dampak, termasuk yang diterima sadar',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Checklist keamanan yang hanya dibaca tidak menghasilkan apa-apa. Yang berguna adalah checklist yang **dijalankan**, sehingga tiap butirnya menghasilkan jawaban yang bisa dilihat orang lain, bukan pendapat.',
+      ),
+      code(
+        'bash',
+        `
+        #!/usr/bin/env bash
+        BASE="$1"; NAMA="$2"; gagal=0
+
+        periksa() {
+          local nama="$1" harap="$2" dapat="$3"
+          if [ "$harap" = "$dapat" ]; then
+            printf '  AMAN   %-32s %s\\n' "$nama" "$dapat"
+          else
+            printf '  TEMUAN %-32s harap=%s dapat=%s\\n' "$nama" "$harap" "$dapat"
+            gagal=$((gagal + 1))
+          fi
+        }
+
+        echo "== $NAMA"
+
+        # 1. Otorisasi — pengguna 1 meminta faktur milik pengguna 2
+        periksa "IDOR faktur orang lain" 404 \\
+          "$(curl -s -o /dev/null -w '%{http_code}' -H 'X-Pengguna: 1' "$BASE/v1/faktur/102")"
+
+        # 2. Enumerasi pengguna — dua email berbeda harus dijawab SAMA
+        periksa "pesan login seragam" "sama" \\
+          "$( [ "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/v1/masuk?surel=ana@contoh.id")" \\
+             = "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/v1/masuk?surel=tiada@contoh.id")" ] \\
+             && echo sama || echo beda )"
+
+        # 3. Pembatasan laju — percobaan ketujuh harus ditolak
+        periksa "pembatasan laju login" 429 \\
+          "$(for i in 1 2 3 4 5 6 7; do
+               curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/v1/masuk?surel=uji@contoh.id"; echo;
+             done | tail -1)"
+
+        # 4. Kebocoran detail error
+        periksa "500 tanpa stack trace" "bersih" \\
+          "$(curl -s "$BASE/v1/pecah" | grep -qi 'stack\\|/srv/app' && echo bocor || echo bersih)"
+
+        # 5. Endpoint diagnostik
+        periksa "/metrics tertutup" 404 \\
+          "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/metrics")"
+
+        # 6-9. Header keamanan
+        for h in content-security-policy strict-transport-security \\
+                 x-content-type-options referrer-policy; do
+          periksa "header $h" "ada" \\
+            "$(curl -s -i "$BASE/v1/faktur/101" -H 'X-Pengguna: 1' \\
+               | grep -qi "^$h:" && echo ada || echo tiada)"
+        done
+
+        # 10. Versi runtime
+        periksa "X-Powered-By disembunyikan" "tiada" \\
+          "$(curl -s -i "$BASE/v1/faktur/101" -H 'X-Pengguna: 1' \\
+             | grep -qi '^x-powered-by:' && echo ada || echo tiada)"
+
+        echo "  -> temuan: $gagal"
+        `,
+        {
+          caption:
+            'Sepuluh butir, seluruhnya curl. Tidak perlu alat khusus, dan bisa dijalankan siapa pun di tim.',
+        },
+      ),
+      p(
+        'Dijalankan terhadap dua versi aplikasi yang sama, sebelum dan sesudah diperbaiki, hasilnya seperti ini.',
+      ),
+      code(
+        'text',
+        `
+        == SEBELUM diperbaiki
+          TEMUAN IDOR faktur orang lain           harap=404 dapat=200
+          TEMUAN pesan login seragam              harap=sama dapat=beda
+          TEMUAN pembatasan laju login            harap=429 dapat=404
+          TEMUAN 500 tanpa stack trace            harap=bersih dapat=bocor
+          TEMUAN /metrics tertutup                harap=404 dapat=200
+          TEMUAN header content-security-policy   harap=ada dapat=tiada
+          TEMUAN header strict-transport-security harap=ada dapat=tiada
+          TEMUAN header x-content-type-options    harap=ada dapat=tiada
+          TEMUAN header referrer-policy           harap=ada dapat=tiada
+          TEMUAN X-Powered-By disembunyikan       harap=tiada dapat=ada
+          -> temuan: 10
+
+        == SESUDAH diperbaiki
+          (sepuluh baris AMAN)
+          -> temuan: 0
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan dengan curl 8.5.0 terhadap dua server node:http yang sengaja dibedakan.',
+        },
+      ),
+      p(
+        'Ada satu detail di baris ketiga yang layak diperhatikan. Pada versi rentan, pemeriksaan pembatasan laju menerima `404`, bukan `429`, dan itu **bukan** karena pembatasannya bekerja. Servernya memang tidak punya pembatasan sama sekali, dan `404` yang muncul itu justru kebocoran enumerasi dari butir nomor dua yang menampakkan dirinya lagi di butir lain. Satu kelemahan sering terlihat di beberapa tempat sekaligus, dan itu sebabnya membaca kolom `dapat=` lebih penting daripada sekadar menghitung jumlah temuan.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Skrip seperti ini juga bisa gagal karena alasan yang tidak ada hubungannya dengan keamanan, dan mengenali bedanya menghemat banyak waktu.',
+      ),
+      code(
+        'text',
+        `
+        curl: (7) Failed to connect to 127.0.0.1 port 3991 after 0 ms:
+              Couldn't connect to server
+          -> servernya belum jalan. Bukan temuan.
+
+        curl: (28) Operation timed out after 30001 milliseconds
+          -> server hidup tapi menggantung. Bisa jadi temuan
+             ketersediaan, periksa terpisah.
+
+        TEMUAN header content-security-policy  harap=ada dapat=tiada
+          -> header memang tidak ada, ATAU kamu memeriksa rute yang
+             tidak melewati middleware header. Periksa beberapa rute,
+             termasuk satu yang sengaja dibuat gagal.
+
+        TEMUAN IDOR faktur orang lain  harap=404 dapat=401
+          -> permintaannya ditolak sebelum sampai ke pemeriksaan
+             kepemilikan. Autentikasi ujimu salah, bukan otorisasinya
+             yang benar. Pemeriksaan ini belum membuktikan apa pun.
+        `,
+        {
+          caption:
+            'Yang terakhir paling berbahaya: hasil yang terlihat aman padahal pemeriksaannya tidak pernah sampai ke sasaran.',
+        },
+      ),
+      p(
+        'Karena itu setiap pemeriksaan negatif perlu punya pasangan positifnya, yaitu satu permintaan yang **seharusnya berhasil** dan benar-benar berhasil. Tanpa itu, skripnya bisa hijau hanya karena semua permintaannya ditolak sejak awal.',
+      ),
+      code(
+        'bash',
+        `
+        # Pasangan positif — membuktikan jalur ujinya memang sampai.
+        periksa "pemilik sah BISA membaca fakturnya" 200 \\
+          "$(curl -s -o /dev/null -w '%{http_code}' -H 'X-Pengguna: 1' "$BASE/v1/faktur/101")"
+
+        # Baru setelah itu, pemeriksaan negatifnya berarti.
+        periksa "bukan pemilik TIDAK bisa" 404 \\
+          "$(curl -s -o /dev/null -w '%{http_code}' -H 'X-Pengguna: 1' "$BASE/v1/faktur/102")"
+        `,
+      ),
+      p(
+        'Butir-butir lain dalam checklist ini tidak bisa diperiksa dengan `curl`, dan itu harus dinyatakan terus terang alih-alih dibiarkan seolah tercakup.',
+      ),
+      code(
+        'text',
+        `
+        Diperiksa dengan perintah lain:
+          npm audit                     kerentanan dependency
+          git log -p | grep -i secret   rahasia di riwayat versi
+          grep -r "process.env" src/    pembacaan konfigurasi tersebar
+
+        Diperiksa dengan membaca kode, bukan dengan perintah:
+          - apakah query daftar menyaring di WHERE, bukan di memori
+          - apakah id sesi diregenerasi sesudah login
+          - apakah ada cek-lalu-tulis yang bisa berlomba
+          - apakah URL dari pengguna diresolve sebelum dihubungi
+          - apakah pesan antrean divalidasi seperti masukan luar
+
+        Checklist yang jujur menyebutkan KEDUA daftar ini. Yang hanya
+        menampilkan daftar pertama memberi kesan cakupannya penuh.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan terbesar pada tahap ini bukan melewatkan satu butir, melainkan salah memahami apa yang dibuktikan oleh checklist yang hijau.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menandai butir checklist tanpa menjalankan perintahnya',
+            'Sudah diperiksa waktu menulis kodenya',
+            'Klaim tanpa keluaran perintah bukan verifikasi. Jalankan, lalu baca kolom `dapat=`',
+          ],
+          [
+            'Hanya menulis pemeriksaan yang harus DITOLAK',
+            'Yang diuji kan pertahanannya',
+            'Diukur, permintaan yang ditolak sejak autentikasi terlihat sama dengan otorisasi yang bekerja. Sertakan pasangan positifnya',
+          ],
+          [
+            'Menghitung jumlah temuan tanpa membaca isinya',
+            'Angkanya sudah nol',
+            'Diukur, satu kelemahan muncul di dua butir berbeda. Kolom `dapat=` yang menjelaskan, bukan jumlahnya',
+          ],
+          [
+            'Memeriksa header hanya di satu rute',
+            'Header kan dipasang global',
+            'Rute error dan endpoint API sering melewati middleware yang berbeda. Periksa beberapa rute termasuk yang gagal',
+          ],
+          [
+            'Menganggap checklist hijau berarti aplikasinya aman',
+            'Semua butir sudah lolos',
+            'Checklist hanya menguji apa yang ditulis di dalamnya. Logika bisnis dan perlombaan tidak terlihat oleh `curl`',
+          ],
+          [
+            'Menjalankan audit hanya sekali sebelum rilis pertama',
+            'Sudah pernah diperiksa',
+            'Setiap rute baru dan setiap dependency baru mengubah hasilnya. Jadikan bagian dari pipeline, bukan acara',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima adalah yang paling menentukan cara membaca seluruh bab ini. Sepuluh pemeriksaan yang hijau membuktikan sepuluh hal, tidak lebih. Perlombaan penukaran kupon yang menghasilkan sisa `-1`, total pesanan negatif dari jumlah `-1000`, dan `__destruct` yang berjalan meski `unserialize` gagal semuanya terjadi di aplikasi yang akan melewati checklist ini tanpa satu pun temuan. Checklist adalah lantai, bukan langit-langit, dan gunanya memastikan kesalahan yang sudah dikenali tidak terulang, bukan memastikan tidak ada kesalahan lain.',
+      ),
       references(
         {
           label: 'OWASP Top 10:2021',

@@ -28,7 +28,7 @@ export const lessons: LessonDraft[] = [
   written(
     'password-hashing',
     'Menyimpan Password dengan Benar',
-    13,
+    19,
     'Satu-satunya cara membuat database yang dicuri tetap tidak membocorkan password.',
     [
       p(
@@ -310,6 +310,197 @@ export const lessons: LessonDraft[] = [
         'Bentuknya sama persis dengan versi Node, hanya namanya berbeda. `Hash::needsRehash` membaca parameter yang tertanam di string tersimpan lalu membandingkannya dengan isi `config/hashing.php`. Karena itu menaikkan keamanan seluruh pengguna cukup dilakukan dengan mengubah satu berkas konfigurasi, dan sisanya berjalan sendiri saat pengguna login berikutnya.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Menyimpan sandi adalah satu-satunya bagian aplikasi yang harus dirancang dengan asumsi bahwa basis datanya **akan** bocor. Bila asumsi itu tidak dipakai, pilihan algoritmanya hampir pasti salah.',
+      ),
+      p(
+        'Selisih antara pilihan yang salah dan yang benar bukan persentase melainkan kelipatan, dan itu bisa diukur.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan PHP 8.3.6 di mesin ini:
+
+          sha256          : 2.395.136 tebakan / detik
+          bcrypt cost=10  :        20,0 tebakan / detik
+          bcrypt cost=12  :         5,0 tebakan / detik
+
+        sha256 vs bcrypt cost=12 -> 479.027 kali lebih cepat.
+
+        Artinya, bila basis datamu bocor dan penyerang mencoba daftar
+        sepuluh juta sandi yang paling umum:
+          dengan sha256          : selesai dalam sekitar 4 detik
+          dengan bcrypt cost=12  : butuh sekitar 23 hari
+        `,
+        { caption: 'Angkanya mesin-spesifik. Yang tidak berubah adalah urutan besarannya.' },
+      ),
+      p(
+        'Kecepatan adalah sifat yang diinginkan dari hash tujuan umum, dan persis itulah yang membuatnya salah untuk sandi. Algoritma sandi dirancang **lambat dengan sengaja**, dan biayanya bisa dinaikkan seiring perangkat keras menjadi lebih cepat.',
+      ),
+      p('Alasan kedua adalah garam, dan efeknya terlihat langsung.'),
+      code(
+        'text',
+        `
+        Dua pengguna berbeda dengan sandi yang sama persis:
+
+          sha256("rahasia123") Ana  : bee5688aea66a47460b19c76f8f199c6b9585eb726f8322b1429793863609ca2
+          sha256("rahasia123") Budi : bee5688aea66a47460b19c76f8f199c6b9585eb726f8322b1429793863609ca2
+                                      ^ IDENTIK
+
+          bcrypt Ana  : $2y$08$VoQiCHaXFg/3QyxEurkYk.YsKSuSGBgtPaMV/Ic17y0q61isLCype
+          bcrypt Budi : $2y$08$BU3zOAAsEpa8mKxdfpdEw.h18NVVR6W.w5oTMADJKW5VUw/.JoSW.
+                              ^ garam berbeda, hash berbeda
+
+        Hash identik memberi tahu penyerang bahwa keduanya memakai
+        sandi yang sama, dan satu kali pecah membuka dua akun sekaligus.
+        `,
+      ),
+      p(
+        'Bentuk hash bcrypt sendiri layak dibaca, sebab ia menyimpan semua yang dibutuhkan untuk memverifikasi ulang.',
+      ),
+      code(
+        'text',
+        `
+        $2y$12$VoQiCHaXFg/3QyxEurkYk.YsKSuSGBgtPaMV/Ic17y0q61isLCype
+        └┬┘ └┬┘ └───────────┬──────────┘└──────────┬─────────────────┘
+         │   │              │                      └ hash
+         │   │              └ garam, 22 karakter
+         │   └ cost, yaitu 2^12 putaran
+         └ varian algoritma
+
+        Karena cost dan garam ikut tersimpan, verifikasi tidak perlu
+        kolom tambahan, dan menaikkan cost tidak merusak hash lama.
+        `,
+      ),
+      code(
+        'php',
+        `
+        // Saat login berhasil, naikkan biayanya bila perlu.
+        if (password_verify($sandi, $baris['sandi_hash'])) {
+            if (password_needs_rehash($baris['sandi_hash'], PASSWORD_BCRYPT, ['cost' => 12])) {
+                // Ini satu-satunya momen sandi mentahnya ada di memori,
+                // jadi satu-satunya momen ia bisa di-hash ulang tanpa
+                // mengganggu pengguna sama sekali.
+                simpanHash($baris['id'], password_hash($sandi, PASSWORD_BCRYPT, ['cost' => 12]));
+            }
+            masuk($baris['id']);
+        }
+
+        // Diuji sungguhan pada PHP 8.3.6:
+        //   needs_rehash(hash cost=8,  target 12) -> true
+        //   needs_rehash(hash cost=12, target 12) -> false
+        //   algoritma tersedia: bcrypt, argon2i, argon2id (ketiganya ada)
+        `,
+      ),
+      p(
+        'Letak pemanggilannya yang menentukan, bukan fungsinya. Sandi mentah hanya ada di memori pada satu momen, yaitu tepat sesudah pengguna berhasil masuk, dan itulah satu-satunya kesempatan menaikkan biaya hash tanpa meminta apa pun dari pengguna. Melewatkan momen itu berarti akun lama tetap memakai biaya lama selamanya meski setelan barumu sudah lebih ketat.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kesalahan di area ini hampir tidak pernah muncul sebagai error, dan beberapa di antaranya justru muncul sebagai fitur yang bekerja terlalu baik.',
+      ),
+      code(
+        'text',
+        `
+        1. Batas panjang bcrypt
+
+           bcrypt hanya memakai 72 BYTE pertama. Sandi yang lebih panjang
+           dipotong diam-diam, sehingga dua sandi yang 72 byte pertamanya
+           sama akan dianggap identik.
+
+           Tandanya: pengguna dengan pengelola sandi melaporkan bahwa
+           sandi yang salah pun diterima. Menutupnya: hash SHA-256 dulu
+           menjadi panjang tetap, baru masukkan ke bcrypt — atau pakai
+           argon2id yang tidak punya batas ini.
+
+        2. Kolom terlalu pendek
+
+           VARCHAR(50) untuk hash bcrypt yang panjangnya 60 karakter.
+           Basis data memotongnya, dan SETIAP login gagal.
+
+           MySQL mode longgar memotong tanpa error sama sekali.
+           Gejalanya: pendaftaran berhasil, login selalu salah.
+
+        3. Sandi dicatat di log
+
+           {"jalur":"/v1/daftar","body":{"surel":"...","sandi":"RahasiaSaya123!"}}
+           Hash-nya aman di basis data, dan sandi mentahnya ada di
+           berkas log yang dibaca lebih banyak orang.
+        `,
+      ),
+      p(
+        'Kesalahan berikutnya berupa aturan sandi yang justru memperlemah keamanannya, dan ini bertentangan dengan kebiasaan lama yang masih banyak diajarkan.',
+      ),
+      code(
+        'text',
+        `
+        Yang lama diajarkan, dan kini TIDAK direkomendasikan NIST:
+
+          - wajib huruf besar, angka, dan simbol
+            -> menghasilkan "Password1!" berulang kali
+          - wajib ganti sandi tiap 90 hari
+            -> menghasilkan "Password1!", "Password2!", "Password3!"
+          - batas maksimal 16 karakter
+            -> melarang frasa panjang yang justru jauh lebih kuat
+
+        Yang direkomendasikan:
+          - minimal 8 karakter, tanpa aturan komposisi
+          - izinkan sampai 64 karakter atau lebih
+          - izinkan spasi dan seluruh karakter Unicode
+          - TOLAK sandi yang ada di daftar sandi bocor
+          - ganti sandi hanya bila ada indikasi kebocoran
+        `,
+        {
+          caption:
+            'Aturan komposisi menggeser beban ke pengguna, dan pengguna menjawabnya dengan pola yang mudah ditebak.',
+        },
+      ),
+      p(
+        'Poin "tolak sandi yang ada di daftar bocor" adalah yang paling berpengaruh dari seluruh daftar itu, sebab serangan yang nyata hampir selalu memakai daftar sandi dari kebocoran sebelumnya, bukan menebak acak.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p('Kesalahan di sini berupa pilihan yang terlihat setara padahal berbeda ribuan kali lipat.'),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyimpan sandi dengan `sha256` atau `md5`',
+            'Itu kan hash juga',
+            'Diukur, sha256 479.027 kali lebih cepat dicoba daripada bcrypt cost=12. Cepat adalah kelemahannya',
+          ],
+          [
+            'Menambah garam sendiri lalu tetap memakai `sha256`',
+            'Sudah bergaram, aman',
+            'Garam menutup tabel pelangi, bukan kecepatan. Keduanya harus ada, dan `password_hash` memberi keduanya',
+          ],
+          [
+            'Membuat skema hash sendiri',
+            'Kombinasinya kan lebih rumit',
+            'Kerumitan bukan kekuatan. Pakai `password_hash`, `bcrypt`, atau `argon2id` yang sudah diaudit bertahun-tahun',
+          ],
+          [
+            'Mewajibkan huruf besar, angka, dan simbol',
+            'Sandinya jadi lebih kuat',
+            'Menghasilkan pola yang mudah ditebak. Yang berpengaruh adalah panjang dan penolakan sandi bocor',
+          ],
+          [
+            'Memaksa ganti sandi berkala',
+            'Praktik keamanan yang umum',
+            'Menghasilkan urutan yang mudah ditebak. Ganti hanya bila ada indikasi kebocoran',
+          ],
+          [
+            'Memakai `VARCHAR(50)` untuk kolom hash',
+            'Hash-nya kan pendek',
+            'Hash bcrypt 60 karakter. MySQL mode longgar memotongnya tanpa error, dan setiap login gagal',
+          ],
+        ],
+      ),
+      p(
+        'Ada satu hal yang sering terlupa justru karena terlalu jelas. Sandi mentah tidak boleh pernah meninggalkan proses yang menerimanya, yang berarti tidak masuk ke log, tidak masuk ke pesan error, tidak masuk ke laporan kesalahan yang dikirim ke layanan pemantauan, dan tidak disimpan sementara di mana pun. Hash yang kuat tidak menolong sama sekali bila nilai aslinya tercatat di berkas lain.',
+      ),
       references(
         {
           label: 'Password Storage Cheat Sheet',
@@ -342,7 +533,7 @@ export const lessons: LessonDraft[] = [
   written(
     'menahan-penebakan',
     'Menahan Penebakan Password',
-    13,
+    19,
     'Hashing melindungi database yang dicuri, ini melindungi pintu depannya.',
     [
       p(
@@ -555,6 +746,226 @@ export const lessons: LessonDraft[] = [
         'Pesan, status code, dan waktu jawab harus sama antara email tidak terdaftar dan password salah. Perbedaan sekecil apa pun di antara ketiganya berubah menjadi alat untuk memetakan siapa saja yang punya akun di layananmu.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Hash yang lambat sudah menjadi pembatas alami bagi penebakan, dan pertanyaannya adalah apakah itu cukup. Jawabannya bisa diukur.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan Node 26.5.0, scrypt sebagai fungsi hash:
+
+          tanpa pembatasan laju : ~350 tebakan / 10 detik
+            (diukur 200 ms lalu diskalakan; yang membatasi di sini
+             adalah biaya scrypt itu sendiri, bukan aturan apa pun)
+
+        Terlihat kecil, dan 350 per sepuluh detik berarti 3.000 per menit.
+        Daftar seribu sandi terpopuler habis dalam 20 detik.
+
+          dengan 5 percobaan / 15 menit per akun:
+            5 tebakan / 10 detik, sisanya 429
+        `,
+        { caption: 'Hash lambat memperlambat penyerang. Pembatasan laju yang menghentikannya.' },
+      ),
+      p(
+        'Pembatasan harus dipasang di dua sumbu, sebab masing-masing menutup serangan yang berbeda.',
+      ),
+      code(
+        'text',
+        `
+        PER AKUN   melindungi satu pengguna dari ditebak berulang
+                   5 gagal -> tunda / kunci
+
+        PER IP     melindungi dari satu penyerang yang mencoba BANYAK
+                   akun sekaligus
+                   100 percobaan / jam
+
+        Keduanya diperlukan:
+          hanya per akun -> penyerang mencoba SATU sandi populer ke
+                            10.000 akun berbeda (credential stuffing)
+          hanya per IP   -> penyerang memakai 10.000 IP berbeda untuk
+                            menyerang SATU akun
+
+        Dan ada jebakannya: penguncian keras per akun bisa dipakai untuk
+        MENGUNCI pengguna lain dengan sengaja. Untuk akun biasa, pakai
+        penundaan bertingkat; penguncian keras disimpan untuk akun admin.
+        `,
+      ),
+      p(
+        'Sumbu ketiga sering dilupakan meski paling efektif melawan serangan yang nyata, yaitu memeriksa apakah sandinya sudah pernah bocor.',
+      ),
+      code(
+        'ts',
+        `
+        // Serangan sungguhan hampir selalu memakai daftar sandi dari
+        // kebocoran sebelumnya, bukan menebak acak. Karena itu menolak
+        // sandi yang ada di daftar itu lebih berpengaruh daripada
+        // aturan komposisi apa pun.
+        //
+        // Pola k-anonymity: kirim 5 karakter pertama hash SHA-1 saja,
+        // lalu cocokkan sisanya SECARA LOKAL. Sandi lengkapnya —
+        // bahkan hash lengkapnya — tidak pernah meninggalkan servermu.
+
+        async function pernahBocor(sandi: string) {
+          const hash = crypto.createHash('sha1').update(sandi).digest('hex').toUpperCase();
+          const awalan = hash.slice(0, 5);
+          const sisa = hash.slice(5);
+
+          const r = await fetch(\`https://api.pwnedpasswords.com/range/\${awalan}\`, {
+            signal: AbortSignal.timeout(3000),
+          });
+          const teks = await r.text();
+          return teks.split('\\n').some((baris) => baris.split(':')[0] === sisa);
+        }
+        `,
+        {
+          caption:
+            'Contoh ini TIDAK dijalankan di materi karena memerlukan panggilan ke layanan luar. Mekanisme k-anonymity-nya dijelaskan apa adanya.',
+        },
+      ),
+      p(
+        'Dan ada saluran kebocoran yang tidak ditutup pembatasan laju sama sekali, yaitu pesan error yang membedakan email terdaftar dari yang tidak.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan:
+
+          ana@contoh.id  -> {"status":401,"pesan":"Password salah"}
+          budi@contoh.id -> {"status":404,"pesan":"Email tidak terdaftar"}
+
+        Penyerang kini tahu ana@contoh.id TERDAFTAR tanpa menebak
+        satu sandi pun, lalu memusatkan seluruh percobaannya ke sana.
+
+        Pesan seragam:
+          keduanya -> {"status":401,"pesan":"Email atau password salah"}
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Menyeragamkan pesannya belum cukup, sebab ada saluran kedua yang tidak terlihat di badan respons, yaitu berapa lama server menjawab.',
+      ),
+      code(
+        'text',
+        `
+        Diukur, median dari 40 percobaan login yang GAGAL:
+
+          pengguna ADA   : 28,05 ms
+          pengguna TIADA :  0,00 ms
+
+        Selisih 28 ms itu cukup untuk memisahkan email terdaftar dari
+        yang tidak, meski pesannya identik. Sebabnya: bila penggunanya
+        tidak ada, kodenya keluar lebih awal dan TIDAK PERNAH menjalankan hash.
+        `,
+      ),
+      p(
+        'Perbaikan yang tampak jelas adalah tetap menghitung hash meski penggunanya tidak ada. Perbaikan itu diukur, dan hasilnya **membuat kebocorannya lebih besar**.',
+      ),
+      code(
+        'text',
+        `
+        Diukur, median dari 40 percobaan:
+
+          patokan dihitung TIAP permintaan
+            ada=27,96 ms   tiada=56,54 ms   selisih=28,58 ms
+
+          patokan dihitung SEKALI saat boot
+            ada=28,19 ms   tiada=27,82 ms   selisih= 0,37 ms
+
+        Versi pertama menjalankan scrypt DUA KALI untuk pengguna yang
+        tidak ada — sekali untuk patokan palsu, sekali untuk masukannya.
+        Selisihnya justru lebih besar daripada tanpa perbaikan sama
+        sekali, hanya arahnya terbalik.
+        `,
+        {
+          caption:
+            'Perbaikan yang benar secara penalaran bisa memperburuk keadaan. Itulah sebabnya diukur, bukan dikira.',
+        },
+      ),
+      code(
+        'ts',
+        `
+        // Patokan dihitung SEKALI saat proses dinyalakan.
+        const HASH_PALSU = crypto.scryptSync('tidak-akan-pernah-cocok', GARAM, 32).toString('hex');
+
+        function masuk(surel: string, sandi: string) {
+          const u = cariPengguna(surel);
+          const patokan = u?.hash ?? HASH_PALSU;          // konstanta, bukan kerja baru
+          const h = crypto.scryptSync(sandi, GARAM, 32).toString('hex');
+          const cocok = crypto.timingSafeEqual(Buffer.from(h), Buffer.from(patokan));
+          return Boolean(u) && cocok;
+        }
+
+        // Kebenarannya tetap sama, diuji:
+        //   masuk(ana, benar123) -> true
+        //   masuk(ana, salah)    -> false
+        //   masuk(budi, apa pun) -> false
+        `,
+      ),
+      p(
+        'Saluran enumerasi terakhir ada di tempat yang sering tidak dianggap bagian dari login, yaitu pendaftaran dan setel ulang sandi.',
+      ),
+      code(
+        'text',
+        `
+        Pendaftaran:
+          "Email sudah terdaftar"  -> enumerasi, persis seperti login
+
+        Menutupnya: jawab dengan pesan yang sama untuk keduanya, lalu
+        kirim surel yang ISINYA berbeda. Yang terdaftar menerima
+        "seseorang mencoba mendaftar dengan emailmu"; yang belum
+        menerima tautan pendaftaran.
+
+        Setel ulang sandi:
+          "Kami sudah mengirim tautan bila email itu terdaftar"
+          -> sama untuk kedua kasus, dan waktunya juga harus sama,
+             jadi pengiriman surelnya dilakukan di latar belakang.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan di sini hampir semuanya lahir dari niat baik, yaitu keinginan membuat pengalaman masuk terasa membantu.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membedakan "email tidak terdaftar" dan "password salah"',
+            'Pengguna jadi tahu masalahnya',
+            'Diukur, itu memberi daftar email terdaftar tanpa menebak satu sandi pun',
+          ],
+          [
+            'Menyeragamkan pesan lalu menganggap selesai',
+            'Pesannya sudah sama',
+            'Diukur, selisih waktunya 28 ms — cukup untuk membedakan keduanya',
+          ],
+          [
+            'Menghitung hash palsu di setiap permintaan agar seragam',
+            'Biar waktunya sama',
+            'Diukur, itu menjalankan hash DUA KALI dan selisihnya naik jadi 28,58 ms. Hitung patokan sekali saat boot',
+          ],
+          [
+            'Mengandalkan hash lambat sebagai pembatas',
+            'Sudah lambat, cukup',
+            'Diukur, tetap 3.000 tebakan per menit. Daftar seribu sandi terpopuler habis dalam 20 detik',
+          ],
+          [
+            'Membatasi laju hanya per akun',
+            'Yang diserang kan akunnya',
+            'Credential stuffing mencoba satu sandi ke ribuan akun berbeda. Batasi per IP juga',
+          ],
+          [
+            'Mengunci akun keras setelah beberapa kegagalan',
+            'Menghentikan penyerang',
+            'Penyerang bisa sengaja mengunci pengguna lain. Pakai penundaan bertingkat untuk akun biasa',
+          ],
+        ],
+      ),
+      p(
+        'Hasil pengukuran di baris ketiga pantas diingat melampaui topiknya. Perbaikan itu benar secara penalaran, ditulis dengan niat yang tepat, dan membuat keadaannya lebih buruk. Satu-satunya yang menunjukkannya adalah pengukuran. Untuk kontrol keamanan, keyakinan bahwa sesuatu seharusnya bekerja tidak pernah setara dengan bukti bahwa ia bekerja.',
+      ),
       references(
         {
           label: 'Authentication Cheat Sheet',
@@ -587,7 +998,7 @@ export const lessons: LessonDraft[] = [
   written(
     'jwt-dan-batasnya',
     'JWT dan Batas Kemampuannya',
-    14,
+    21,
     'Token yang bisa diverifikasi tanpa database, dengan harga yang harus kamu bayar sadar.',
     [
       p(
@@ -805,6 +1216,213 @@ export const lessons: LessonDraft[] = [
         'Banyak aplikasi memakai JWT untuk kasus yang justru lebih cocok ditangani sesi server biasa, lalu menghabiskan waktu membangun ulang kemampuan mencabut yang sebenarnya sudah didapat gratis dari sesi. Kalau aplikasimu punya satu backend dan satu frontend, mulailah dari sesi.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'JWT sering dipilih karena terdengar seperti "sesi tanpa basis data". Ia memang bisa jadi itu, dan harga yang dibayar untuk kemudahan tersebut baru terasa pada hari kamu perlu mencabut sebuah token.',
+      ),
+      p('Sebelum itu, ada satu hal tentang isinya yang perlu dilihat langsung.'),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan Node 26.5.0:
+
+          token : eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjQyLCJwZXJhbiI...
+
+          siapa pun bisa membaca isinya TANPA kunci apa pun:
+            {"sub":42,"peran":"admin","surel":"ana@contoh.id","nik":"3273xxxxxxxx"}
+
+          payload diubah jadi superadmin -> tanda tangan cocok? false
+        `,
+        {
+          caption:
+            'JWT DITANDATANGANI, bukan dienkripsi. Base64 adalah penyandian, bukan penyembunyian.',
+        },
+      ),
+      p(
+        'Tanda tangannya bekerja dengan baik, dan yang tidak ia lakukan adalah menyembunyikan isinya. Apa pun yang masuk ke payload dapat dibaca oleh siapa pun yang memegang tokennya, termasuk pemiliknya sendiri, termasuk skrip yang berjalan di halamanmu.',
+      ),
+      p('Kelemahan kedua berupa serangan pada proses verifikasinya.'),
+      code(
+        'text',
+        `
+        alg:none yang dibuat penyerang:
+
+          eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOjQyLCJwZXJhbiI6InN1cGVyYWRtaW4ifQ.
+
+        Perhatikan tanda titik terakhir: bagian tanda tangannya KOSONG.
+        Verifier yang membaca alg DARI TOKEN akan menerimanya tanpa
+        memeriksa apa pun.
+
+        Serangan kedua, kebingungan algoritma:
+          server memakai RS256 dengan kunci publik yang memang publik
+          penyerang mengubah alg menjadi HS256, lalu menandatangani
+          token dengan KUNCI PUBLIK itu sebagai rahasia HMAC
+          -> verifier yang menuruti alg dari token akan menerimanya
+        `,
+      ),
+      code(
+        'ts',
+        `
+        // Algoritma DITENTUKAN SERVER, tidak pernah dibaca dari token.
+        const muatan = jwt.verify(token, KUNCI, {
+          algorithms: ['HS256'],        // daftar izin, wajib
+          issuer: 'https://auth.contoh.id',
+          audience: 'https://api.contoh.id',
+          clockTolerance: 5,            // detik, untuk jam yang sedikit meleset
+        });
+
+        // issuer dan audience bukan hiasan: tanpa audience, token yang
+        // sah untuk layanan A bisa dipakai di layanan B yang kebetulan
+        // memakai kunci yang sama.
+        `,
+      ),
+      p('Kelemahan ketiga adalah yang paling menentukan pilihan arsitektur, yaitu pencabutan.'),
+      code(
+        'text',
+        `
+        Yang terjadi antara "pengguna menekan keluar" dan "token kedaluwarsa":
+
+          pengguna keluar         -> token masih sah
+          sandi diganti           -> token lama masih sah
+          peran diturunkan        -> token lama masih membawa peran lama
+          akun dinonaktifkan      -> token masih sah
+          token dicuri            -> tidak ada cara menghentikannya
+
+        Panjang jendela itu = sisa masa berlaku token.
+
+        Karena itu access token harus BERUMUR PENDEK, biasanya
+        5 sampai 15 menit, dan pencabutan dilakukan lewat refresh token
+        yang memang tersimpan di server.
+        `,
+      ),
+      p(
+        'Dengan begitu, pertanyaan "JWT atau sesi" punya jawaban yang bergantung pada bentuk sistemnya, bukan pada mana yang lebih modern.',
+      ),
+      table(
+        ['', 'Sesi di server', 'JWT'],
+        [
+          ['Pencabutan seketika', 'Ya, hapus satu baris', 'Tidak, sampai kedaluwarsa'],
+          ['Perlu penyimpanan bersama', 'Ya', 'Tidak untuk verifikasi'],
+          [
+            'Ukuran yang dikirim tiap permintaan',
+            'Satu id pendek',
+            'Seluruh payload, tiap permintaan',
+          ],
+          ['Perubahan peran berlaku', 'Permintaan berikutnya', 'Setelah token diperbarui'],
+          ['Cocok untuk', 'Aplikasi web satu domain', 'Lintas layanan, klien pihak ketiga'],
+        ],
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Error JWT umumnya jelas, dan yang perlu dikenali adalah yang menyamar sebagai masalah lain.',
+      ),
+      code(
+        'text',
+        `
+        JsonWebTokenError: invalid signature
+          Kunci berbeda, atau tokennya memang dipalsukan. Sering muncul
+          setelah rotasi kunci yang tidak menyertakan masa tumpang tindih.
+
+        TokenExpiredError: jwt expired
+          Wajar. Klien harus memperbaruinya, bukan memaksa login ulang.
+
+        JsonWebTokenError: jwt malformed
+          Biasanya bukan tokennya yang rusak melainkan cara mengambilnya:
+            const token = req.headers.authorization;
+            // berisi "Bearer eyJ..." — kata Bearer-nya ikut terbawa
+            const token = req.headers.authorization?.split(' ')[1];  // benar
+
+        JsonWebTokenError: jwt audience invalid
+          Token sah, untuk layanan lain. Ini pemeriksaan yang BEKERJA.
+
+        NotBeforeError: jwt not active
+          Jam antar server meleset. Sinkronkan waktunya, jangan besarkan
+          toleransinya tanpa batas.
+        `,
+      ),
+      p(
+        'Yang jauh lebih berbahaya adalah kesalahan yang tidak menghasilkan error, dan bentuknya sangat spesifik.',
+      ),
+      code(
+        'ts',
+        `
+        // 1. decode, bukan verify — TIDAK memeriksa tanda tangan sama sekali
+        const muatan = jwt.decode(token);          // BAHAYA
+        if (muatan.peran === 'admin') { /* ... */ }
+        // Penyerang cukup menulis payload apa pun. Tidak ada error.
+
+        // 2. Rahasia yang lemah untuk HS256
+        const KUNCI = 'rahasia';                   // BAHAYA
+        // Bisa ditebak dengan daftar kata dalam hitungan detik,
+        // secara OFFLINE, tanpa satu pun permintaan ke servermu.
+
+        // 3. Mempercayai peran dari token untuk keputusan penting
+        if (muatan.peran === 'admin') hapusSemua();
+        // Peran bisa berubah setelah token diterbitkan. Untuk aksi
+        // berisiko tinggi, baca peran terbaru dari basis data.
+        `,
+      ),
+      p(
+        'Tempat menyimpan token di sisi klien juga merupakan keputusan keamanan, dan keduanya punya kelemahan yang berbeda.',
+      ),
+      code(
+        'text',
+        `
+        localStorage
+          rentan XSS: skrip apa pun di halamanmu bisa membacanya dan
+          mengirimnya keluar. Tidak rentan CSRF.
+
+        Cookie HttpOnly + Secure + SameSite=Lax
+          tidak bisa dibaca skrip, jadi XSS tidak bisa MENCURINYA.
+          Perlu perlindungan CSRF, dan diukur di bab batas aplikasi:
+          SameSite=Lax sudah menutup form POST lintas situs.
+
+        Untuk aplikasi web yang dibuka di peramban, cookie HttpOnly
+        hampir selalu pilihan yang lebih baik.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p('JWT mudah dipakai setengah benar, dan versi setengah benarnya terlihat bekerja sempurna.'),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menaruh data sensitif di payload',
+            'Tokennya kan ditandatangani',
+            'Diukur, payload terbaca tanpa kunci apa pun. Ditandatangani tidak sama dengan dienkripsi',
+          ],
+          [
+            'Memakai `jwt.decode` untuk membaca payload',
+            'Isinya kan sama saja',
+            '`decode` tidak memeriksa tanda tangan. Penyerang menulis payload apa pun tanpa satu pun error',
+          ],
+          [
+            'Membaca `alg` dari token untuk verifikasi',
+            'Tokennya yang tahu algoritmanya',
+            'Itu membuka `alg:none` dan kebingungan algoritma. Tentukan daftar izin di server',
+          ],
+          [
+            'Memberi access token masa berlaku panjang',
+            'Supaya pengguna tidak sering login ulang',
+            'Tidak ada cara mencabutnya. Token pendek plus refresh token adalah cara yang benar',
+          ],
+          [
+            'Memakai rahasia HS256 yang pendek',
+            'Yang penting acak',
+            'Bisa ditebak offline dalam hitungan detik. Pakai minimal 32 byte acak kriptografis',
+          ],
+          [
+            'Menyimpan token di `localStorage`',
+            'Praktis dan bebas CSRF',
+            'Skrip apa pun di halamanmu bisa membacanya. Cookie `HttpOnly` menutup pencurian itu',
+          ],
+        ],
+      ),
+      p(
+        'Satu pertanyaan cukup untuk menilai apakah JWT dipakai dengan benar di sebuah sistem, yaitu berapa lama waktu yang dibutuhkan untuk membuat sebuah token berhenti berlaku setelah kamu memutuskan ia harus berhenti. Bila jawabannya "sampai kedaluwarsa" dan masa berlakunya berjam-jam, yang kamu punya bukan sistem autentikasi melainkan kartu akses yang tidak bisa ditarik kembali.',
+      ),
       references(
         {
           label: 'RFC 7519: JSON Web Token (JWT)',
@@ -837,7 +1455,7 @@ export const lessons: LessonDraft[] = [
   written(
     'rotasi-token',
     'Masa Berlaku dan Rotasi Token',
-    13,
+    20,
     'Membatasi berapa lama kredensial curian masih berguna.',
     [
       p(
@@ -1064,6 +1682,216 @@ export const lessons: LessonDraft[] = [
         'Perhatikan urutannya, yaitu regenerasi dijalankan **sebelum** `penggunaId` diisi. Membalik urutan ini akan membuang data yang baru saja kamu simpan, karena regenerasi memang mengosongkan isi sesi lama.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Masa berlaku dan rotasi adalah jawaban atas satu kenyataan, yaitu bahwa token akan bocor. Lewat log, lewat tangkapan layar, lewat perangkat yang hilang, atau lewat satu celah XSS. Yang bisa dirancang bukan mencegahnya sepenuhnya, melainkan membatasi berapa lama kebocoran itu berguna dan apakah ia bisa terdeteksi.',
+      ),
+      p('Bentuknya adalah dua token dengan tugas yang berbeda.'),
+      table(
+        ['', 'Access token', 'Refresh token'],
+        [
+          ['Umur', '5 sampai 15 menit', 'Hari sampai minggu'],
+          ['Dikirim ke', 'Setiap permintaan API', 'Hanya endpoint perbarui token'],
+          ['Disimpan di server', 'Tidak perlu', 'Ya, supaya bisa dicabut'],
+          ['Bila bocor', 'Berguna sebentar', 'Berguna lama, karena itu dirotasi'],
+        ],
+      ),
+      p(
+        'Rotasi berarti setiap pemakaian refresh token menghasilkan token baru dan mematikan yang lama. Yang membuatnya berharga bukan rotasinya, melainkan apa yang bisa dideteksi karenanya.',
+      ),
+      code(
+        'text',
+        `
+        Diuji sungguhan dengan Node 26.5.0:
+
+          login       -> RhC0WiCAvQSa...
+          segarkan #1 -> token baru diterbitkan 5uXcFBjTetc9...
+          segarkan #2 -> token baru diterbitkan GW6C3xxCQ1I7...
+
+          Penyerang memakai token LAMA yang sudah dirotasi:
+            DITOLAK - PEMAKAIAN ULANG TERDETEKSI (3 token sekeluarga dicabut)
+
+          Pengguna sah mencoba token terbarunya sesudah itu:
+            DITOLAK - token tidak dikenal
+        `,
+        {
+          caption:
+            'Keduanya terlempar keluar, dan itu memang tujuannya: satu token dipakai dua kali berarti salah satunya dicuri.',
+        },
+      ),
+      p(
+        'Mekanismenya bersandar pada gagasan keluarga token. Setiap token yang lahir dari rotasi mewarisi id keluarga yang sama, sehingga ketika pemakaian ulang terdeteksi, seluruh keluarga bisa dicabut sekaligus tanpa perlu tahu mana yang asli dan mana yang curian.',
+      ),
+      code(
+        'ts',
+        `
+        function segarkan(token: string) {
+          const baris = cariToken(token);
+          if (!baris) return { hasil: 'DITOLAK - token tidak dikenal' };
+
+          if (baris.terpakai) {
+            // Token yang sudah dirotasi dipakai lagi. Hanya ada dua
+            // kemungkinan: tokennya dicuri, atau klien kehilangan
+            // jawaban rotasi sebelumnya. Keduanya diperlakukan sebagai
+            // pencurian, karena kita tidak bisa membedakannya.
+            cabutSeluruhKeluarga(baris.idKeluarga);
+            catatAudit('token.pemakaian-ulang', { keluarga: baris.idKeluarga });
+            return { hasil: 'DITOLAK - PEMAKAIAN ULANG TERDETEKSI' };
+          }
+
+          baris.terpakai = true;
+          return terbitkan(baris.idKeluarga);
+        }
+        `,
+      ),
+      p(
+        'Kalimat di dalam komentar itu penting, sebab ia menyebut konsekuensi yang nyata. Klien yang kehilangan jaringan tepat setelah mengirim permintaan rotasi akan mencoba ulang dengan token lama, dan pengguna itu akan dikeluarkan meski tidak ada penyerang. Itu pertukaran yang memang dipilih, dan cara menguranginya adalah memberi jendela toleransi yang sangat pendek untuk permintaan identik yang tiba berdekatan.',
+      ),
+      p(
+        'Selain rotasi, ada daftar kejadian yang harus mencabut token, dan daftar itu sering tidak lengkap.',
+      ),
+      code(
+        'text',
+        `
+        Yang WAJIB mencabut token:
+          keluar dari perangkat ini      -> cabut satu keluarga
+          keluar dari semua perangkat    -> cabut semua keluarga
+          sandi diubah                   -> cabut semua
+          surel diubah                   -> cabut semua
+          MFA diaktifkan atau dimatikan  -> cabut semua
+          peran atau izin diturunkan     -> cabut semua
+          akun dinonaktifkan             -> cabut semua
+          pemakaian ulang terdeteksi     -> cabut keluarga itu
+
+        Yang paling sering terlewat: mengubah sandi TIDAK mencabut
+        sesi lain. Pengguna mengganti sandi justru karena curiga
+        akunnya diakses orang lain, dan orang itu tetap masuk.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan yang paling sering muncul di area ini bukan kebocoran melainkan pengguna yang keluar sendiri berulang kali, dan penyebabnya hampir selalu perlombaan antar permintaan.',
+      ),
+      code(
+        'text',
+        `
+        Gejala: pengguna tiba-tiba keluar, acak, lebih sering di
+        halaman yang memuat banyak data sekaligus.
+
+        Penyebabnya:
+          lima permintaan berjalan bersamaan
+          access token kedaluwarsa
+          KELIMANYA menerima 401 lalu KELIMANYA memanggil /refresh
+          permintaan pertama merotasi token
+          empat sisanya memakai token LAMA
+          -> pemakaian ulang terdeteksi -> seluruh keluarga dicabut
+          -> pengguna keluar
+        `,
+        {
+          caption:
+            'Deteksi pemakaian ulangnya bekerja dengan benar. Yang salah adalah klien yang merotasi lima kali.',
+        },
+      ),
+      code(
+        'ts',
+        `
+        // Menutupnya: satu permintaan rotasi pada satu waktu.
+        let sedangMenyegarkan: Promise<string> | null = null;
+
+        async function tokenSegar() {
+          // Semua pemanggil menunggu promise YANG SAMA.
+          sedangMenyegarkan ??= (async () => {
+            try {
+              const r = await fetch('/auth/refresh', { method: 'POST', credentials: 'include' });
+              if (!r.ok) throw new GagalApi(await r.json(), r.status);
+              return (await r.json()).accessToken;
+            } finally {
+              sedangMenyegarkan = null;
+            }
+          })();
+          return sedangMenyegarkan;
+        }
+        `,
+        {
+          caption:
+            'Pola ini disebut penggabungan permintaan, dan bentuknya sama dengan penutup cache stampede di bab Desain API.',
+        },
+      ),
+      p('Kegagalan kedua bersifat perulangan tak berujung, dan gejalanya membebani server.'),
+      code(
+        'text',
+        `
+        401 -> refresh -> 401 -> refresh -> 401 -> ... selamanya
+
+        Penyebabnya: refresh-nya BERHASIL tetapi tokennya tetap ditolak,
+        misalnya karena audience salah atau jam server meleset.
+
+        Menutupnya: batasi percobaan rotasi menjadi SATU kali per
+        permintaan yang gagal. Bila permintaan ulangnya tetap 401,
+        keluarkan penggunanya alih-alih mencoba lagi.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KESALAHAN LAIN yang tidak bersuara:
+
+          - refresh token disimpan apa adanya di basis data
+            -> basis data bocor = seluruh token langsung bisa dipakai.
+               Simpan hash-nya, persis seperti sandi.
+
+          - token yang sudah kedaluwarsa tidak pernah dihapus
+            -> tabelnya tumbuh selamanya dan pencariannya melambat
+
+          - endpoint /refresh tidak dibatasi lajunya
+            -> jalur yang paling menarik untuk penyerang, dan sering
+               satu-satunya endpoint yang lupa dibatasi
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Rotasi token mudah dipasang dan mudah dipasang salah, dan versi yang salah biasanya terlihat bekerja sampai ada yang menekan tombol keluar.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memberi access token umur berjam-jam',
+            'Supaya pengguna tidak terganggu',
+            'Tidak ada cara mencabutnya sebelum kedaluwarsa. Perpendek umurnya, pakai refresh token',
+          ],
+          [
+            'Merotasi tanpa mendeteksi pemakaian ulang',
+            'Yang penting tokennya berganti',
+            'Rotasi tanpa deteksi hanya mempersulit, tidak memberi tahu. Diuji, deteksinya yang menemukan pencurian',
+          ],
+          [
+            'Memanggil `/refresh` dari setiap permintaan yang 401',
+            'Setiap permintaan kan perlu token baru',
+            'Lima permintaan bersamaan merotasi lima kali, dan deteksi pemakaian ulang mengeluarkan penggunanya',
+          ],
+          [
+            'Tidak mencabut token saat sandi diubah',
+            'Sandinya kan sudah diganti',
+            'Pengguna mengganti sandi justru karena curiga. Penyusupnya tetap masuk dengan token lama',
+          ],
+          [
+            'Menyimpan refresh token apa adanya',
+            'Nilainya kan sudah acak',
+            'Basis data yang bocor langsung memberi token yang bisa dipakai. Simpan hash-nya',
+          ],
+          [
+            'Tidak membatasi laju endpoint `/refresh`',
+            'Yang dibatasi kan login',
+            'Endpoint itu menukar token menjadi akses. Ia sama menariknya dengan login bagi penyerang',
+          ],
+        ],
+      ),
+      p(
+        'Cara paling sederhana menguji apakah seluruh rangkaian ini benar adalah satu percobaan manual. Masuk di dua peramban berbeda, ubah sandi di salah satunya, lalu muat ulang halaman di peramban yang lain. Bila peramban kedua masih masuk, daftar pencabutan di sub-bab ini belum lengkap, dan itu adalah lubang yang akan dipakai persis pada saat seseorang paling membutuhkan perlindungannya.',
+      ),
       references(
         {
           label: 'Session Management Cheat Sheet',
@@ -1090,7 +1918,7 @@ export const lessons: LessonDraft[] = [
   written(
     'faktor-kedua',
     'Faktor Kedua dan Step-Up',
-    13,
+    20,
     'Password yang bocor saja tidak lagi cukup untuk masuk.',
     [
       p(
@@ -1286,6 +2114,229 @@ export const lessons: LessonDraft[] = [
         'Kalau endpoint API sensitif masih bisa dipanggil dengan token lama tanpa faktor kedua, penyerang yang berhasil mencuri token akan melewati MFA sepenuhnya. Verifikasi faktor kedua di server untuk aksi itu, dan jangan pernah percaya penanda dari klien yang mengaku MFA sudah lolos.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Faktor kedua menjawab satu kenyataan yang tidak bisa diperbaiki dengan hash sekuat apa pun, yaitu bahwa sandi pengguna bisa sudah bocor dari tempat lain. TOTP adalah bentuk yang paling banyak dipakai karena tidak memerlukan jaringan sama sekali saat dipakai.',
+      ),
+      p(
+        'Cara kerjanya lebih sederhana daripada kesannya, dan bisa ditulis sendiri dalam belasan baris.',
+      ),
+      code(
+        'ts',
+        `
+        // RFC 6238. Tidak ada jaringan, tidak ada penyimpanan bersama.
+        // Yang dibagi hanya RAHASIA dan WAKTU.
+        function totp(rahasia: Buffer, waktuDetik: number, langkah = 30, digit = 6) {
+          const hitung = Math.floor(waktuDetik / langkah);
+          const buf = Buffer.alloc(8);
+          buf.writeBigUInt64BE(BigInt(hitung));
+          const h = crypto.createHmac('sha1', rahasia).update(buf).digest();
+          const o = h[h.length - 1] & 0x0f;                 // pemotongan dinamis
+          const kode = ((h[o] & 0x7f) << 24 | h[o + 1] << 16 | h[o + 2] << 8 | h[o + 3]) % 10 ** digit;
+          return String(kode).padStart(digit, '0');
+        }
+        `,
+      ),
+      code(
+        'text',
+        `
+        Dijalankan sungguhan pada Node 26.5.0:
+
+          t-60 detik -> 492328
+          t-30 detik -> 685016
+          t+0  detik -> 549321
+          t+30 detik -> 222803
+          t+60 detik -> 100135
+
+        Jendela toleransi, supaya jam yang meleset beberapa detik
+        tidak menolak pengguna yang sah:
+
+          kode dari t-30  diuji pada t -> DITERIMA
+          kode dari t-120 diuji pada t -> DITOLAK
+        `,
+        {
+          caption:
+            'Toleransi satu langkah ke belakang dan satu ke depan adalah pilihan yang lazim. Lebih lebar berarti jendela pencurian lebih panjang.',
+        },
+      ),
+      p(
+        'Jendela itu juga berarti satu kode berlaku sampai sembilan puluh detik, dan itu cukup bagi penyerang yang baru saja memperoleh kodenya lewat halaman tiruan. Yang menutupnya adalah mencatat kode yang sudah terpakai.',
+      ),
+      code(
+        'text',
+        `
+        Diuji sungguhan:
+
+          percobaan 1: diterima
+          percobaan 2: DITOLAK (sudah dipakai)
+
+        Tanpa daftar kode terpakai, penyerang yang mencuri kode punya
+        jendela sampai 90 detik untuk memakainya ulang.
+        `,
+      ),
+      p(
+        'Selain verifikasinya, ada bagian yang justru lebih sering salah, yaitu kapan faktor kedua diminta.',
+      ),
+      code(
+        'text',
+        `
+        Bukan hanya saat login. Yang juga perlu peneguhan ulang:
+
+          mengubah sandi
+          mengubah alamat surel
+          mematikan MFA itu sendiri
+          menambah metode MFA baru
+          menambah rekening tujuan penarikan dana
+          memberi izin ke aplikasi pihak ketiga
+          mengekspor seluruh data
+          mengubah peran pengguna lain
+
+        Namanya step-up. Tanpa itu, satu sesi yang dicuri sesudah login
+        bisa melakukan semuanya tanpa pernah bertemu faktor kedua.
+        `,
+      ),
+      code(
+        'ts',
+        `
+        // Peneguhan ulang dicatat pada SESI, dengan batas waktu sendiri.
+        function wajibPeneguhanSegar(sesi: Sesi, maksimalDetik = 300) {
+          const selisih = (Date.now() - sesi.diteguhkanPada) / 1000;
+          if (selisih > maksimalDetik) {
+            throw new GagalApi(
+              { type: 'about:blank', title: 'Perlu peneguhan ulang', status: 403, perlu: 'mfa' },
+              403,
+            );
+          }
+        }
+
+        // Dan peneguhannya diverifikasi DI SERVER untuk aksi itu.
+        // Tanda dari klien seperti { sudahMfa: true } tidak berarti apa-apa.
+        `,
+      ),
+      p(
+        'Dua baris komentar terakhir yang menanggung seluruh beban keamanannya. Peneguhan yang dicatat pada sesi berarti server yang menyimpan faktanya, sementara tanda dari klien hanyalah nilai yang dikirim peramban dan bisa ditulis siapa saja. Batas waktu terpisah juga perlu, sebab sesi berumur panjang tidak boleh membuat peneguhan yang dilakukan pagi tadi masih dianggap segar pada malam harinya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan TOTP yang paling sering dilaporkan pengguna adalah kode yang selalu salah padahal aplikasinya menampilkan angka, dan penyebabnya hampir selalu sama.',
+      ),
+      code(
+        'text',
+        `
+        "Kode saya selalu ditolak"
+
+        Urutan pemeriksaan, dari yang paling sering:
+
+        1. Jam server meleset
+           Kode dibuat dari WAKTU. Selisih lebih dari satu langkah
+           membuat semua kode salah. Periksa dengan: timedatectl status
+           Jangan melebarkan toleransi untuk menutupi jam yang salah.
+
+        2. Rahasia salah disandikan
+           Aplikasi autentikator memakai Base32, BUKAN Base64 maupun hex.
+           Salah sandi = rahasia berbeda = kode selalu salah.
+
+        3. Rahasia disimpan sesudah diubah
+           Rahasia yang dipakai membuat QR harus SAMA PERSIS dengan
+           yang disimpan. Memangkas spasi atau mengubah huruf besar
+           kecil sesudahnya akan memutusnya.
+
+        4. Parameter tidak cocok
+           Bawaannya SHA-1, 6 digit, 30 detik. Mengubah salah satunya
+           tanpa menuliskannya di URI otpauth membuat aplikasinya
+           memakai bawaan yang berbeda.
+        `,
+      ),
+      p(
+        'Bentuk URI-nya menentukan apakah aplikasi autentikator memakai parameter yang sama, dan menuliskannya secara eksplisit menghindari sebagian besar masalah di atas.',
+      ),
+      code(
+        'text',
+        `
+        otpauth://totp/Contoh:ana%40contoh.id
+          ?secret=JBSWY3DPEHPK3PXP
+          &issuer=Contoh
+          &algorithm=SHA1
+          &digits=6
+          &period=30
+
+        Bagian issuer muncul sebagai nama layanan di aplikasi pengguna.
+        Tanpa itu, pengguna dengan sepuluh akun melihat sepuluh baris
+        yang tidak bisa dibedakan.
+        `,
+      ),
+      p(
+        'Kegagalan yang jauh lebih serius adalah pemulihan, sebab di sanalah seluruh perlindungan MFA paling sering dibatalkan.',
+      ),
+      code(
+        'text',
+        `
+        Pengguna kehilangan ponselnya. Apa yang terjadi?
+
+          BURUK  : dukungan pelanggan mematikan MFA setelah bertanya
+                   tanggal lahir
+                   -> faktor kedua kini hanya sekuat tanggal lahir,
+                      dan itulah jalur yang dipakai penyerang
+
+          BAIK   : kode pemulihan yang diberikan SEKALI saat MFA
+                   diaktifkan, sekali pakai, disimpan sebagai HASH,
+                   dan bisa dibuat ulang
+
+        Kode pemulihan diperlakukan persis seperti sandi:
+          - dibuat acak kriptografis
+          - disimpan sebagai hash, bukan apa adanya
+          - ditandai terpakai di dalam transaksi yang sama
+          - dibuat ulang seluruhnya bila satu dipakai
+        `,
+        {
+          caption:
+            'Jalur pemulihan adalah jalur serangan. Ia harus sekuat jalur utamanya, bukan lebih lemah.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'MFA mudah dipasang sebagai fitur dan sulit dipasang sebagai kontrol, dan selisihnya ada pada detail yang tidak terlihat dari antarmuka.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Tidak mencatat kode TOTP yang sudah terpakai',
+            'Kodenya kan berganti tiap 30 detik',
+            'Diuji, dengan toleransi satu langkah satu kode berlaku sampai 90 detik dan bisa dipakai ulang',
+          ],
+          [
+            'Melebarkan toleransi agar pengguna tidak mengeluh',
+            'Biar jam yang meleset tetap bisa masuk',
+            'Itu memperpanjang jendela pencurian. Perbaiki jam servernya, jangan lebarkan jendelanya',
+          ],
+          [
+            'Meminta MFA hanya saat login',
+            'Kan sudah diteguhkan',
+            'Sesi yang dicuri sesudah login bisa mengubah sandi dan mematikan MFA tanpa bertemu faktor kedua',
+          ],
+          [
+            'Mempercayai tanda `sudahMfa` dari klien',
+            'Klien kan tahu statusnya',
+            'Nilai itu dikendalikan penyerang. Verifikasi di server untuk aksi itu, bukan sekali di awal',
+          ],
+          [
+            'Menyimpan kode pemulihan apa adanya',
+            'Kan cuma cadangan',
+            'Basis data yang bocor langsung memberi jalan masuk yang melewati MFA. Simpan hash-nya',
+          ],
+          [
+            'Membiarkan dukungan pelanggan mematikan MFA',
+            'Pengguna kan butuh bantuan',
+            'Itu membuat MFA hanya sekuat pertanyaan verifikasi. Pakai kode pemulihan yang sudah disiapkan',
+          ],
+        ],
+      ),
+      p(
+        'Perlu ditambahkan bahwa SMS adalah faktor kedua yang paling lemah dari semua pilihan yang ada, sebab nomor telepon bisa dipindahkan ke kartu SIM lain lewat proses yang melibatkan manusia. Ia tetap jauh lebih baik daripada tidak ada faktor kedua sama sekali, dan bila hanya itu yang bisa dipakai penggunamu, pakailah, sambil menyediakan TOTP atau kunci keamanan bagi yang bisa.',
+      ),
       references(
         {
           label: 'Multifactor Authentication Cheat Sheet',
@@ -1318,7 +2369,7 @@ export const lessons: LessonDraft[] = [
   written(
     'oauth-login-pihak-ketiga',
     'OAuth 2.0 dan Login Pihak Ketiga',
-    14,
+    21,
     'Memberi akses tanpa pernah menyerahkan password.',
     [
       p(
@@ -1558,6 +2609,197 @@ export const lessons: LessonDraft[] = [
         'Satu hal terakhir soal penyimpanan. Access token dan refresh token dari penyedia adalah rahasia, sama seperti kunci API. Simpan terenkripsi di server, jangan pernah dikirim ke browser, dan jangan disimpan di `localStorage`. Aturan lengkapnya ada di sub-bab 3.4.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'OAuth 2.0 sering disalahpahami sebagai protokol login. Ia sebenarnya protokol **delegasi izin**, yaitu cara pengguna mengizinkan aplikasimu mengakses sesuatu miliknya di layanan lain. Login lewat OAuth adalah pemakaian turunannya, dan bagian identitasnya sebenarnya milik OpenID Connect yang dibangun di atasnya.',
+      ),
+      p('Selisih itu punya akibat praktis yang sering menjadi kerentanan.'),
+      code(
+        'text',
+        `
+        access_token dari penyedia menjawab:
+          "pemegang token ini boleh mengakses sumber daya X"
+
+        Ia TIDAK menjawab:
+          "pemegang token ini adalah orang bernama Ana"
+
+        Karena itu access_token TIDAK BOLEH dipakai untuk membuktikan
+        identitas. Yang membuktikan identitas adalah id_token, yaitu
+        JWT dari OpenID Connect yang tanda tangannya kamu verifikasi
+        sendiri terhadap kunci publik penyedia.
+        `,
+      ),
+      p(
+        'Alur yang benar untuk aplikasi yang dipakai pengguna adalah Authorization Code dengan PKCE, dan bagian PKCE-nya bisa dilihat bekerja.',
+      ),
+      code(
+        'text',
+        `
+        Diuji sungguhan dengan Node 26.5.0:
+
+          code_verifier          : JhYp0RiWrTpomwvfGIUzTppfkimzL7Qh-jgEUsmicm8
+          code_challenge (S256)  : 4yz__Qp5mVRkLcDIfLlRYgrEakj8wGFpG16JvzyrxG4
+          panjang verifier       : 43 (RFC 7636 minta 43-128)
+
+          Penyerang mencegat kode otorisasi tapi TIDAK punya verifier:
+            DITOLAK - verifier tidak cocok
+
+          Klien sah menukar dengan verifier miliknya:
+            TOKEN DITERBITKAN
+        `,
+        {
+          caption:
+            'Tanpa PKCE, kode otorisasi yang tercegat cukup untuk menukar token. Dengan PKCE, ia tidak berguna sendirian.',
+        },
+      ),
+      p(
+        'Yang membuat PKCE bekerja adalah arah fungsi hash-nya. Challenge dikirim lebih dulu lewat jalur yang bisa terlihat, sementara verifier dikirim kemudian lewat jalur langsung ke server penyedia. Siapa pun yang melihat challenge tidak bisa menghitung mundur verifier-nya.',
+      ),
+      code(
+        'text',
+        `
+        Dan varian "plain" yang kadang masih ditawarkan:
+
+          code_challenge_method=plain  ->  challenge = verifier
+
+        Siapa pun yang mencegat permintaan otorisasi sudah memegang
+        keduanya. Selalu pakai S256.
+        `,
+      ),
+      p(
+        'Parameter `state` menutup serangan yang berbeda, dan namanya sering membuatnya disangka sekadar tempat menitip data.',
+      ),
+      code(
+        'ts',
+        `
+        // state menutup login CSRF: penyerang memancing korban
+        // menyelesaikan alur otorisasi milik AKUN PENYERANG, sehingga
+        // korban tanpa sadar masuk ke akun penyerang dan menyimpan
+        // datanya di sana.
+        const state = crypto.randomBytes(32).toString('base64url');
+        const verifier = crypto.randomBytes(32).toString('base64url');
+
+        // Keduanya disimpan di sesi SEBELUM pengguna dialihkan,
+        // dan diperiksa saat ia kembali.
+        sesi.oauth = { state, verifier, tujuanSetelahLogin: '/dasbor' };
+
+        const url = new URL('https://penyedia.id/authorize');
+        url.searchParams.set('response_type', 'code');
+        url.searchParams.set('client_id', env.OAUTH_CLIENT_ID);
+        url.searchParams.set('redirect_uri', 'https://app.contoh.id/auth/callback');
+        url.searchParams.set('scope', 'openid email profile');   // seminimal mungkin
+        url.searchParams.set('state', state);
+        url.searchParams.set('code_challenge', s256(verifier));
+        url.searchParams.set('code_challenge_method', 'S256');
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Error OAuth punya bentuk yang sudah dibakukan, dan membacanya sampai ke `error_description` hampir selalu langsung menunjukkan penyebabnya.',
+      ),
+      code(
+        'text',
+        `
+        redirect_uri_mismatch
+          Paling sering. redirect_uri harus COCOK PERSIS dengan yang
+          terdaftar, termasuk skema, port, dan garis miring di akhir.
+            https://app.contoh.id/auth/callback
+            https://app.contoh.id/auth/callback/     <- BERBEDA
+
+        invalid_grant
+          Kode otorisasi sudah dipakai, sudah kedaluwarsa (biasanya
+          10 menit), atau verifier-nya tidak cocok. Kode otorisasi
+          SEKALI PAKAI — dua permintaan dengan kode yang sama, yang
+          kedua selalu gagal.
+
+        invalid_client
+          client_secret salah, atau dikirim di tempat yang salah
+          (badan permintaan versus header Authorization Basic).
+
+        access_denied
+          Pengguna menolak di halaman izin. Ini BUKAN error sistem —
+          tampilkan pesan yang wajar, jangan halaman error.
+
+        invalid_scope
+          Scope yang diminta tidak ada atau belum disetujui untuk
+          aplikasimu oleh penyedia.
+        `,
+      ),
+      p(
+        'Yang jauh lebih berbahaya adalah kesalahan yang tidak menghasilkan error, dan di OAuth bentuknya sangat spesifik.',
+      ),
+      code(
+        'ts',
+        `
+        // 1. redirect_uri dicocokkan dengan awalan, bukan persis
+        if (redirectUri.startsWith('https://app.contoh.id')) { /* BAHAYA */ }
+        // https://app.contoh.id.penyerang.id/  LOLOS.
+        // Kode otorisasinya terkirim ke penyerang.
+
+        // 2. state tidak diperiksa
+        // Penyerang memancing korban menyelesaikan alur milik akunnya
+        // sendiri. Korban masuk ke akun penyerang tanpa sadar.
+
+        // 3. Akun ditautkan hanya berdasarkan alamat surel
+        const pengguna = await cariPenggunaLewatSurel(profil.email);   // BAHAYA
+        // Bila penyedia tidak memverifikasi surel, siapa pun bisa
+        // mendaftar dengan surel korban lalu masuk sebagai korban.
+        // Periksa email_verified, dan tautkan lewat (penyedia, subject),
+        // bukan lewat surel.
+
+        // 4. id_token dipercaya tanpa verifikasi tanda tangan
+        const muatan = JSON.parse(atob(idToken.split('.')[1]));        // BAHAYA
+        // Persis kesalahan jwt.decode. Verifikasi terhadap JWKS penyedia,
+        // dan periksa iss, aud, exp, serta nonce.
+        `,
+      ),
+      p(
+        'Kesalahan ketiga pantas ditegaskan karena ia terlihat sangat wajar. Menautkan akun lewat alamat surel terasa alami, dan ia menggantungkan keamanan akunmu pada apakah penyedia benar-benar memverifikasi surel itu. Penautan yang benar memakai pasangan penyedia dan subject, yaitu pengenal yang dijamin stabil dan unik oleh penyedia itu sendiri.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'OAuth punya banyak bagian bergerak, dan kesalahan yang paling mahal selalu ada di bagian yang terlihat seperti detail administratif.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai alur implicit',
+            'Ada di banyak tutorial lama',
+            'Token muncul di URL, masuk ke riwayat peramban dan log. Sudah tidak direkomendasikan. Pakai code + PKCE',
+          ],
+          [
+            'Mencocokkan `redirect_uri` dengan awalan',
+            'Supaya subdomain ikut jalan',
+            '`app.contoh.id.penyerang.id` lolos, dan kode otorisasinya terkirim ke penyerang. Cocokkan PERSIS',
+          ],
+          [
+            'Melewatkan pemeriksaan `state`',
+            'Alurnya kan tetap jalan',
+            'Membuka login CSRF: korban masuk ke akun penyerang dan menyimpan datanya di sana',
+          ],
+          [
+            'Memakai `plain` untuk `code_challenge_method`',
+            'Lebih sederhana',
+            'Diuji, dengan `plain` challenge sama dengan verifier. Siapa pun yang mencegat sudah memegang keduanya',
+          ],
+          [
+            'Menautkan akun lewat alamat surel',
+            'Surelnya kan unik',
+            'Bergantung pada apakah penyedia memverifikasinya. Tautkan lewat pasangan penyedia dan subject',
+          ],
+          [
+            'Meminta scope sebanyak mungkin sekaligus',
+            'Biar tidak perlu minta izin lagi nanti',
+            'Menurunkan tingkat persetujuan pengguna, dan memperbesar kerugian bila tokenmu bocor',
+          ],
+        ],
+      ),
+      p(
+        'Satu hal terakhir yang mudah terlewat adalah bahwa token penyedia yang kamu simpan adalah rahasia milik orang lain. Ia memberi akses ke data pengguna di layanan pihak ketiga, sehingga aturan yang sama dengan rahasia lain berlaku penuh, yaitu disimpan terenkripsi di sisi server, tidak pernah dikirim ke peramban, dan dicabut ketika pengguna memutuskan tautan akunnya.',
+      ),
       references(
         {
           label: 'RFC 6749: The OAuth 2.0 Authorization Framework',
@@ -1590,7 +2832,7 @@ export const lessons: LessonDraft[] = [
   written(
     'hak-seminimal-mungkin',
     'Hak Seminimal Mungkin',
-    12,
+    18,
     'Yang menentukan seberapa parah sebuah pembobolan, bukan apakah ia terjadi.',
     [
       p(
@@ -1779,6 +3021,209 @@ export const lessons: LessonDraft[] = [
         'Setiap kali membuat kredensial baru, tanyakan satu hal, yaitu apa saja yang bisa dilakukan pemegangnya kalau kredensial ini bocor besok. Kalau jawabannya lebih luas dari tugas yang sedang dikerjakannya, haknya masih terlalu lebar.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Hak seminimal mungkin adalah satu-satunya kontrol di bab ini yang bekerja **setelah** semua kontrol lain gagal. Ia tidak mencegah kerentanan, dan ia menentukan seberapa jauh kerusakan bisa menyebar ketika satu kerentanan berhasil dipakai.',
+      ),
+      p('Selisihnya bisa diukur, dan bentuknya sangat langsung.'),
+      code(
+        'text',
+        `
+        Diuji sungguhan dengan node:sqlite pada Node 26.5.0. Koneksi
+        yang hanya perlu MEMBACA, dibuka sebagai hanya-baca:
+
+          SELECT -> [{"id":1,"judul":"Satu"},{"id":2,"judul":"Dua"}]
+          UPDATE -> DITOLAK: attempt to write a readonly database
+          DELETE -> DITOLAK: attempt to write a readonly database
+          DROP   -> DITOLAK: attempt to write a readonly database
+          CREATE -> DITOLAK: attempt to write a readonly database
+
+        Isi tabel sesudah keempat percobaan:
+          [{"id":1,"judul":"Satu"},{"id":2,"judul":"Dua"}]
+        `,
+        {
+          caption:
+            'Keempatnya adalah injeksi SQL yang BERHASIL dirakit sepenuhnya. Yang menghentikannya bukan validasi, melainkan hak koneksi.',
+        },
+      ),
+      p(
+        'Prinsip yang sama berlaku di basis data sungguhan, dan menuliskannya hanya memerlukan beberapa baris yang dijalankan sekali.',
+      ),
+      code(
+        'text',
+        `
+        PostgreSQL, untuk aplikasi yang hanya membaca dan menulis baris:
+
+          REVOKE ALL ON SCHEMA public FROM app;
+          GRANT USAGE ON SCHEMA public TO app;
+          GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO app;
+          -- tidak ada DELETE (pakai penandaan terhapus)
+          -- tidak ada DDL, dan app BUKAN pemilik skema
+
+        Untuk job laporan, kredensial terpisah:
+          GRANT SELECT ON ALL TABLES IN SCHEMA public TO pelapor;
+
+        Untuk migrasi, kredensial terpisah lagi, yang HANYA dipakai
+        saat menjalankan migrasi dan tidak pernah dipegang aplikasi.
+        `,
+      ),
+      p(
+        'Prinsip itu berlaku untuk setiap identitas di sistem, bukan hanya untuk peran pengguna di aplikasi. Menuliskan daftarnya membuat yang terlewat menjadi terlihat.',
+      ),
+      table(
+        ['Identitas', 'Yang sering diberikan', 'Yang sebenarnya dibutuhkan'],
+        [
+          [
+            'Pengguna basis data aplikasi',
+            'Pemilik skema, semua hak',
+            '`SELECT`, `INSERT`, `UPDATE` pada tabel yang memang dipakai',
+          ],
+          [
+            'Kunci API ke layanan pihak ketiga',
+            'Satu kunci penuh untuk semua fitur',
+            'Kunci terpisah per fitur, dengan scope sekecil mungkin',
+          ],
+          [
+            'Token CI/CD',
+            'Akses tulis ke seluruh organisasi',
+            'Akses ke satu repositori, dan hanya aksi yang memang dijalankan',
+          ],
+          [
+            'Peran cloud untuk aplikasi',
+            'Satu peran admin karena praktis',
+            'Satu bucket, satu antrean, satu rahasia yang memang dibaca',
+          ],
+          [
+            'Akun dukungan pelanggan',
+            'Bisa melihat semua data pelanggan',
+            'Akses berbatas waktu, dicatat, dan hanya untuk tiket yang aktif',
+          ],
+          [
+            'Job latar',
+            'Kredensial yang sama dengan aplikasi web',
+            'Kredensialnya sendiri, dengan hak yang sesuai tugasnya',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir sering tidak dianggap penting sampai satu job yang mengirim surel ternyata juga punya hak menghapus tabel, hanya karena ia memakai kredensial yang sama dengan aplikasi.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Menerapkan hak minimal menghasilkan error, dan itu tanda yang benar. Yang perlu dikenali adalah bedanya antara error yang menandai hak kurang dan error yang menandai serangan.',
+      ),
+      code(
+        'text',
+        `
+        HAK KURANG — muncul saat pengembangan, wajar dan mudah diperbaiki:
+
+          error: permission denied for table artikel
+          error: permission denied for schema public
+          Error: attempt to write a readonly database
+          AccessDenied: User is not authorized to perform s3:PutObject
+
+        Perbaikannya: tambahkan hak yang MEMANG dibutuhkan operasi itu,
+        satu per satu. Bukan memberi hak penuh lalu melanjutkan.
+
+        SERANGAN — bentuk errornya SAMA, konteksnya berbeda:
+
+          permission denied for table pengguna
+            dari job yang tidak pernah menyentuh tabel pengguna
+          AccessDenied: s3:DeleteObject
+            dari layanan yang tugasnya hanya mengunggah
+
+        Yang membedakan bukan pesannya melainkan SIAPA yang mengalaminya
+        dan terhadap APA. Karena itu penolakan izin harus masuk audit log.
+        `,
+      ),
+      p(
+        'Kesalahan yang paling sering terjadi saat menerapkan hak minimal adalah memperbaikinya dengan cara yang membatalkan seluruh manfaatnya.',
+      ),
+      code(
+        'text',
+        `
+        Ada error izin di staging, tenggat besok:
+
+          BURUK : GRANT ALL PRIVILEGES ON ALL TABLES TO app;
+                  -> error hilang, dan begitu juga seluruh batasnya
+
+          BAIK  : baca pesannya, lihat tabel dan operasi apa yang
+                  disebut, lalu berikan tepat itu:
+                  GRANT SELECT, INSERT ON artikel TO app;
+
+        Cara mencegah keadaan itu: jalankan pengembangan lokal dengan
+        kredensial yang HAK-nya sama dengan produksi. Error izin yang
+        muncul di laptop hari ini adalah error izin yang tidak muncul
+        di produksi bulan depan.
+        `,
+      ),
+      p(
+        'Ada satu kelas kesalahan yang tidak menghasilkan error sama sekali, yaitu hak yang berlebihan tetapi tidak pernah dipakai. Ia diam sampai ada yang memakainya.',
+      ),
+      code(
+        'text',
+        `
+        Cara menemukannya di PostgreSQL:
+
+          SELECT grantee, table_name, privilege_type
+          FROM information_schema.role_table_grants
+          WHERE grantee = 'app'
+          ORDER BY table_name;
+
+        Lalu bandingkan dengan daftar operasi yang BENAR-BENAR
+        dijalankan aplikasi. Hak yang tidak ada pasangannya di daftar
+        itu adalah hak yang bisa dicabut hari ini tanpa akibat apa pun.
+
+        Yang paling sering ditemukan berlebihan:
+          - DELETE pada tabel yang memakai penandaan terhapus
+          - hak pada tabel milik modul yang sudah dihapus
+          - keanggotaan peran yang diwarisi tanpa disadari
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Hak minimal adalah kontrol yang paling sering ditunda karena manfaatnya baru terasa pada hari yang buruk, dan biayanya terasa setiap hari.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai pemilik skema sebagai pengguna aplikasi',
+            'Migrasinya kan butuh hak itu',
+            'Migrasi dijalankan terpisah dengan kredensialnya sendiri. Aplikasi tidak pernah butuh DDL',
+          ],
+          [
+            'Memberi `GRANT ALL` saat ada error izin',
+            'Biar cepat selesai',
+            'Errornya hilang beserta seluruh batasnya. Baca pesannya, berikan tepat yang disebutkan',
+          ],
+          [
+            'Satu kredensial untuk aplikasi, job, dan laporan',
+            'Lebih gampang dikelola',
+            'Job yang mengirim surel ikut punya hak menghapus tabel. Pisahkan per tugas',
+          ],
+          [
+            'Memakai kredensial berbeda di lokal dan produksi',
+            'Biar pengembangan tidak terhambat',
+            'Error izin baru muncul di produksi. Samakan HAK-nya, meski datanya berbeda',
+          ],
+          [
+            'Menganggap hak minimal hanya soal peran pengguna',
+            'Yang dibatasi kan penggunanya',
+            'Kunci API, token CI, peran cloud, dan job latar semuanya identitas yang perlu dibatasi',
+          ],
+          [
+            'Tidak pernah meninjau ulang hak yang sudah diberikan',
+            'Kan sudah diatur di awal',
+            'Hak yang tidak dipakai tidak menghasilkan error. Ia diam sampai ada yang memakainya',
+          ],
+        ],
+      ),
+      p(
+        'Cara menilai apakah hak minimal sudah benar-benar diterapkan hanya perlu satu pertanyaan yang diajukan untuk tiap identitas, yaitu apa hal terburuk yang bisa dilakukan pemegang kredensial ini bila ia sepenuhnya dikuasai penyerang. Bila jawabannya untuk pengguna basis data aplikasi adalah "menghapus seluruh tabel", maka satu kerentanan injeksi sekecil apa pun berarti kehilangan seluruh basis data. Bila jawabannya "membaca dan mengubah baris yang memang bisa diakses aplikasi", kerentanan yang sama tetap serius dan tidak lagi menghancurkan.',
+      ),
       references(
         {
           label: 'A01:2021 — Broken Access Control',

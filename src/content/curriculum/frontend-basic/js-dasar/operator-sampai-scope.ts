@@ -1,6 +1,7 @@
 import {
   callout,
   code,
+  compare,
   divider,
   h2,
   p,
@@ -21,7 +22,7 @@ export const lessons: LessonDraft[] = [
   written(
     'operator-dan-coercion',
     'Operator & Type Coercion — kenapa `==` menipu',
-    12,
+    17,
     'Operator aritmetika, perbandingan, dan logika — plus aturan konversi tipe otomatis yang jadi sumber banyak kejutan.',
     [
       p(
@@ -302,6 +303,176 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        "Kamu membuat halaman checkout. Pembeli mengisi jumlah barang, kode promo, berat paket, dan mencentang persetujuan syarat. Semua nilai itu dibaca dari elemen formulir, dan di situlah letak jebakannya, sebab **apa pun yang datang dari formulir HTML selalu berupa teks**. Angka nol datang sebagai teks `'0'`, centang yang tidak dicentang datang sebagai teks `'false'`, dan kolom kosong datang sebagai teks kosong.",
+      ),
+      p(
+        'Halaman checkout adalah tempat paling mahal untuk salah menangani ini, karena kesalahannya berupa uang. Lihat apa yang terjadi kalau nilai teks itu langsung dipakai apa adanya.',
+      ),
+      code(
+        'js',
+        `
+        const form = {
+          jumlah: '0',        // pembeli mengosongkan lalu mengetik 0
+          kodePromo: '',
+          beratKg: '2.5',
+          setuju: 'false',    // checkbox tidak dicentang
+        };
+
+        if (form.jumlah) { /* dianggap ada isinya */ }   // true   <- SALAH
+        console.log(form.jumlah == 0);                   // true   <- kebetulan benar
+        if (form.setuju) { /* dianggap setuju */ }       // true   <- SALAH dan berbahaya
+        console.log(form.beratKg > 2);                   // true   <- kebetulan benar
+        console.log('2.5' > '10');                       // true   <- SALAH
+        `,
+        { filename: 'Kenapa nilai formulir tidak boleh dipakai mentah' },
+      ),
+      p(
+        "Perhatikan bahwa dari lima baris itu, dua kebetulan benar dan tiga salah, dan campuran itulah yang membuat bug jenis ini bertahan lama. Baris `form.beratKg > 2` benar karena salah satu sisinya angka, sehingga JavaScript mengubah teks menjadi angka lebih dulu. Baris `'2.5' > '10'` salah karena **kedua** sisinya teks, sehingga perbandingannya dilakukan huruf demi huruf seperti kamus, dan karakter `2` memang lebih besar daripada `1`. Ongkos kirim untuk paket 2,5 kilogram jadi dihitung seperti paket di atas 10 kilogram.",
+      ),
+      p(
+        "Baris `if (form.setuju)` adalah yang paling berbahaya. Teks `'false'` bukan nilai `false`, melainkan teks sepanjang lima huruf, dan teks apa pun yang tidak kosong selalu dianggap benar. Artinya pembeli yang **tidak** mencentang persetujuan tetap dianggap setuju. Ini bukan bug tampilan, melainkan bug yang bisa berujung sengketa.",
+      ),
+      code(
+        'js',
+        `
+        // Ubah tipe di batas, yaitu tepat saat nilai masuk ke program.
+        const jumlah = Number.parseInt(form.jumlah, 10);
+        const beratKg = Number.parseFloat(form.beratKg);
+        const setuju = form.setuju === 'true';
+        const adaPromo = form.kodePromo.trim() !== '';
+
+        if (Number.isNaN(jumlah) || jumlah < 1) {
+          return { sah: false, pesan: 'Jumlah minimal 1' };
+        }
+        if (!setuju) {
+          return { sah: false, pesan: 'Centang persetujuan dulu' };
+        }
+        `,
+        { filename: 'src/validasi-checkout.js' },
+      ),
+      p(
+        'Pola ini disebut mengubah tipe di batas, dan aturannya satu kalimat. Ubah teks menjadi tipe yang benar **satu kali** di tempat ia masuk, lalu seluruh kode setelahnya bekerja dengan tipe yang benar dan tidak perlu waspada lagi. Angka 10 pada `parseInt(form.jumlah, 10)` adalah basis bilangan, dan menuliskannya bukan formalitas sebab tanpa itu teks berawalan nol bisa dibaca dengan basis lain di lingkungan lama.',
+      ),
+      p(
+        'Pemeriksaan `Number.isNaN(jumlah)` diperlukan karena `parseInt` tidak melempar error saat gagal, melainkan mengembalikan `NaN`. Yang perlu diingat, `NaN` adalah satu-satunya nilai di JavaScript yang tidak sama dengan dirinya sendiri, sehingga `jumlah === NaN` selalu `false` dan tidak bisa dipakai memeriksanya. Pakai `Number.isNaN`, dan hindari `isNaN` global yang lebih longgar karena ia mengubah argumennya menjadi angka lebih dulu.',
+      ),
+      callout(
+        'tip',
+        'Aturan tiga baris untuk nilai dari luar',
+        'Ubah tipenya di tempat ia masuk. Periksa hasilnya sebelum dipakai. Jangan pernah membandingkan dua teks dengan operator `>` atau `<` kecuali kamu memang sedang mengurutkan kata. Ketiganya bersama menutup hampir seluruh bug coercion di aplikasi nyata.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Coercion punya sifat yang membuatnya sulit dipelajari, yaitu ia hampir tidak pernah melempar error. Dua error di bawah adalah pengecualian yang jarang, dan sisanya adalah gejala tanpa pesan.',
+      ),
+      code(
+        'text',
+        `
+        const nilai = null || 1 ?? 2;
+                            ^^
+
+        SyntaxError: Unexpected token '??'
+        `,
+        { caption: '`??` dicampur dengan `||` atau `&&` tanpa tanda kurung.' },
+      ),
+      p(
+        'JavaScript sengaja menolak campuran ini alih-alih memilih urutan sendiri, dan alasannya baik. Kalau ditulis begitu saja, pembaca tidak punya cara untuk tahu apakah maksudnya `(null || 1) ?? 2` atau `null || (1 ?? 2)`. Perbaikannya menambahkan tanda kurung sesuai maksudmu. Ini contoh langka JavaScript memaksa penulisnya memperjelas maksud, dan kalau kamu bertemu error ini, anggap ia pertanyaan bukan gangguan.',
+      ),
+      code(
+        'text',
+        `
+        console.log(hargaBigInt + ongkir);
+                                ^
+
+        TypeError: Cannot mix BigInt and other types, use explicit conversions
+        `,
+        { caption: 'Angka besar bertipe BigInt dicampur dengan angka biasa.' },
+      ),
+      p(
+        'Tipe `BigInt` dipakai untuk bilangan bulat yang melebihi batas aman angka biasa, misalnya id dari sistem lain atau nilai dari kolom database `bigint`. Ia sengaja menolak dicampur, sebab hasil campurannya tidak bisa dijamin tepat. Kalau kamu bertemu ini, ubah salah satunya secara eksplisit dengan `Number(x)` atau `BigInt(x)`, dan sadari bahwa mengubah `BigInt` besar menjadi `Number` bisa kehilangan ketepatan.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            "`Unexpected token '??'`",
+            '`??` dicampur `||` atau `&&` tanpa tanda kurung',
+            'Tambahkan tanda kurung sesuai maksudmu',
+          ],
+          [
+            '`Cannot mix BigInt and other types`',
+            'Angka `BigInt` dijumlahkan dengan angka biasa',
+            'Ubah eksplisit dengan `Number()` atau `BigInt()`',
+          ],
+          [
+            'Dua angka digabung menjadi teks, misalnya `53` dari `5` dan `3`',
+            'Salah satunya masih teks, dan `+` mengutamakan penggabungan teks',
+            'Ubah ke angka lebih dulu, atau pakai `-` untuk menguji apakah nilainya memang angka',
+          ],
+          [
+            'Nilai `0` dari formulir dianggap kosong',
+            "Teks `'0'` truthy, sedangkan angka `0` falsy",
+            'Ubah ke angka lebih dulu, lalu periksa dengan `Number.isNaN` dan batas nilainya',
+          ],
+          [
+            'Perbandingan `>` memberi hasil terbalik',
+            'Kedua sisinya teks, jadi dibandingkan seperti kata dalam kamus',
+            'Pastikan minimal satu sisi sudah berupa angka sebelum dibandingkan',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Coercion adalah topik dengan jumlah kesalahan senyap terbanyak di seluruh bab ini. Karena itu kolom ketiga di bawah lebih banyak berisi kata diam-diam daripada kata error.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `==` supaya tidak repot memikirkan tipe',
+            'Ia lebih pemaaf, dan biasanya hasilnya memang yang diharapkan',
+            'Aturannya tidak bisa ditebak dari akal sehat. `[] == false` bernilai `true`, sedangkan `null == 0` bernilai `false`',
+          ],
+          [
+            'Memeriksa isi variabel dengan `if (nilai)`',
+            'Terbaca alami sebagai kalau nilainya ada',
+            'Angka `0`, teks kosong, `NaN`, dan `false` ikut dianggap tidak ada. Untuk memeriksa keberadaan, bandingkan dengan `null` memakai `!= null`',
+          ],
+          [
+            'Memakai `isNaN(x)` global',
+            'Namanya persis menyatakan yang dicari',
+            "`isNaN` mengubah argumennya menjadi angka lebih dulu, sehingga `isNaN('abc')` bernilai `true` padahal `'abc'` bukan `NaN`. Pakai `Number.isNaN`",
+          ],
+          [
+            'Membandingkan hasil `parseInt` dengan `NaN` memakai `===`',
+            'Perbandingan ketat memang cara yang benar untuk nilai lain',
+            '`NaN === NaN` bernilai `false`, jadi pemeriksaannya tidak pernah berhasil',
+          ],
+          [
+            'Memakai `+` untuk menjumlahkan dua nilai dari formulir',
+            'Keduanya jelas angka di mata pengguna',
+            "Keduanya teks di mata program, jadi `'2' + '3'` menghasilkan `'23'` bukan `5`",
+          ],
+          [
+            'Memakai `||` untuk memberi nilai bawaan pada angka',
+            'Bentuknya pendek dan sudah dipakai di mana-mana',
+            'Angka `0` yang sah ikut tergantikan. Pakai `??` yang hanya bereaksi pada `null` dan `undefined`',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua patut ditegaskan karena ia sumber bug yang paling sering dianggap misterius. Bentuk `if (jumlah)` bermaksud memeriksa apakah nilainya diisi, tapi yang sebenarnya diperiksa adalah apakah nilainya truthy. Untuk kolom yang boleh bernilai nol, seperti jumlah, diskon, atau stok, keduanya berbeda dan perbedaannya menentukan. Bentuk yang menyatakan maksud sebenarnya adalah `if (jumlah != null)`, dan inilah satu-satunya tempat `!=` dua huruf memang dianjurkan karena ia menangkap `null` dan `undefined` sekaligus.',
+      ),
+      callout(
+        'warning',
+        'Nilai dari `localStorage` juga selalu teks',
+        "Sama seperti formulir, `localStorage.getItem('perHalaman')` mengembalikan teks bahkan kalau yang kamu simpan tadinya angka. Simpan dengan `JSON.stringify` dan baca dengan `JSON.parse` supaya tipenya kembali utuh, dan bungkus pembacaannya dengan `try` karena isi penyimpanan bisa saja rusak atau diubah orang.",
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         '`+` menyambung string kalau salah satu operannya string; operator aritmetika lain mengubah ke angka.',
@@ -349,7 +520,7 @@ export const lessons: LessonDraft[] = [
   written(
     'percabangan',
     'Percabangan: `if`, `switch`, ternary',
-    9,
+    16,
     'Mengarahkan alur program berdasarkan kondisi, dan menjaga percabangan tetap terbaca saat kondisinya bertambah.',
     [
       p(
@@ -554,6 +725,212 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Fitur yang hampir selalu ada di aplikasi pesanan adalah tombol Batalkan. Kelihatannya sederhana, dan begitu ditulis ternyata syaratnya berlapis. Pesanannya harus ada. Pesanannya belum boleh dibatalkan kalau sudah dikirim. Pesanan yang sudah batal tidak boleh dibatalkan dua kali. Dan yang membatalkan harus pemilik pesanannya sendiri, kecuali ia admin.',
+      ),
+      p(
+        'Empat syarat itu adalah tempat kode bertingkat lahir. Kalau tiap syarat ditulis sebagai `if` yang membungkus syarat berikutnya, hasilnya menjadi piramida yang sulit dibaca dan lebih sulit lagi diubah. Bandingkan dua bentuknya.',
+      ),
+      compare(
+        {
+          title: 'Bertingkat, sulit diikuti',
+          lang: 'js',
+          code: `
+          function bolehBatalkan(pesanan, aktor) {
+            if (pesanan) {
+              if (pesanan.status !== 'batal') {
+                if (pesanan.status !== 'dikirim') {
+                  if (aktor.peran === 'admin' || aktor.id === pesanan.penggunaId) {
+                    return { boleh: true };
+                  } else {
+                    return { boleh: false, alasan: 'Bukan pesanan Anda' };
+                  }
+                } else {
+                  return { boleh: false, alasan: 'Sudah dikirim' };
+                }
+              } else {
+                return { boleh: false, alasan: 'Sudah dibatalkan' };
+              }
+            } else {
+              return { boleh: false, alasan: 'Tidak ditemukan' };
+            }
+          }
+          `,
+          notes: ['Syarat dan penolakannya berjauhan, jadi harus dibaca bolak-balik'],
+        },
+        {
+          title: 'Early return, dibaca sekali dari atas',
+          lang: 'js',
+          code: `
+          function bolehBatalkan(pesanan, aktor) {
+            if (!pesanan) {
+              return { boleh: false, alasan: 'Tidak ditemukan' };
+            }
+            if (pesanan.status === 'batal') {
+              return { boleh: false, alasan: 'Sudah dibatalkan' };
+            }
+            if (pesanan.status === 'dikirim') {
+              return { boleh: false, alasan: 'Sudah dikirim' };
+            }
+            if (aktor.peran !== 'admin' && aktor.id !== pesanan.penggunaId) {
+              return { boleh: false, alasan: 'Bukan pesanan Anda' };
+            }
+            return { boleh: true };
+          }
+          `,
+          notes: ['Tiap syarat dan penolakannya bersebelahan, dan jalur suksesnya rata di bawah'],
+        },
+      ),
+      p(
+        'Kedua fungsi menghasilkan jawaban yang sama persis untuk masukan yang sama, dan yang berbeda hanya bentuknya. Di kolom kanan, tiap `if` menjawab satu pertanyaan lalu langsung keluar, sehingga saat kamu sampai ke baris terakhir kamu sudah tahu seluruh syarat sudah lolos. Di kolom kiri, kamu harus menghitung kurung kurawal untuk tahu `else` yang mana milik `if` yang mana, dan setiap syarat baru menambah satu tingkat lagi.',
+      ),
+      p(
+        'Alasan yang lebih penting daripada keterbacaan adalah kemudahan berubah. Kalau besok muncul syarat kelima, misalnya pesanan yang sudah lewat tujuh hari tidak boleh dibatalkan, di kolom kanan kamu cukup menyisipkan satu blok `if` di tempat yang sesuai. Di kolom kiri, kamu harus membongkar piramidanya dan menyusun ulang seluruh `else`. Bentuk kanan disebut guard clause, dan pola ini akan kamu temui lagi di seluruh kode backend.',
+      ),
+      p(
+        'Perhatikan juga urutan syaratnya bukan sembarangan. Pemeriksaan keberadaan selalu didahulukan, sebab tiga syarat setelahnya membaca field dari `pesanan` dan akan gagal kalau `pesanan` tidak ada. Pemeriksaan kepemilikan sengaja ditaruh terakhir karena ia yang paling mahal secara logika, dan tidak ada gunanya memeriksanya kalau pesanannya sudah pasti tidak bisa dibatalkan.',
+      ),
+      callout(
+        'danger',
+        'Pemeriksaan izin di klien tidak pernah cukup',
+        'Fungsi seperti `bolehBatalkan` di sisi browser hanya menentukan apakah tombolnya ditampilkan. Server tetap wajib menjalankan pemeriksaan yang sama sebelum benar-benar membatalkan, sebab siapa pun bisa memanggil API-mu langsung tanpa lewat halamanmu. Menyembunyikan tombol bukan kontrol akses, dan ini aturan keras yang dibahas penuh di Kategori Keamanan Fullstack.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Percabangan menghasilkan sedikit error runtime dan banyak kesalahan logika. Satu-satunya error yang sering muncul adalah kesalahan penulisan, dan sisanya berupa cabang yang diam-diam tidak pernah tercapai.',
+      ),
+      code(
+        'text',
+        `
+        if (lunas) { kirim(); }
+        catat();
+        else { batalkan(); }
+             ^^^^
+
+        SyntaxError: Unexpected token 'else'
+        `,
+        { caption: '`else` tidak menempel langsung pada penutup `if`-nya.' },
+      ),
+      p(
+        '`else` harus berada tepat setelah kurung kurawal penutup blok `if`, tanpa pernyataan apa pun di antaranya. Karena ini `SyntaxError`, seluruh berkas gagal dijalankan bukan hanya baris ini, jadi kalau tiba-tiba tidak ada satu pun kode di berkas itu yang bekerja, periksa dulu apakah ada kesalahan penulisan seperti ini. Editor biasanya sudah menandainya dengan garis merah sebelum kamu menyimpan.',
+      ),
+      code(
+        'text',
+        `
+        switch (statusDariUrl) {     // nilainya teks '1'
+          case 1:
+            console.log('menunggu');
+            break;
+          default:
+            console.log('tidak dikenal');
+        }
+
+        tidak dikenal
+        `,
+        { caption: 'Tidak ada error, tapi `case`-nya tidak pernah cocok.' },
+      ),
+      p(
+        "`switch` membandingkan dengan aturan ketat, setara dengan `===`, sehingga teks `'1'` tidak pernah cocok dengan angka `1`. Ini sangat sering terjadi pada nilai yang datang dari URL, dari atribut `data-`, atau dari formulir, karena ketiganya selalu menghasilkan teks. Perbaikannya mengubah tipenya sebelum masuk ke `switch`, dan itu pilihan yang lebih baik daripada menulis `case '1'` karena ia menyelesaikan masalahnya di sumber.",
+      ),
+      code(
+        'text',
+        `
+        switch (peran) {
+          case 'admin':
+            bukaPanelAdmin();
+          case 'editor':
+            bukaEditor();
+            break;
+        }
+
+        // peran = 'admin' -> panel admin DAN editor ikut terbuka
+        `,
+        { caption: '`break` yang hilang membuat eksekusi jatuh ke `case` berikutnya.' },
+      ),
+      p(
+        'Perilaku jatuh ke bawah ini disebut fallthrough, dan ia memang disengaja oleh bahasa, bukan bug. Tanpa `break`, eksekusi terus berlanjut ke `case` di bawahnya tanpa memeriksa nilainya lagi. Kadang ini berguna, misalnya saat dua nilai harus diperlakukan sama, dan dalam kasus itu tulis komentar supaya pembaca berikutnya tahu itu disengaja. Di luar itu, `break` yang lupa ditulis adalah bug diam yang bisa membuka akses yang seharusnya tertutup.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            "`Unexpected token 'else'`",
+            'Ada pernyataan lain di antara `}` dan `else`',
+            'Rapatkan `else` ke penutup blok `if`-nya',
+          ],
+          [
+            '`switch` selalu jatuh ke `default`',
+            'Nilai yang dibandingkan bertipe teks sedangkan `case`-nya angka',
+            'Ubah tipenya sebelum masuk `switch`',
+          ],
+          [
+            'Beberapa cabang `switch` ikut berjalan',
+            '`break` tidak ditulis, sehingga eksekusi jatuh ke bawah',
+            'Tulis `break` di tiap `case`, atau `return` bila di dalam fungsi',
+          ],
+          [
+            'Cabang `if` tidak pernah tercapai',
+            'Cabang di atasnya sudah menangkap kasusnya lebih dulu',
+            'Urutkan dari yang paling khusus ke yang paling umum',
+          ],
+          [
+            '`Cannot read properties of undefined` di dalam `if`',
+            'Syarat keberadaan diperiksa setelah field-nya dibaca',
+            'Taruh pemeriksaan keberadaan sebagai guard clause pertama',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Sebagian besar kesalahan percabangan bukan soal sintaks melainkan soal susunan. Kode yang bercabang terlalu dalam masih berjalan benar hari ini, dan menjadi salah pada perubahan berikutnya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membungkus seluruh isi fungsi dalam satu `if` besar',
+            'Terlihat seperti melindungi seluruh isi sekaligus',
+            'Seluruh badan fungsi menjorok satu tingkat dan penolakannya tersembunyi di `else` paling bawah. Balik syaratnya lalu keluar lebih awal',
+          ],
+          [
+            'Menulis `if (sah === true)`',
+            'Terbaca sangat eksplisit',
+            'Kalau `sah` memang boolean, `if (sah)` sudah menyatakan hal yang sama. Kalau ia bukan boolean, perbandingan itu justru menyembunyikan bahwa tipenya salah',
+          ],
+          [
+            'Memakai ternary bersarang untuk tiga kemungkinan atau lebih',
+            'Satu baris terasa lebih ringkas daripada blok `if`',
+            'Ternari bersarang termasuk bentuk yang paling sulit dibaca. Untuk tiga kemungkinan atau lebih, pakai `if` berantai atau tabel pemetaan',
+          ],
+          [
+            'Melupakan `else` terakhir atau `default` pada `switch`',
+            'Semua kemungkinan sudah terpikirkan saat menulisnya',
+            'Nilai baru yang muncul kemudian tidak tertangani, dan fungsinya diam-diam mengembalikan `undefined`',
+          ],
+          [
+            'Menyalin badan `if` dan `else` yang isinya hampir sama',
+            'Menyalin lebih cepat daripada memikirkan strukturnya',
+            'Perbaikan nanti hanya diterapkan di satu sisi. Pisahkan bagian yang berbeda saja, lalu jalankan bagian yang sama sekali',
+          ],
+          [
+            'Menulis syarat dengan negasi ganda seperti `if (!tidakAktif)`',
+            'Nama variabelnya memang begitu di database',
+            'Otak pembaca harus membalik dua kali. Simpan sebagai `aktif` sejak awal, atau buat variabel antara dengan nama positif',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama layak dijadikan kebiasaan tetap. Setiap kali kamu hendak menulis `if` yang membungkus hampir seluruh isi fungsi, balik syaratnya dan keluar lebih awal. Setelah beberapa kali, kamu akan menyadari fungsi yang tadinya menjorok empat tingkat berubah menjadi daftar syarat yang rata dan bisa dibaca dari atas ke bawah seperti daftar periksa.',
+      ),
+      callout(
+        'tip',
+        'Kalau `switch` hanya memetakan nilai ke nilai, object lebih baik',
+        "Bentuk `const label = { lunas: 'Lunas', batal: 'Dibatalkan' }[status] ?? 'Tidak dikenal'` jauh lebih pendek daripada `switch` yang setiap `case`-nya hanya mengembalikan satu teks. Pakai `switch` saat tiap cabang benar-benar menjalankan langkah berbeda, dan pakai object saat yang berbeda hanya nilainya.",
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Susun cabang dari kondisi paling sempit ke paling lebar.',
@@ -594,7 +971,7 @@ export const lessons: LessonDraft[] = [
   written(
     'perulangan',
     'Perulangan: `for`, `for...of`, `for...in`, `while`',
-    10,
+    17,
     'Empat bentuk perulangan, bedanya, dan kapan method array lebih tepat daripada loop manual.',
     [
       p(
@@ -806,6 +1183,194 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Ada satu tugas yang selalu muncul begitu kamu mulai bekerja dengan API sungguhan, yaitu mengambil data yang jumlahnya lebih banyak daripada satu respons. Server tidak mengirim sepuluh ribu baris sekaligus. Ia mengirim halaman demi halaman, dan tiap respons memberi tahu apakah masih ada halaman berikutnya. Tugasmu mengambil semuanya sampai habis lalu menggabungkannya.',
+      ),
+      p(
+        'Ini adalah kasus di mana method array tidak bisa dipakai, dan perulangan memang jawabannya. Alasannya sederhana, yaitu jumlah putarannya belum diketahui saat loop dimulai. `map` dan `filter` bekerja pada koleksi yang panjangnya sudah pasti, sedangkan di sini kamu baru tahu harus berhenti setelah server memberi tahu.',
+      ),
+      code(
+        'js',
+        `
+        async function ambilSemua(ambilHalaman, { batasHalaman = 50 } = {}) {
+          const semua = [];
+          let halaman = 1;
+
+          while (halaman <= batasHalaman) {
+            const { data, adaLagi } = await ambilHalaman(halaman);
+            semua.push(...data);
+
+            if (!adaLagi) {
+              return semua;              // jalan keluar yang normal
+            }
+            halaman += 1;
+          }
+
+          // Sampai di sini berarti server tidak pernah bilang selesai.
+          throw new Error(
+            \`Berhenti di halaman \${batasHalaman}, kemungkinan server tidak pernah selesai\`,
+          );
+        }
+        `,
+        { filename: 'src/ambil-semua.js' },
+      ),
+      p(
+        'Fungsi ini punya **dua** jalan keluar, dan keduanya disengaja. Jalan keluar normal adalah `return semua` saat server memberi tahu tidak ada halaman lagi. Jalan keluar kedua adalah `throw` setelah batas halaman terlampaui, dan inilah bagian yang paling sering dilupakan orang. Tanpa `batasHalaman`, satu bug di server yang selalu menjawab `adaLagi: true` akan membuat loop berjalan selamanya, memakan seluruh memori browser, lalu membekukan tab pengguna tanpa satu pun pesan error.',
+      ),
+      p(
+        'Perhatikan `while` dipilih bukan `for`, dan itu bukan selera. `for` cocok saat jumlah putaran diketahui di depan. `while` cocok saat yang diketahui hanya syarat berhentinya. Menulis loop ini dengan `for` bisa saja, tapi bagian penambahan halamannya akan berpindah ke tempat yang tidak menyatakan maksudnya. Pilih bentuk yang menyatakan apa yang sebenarnya kamu ketahui.',
+      ),
+      p(
+        'Baris `semua.push(...data)` juga layak diperhatikan. Tiga titik di depan `data` menyebarkan isi array sebagai argumen terpisah, sehingga `push` menambahkan elemen satu per satu alih-alih menambahkan satu array ke dalam array. Untuk halaman berisi ribuan baris, bentuk ini punya batas, dan bagian error di bawah membahasnya.',
+      ),
+      callout(
+        'warning',
+        'Loop yang memanggil server harus punya jeda dan batas',
+        'Loop di atas memanggil server secepat server menjawab. Untuk API yang punya batas laju permintaan, kamu perlu menambahkan jeda kecil di antara halaman. Loop tanpa batas yang memanggil server juga bisa terlihat seperti serangan dari sisi penyedia API, dan alamatmu bisa diblokir. Batas dan jeda bukan kesopanan melainkan syarat.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Perulangan menghasilkan satu jenis kegagalan yang tidak dimiliki bagian lain, yaitu kegagalan tanpa pesan sama sekali. Halaman membeku, kipas menyala, dan tidak ada satu baris pun di console.',
+      ),
+      code(
+        'text',
+        `
+        for (const nilai of pengaturan) {
+                            ^
+
+        TypeError: pengaturan is not iterable
+        `,
+        { caption: '`for...of` dipakai pada object biasa.' },
+      ),
+      p(
+        '`for...of` hanya bekerja pada hal yang bisa ditelusuri satu per satu, yaitu array, teks, `Map`, `Set`, dan `NodeList`. Object biasa tidak termasuk, dan itu keputusan bahasa yang disengaja. Untuk menelusuri object, pilih salah satu dari `Object.keys`, `Object.values`, atau `Object.entries` sesuai yang kamu butuhkan, lalu `for...of` bekerja lagi karena ketiganya menghasilkan array. Bentuk yang paling sering dipakai adalah `for (const [kunci, nilai] of Object.entries(obj))`.',
+      ),
+      code(
+        'text',
+        `
+        const a = ['x', 'y'];
+        for (const i in a) {
+          console.log(typeof i, i);
+        }
+
+        string 0
+        string 1
+        `,
+        { caption: 'Tidak ada error, tapi indeksnya berupa teks.' },
+      ),
+      p(
+        "`for...in` dirancang untuk object, bukan array, dan memakainya pada array menimbulkan dua masalah sekaligus. Indeksnya datang sebagai teks, sehingga `i + 1` menghasilkan `'01'` bukan `1`. Lebih jauh lagi, `for...in` juga menelusuri properti tambahan yang mungkin ditempelkan library lain ke array. Untuk array, pakai `for...of` bila kamu butuh nilainya, atau `entries()` bila kamu butuh indeks dan nilai sekaligus.",
+      ),
+      code(
+        'text',
+        `
+        let i = 0;
+        while (i < 10) {
+          console.log(i);
+          // i tidak pernah bertambah
+        }
+
+        (tidak ada keluaran error, tab berhenti merespons)
+        `,
+        { caption: 'Loop tak berujung karena syaratnya tidak pernah berubah.' },
+      ),
+      p(
+        'Loop tak berujung adalah satu-satunya kegagalan di bab ini yang tidak menghasilkan pesan apa pun. Di browser, tab menjadi tidak responsif dan akhirnya Chrome menawarkan menutup halaman. Di Node.js, prosesnya berjalan terus sampai kamu menekan Ctrl+C. Kalau kamu curiga sebuah loop tidak berujung, tambahkan penghitung pengaman yang melempar error setelah sejumlah putaran, persis seperti `batasHalaman` pada studi kasus di atas.',
+      ),
+      code(
+        'text',
+        `
+        semua.push(...halamanBesar);
+              ^
+
+        RangeError: Maximum call stack size exceeded
+        `,
+        { caption: 'Spread menyebarkan terlalu banyak elemen sekaligus.' },
+      ),
+      p(
+        'Tiga titik mengubah tiap elemen array menjadi satu argumen tersendiri, dan jumlah argumen sebuah fungsi punya batas sekitar seratus ribu. Untuk array yang lebih besar, ganti dengan `for (const x of halamanBesar) semua.push(x)`, atau gabung dengan `semua = semua.concat(halamanBesar)`. Error yang sama muncul pada `Math.max(...arrBesar)` dengan sebab yang persis sama.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`x is not iterable`',
+            '`for...of` dipakai pada object biasa',
+            'Bungkus dengan `Object.entries`, `keys`, atau `values`',
+          ],
+          [
+            'Indeks array berupa teks',
+            '`for...in` dipakai pada array',
+            'Pakai `for...of`, atau `for (const [i, v] of arr.entries())`',
+          ],
+          [
+            'Halaman membeku tanpa pesan apa pun',
+            'Syarat berhenti tidak pernah tercapai',
+            'Pastikan ada baris yang mengubah syaratnya, lalu tambahkan penghitung pengaman',
+          ],
+          [
+            '`Maximum call stack size exceeded` pada `push(...arr)`',
+            'Jumlah argumen melebihi batas',
+            'Pakai loop biasa, atau `concat`',
+          ],
+          [
+            'Elemen terlewat saat menghapus di dalam loop',
+            'Menghapus elemen menggeser indeks elemen sesudahnya',
+            'Telusuri mundur dari indeks terakhir, atau bangun array baru dengan `filter`',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Perulangan adalah tempat pertama pemula bertemu dengan gagasan bahwa kode yang benar belum tentu kode yang tepat. Beberapa baris di bawah bukan salah melainkan pilihan yang lebih buruk daripada yang tersedia.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `for` klasik dengan indeks untuk semua hal',
+            'Bentuk ini yang paling awal dipelajari dan selalu bisa dipakai',
+            'Tiga bagian di dalam tanda kurungnya semua bisa salah ketik, dan indeksnya sering tidak dibutuhkan. Kalau yang kamu perlukan hanya nilainya, `for...of` lebih pendek dan lebih sulit disalahtulis',
+          ],
+          [
+            'Memakai `forEach` lalu ingin berhenti di tengah',
+            'Ia terasa seperti loop, jadi `break` semestinya bekerja',
+            '`break` di dalam `forEach` adalah `SyntaxError`, dan `return` hanya melewati satu elemen. Kalau kamu perlu berhenti, pakai `for...of` atau `some`',
+          ],
+          [
+            'Memakai `await` di dalam `forEach`',
+            'Bentuknya sama dengan loop lain yang memang bekerja',
+            '`forEach` tidak menunggu, sehingga seluruh pekerjaan jalan bersamaan dan urutannya kacau. Pakai `for...of` bila harus berurutan, atau `Promise.all` bila memang boleh bersamaan',
+          ],
+          [
+            'Memanggil server di dalam loop tanpa batas',
+            'Datanya memang harus diambil semua',
+            'Satu bug di server membuat loop berjalan selamanya. Selalu ada batas putaran dan jalan keluar yang melempar error',
+          ],
+          [
+            'Menghapus elemen array di dalam loop maju',
+            'Menghapus di tempat terasa paling langsung',
+            'Setiap penghapusan menggeser sisanya, sehingga satu elemen terlewat setiap kali. Bangun array baru dengan `filter`',
+          ],
+          [
+            'Menyusun teks HTML dengan menambah ke variabel di dalam loop',
+            'Cara ini mudah dibayangkan dan bekerja',
+            "Untuk ratusan baris, menyusun array lalu `join('')` lebih terbaca. Dan untuk data dari pengguna, menyusun HTML dengan penggabungan teks adalah celah XSS",
+          ],
+        ],
+      ),
+      p(
+        'Baris ketiga adalah kesalahan yang paling sering muncul begitu kamu masuk ke Bab 5 tentang asinkron, jadi ada baiknya diingat sejak sekarang. `forEach` menerima fungsi lalu menjalankannya untuk tiap elemen tanpa peduli fungsi itu mengembalikan janji atau tidak. Akibatnya `await` di dalamnya memang menunggu, tapi `forEach` sudah lanjut ke elemen berikutnya tanpa menunggu satu pun. Kalau kamu butuh urutan, satu-satunya bentuk yang benar adalah `for...of` dengan `await` di dalamnya.',
+      ),
+      callout(
+        'tip',
+        'Aturan memilih bentuk perulangan',
+        'Butuh nilainya saja, pakai `for...of`. Butuh indeks dan nilai, pakai `for (const [i, v] of arr.entries())`. Butuh kunci object, pakai `for...of` di atas `Object.entries`. Butuh berhenti di tengah, jangan pakai method array. Tidak butuh berhenti dan hasilnya berupa array baru, `map` dan `filter` lebih menyatakan maksud daripada loop apa pun.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         '`for...of` untuk nilai, `for` klasik saat indeksnya benar-benar dibutuhkan.',
@@ -852,7 +1417,7 @@ export const lessons: LessonDraft[] = [
   written(
     'fungsi',
     'Fungsi: declaration, expression, arrow',
-    13,
+    21,
     'Tiga cara menulis fungsi, parameter default dan rest, serta fungsi sebagai nilai.',
     [
       p(
@@ -1093,6 +1658,192 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Aplikasi yang kamu kerjakan menampilkan uang dan tanggal di banyak tempat, yaitu di daftar pesanan, di halaman faktur, di email, dan di laporan yang diunduh. Kalau tiap tempat memanggil `Intl.NumberFormat` sendiri dengan pengaturannya sendiri, cepat atau lambat akan ada satu tempat yang menampilkan `Rp240000` tanpa titik sementara tempat lain menampilkannya dengan benar. Solusinya membuat satu fungsi yang menghasilkan sekumpulan pemformat siap pakai.',
+      ),
+      code(
+        'js',
+        `
+        function buatPemformat({ lokal = 'id-ID', mataUang = 'IDR' } = {}) {
+          // Ketiga objek Intl dibuat SATU KALI, lalu dipakai berulang.
+          const uang = new Intl.NumberFormat(lokal, {
+            style: 'currency',
+            currency: mataUang,
+            maximumFractionDigits: 0,
+          });
+          const tanggal = new Intl.DateTimeFormat(lokal, { dateStyle: 'medium' });
+
+          return {
+            rupiah: (n) => uang.format(n),
+            tanggal: (iso) => tanggal.format(new Date(iso)),
+            barisFaktur: (item) =>
+              \`\${item.nama.padEnd(12)} \${uang.format(item.total).padStart(14)}\`,
+          };
+        }
+
+        const f = buatPemformat();
+        f.rupiah(240000);                              // 'Rp 240.000'
+        f.tanggal('2026-08-19');                       // '19 Agu 2026'
+        f.barisFaktur({ nama: 'Kaos', total: 178000 }); // 'Kaos            Rp 178.000'
+        `,
+        { filename: 'src/pemformat.js' },
+      ),
+      p(
+        'Fungsi ini disebut factory, yaitu fungsi yang tugasnya membuat sesuatu lalu mengembalikannya. Yang membuat pola ini berguna adalah ketiga objek `Intl` dibuat sekali di dalam badan fungsi, lalu dipakai berkali-kali oleh ketiga fungsi kecil yang dikembalikan. Ketiga fungsi kecil itu tetap bisa mengakses `uang` dan `tanggal` bahkan setelah `buatPemformat` selesai berjalan, dan kemampuan itulah yang dibahas tuntas di Sub-bab 1.13 dengan nama closure.',
+      ),
+      p(
+        "Perhatikan parameter `{ lokal = 'id-ID', mataUang = 'IDR' } = {}` di baris pertama. Dua nilai bawaan di dalam kurung kurawal membuat pemanggil boleh mengisi salah satu saja. Tanda `= {}` di luarnya membuat `buatPemformat()` tanpa argumen tetap bekerja. Karena itu satu fungsi yang sama bisa dipakai untuk versi Indonesia maupun versi berbahasa Inggris, cukup dengan `buatPemformat({ lokal: 'en-US', mataUang: 'USD' })`.",
+      ),
+      p(
+        'Bagian kedua studi kasus ini adalah perbedaan yang menentukan apakah sebuah fungsi mudah diuji atau tidak, yaitu fungsi murni dan fungsi yang bergantung pada nilai di luar dirinya.',
+      ),
+      code(
+        'js',
+        `
+        let pajak = 0.11;
+
+        const tidakMurni = (n) => n * (1 + pajak);   // hasilnya bergantung pada nilai luar
+        const murni = (n, tarif) => n * (1 + tarif); // hasilnya hanya bergantung pada argumen
+
+        console.log(tidakMurni(100000));   // 111000.00000000001
+        pajak = 0.12;
+        console.log(tidakMurni(100000));   // 112000.00000000001  <- argumen sama, hasil beda
+
+        console.log(murni(100000, 0.11));  // selalu sama untuk argumen yang sama
+        `,
+      ),
+      p(
+        'Kedua fungsi menghitung hal yang sama, dan yang membedakan hanya dari mana tarif pajaknya datang. `tidakMurni` membaca variabel di luar dirinya, sehingga hasilnya bisa berubah tanpa satu pun argumennya berubah. Kalau nanti ada bug yang menyebutkan angka pajaknya salah, kamu harus menelusuri seluruh berkas untuk mencari siapa yang mengubah `pajak`. `murni` tidak punya masalah itu, sebab seluruh yang ia butuhkan tertulis di daftar parameternya.',
+      ),
+      p(
+        'Sisi praktis yang paling langsung terasa adalah pengujian. Menguji `murni` cukup memanggilnya dan membandingkan hasilnya. Menguji `tidakMurni` menuntut kamu menyiapkan nilai variabel luarnya lebih dulu, dan mengembalikannya sesudahnya supaya test berikutnya tidak terpengaruh. Angka `111000.00000000001` di keluaran juga sekaligus mengingatkan kembali pada pembahasan pecahan di Sub-bab 1.3, dan itu alasan lain kenapa uang sebaiknya disimpan sebagai bilangan bulat.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Fungsi menghasilkan beberapa error yang bentuknya sangat khas, dan tiga di antaranya berkaitan dengan hal yang sama, yaitu memanggil sesuatu yang ternyata bukan fungsi.',
+      ),
+      code(
+        'text',
+        `
+        pemformat.rupiah(240000);
+                  ^
+
+        TypeError: pemformat.rupiah is not a function
+        `,
+        { caption: 'Nama yang dipanggil ada, tapi isinya bukan fungsi.' },
+      ),
+      p(
+        'Pesan ini menyebut jalur lengkapnya, dan itu petunjuk terbesar. Kalau yang disebut `pemformat.rupiah`, berarti `pemformat` sendiri ada, dan yang bermasalah hanya isinya. Penyebab paling sering adalah salah ketik nama, atau modul yang diimpor dengan bentuk yang salah. Kalau kamu menulis `import buatPemformat from ...` padahal berkasnya mengekspor dengan nama, yang kamu dapat adalah `undefined` dan errornya muncul di titik pemanggilan bukan di baris impor.',
+      ),
+      code(
+        'text',
+        `
+        function f(a = b, b = 2) { return a; }
+        f();
+                   ^
+
+        ReferenceError: Cannot access 'b' before initialization
+        `,
+        { caption: 'Nilai bawaan parameter mengacu ke parameter yang ditulis sesudahnya.' },
+      ),
+      p(
+        'Nilai bawaan parameter dievaluasi dari kiri ke kanan pada setiap pemanggilan, jadi saat `a = b` dijalankan, `b` belum sempat diberi nilai. Ini Temporal Dead Zone yang sudah dibahas di Sub-bab 1.2, muncul lagi di tempat yang tidak diduga. Perbaikannya menukar urutan parameternya, atau memindahkan perhitungannya ke dalam badan fungsi.',
+      ),
+      code(
+        'text',
+        `
+        const f = () => arguments.length;
+        f(1);
+                        ^
+
+        ReferenceError: arguments is not defined
+        `,
+        { caption: 'Fungsi panah tidak punya `arguments`.' },
+      ),
+      p(
+        'Ini salah satu perbedaan nyata antara fungsi panah dan `function` biasa, dan ia bukan kelalaian melainkan keputusan desain. Fungsi panah sengaja tidak membawa `arguments` sendiri, sama seperti ia tidak membawa `this` sendiri. Kalau kamu butuh seluruh argumen, pakai parameter rest `(...arg)` yang menghasilkan array sungguhan dan bekerja di kedua bentuk fungsi. Parameter rest juga lebih baik daripada `arguments` karena hasilnya array, sehingga `map` dan `filter` langsung bisa dipakai.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`x is not a function`',
+            'Namanya ada tapi isinya bukan fungsi, sering karena bentuk impor yang salah',
+            'Periksa apakah ekspornya bernama atau bawaan, lalu samakan bentuk impornya',
+          ],
+          [
+            "`Cannot access 'b' before initialization` di daftar parameter",
+            'Nilai bawaan mengacu ke parameter yang ditulis di sebelah kanannya',
+            'Tukar urutan parameternya, atau hitung di dalam badan fungsi',
+          ],
+          [
+            '`arguments is not defined`',
+            'Fungsi panah tidak punya `arguments`',
+            'Pakai parameter rest `(...arg)`',
+          ],
+          [
+            'Fungsi mengembalikan `undefined` padahal ada nilainya',
+            'Fungsi panah berkurung kurawal tanpa `return`',
+            'Tambahkan `return`, atau hapus kurung kurawalnya',
+          ],
+          [
+            "`Cannot read properties of undefined (reading 'nama')` di dalam fungsi",
+            'Fungsi dipanggil tanpa argumen sedangkan parameternya dibongkar',
+            'Beri nilai bawaan `= {}` pada parameternya',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan di bawah lebih banyak soal bentuk daripada soal logika, dan hampir semuanya bisa dihindari dengan satu kebiasaan, yaitu memilih bentuk fungsi berdasarkan alasan bukan berdasarkan kebiasaan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis `(x) => { x * 2 }` untuk fungsi satu baris',
+            'Kurung kurawal terasa lebih formal dan aman',
+            'Kurung kurawal menandai badan fungsi, jadi hasilnya `undefined`. Untuk satu ekspresi, tulis `(x) => x * 2` tanpa kurung kurawal',
+          ],
+          [
+            'Menulis `(x) => { nama: x }` untuk mengembalikan object',
+            'Bentuknya sama dengan menulis object di tempat lain',
+            'Dibaca sebagai badan fungsi berisi label, bukan object. Bungkus menjadi `(x) => ({ nama: x })`',
+          ],
+          [
+            'Memberi nilai bawaan berupa array atau object di parameter',
+            'Terlihat sama dengan bahasa lain yang memakainya',
+            'Di JavaScript ini justru aman, sebab nilai bawaan dievaluasi ulang tiap pemanggilan. Yang berbahaya adalah menaruh array itu di luar fungsi lalu memakainya sebagai bawaan',
+          ],
+          [
+            'Membuat fungsi dengan lima parameter atau lebih',
+            'Semua nilai itu memang dibutuhkan fungsinya',
+            'Pemanggilnya harus mengingat urutannya, dan menukar dua argumen bertipe sama tidak menghasilkan error. Kumpulkan menjadi satu object berparameter bernama',
+          ],
+          [
+            'Memberi nama fungsi dengan kata benda seperti `data` atau `hasil`',
+            'Nama itu memang menggambarkan yang dikembalikan',
+            'Fungsi melakukan sesuatu, jadi namanya sebaiknya kata kerja seperti `hitungTotal` atau `ambilPesanan`. Nama benda menyamarkan bahwa ia harus dipanggil',
+          ],
+          [
+            'Menaruh `console.log` di dalam fungsi yang seharusnya murni',
+            'Hanya untuk melihat isinya sebentar',
+            'Fungsi itu berhenti murni dan ikut mencetak di produksi kalau lupa dihapus. Cetak di pemanggilnya, bukan di dalamnya',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama dan kedua bersama-sama menyumbang porsi terbesar kebingungan pemula soal fungsi panah, dan keduanya berasal dari satu aturan yang sama. Kurung kurawal setelah tanda panah selalu berarti badan fungsi. Kalau kamu ingin mengembalikan object, kurung kurawal itu harus dibungkus tanda kurung supaya JavaScript membacanya sebagai nilai bukan sebagai blok.',
+      ),
+      callout(
+        'tip',
+        'Kapan memakai `function` dan kapan memakai panah',
+        'Pakai fungsi panah untuk fungsi kecil yang diberikan ke method lain seperti `map` dan `filter`, dan untuk fungsi yang tidak butuh `this`. Pakai `function` untuk fungsi tingkat atas yang punya nama, sebab namanya muncul di stack trace dan itu memudahkan menelusuri error. Perbedaan `this` di antara keduanya dibahas di Bab 3 tentang OOP.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Declaration bisa dipanggil sebelum barisnya; expression dan arrow tidak.',
@@ -1140,7 +1891,7 @@ export const lessons: LessonDraft[] = [
   written(
     'scope-hoisting-closure',
     'Scope, Hoisting & Closure',
-    14,
+    24,
     'Bagaimana JavaScript menentukan nama mana yang terlihat dari mana — dan closure sebagai konsekuensi alaminya.',
     [
       p(
@@ -1404,6 +2155,215 @@ export const lessons: LessonDraft[] = [
         'Pola yang sama muncul di React: sebuah callback menangkap nilai state dari render saat ia dibuat. Kalau kamu pernah bingung kenapa handler menampilkan nilai lama, jawabannya ada di sini — bukan di React, tapi di cara closure bekerja.',
       ),
 
+      divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Kotak pencarian di katalog produk memanggil server setiap kali pengguna mengetik satu huruf. Pengguna mengetik kata kaos, dan server dipanggil empat kali untuk k, ka, kao, dan kaos. Tiga panggilan pertama sia-sia, dan pada halaman yang dipakai ribuan orang, itu berarti ribuan permintaan yang tidak pernah dilihat siapa pun. Yang dibutuhkan adalah menunda panggilan sampai pengguna berhenti mengetik.',
+      ),
+      p(
+        'Teknik ini disebut debounce, dan ia adalah pemakaian closure yang paling sering kamu temui di kode nyata. Yang membuatnya hanya bisa ditulis dengan closure adalah ia butuh mengingat sesuatu di antara pemanggilan, yaitu id timer yang sedang berjalan.',
+      ),
+      code(
+        'js',
+        `
+        function buatDebounce(fn, jeda = 300) {
+          let timer = null;          // hidup selama fungsi yang dikembalikan masih dipakai
+
+          return function (...arg) {
+            clearTimeout(timer);     // batalkan rencana sebelumnya
+            timer = setTimeout(() => fn(...arg), jeda);
+          };
+        }
+
+        const cari = buatDebounce((kata) => panggilServer(kata), 300);
+
+        // Pengguna mengetik empat huruf berturut-turut:
+        cari('k');
+        cari('ka');
+        cari('kao');
+        cari('kaos');
+        // Server hanya dipanggil sekali, dengan 'kaos'.
+        `,
+        { filename: 'src/debounce.js' },
+      ),
+      p(
+        'Variabel `timer` adalah inti seluruh teknik ini. Ia dideklarasikan di dalam `buatDebounce`, sehingga tidak terlihat dari luar dan tidak bisa ditimpa kode lain. Tapi ia juga tidak ikut hilang saat `buatDebounce` selesai berjalan, sebab fungsi yang dikembalikan masih memakainya. Inilah closure, dan bentuknya di sini bukan latihan melainkan satu-satunya cara yang wajar untuk menulis fitur ini.',
+      ),
+      p(
+        'Urutan dua baris di dalam fungsi yang dikembalikan juga menentukan. `clearTimeout(timer)` dijalankan lebih dulu, dan ia membatalkan rencana pemanggilan yang belum sempat berjalan. Baru setelah itu rencana baru dipasang. Kalau urutannya dibalik, tiap ketikan akan menambah timer baru tanpa membatalkan yang lama, dan server justru dipanggil empat kali dengan jeda. Perhatikan juga `clearTimeout(null)` pada pemanggilan pertama tidak melempar error, sehingga tidak perlu pemeriksaan tambahan.',
+      ),
+      p(
+        'Bagian kedua studi kasus ini menyelesaikan masalah yang tersisa bahkan setelah debounce dipasang, yaitu respons yang datang tidak berurutan. Pengguna mengetik kaos, lalu melanjutkan menjadi kaos polos. Kalau jaringan sedang tidak stabil, jawaban untuk kaos bisa datang **setelah** jawaban untuk kaos polos, dan layar menampilkan hasil yang sudah usang.',
+      ),
+      code(
+        'js',
+        `
+        let idTerakhir = 0;            // dibagi oleh semua pemanggilan
+
+        async function cariAman(kata) {
+          const idSaya = ++idTerakhir; // nomor antrean milik pemanggilan ini
+
+          const hasil = await ambilDariServer(kata);
+
+          if (idSaya !== idTerakhir) {
+            return;                    // sudah ada pencarian yang lebih baru, buang hasil ini
+          }
+          tampilkan(hasil);
+        }
+        `,
+        { filename: 'src/cari-aman.js' },
+      ),
+      p(
+        'Variabel `idSaya` dibuat baru pada setiap pemanggilan, sedangkan `idTerakhir` dibagi bersama. Perbandingan `idSaya !== idTerakhir` setelah `await` adalah penjaganya. Kalau selama menunggu jawaban ada pencarian baru dimulai, `idTerakhir` sudah naik dan pemanggilan lama tahu dirinya sudah tidak relevan lalu keluar tanpa menampilkan apa pun. Pola ini sering disebut penjaga respons basi, dan tanpa itu pengguna akan melihat hasil berkedip ke daftar yang salah.',
+      ),
+      callout(
+        'info',
+        'Debounce dan throttle menyelesaikan masalah yang berbeda',
+        'Debounce menunggu sampai kegiatan berhenti, jadi cocok untuk kotak pencarian dan penyimpanan otomatis. Throttle menjalankan paling banyak sekali dalam rentang waktu tertentu, jadi cocok untuk peristiwa scroll dan resize yang memang perlu direspons terus tapi tidak perlu setiap kali. Keduanya sama-sama dibangun dari closure.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Closure jarang melempar error. Yang sering terjadi justru sebaliknya, yaitu kode berjalan mulus dengan nilai yang bukan yang kamu maksud. Dua error pertama di bawah berkaitan dengan scope, dan dua sisanya adalah gejala tanpa pesan.',
+      ),
+      code(
+        'text',
+        `
+        console.log(hitungan);
+        let hitungan = 0;
+                    ^
+
+        ReferenceError: Cannot access 'hitungan' before initialization
+        `,
+        { caption: 'Nama dipakai sebelum baris deklarasinya dijalankan.' },
+      ),
+      p(
+        'Kalimat `Cannot access` menyatakan bahwa namanya sudah dikenali, hanya saja belum siap. Perbedaan dengan `is not defined` sangat penting saat menelusuri, sebab yang satu berarti salah tempat dan yang satu berarti salah nama. Di berkas panjang, penyebab tersering adalah fungsi yang dipanggil di bagian atas berkas padahal nilai yang ia butuhkan dideklarasikan di bawah.',
+      ),
+      code(
+        'text',
+        `
+        function sapa() { return \`Halo \${nama}\`; }
+        sapa();
+                              ^
+
+        ReferenceError: nama is not defined
+        `,
+        { caption: 'Nama tidak ada di scope mana pun yang bisa dijangkau.' },
+      ),
+      p(
+        'Fungsi mencari nama ke luar, yaitu ke scope tempat ia **ditulis**, bukan ke scope tempat ia **dipanggil**. Ini yang disebut lexical scoping, dan ia sering mengejutkan orang yang mengira variabel di pemanggil bisa dilihat fungsi yang dipanggil. Kalau `nama` ada di fungsi pemanggil, `sapa` tetap tidak bisa melihatnya. Kirimkan lewat parameter, sebab itulah satu-satunya jalan yang benar.',
+      ),
+      code(
+        'text',
+        `
+        function cek() {
+          console.log(nilai);   // undefined, bukan error
+          var nilai = 5;
+        }
+        cek();
+
+        undefined
+        `,
+        { caption: '`var` dinaikkan ke atas tanpa nilainya.' },
+      ),
+      p(
+        'Inilah alasan `var` lebih berbahaya daripada `let` meskipun ia terlihat lebih pemaaf. Deklarasi `var` dinaikkan ke atas fungsi, tapi penugasan nilainya tetap di tempatnya, sehingga baris pertama membaca `undefined` tanpa satu pun peringatan. Program terus berjalan membawa nilai kosong itu, dan errornya baru muncul di tempat lain yang tidak ada hubungannya. `let` dan `const` mengubah kasus yang sama menjadi error yang jelas di baris yang benar.',
+      ),
+      code(
+        'text',
+        `
+        for (var i = 0; i < 3; i++) {
+          setTimeout(() => console.log(i), 0);
+        }
+
+        3
+        3
+        3
+        `,
+        { caption: 'Tiga fungsi berbagi satu variabel yang sama.' },
+      ),
+      p(
+        'Ini bentuk paling terkenal dari jebakan closure, dan penyebabnya bukan closure melainkan `var`. Dengan `var`, hanya ada satu `i` untuk seluruh loop, dan ketiga fungsi menyimpan rujukan ke variabel yang sama. Loop selesai lebih dulu sebelum satu pun fungsi dijalankan, dan saat itu `i` sudah bernilai 3. Mengganti `var` menjadi `let` menyelesaikannya sepenuhnya, sebab `let` membuat variabel baru pada tiap putaran.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            "`Cannot access 'x' before initialization`",
+            'Nama dipakai sebelum baris `let` atau `const`-nya',
+            'Pindahkan pemakaian ke bawah, atau pindahkan deklarasinya ke atas',
+          ],
+          [
+            '`x is not defined` di dalam fungsi',
+            'Fungsi mencari ke scope tempat ia ditulis, bukan tempat ia dipanggil',
+            'Kirimkan nilainya lewat parameter',
+          ],
+          [
+            'Nilai `undefined` tanpa error apa pun',
+            '`var` dinaikkan tanpa nilainya',
+            'Ganti `var` menjadi `const` atau `let`',
+          ],
+          [
+            'Semua handler di dalam loop memakai nilai terakhir',
+            '`var` membuat satu variabel dipakai bersama seluruh putaran',
+            'Ganti `var` menjadi `let` pada deklarasi loopnya',
+          ],
+          [
+            'Nilai yang seharusnya tersimpan selalu kembali ke awal',
+            'Variabelnya dideklarasikan di dalam fungsi yang dikembalikan, bukan di luarnya',
+            'Pindahkan deklarasinya ke fungsi pembungkus supaya ia bertahan antar-pemanggilan',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Closure paling sering disalahpahami dalam satu hal, yaitu apa yang sebenarnya disimpan. Yang disimpan bukan salinan nilai pada saat fungsi dibuat, melainkan **variabelnya sendiri**. Empat baris pertama tabel di bawah semuanya berakar di situ.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Mengira closure menyimpan salinan nilai saat fungsi dibuat',
+            'Nilainya memang terlihat ikut terbawa',
+            'Yang tersimpan variabelnya, jadi kalau nilainya berubah setelah itu, fungsinya melihat nilai yang baru',
+          ],
+          [
+            'Memakai `var` di dalam loop yang memasang handler',
+            'Loopnya jelas benar, dan mencetak di dalam loop menunjukkan angka yang benar',
+            'Handler baru berjalan setelah loop selesai, dan satu-satunya `i` yang ada sudah bernilai akhir',
+          ],
+          [
+            'Mendeklarasikan variabel penampung di dalam fungsi yang dikembalikan',
+            'Terlihat lebih rapi karena dekat dengan pemakaiannya',
+            'Ia dibuat ulang tiap pemanggilan, sehingga tidak ada yang tersimpan. Variabel yang harus bertahan diletakkan di fungsi pembungkusnya',
+          ],
+          [
+            'Membuat fungsi baru di dalam render atau di dalam loop tanpa perlu',
+            'Fungsinya kecil, jadi biayanya pasti kecil',
+            'Tiap fungsi membawa scope-nya, dan ribuan fungsi yang masih dirujuk berarti ribuan scope yang tidak bisa dibersihkan. Ini penyebab kebocoran memori yang sulit dilacak',
+          ],
+          [
+            'Melupakan `clearTimeout` atau `removeEventListener` saat komponen ditutup',
+            'Halaman toh berpindah, jadi semuanya pasti ikut hilang',
+            'Timer dan listener yang masih hidup menahan closure-nya tetap ada. Di aplikasi satu halaman, ini menumpuk sampai tab menjadi berat',
+          ],
+          [
+            'Memakai variabel global untuk menyimpan keadaan antar-pemanggilan',
+            'Lebih cepat ditulis daripada membuat fungsi pembungkus',
+            'Siapa pun bisa menimpanya, dan dua bagian aplikasi yang memakainya akan saling merusak. Closure memberi ruang simpan yang sama tanpa terbuka ke luar',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama adalah inti yang perlu dipegang, dan cara mengujinya mudah. Buat variabel `let n = 1`, buat fungsi yang mengembalikan `n`, lalu ubah `n` menjadi 2 sebelum memanggil fungsi itu. Hasilnya 2, bukan 1. Begitu itu masuk, jebakan loop dengan `var` berhenti terasa misterius dan berubah menjadi konsekuensi yang bisa diprediksi.',
+      ),
+      callout(
+        'warning',
+        'Closure adalah penyebab kebocoran memori yang paling sering di aplikasi satu halaman',
+        'Selama sebuah fungsi masih dirujuk, seluruh variabel di scope tempat ia ditulis tidak bisa dibersihkan, termasuk data besar yang kebetulan ada di scope itu. Kalau kamu memasang listener atau timer, pastikan ada kode yang melepasnya saat halaman atau komponennya ditutup. Di React, ini persis fungsi nilai kembalian dari `useEffect` yang dibahas di Bab 7.',
+      ),
       divider,
       h2('Rangkuman'),
       ul(

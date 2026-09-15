@@ -19,7 +19,11 @@ const navigation: NavCategory[] = [
         number: 1,
         title: 'Belajar JavaScript dari Nol untuk Pemula',
         lessons: [
-          { slug: 'apa-itu-javascript', index: 1, title: 'Apa itu JavaScript & Cara Menjalankannya' },
+          {
+            slug: 'apa-itu-javascript',
+            index: 1,
+            title: 'Apa itu JavaScript & Cara Menjalankannya',
+          },
           { slug: 'variabel', index: 2, title: 'Variabel: let, const, dan kenapa' },
         ],
       },
@@ -55,8 +59,6 @@ describe('SidebarNav', () => {
     await user.click(collapseButton);
 
     // Clicking the chevron on the active category must be able to collapse it.
-    expect(
-      screen.queryByText('Belajar JavaScript dari Nol untuk Pemula'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Belajar JavaScript dari Nol untuk Pemula')).not.toBeInTheDocument();
   });
 });

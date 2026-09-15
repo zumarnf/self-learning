@@ -27,7 +27,7 @@ export const lessons: LessonDraft[] = [
   written(
     'dari-satu-server',
     'Perjalanan dari Satu Server ke Banyak',
-    13,
+    19,
     'Sembilan langkah penskalaan, masing-masing dengan pemicu yang bisa diukur.',
     [
       p(
@@ -255,6 +255,207 @@ export const lessons: LessonDraft[] = [
         'Sisa sub-bab di bab ini membahas tiap kotak satu per satu, dengan pola yang sama, yaitu masalah apa yang diselesaikannya, angka apa yang menandakan ia dibutuhkan, wujud konkretnya di stack yang sudah kamu pakai, dan apa yang menjadi lebih sulit setelah ia terpasang.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Perjalanan dari satu server ke banyak bukan daftar langkah yang harus dilalui semua orang. Ia daftar **gejala**, dan setiap langkah hanya diambil ketika gejalanya benar-benar muncul.',
+      ),
+      table(
+        ['Gejala yang terukur', 'Langkah yang ia tuntut', 'Yang ia tambahkan'],
+        [
+          [
+            'CPU basis data 90% oleh query yang sama berulang',
+            'Cache',
+            'Satu tempat yang bisa basi',
+          ],
+          [
+            'Satu instance kehabisan memori atau CPU',
+            'Beberapa instance + penyeimbang beban',
+            'Sesi tidak boleh di memori',
+          ],
+          [
+            'Baca jauh lebih banyak daripada tulis',
+            'Replika baca',
+            'Read-after-write tidak terjamin',
+          ],
+          [
+            'Permintaan lambat karena pekerjaan berat di dalamnya',
+            'Antrean',
+            'Hasil tidak lagi seketika',
+          ],
+          [
+            'Satu tabel terlalu besar untuk satu mesin',
+            'Sharding',
+            'Query lintas shard menjadi mahal',
+          ],
+          [
+            'Pengguna tersebar di banyak benua',
+            'CDN dan beberapa wilayah',
+            'Konsistensi antar wilayah',
+          ],
+        ],
+      ),
+      p(
+        'Kolom ketiga itu yang sering tidak dibaca. Setiap langkah membeli sesuatu dan membayar dengan sesuatu, dan yang dibayar hampir selalu berupa jaminan yang tadinya gratis.',
+      ),
+      code(
+        'text',
+        `
+        Contoh paling konkret, diukur sungguhan dengan PostgreSQL
+        16.15 dan replika streaming yang benar-benar berjalan:
+
+        SAAT SISTEM SEDANG DIAM:
+          tulis id=2001 -> baca dari replika seketika -> "Uji 1"
+          tulis id=2002 -> baca dari replika seketika -> "Uji 2"
+          ... 5 dari 5 BERHASIL
+
+        SAAT ADA BEBAN TULIS BESAR:
+          id=2006 -> replika: BELUM ADA   (tertinggal 11 MB)
+          id=2007 -> replika: BELUM ADA   (tertinggal 11 MB)
+          id=2008 -> replika: BELUM ADA   (tertinggal 11 MB)
+          ... 8 dari 8 GAGAL
+
+        Jaminan "data yang baru saya tulis pasti bisa saya baca"
+        yang gratis pada satu basis data hilang begitu replika
+        ditambahkan — dan hilangnya tepat pada saat sistem sedang ramai.
+        `,
+        {
+          caption:
+            'Bug ini tidak muncul saat diuji di lingkungan yang sepi, dan muncul persis saat produksi sedang sibuk.',
+        },
+      ),
+      p(
+        'Karena itu pertanyaan sebelum mengambil langkah bukan "apakah ini praktik yang baik" melainkan "gejala apa yang sedang saya obati, dan jaminan apa yang saya lepaskan".',
+      ),
+      code(
+        'text',
+        `
+        Dan sebelum semuanya, ada langkah nol yang sering dilewati:
+
+        Diukur di bab lain pada project yang sama:
+          agregasi GROUP BY 1.000.000 baris  : 468,9 ms
+          dibaca dari kolom denormalisasi    :   0,068 ms
+
+          paginasi OFFSET pada 200.000 baris : 1,51 ms di halaman jauh
+          keyset pagination                  : 0,01 ms rata
+
+        Kedua perbaikan itu tidak menambah satu pun mesin, satu pun
+        komponen, dan satu pun jaminan yang hilang.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Hari sebuah sistem berpindah dari satu instance menjadi dua adalah hari beberapa bug muncul bersamaan, dan ketiganya berasal dari asumsi yang sama.',
+      ),
+      code(
+        'text',
+        `
+        Gejala yang muncul BERSAMAAN:
+
+          "Pengguna keluar sendiri secara acak"
+            -> sesi disimpan di memori proses. Separuh permintaan
+               mendarat di instance yang tidak tahu apa-apa
+
+          "Berkas yang baru diunggah kadang tidak ditemukan"
+            -> tersimpan di disk instance A, diminta lewat instance B
+
+          "Job berkala berjalan dua kali"
+            -> setiap instance menjalankan penjadwalnya sendiri
+
+          "Pembatasan laju tidak berfungsi seperti seharusnya"
+            -> hitungannya per instance, jadi batas sebenarnya
+               berlipat sebanyak jumlah instance
+
+        Keempatnya berasal dari satu asumsi: bahwa hanya ada
+        satu proses.
+        `,
+      ),
+      p(
+        'Kelas kedua muncul saat penyeimbang beban ditambahkan, dan gejalanya membingungkan karena log aplikasinya bersih.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan dua server node:http:
+
+        LEWAT PROXY, dibaca secara naif:
+          ip=127.0.0.1   protokol=http   host=127.0.0.1:4102
+
+        LEWAT PROXY, membaca header teruskan:
+          ip=203.0.113.7   protokol=https   host=app.contoh.id
+
+        Akibat membaca secara naif:
+          - cookie ber-atribut Secure TIDAK dipasang
+            -> pengguna login, permintaan berikutnya 401, dan TIDAK
+               ADA satu pun error di log
+          - pengalihan dibuat ke http:// -> perulangan pengalihan
+          - pembatasan laju per IP membatasi PROXY, bukan pengunjung
+        `,
+      ),
+      code(
+        'text',
+        `
+        KELAS KETIGA: komponen baru yang justru menurunkan ketersediaan.
+
+        Dihitung sungguhan, komponen berantai yang semuanya harus hidup:
+
+           1 komponen @ 99,9% -> sistem 99,9000%   (  8,8 jam/tahun)
+           5 komponen @ 99,9% -> sistem 99,5010%   ( 43,7 jam/tahun)
+          10 komponen @ 99,9% -> sistem 99,0045%   ( 87,2 jam/tahun)
+
+        Menambah cache, antrean, dan penyeimbang beban berarti
+        menambah tiga tempat yang bisa mati. Bila tidak dirancang
+        agar kegagalannya tidak menjatuhkan seluruhnya, sistem yang
+        "lebih tangguh" justru lebih sering mati daripada satu server.
+        `,
+        {
+          caption:
+            'Itulah kenapa setiap komponen baru harus disertai jawaban: apa yang terjadi bila ia mati?',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Perjalanan ini sering dibaca sebagai tangga yang harus dinaiki, padahal ia daftar obat untuk penyakit yang berbeda-beda.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menaiki tangga arsitektur tanpa gejala',
+            'Nanti pasti dibutuhkan',
+            'Kerumitannya dibayar tiap hari. Dihitung, tiap komponen tambahan juga menurunkan ketersediaan',
+          ],
+          [
+            'Melewatkan perbaikan query sebelum menambah mesin',
+            'Sistemnya kan sudah lambat',
+            'Diukur, satu perubahan query mengubah 468,9 ms menjadi 0,068 ms tanpa satu pun komponen baru',
+          ],
+          [
+            'Menambah replika baca tanpa memikirkan read-after-write',
+            'Baca kan jauh lebih banyak',
+            'Diukur, saat beban tulis besar 8 dari 8 pembacaan sesudah penulisan tidak menemukan datanya',
+          ],
+          [
+            'Menyimpan sesi di memori saat menambah instance',
+            'Itu yang sudah jalan selama ini',
+            'Pengguna keluar secara acak. Pindahkan ke penyimpanan bersama atau ke cookie bertanda tangan',
+          ],
+          [
+            'Membaca protokol dan IP apa adanya di belakang proxy',
+            'Itu kan nilainya',
+            'Diukur, protokolnya terbaca `http` dan IP-nya alamat proxy. Cookie `Secure` tidak pernah terpasang',
+          ],
+          [
+            'Menambah komponen tanpa rencana saat ia mati',
+            'Komponennya kan menambah kemampuan',
+            'Ia juga menambah satu tempat yang bisa menjatuhkan semuanya. Rancang perilakunya saat komponen itu mati',
+          ],
+        ],
+      ),
+      p(
+        'Urutan yang hampir selalu benar untuk sistem yang baru mulai terasa sesak ada tiga langkah, dan ketiganya murah. Pertama ukur di mana waktunya benar-benar habis, kedua perbaiki query dan indeks yang muncul di pengukuran itu, dan ketiga tambahkan cache untuk hasil yang sama bagi semua orang. Sebagian besar sistem tidak pernah perlu melewati langkah ketiga, dan yang perlu melewatinya akan tahu karena angkanya memberi tahu, bukan karena arsitekturnya terasa kurang canggih.',
+      ),
       references(
         {
           label: 'Nginx: Serving Static Content',
@@ -281,7 +482,7 @@ export const lessons: LessonDraft[] = [
   written(
     'dns-dan-cdn',
     'DNS dan CDN',
-    12,
+    19,
     'Dua lapisan pertama yang menyentuh permintaan, jauh sebelum servermu.',
     [
       p(
@@ -543,6 +744,213 @@ export const lessons: LessonDraft[] = [
         'Penyebab paling sering hit ratio rendah adalah alamat yang mengandung parameter unik per pengunjung, misalnya penanda kampanye. Bagi CDN, dua alamat yang hanya berbeda parameternya adalah dua konten berbeda, sehingga tidak ada satu pun yang tersimpan berguna. Sebagian besar penyedia CDN menyediakan pengaturan untuk mengabaikan parameter tertentu, dan mengaktifkannya sering kali menaikkan hit ratio secara drastis dalam sekali ubah.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'DNS dan CDN sering disebut bersamaan padahal keduanya menyelesaikan masalah yang berbeda. DNS menjawab "di mana", CDN menjawab "seberapa dekat".',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan dig terhadap domain publik:
+
+          A      104.20.23.154 172.66.147.243
+          AAAA   2606:4700:10::ac42:93f3 2606:4700:10::6814:179a
+          NS     elliott.ns.cloudflare.com. hera.ns.cloudflare.com.
+
+          example.com.    152   IN   A   104.20.23.154
+                          ^^^ TTL: berapa detik jawaban ini boleh disimpan
+
+        Dua alamat A untuk satu nama adalah bentuk paling sederhana
+        membagi lalu lintas. Peramban memilih salah satunya, dan bila
+        yang dipilih tidak menjawab, ia mencoba yang lain.
+        `,
+      ),
+      p(
+        'Angka TTL itu menentukan berapa lama perubahan DNS butuh waktu untuk berlaku, dan ia tidak bisa dipercepat setelah perubahannya dibuat.',
+      ),
+      code(
+        'text',
+        `
+        Urutan yang benar saat akan memindahkan domain:
+
+          1. TURUNKAN TTL beberapa hari SEBELUM pindah (3600 -> 60)
+          2. TUNGGU sampai TTL lama habis di mana-mana
+          3. Baru ubah alamatnya
+          4. Setelah stabil, naikkan lagi TTL-nya
+
+        Menurunkan TTL pada hari H tidak menolong: yang sudah
+        menyimpan jawaban lama tetap memakainya sampai TTL LAMA habis.
+        `,
+      ),
+      p(
+        'Aturan apex yang sering menjadi penghalang nyata juga bisa dilihat pada domain sungguhan.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan:
+
+          www.github.com.   238   IN   CNAME   github.com.
+          github.com.        29   IN   A       20.205.243.166
+
+        Subdomain boleh CNAME. Apex TIDAK BISA, sebab apex harus
+        memuat rekaman NS dan SOA, dan CNAME melarang rekaman lain
+        hidup berdampingan.
+
+        Penyedia modern menyiasatinya dengan ALIAS atau ANAME, yang
+        secara teknis adalah A yang diselesaikan oleh penyedianya.
+        `,
+      ),
+      p(
+        'Manfaat CDN berakar pada satu angka yang sudah diukur, yaitu bahwa jarak fisik menentukan latensi.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan di mesin ini:
+
+          HTTP round trip ke 127.0.0.1 (loopback)   p50   1,69 ms
+          HTTP round trip ke internet               p50  70,04 ms
+                                                    p99 362,72 ms
+
+        Dan pada build produksi project ini, diukur di Chrome 149:
+
+          halaman terbesar 487,8 KB di disk
+            -> 56,1 KB DI KABEL (kompresi 8,7 kali)
+            -> TTFB 13 ms, LCP 232 ms, CLS 0
+
+        Angka TTFB itu dari mesin lokal. Pengunjung yang berada
+        ribuan kilometer dari servermu membayar puluhan hingga
+        ratusan milidetik hanya untuk byte pertamanya, dan itulah
+        yang dihapus CDN dengan menaruh salinan di dekat mereka.
+        `,
+        {
+          caption:
+            'CDN tidak mempercepat servermu. Ia memindahkan jawabannya lebih dekat ke penanya.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kesalahan DNS punya gejala yang khas, dan yang paling membingungkan adalah perubahan yang sudah dilakukan tapi belum berlaku.',
+      ),
+      code(
+        'text',
+        `
+        1. "Sudah diubah, masih menunjuk server lama"
+
+           Periksa apa yang dijawab server OTORITATIF-nya langsung,
+           bukan yang dijawab resolver lokalmu:
+
+             dig @elliott.ns.cloudflare.com contoh.id A
+             dig contoh.id A
+
+           Bila keduanya berbeda, perubahannya sudah benar dan
+           tinggal menunggu. Bila keduanya sama-sama lama,
+           perubahannya belum tersimpan.
+
+        2. "Berlaku di satu tempat, belum di tempat lain"
+
+           Normal selama masa TTL. Resolver berbeda menyimpan
+           jawaban berbeda.
+
+        3. NXDOMAIN
+
+           Namanya tidak ada sama sekali. Sering karena subdomain
+           belum dibuat, atau nameserver domainnya belum diarahkan
+           ke penyedia yang kamu konfigurasi.
+        `,
+      ),
+      p(
+        'Pada CDN, kegagalan yang paling berbahaya bukan berkas yang tidak tampil melainkan salinan yang disajikan kepada orang yang salah.',
+      ),
+      code(
+        'text',
+        `
+        Halaman pribadi tersaji ke pengunjung lain.
+
+        Penyebabnya hampir selalu sama: halaman yang isinya
+        bergantung pada cookie di-cache tanpa Cache-Control: private
+        atau tanpa Vary yang benar.
+
+        Satu pengunjung membuka /dasbor, CDN menyimpannya, dan
+        pengunjung berikutnya menerima salinan dasbor orang lain.
+
+        Yang menutupnya:
+          halaman berisi data pribadi -> Cache-Control: private, no-store
+          dan JANGAN pernah dirender statis
+        `,
+      ),
+      code(
+        'text',
+        `
+        KESALAHAN LAIN yang khas pada CDN:
+
+        1. Lupa Vary: Origin pada respons CORS
+           Salinan untuk satu origin disajikan ke origin lain, dan
+           peramban menolaknya. Gejalanya: gagal untuk sebagian
+           pengguna, berhasil untuk yang lain, berubah-ubah.
+
+        2. Cache tidak pernah kena
+           - URL mengandung ?utm_source=... yang selalu berbeda
+           - Set-Cookie ada di respons; banyak CDN menolak menyimpannya
+           - Vary: User-Agent, yang berarti satu salinan per peramban
+
+           Periksa dengan menjalankan curl DUA KALI:
+             curl -sI <url> | grep -iE 'cf-cache-status|age'
+           Yang kedua seharusnya HIT.
+
+        3. HTML di-cache terlalu lama
+           Diperiksa pada build ini, nama berkas statis memuat
+           penanda isi:
+             .next/static/chunks/0a9thuh7-d55c.js
+           Jadi aset statis boleh di-cache setahun. HTML TIDAK,
+           sebab ia yang memuat nama berkas statis yang baru.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'DNS dan CDN sama-sama bekerja di lapisan yang jarang disentuh sehari-hari, dan kesalahannya sering berupa menunggu hal yang salah.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menurunkan TTL pada hari pemindahan',
+            'Biar perubahannya cepat berlaku',
+            'Yang sudah menyimpan jawaban lama memakai TTL LAMA. Turunkan beberapa hari sebelumnya',
+          ],
+          [
+            'Memasang `CNAME` di apex domain',
+            'Sama saja dengan subdomain',
+            'Apex harus memuat NS dan SOA. Pakai `A`, atau `ALIAS` bila penyedianya menyediakannya',
+          ],
+          [
+            'Memeriksa DNS hanya lewat resolver sendiri',
+            'Itu yang saya pakai',
+            'Resolver menyimpan jawaban lama. Tanyakan langsung ke server otoritatifnya dengan `dig @nameserver`',
+          ],
+          [
+            'Meng-cache halaman yang isinya bergantung cookie',
+            'Halamannya kan sama',
+            'Satu pengunjung menyimpannya di CDN, pengunjung lain menerima salinan dasbor orang lain',
+          ],
+          [
+            'Meng-cache HTML dengan `max-age` panjang',
+            'Biar cepat',
+            'HTML memuat nama berkas statis yang baru. HTML basi membuat rilis tidak pernah sampai',
+          ],
+          [
+            'Menganggap CDN mempercepat server',
+            'Namanya juga akselerasi',
+            'Ia memindahkan jawabannya lebih dekat. Server yang lambat tetap lambat untuk apa pun yang tidak di-cache',
+          ],
+        ],
+      ),
+      p(
+        'Satu pemeriksaan murah menutup sebagian besar baris di tabel itu, dan ia hanya perlu dijalankan dua kali. Panggil URL-mu dengan `curl -sI`, lalu panggil lagi, dan bandingkan header status cache beserta nilai `age`. Bila yang kedua tidak menunjukkan salinan tersimpan, CDN-mu tidak menyimpan apa pun, dan seluruh manfaat yang kamu kira sudah didapat sebenarnya belum pernah ada.',
+      ),
       references(
         {
           label: 'Cache-Control',
@@ -580,7 +988,7 @@ export const lessons: LessonDraft[] = [
   written(
     'load-balancer',
     'Load Balancer dan Reverse Proxy',
-    13,
+    19,
     'Satu pintu masuk yang membagi beban, menutup mesin yang sakit, dan mengakhiri TLS.',
     [
       p(
@@ -913,6 +1321,201 @@ export const lessons: LessonDraft[] = [
         'Untuk sebagian besar tim, jawaban pertama adalah jawaban yang benar. Menjalankan sepasang load balancer sendiri berarti menambah satu sistem lagi yang harus dipahami, dipantau, dan diperbarui, dan manfaatnya jarang sepadan kecuali ada alasan khusus.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Strategi penyeimbang beban terdengar seperti detail konfigurasi sampai backend-nya tidak sama cepat, dan di produksi mereka **tidak pernah** sama cepat.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan Node 26.5.0. Tiga backend: dua cepat
+        (5 ms) dan satu lambat (60 ms). 600 permintaan, 12 berjalan
+        bersamaan.
+
+        ROUND ROBIN — bergiliran tanpa melihat beban
+          total  1.354 ms   p50 8 ms   p95 63 ms   p99 68 ms
+          dilayani: cepat=200  cepat=200  LAMBAT=200
+
+        LEAST CONNECTIONS — pilih yang paling sedikit aktif
+          total    624 ms   p50 8 ms   p95 62 ms   p99 67 ms
+          dilayani: cepat=282  cepat=281  LAMBAT=37
+
+        ACAK
+          total  1.343 ms   p50 8 ms   p95 63 ms   p99 64 ms
+          dilayani: cepat=205  cepat=190  LAMBAT=205
+        `,
+        {
+          caption:
+            'Least connections menyelesaikan pekerjaan yang sama 2,2 kali lebih cepat, tanpa satu baris konfigurasi tentang kecepatan backend.',
+        },
+      ),
+      p(
+        'Yang menarik di tabel itu bukan waktu totalnya melainkan kolom "dilayani". Least connections mengirim 37 permintaan ke backend lambat sementara dua lainnya menerima hampir 300, dan ia melakukannya **tanpa tahu** bahwa backend itu lambat. Ia hanya melihat berapa permintaan yang masih menggantung di sana.',
+      ),
+      p('Itulah selisih mendasar antara ketiganya.'),
+      table(
+        ['Strategi', 'Yang ia lihat', 'Cocok saat'],
+        [
+          [
+            'Round robin',
+            'Tidak ada. Sekadar bergiliran',
+            'Semua backend seragam dan permintaan seragam',
+          ],
+          ['Acak', 'Tidak ada', 'Sama dengan round robin, tanpa perlu menyimpan keadaan'],
+          [
+            'Least connections',
+            'Berapa permintaan masih aktif',
+            'Durasi permintaan bervariasi, atau backend tidak seragam',
+          ],
+          [
+            'Least response time',
+            'Latensi yang teramati',
+            'Backend berbeda kemampuan, biaya pemantauan lebih tinggi',
+          ],
+          [
+            'Hash konsisten by kunci',
+            'Kunci permintaan',
+            'Ada cache lokal per backend yang ingin dijaga kenanya',
+          ],
+          [
+            'IP hash',
+            'Alamat pengunjung',
+            'Butuh sesi menempel — dan itu tanda ada yang harus diperbaiki',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir pantas dibaca sebagai peringatan. Sesi yang menempel membuat penyeimbang beban menyelesaikan gejala dari masalah yang sebenarnya ada di aplikasi, yaitu keadaan yang disimpan di memori proses.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan penyeimbang beban jarang berupa penyeimbangnya yang salah. Lebih sering ia berupa aplikasi yang tidak siap berada di belakangnya.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan dua server node:http:
+
+        LEWAT PROXY, dibaca secara naif:
+          ip=127.0.0.1   protokol=http   host=127.0.0.1:4102
+
+        LEWAT PROXY, membaca header teruskan:
+          ip=203.0.113.7   protokol=https   host=app.contoh.id
+
+        Akibatnya:
+          - cookie ber-atribut Secure TIDAK dipasang
+            -> pengguna login, permintaan berikutnya 401, sesinya
+               tidak pernah bertahan, TANPA satu pun error di log
+          - pengalihan ke http:// -> perulangan pengalihan
+          - pembatasan laju per IP membatasi PROXY, bukan pengunjung
+        `,
+      ),
+      code(
+        'text',
+        `
+        Dan sisi keamanannya, juga diukur:
+
+        LANGSUNG ke aplikasi, header dipalsukan klien:
+          dikirim : X-Forwarded-For: 1.2.3.4
+          dibaca  : ip=1.2.3.4
+
+        Header X-Forwarded-* BISA dikirim siapa saja. Ia hanya boleh
+        dipercaya bila permintaannya DIPASTIKAN datang lewat proxy
+        milikmu — artinya aplikasinya tidak boleh bisa dihubungi
+        langsung.
+        `,
+      ),
+      p(
+        'Kelas kedua berupa pesan status dari penyeimbang beban itu sendiri, dan ketiganya menunjuk penyebab yang berbeda.',
+      ),
+      code(
+        'text',
+        `
+          502 Bad Gateway
+            Penyeimbang hidup, backend tidak menjawab. Hampir tidak
+            pernah masalah konfigurasi penyeimbangnya. Periksa apakah
+            prosesnya berjalan dan mendengarkan di port yang benar.
+
+          503 Service Unavailable
+            Tidak ada backend yang dinyatakan SEHAT. Sering karena
+            healthcheck terlalu ketat, atau start_period terlalu
+            pendek sehingga instance baru dibunuh sebelum siap.
+
+          504 Gateway Timeout
+            Backend menjawab, terlalu lambat. Batas waktu penyeimbang
+            lebih pendek daripada waktu proses.
+        `,
+      ),
+      p(
+        'Kegagalan yang paling merusak tidak menghasilkan status apa pun, yaitu ketika healthcheck memeriksa hal yang salah.',
+      ),
+      code(
+        'text',
+        `
+        Healthcheck memeriksa basis data. Basis data tersendat 30 detik.
+
+          -> SEMUA instance dinyatakan tidak sehat
+          -> penyeimbang beban tidak punya backend untuk dipilih
+          -> 503 untuk semua orang
+          -> instance direstart bersamaan
+          -> saat menyala, semuanya membuka koneksi baru sekaligus
+          -> basis datanya makin tersendat
+
+        Gangguan 30 detik menjadi pemadaman berkepanjangan, dan
+        penyebabnya adalah pemeriksaan yang niatnya baik.
+
+        Menutupnya: LIVENESS tidak memeriksa dependency. Hanya
+        READINESS yang boleh.
+        `,
+        {
+          caption:
+            'Diukur di bab Docker: status "starting" berlangsung 3 detik sebelum "healthy". Beri start_period yang realistis.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Penyeimbang beban memindahkan sebagian tanggung jawab keluar dari aplikasi, dan kesalahannya hampir selalu berupa lupa bahwa perpindahan itu terjadi.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai round robin untuk backend yang tidak seragam',
+            'Adil, semua dapat giliran',
+            'Diukur, least connections menyelesaikan beban yang sama 2,2 kali lebih cepat',
+          ],
+          [
+            'Memakai sesi menempel agar aplikasi tetap jalan',
+            'Masalahnya kan selesai',
+            'Itu menunda perbaikan yang sebenarnya. Instance yang mati membawa sesi penggunanya',
+          ],
+          [
+            'Membaca `req.protocol` dan IP apa adanya',
+            'Itu kan nilainya',
+            'Diukur, protokolnya `http` dan IP-nya alamat proxy. Cookie `Secure` tidak pernah terpasang',
+          ],
+          [
+            'Memercayai semua proxy dengan `trust proxy: true`',
+            'Biar header teruskannya terbaca',
+            'Diukur, header itu bisa dikirim siapa saja. Batasi jumlah hop dan tutup akses langsung',
+          ],
+          [
+            'Memeriksa dependency di dalam liveness',
+            'Kalau basis data mati, aplikasinya kan tidak berguna',
+            'Gangguan 30 detik menjadi pemadaman: semua instance direstart bersamaan lalu menyerbu basis datanya',
+          ],
+          [
+            'Memperpanjang batas waktu saat muncul 504',
+            'Supaya tidak timeout lagi',
+            'Itu menyembunyikan penyebabnya. Ukur dulu kenapa lambat, lalu pindahkan yang berat ke antrean',
+          ],
+        ],
+      ),
+      p(
+        'Perhitungan yang paling berguna dari sub-bab ini adalah kolom "dilayani" pada pengukuran di awal. Penyeimbang beban yang melihat keadaan sesungguhnya mengarahkan lalu lintas menjauhi backend yang bermasalah **tanpa ada yang memberitahunya**, dan itu adalah bentuk pemulihan otomatis yang paling murah yang bisa dipasang sebuah sistem. Round robin tidak punya kemampuan itu sama sekali, dan pada hari satu backend melambat, ia akan terus mengirim sepertiga lalu lintas ke sana.',
+      ),
       references(
         {
           label: 'Nginx: HTTP Load Balancing',
@@ -945,7 +1548,7 @@ export const lessons: LessonDraft[] = [
   written(
     'server-stateless',
     'Server Stateless dan Nasib Sesi',
-    12,
+    19,
     'Syarat yang harus dipenuhi sebelum mesin aplikasi boleh lebih dari satu.',
     [
       p(
@@ -1206,6 +1809,214 @@ export const lessons: LessonDraft[] = [
         'Aturan sesungguhnya bukan "jangan punya state", melainkan **"tempatkan state di komponen yang memang dirancang untuk menyimpannya"**. Server aplikasi bukan salah satu komponen itu.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Server tanpa keadaan bukan berarti aplikasinya tidak menyimpan apa-apa. Ia berarti tidak ada yang disimpan **di memori proses** yang dibutuhkan permintaan berikutnya.',
+      ),
+      code(
+        'text',
+        `
+        Gejala yang muncul BERSAMAAN pada hari instance ditambah
+        dari satu menjadi dua:
+
+          "Pengguna keluar sendiri secara acak"
+            -> sesi di memori proses
+
+          "Berkas yang baru diunggah kadang tidak ditemukan"
+            -> tersimpan di disk instance A, diminta lewat instance B
+
+          "Job berkala berjalan dua kali"
+            -> setiap instance menjalankan penjadwalnya sendiri
+
+          "Pembatasan laju tidak berfungsi"
+            -> hitungannya per instance, jadi batas sebenarnya
+               berlipat sebanyak jumlah instance
+
+          "Cache di memori tidak pernah kena"
+            -> tiap instance punya cache sendiri, dan permintaan
+               berikutnya mendarat di instance lain
+
+        Kelimanya berasal dari satu asumsi yang sama.
+        `,
+        {
+          caption:
+            'Yang membuatnya sulit ditelusuri: kelimanya muncul sekaligus, dan tidak satu pun menyebut kata "instance".',
+        },
+      ),
+      p('Untuk sesi, ada dua bentuk penyelesaian, dan keduanya punya pertukaran yang berbeda.'),
+      table(
+        ['', 'Sesi di penyimpanan bersama', 'Sesi bertanda tangan di cookie'],
+        [
+          ['Yang dikirim tiap permintaan', 'Satu id pendek', 'Seluruh isi sesi'],
+          ['Pencabutan seketika', 'Ya, hapus satu baris', 'Tidak, sampai kedaluwarsa'],
+          ['Perlu komponen tambahan', 'Ya', 'Tidak'],
+          ['Ukuran maksimal', 'Tidak terbatas', '~4 KB per cookie'],
+          ['Bila penyimpanannya mati', 'Semua orang keluar', 'Tidak terpengaruh'],
+        ],
+      ),
+      p(
+        'Baris kedua yang paling menentukan pilihannya. Selisihnya persis sama dengan selisih antara sesi server dan JWT, dan sudah dibahas di bab Keamanan Fullstack.',
+      ),
+      code(
+        'text',
+        `
+        Yang terjadi antara "pengguna menekan keluar" dan
+        "token kedaluwarsa", bila sesinya bertanda tangan di cookie:
+
+          pengguna keluar     -> token masih sah
+          sandi diganti       -> token lama masih sah
+          peran diturunkan    -> token lama membawa peran lama
+          akun dinonaktifkan  -> token masih sah
+
+        Panjang jendela itu = sisa masa berlaku token.
+
+        Karena itu bentuk yang lazim menggabungkan keduanya:
+        access token pendek di cookie, plus refresh token yang
+        memang tersimpan di server dan bisa dicabut.
+        `,
+      ),
+      p('Untuk pekerjaan berkala, masalahnya berbeda bentuk dan penyelesaiannya juga berbeda.'),
+      code(
+        'ts',
+        `
+        // SALAH: setiap instance menjalankan penjadwalnya sendiri.
+        setInterval(kirimLaporanHarian, 24 * 60 * 60 * 1000);
+        // Sepuluh instance -> sepuluh laporan terkirim.
+
+        // BENAR: satu instance memenangkan kunci, sisanya melewatkan.
+        async function jalankanSekali(nama: string, fn: () => Promise<void>) {
+          // Kunci berbasis constraint UNIQUE — bekerja di basis data
+          // mana pun, tanpa komponen tambahan.
+          const menang = await db.kunciJob
+            .create({ data: { nama, kedaluwarsa: Date.now() + 5 * 60_000 } })
+            .then(() => true)
+            .catch(() => false);          // pelanggaran UNIQUE = kalah
+
+          if (!menang) return;
+          try {
+            await fn();
+          } finally {
+            await db.kunciJob.delete({ where: { nama } });
+          }
+        }
+        `,
+        {
+          caption:
+            'Kolom kedaluwarsa itu yang membuat kuncinya tidak macet selamanya bila instance pemenangnya mati di tengah.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kelas kesalahan yang paling halus di area ini adalah keadaan yang disimpan tanpa disadari, sebab ia tidak terlihat seperti keadaan.',
+      ),
+      code(
+        'text',
+        `
+        Yang sering tidak dianggap "keadaan", padahal iya:
+
+          cache di memori proses
+            -> tiap instance punya isi berbeda; pengguna melihat
+               data yang berbeda tergantung instance mana
+
+          penghitung pembatasan laju
+            -> batas sebenarnya berlipat sebanyak jumlah instance
+
+          koneksi WebSocket
+            -> pesan yang dikirim ke pengguna harus melewati
+               instance TEMPAT IA TERHUBUNG, bukan instance mana pun
+
+          berkas sementara saat mengolah unggahan
+            -> hilang bila permintaan lanjutan mendarat di tempat lain
+
+          nilai yang dihitung sekali di tingkat modul
+            -> membeku pada saat instance itu menyala, dan berbeda
+               antar instance yang menyala pada waktu berbeda
+        `,
+      ),
+      p(
+        'Baris ketiga pantas dijelaskan tersendiri, sebab realtime adalah tempat aplikasi tanpa keadaan paling sering bocor.',
+      ),
+      code(
+        'text',
+        `
+        Pengguna A terhubung WebSocket ke instance 1.
+        Pengguna B mengirim pesan, permintaannya mendarat di instance 3.
+
+        Instance 3 TIDAK punya koneksi ke A, dan pesannya tidak
+        pernah sampai.
+
+        Yang menutupnya: lapisan penyiaran di antara instance —
+        setiap instance berlangganan saluran yang sama dan
+        meneruskan pesan ke koneksi yang ia pegang.
+
+        Diukur di bab Integrasi tentang biaya koneksi yang tidak
+        dibersihkan: dari 6 koneksi SSE, hanya 1 yang dibersihkan,
+        dan 25 tick masih menembak ke response yang sudah berakhir.
+        Pada aplikasi berbanyak instance, kebocoran seperti itu
+        terjadi di setiap instance sekaligus.
+        `,
+      ),
+      code(
+        'text',
+        `
+        DAN SATU LAGI yang muncul saat instance BERKURANG:
+
+          instance dimatikan -> koneksi WebSocket-nya putus
+          -> semua klien menyambung ulang BERSAMAAN
+          -> instance yang tersisa menerima lonjakan sekaligus
+          -> ikut kewalahan, lalu mati
+          -> klien menyambung ulang lagi, sekarang lebih banyak
+
+        Namanya badai penyambungan ulang. Yang menutupnya:
+        penyambungan ulang dengan jeda ACAK yang membesar, bukan
+        jeda tetap. Jeda tetap membuat semua klien mencoba pada
+        detik yang sama persis.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Membuat aplikasi tanpa keadaan terasa seperti pekerjaan tambahan sampai instance keduanya dinyalakan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyimpan sesi di memori proses',
+            'Cepat dan tidak perlu komponen tambahan',
+            'Pengguna keluar secara acak begitu instance-nya dua. Pindahkan ke penyimpanan bersama',
+          ],
+          [
+            'Menyimpan berkas unggahan di disk lokal',
+            'Disknya kan ada',
+            'Permintaan berikutnya bisa mendarat di instance lain. Pakai object storage',
+          ],
+          [
+            'Menjadwalkan job dengan `setInterval` di aplikasi',
+            'Sederhana dan langsung jalan',
+            'Setiap instance menjalankannya. Sepuluh instance mengirim sepuluh laporan',
+          ],
+          [
+            'Menghitung pembatasan laju di memori',
+            'Paling cepat',
+            'Batas sebenarnya berlipat sebanyak jumlah instance. Pakai penghitung bersama',
+          ],
+          [
+            'Memakai sesi menempel agar semuanya tetap bekerja',
+            'Masalahnya kan selesai',
+            'Itu menunda perbaikannya. Instance yang mati membawa sesi seluruh penggunanya',
+          ],
+          [
+            'Menyambung ulang WebSocket dengan jeda tetap',
+            'Biar cepat tersambung lagi',
+            'Semua klien mencoba pada detik yang sama. Pakai jeda membesar dengan komponen acak',
+          ],
+        ],
+      ),
+      p(
+        'Ada satu ujian yang menjawab apakah aplikasimu benar-benar tanpa keadaan, dan ia bisa dijalankan di laptop. Nyalakan dua instance di port berbeda, taruh penyeimbang beban sederhana di depannya, lalu pakai aplikasinya seperti biasa. Bila kamu keluar sendiri, kehilangan berkas, atau melihat data yang berbeda-beda tergantung muat ulang, kamu baru saja menemukan keadaan yang tersimpan di tempat yang salah, dan menemukannya hari ini jauh lebih murah daripada menemukannya pada hari lalu lintas naik.',
+      ),
       references(
         {
           label: 'The Twelve-Factor App: Processes',
@@ -1237,7 +2048,7 @@ export const lessons: LessonDraft[] = [
   written(
     'lapisan-cache',
     'Lapisan Cache dan Strateginya',
-    14,
+    21,
     'Lima tempat cache bisa berada, empat cara mengisinya, dan cara memutuskan masa berlakunya.',
     [
       p(
@@ -1618,6 +2429,225 @@ export const lessons: LessonDraft[] = [
         'Kunci yang disimpan tanpa TTL dan tanpa eviction policy akan menumpuk sampai memorinya habis. Setelah itu, tergantung kebijakannya, Redis akan menolak penulisan atau membuang isi secara acak. Selalu tetapkan `maxmemory` dan kebijakannya secara sadar, dan selalu berikan TTL pada setiap kunci cache sekalipun kamu berencana menghapusnya secara manual.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Cache berbayar karena satu selisih angka, dan selisih itu bisa diukur. Yang menentukan bukan kecepatan alat cache-nya melainkan **pekerjaan yang tidak jadi dilakukan**.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada PostgreSQL 16.15, 1.000.000 komentar:
+
+          agregasi GROUP BY seluruh tabel        468,922 ms
+          dibaca dari kolom yang sudah dihitung    0,068 ms
+
+        Selisihnya ~6.900 kali, dan itu bukan karena kolomnya
+        lebih cepat dibaca. Ia karena pekerjaan menghitung satu juta
+        baris TIDAK DILAKUKAN.
+        `,
+        {
+          caption:
+            'Itulah definisi cache yang paling berguna: menyimpan hasil supaya pekerjaannya tidak diulang.',
+        },
+      ),
+      p(
+        'Karena itu penting membedakan di mana cache-nya berada, sebab ongkos aksesnya sangat berbeda.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan di mesin ini:
+
+          baca 1 nilai dari memori proses            43 ns
+          cari 1 kunci di Map 100.000 entri          50 ns
+          HTTP round trip ke 127.0.0.1             1,69 ms
+          HTTP round trip ke internet             70,04 ms
+
+        Cache di MEMORI PROSES  ~43-50 ns
+        Cache lewat JARINGAN    ~1,7 ms pada patokan loopback
+
+        Selisihnya ~39.000 kali. Cache jaringan tetap berbayar
+        karena ia menghindari pekerjaan yang JAUH lebih mahal,
+        dan ia bukan "hampir gratis" seperti yang sering dikira.
+        `,
+      ),
+      p(
+        'Lapisan cache dalam satu permintaan bisa ada beberapa sekaligus, dan masing-masing menjawab pertanyaan yang berbeda.',
+      ),
+      table(
+        ['Lapisan', 'Siapa yang melihatnya', 'Cocok untuk'],
+        [
+          ['Peramban', 'Satu pengunjung', 'Aset statis, hasil yang hanya berarti bagi dia'],
+          ['CDN', 'Semua pengunjung', 'Isi yang sama untuk semua orang'],
+          ['Memori proses', 'Satu instance', 'Konfigurasi, daftar kecil yang jarang berubah'],
+          ['Cache bersama', 'Semua instance', 'Hasil mahal yang sama untuk banyak orang'],
+          ['Kolom denormalisasi', 'Semua pembaca', 'Agregasi yang sering dibaca, jarang berubah'],
+          ['Buffer basis data', 'Semua koneksi', 'Otomatis, dan sering sudah cukup'],
+        ],
+      ),
+      p(
+        'Baris terakhir sering dilupakan. Basis data sudah punya cache-nya sendiri, dan untuk query by primary key pada data yang panas, menambah lapisan cache di depannya kadang tidak menghasilkan selisih yang sepadan dengan kerumitannya.',
+      ),
+      code(
+        'text',
+        `
+        Tiga pola penulisan, dan pertukarannya:
+
+          CACHE-ASIDE (paling umum)
+            baca : cek cache, bila kosong ambil dari sumber lalu simpan
+            tulis: tulis ke sumber, HAPUS kunci cache-nya
+            + sederhana, cache boleh mati tanpa kehilangan data
+            - ada jendela ketika cache dan sumber berbeda
+
+          WRITE-THROUGH
+            tulis: tulis ke cache DAN sumber sekaligus
+            + cache selalu sesuai
+            - setiap penulisan membayar dua tempat
+
+          WRITE-BEHIND
+            tulis: tulis ke cache, sumbernya menyusul
+            + penulisan sangat cepat
+            - data bisa HILANG bila cache-nya mati sebelum menyusul
+
+        Untuk hampir semua aplikasi, cache-aside adalah jawaban
+        yang benar. Dua lainnya membeli sesuatu yang jarang
+        dibutuhkan dengan risiko yang nyata.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan cache tidak menghasilkan error. Ia menghasilkan data yang salah, dan itu jauh lebih sulit diketahui.',
+      ),
+      code(
+        'text',
+        `
+        1. "Sudah saya ubah, halamannya masih yang lama"
+
+           Periksa dari luar ke dalam:
+             curl -sI <url> | grep -iE 'cache|age'
+
+           Header age menunjukkan berapa detik salinan itu sudah
+           tersimpan. Bila age terus bertambah dan isinya tidak
+           berubah, yang perlu dibatalkan adalah cache di lapisan
+           itu, bukan cache aplikasi.
+
+        2. Cache tidak pernah kena
+
+           Sebab yang paling sering:
+             - URL mengandung parameter yang selalu berbeda
+             - kunci cache menyertakan waktu atau id permintaan
+             - TTL terlalu pendek dibanding jarak antar permintaan
+             - Set-Cookie ada di respons
+
+           Periksa dengan menjalankan permintaan DUA KALI. Yang
+           kedua seharusnya HIT.
+
+        3. Isi pengguna lain tersaji
+
+           PALING BERBAHAYA. Kunci cache tidak menyertakan identitas
+           pengguna, sementara isinya bergantung pada siapa yang
+           meminta.
+
+             kunci: "profil"           <- SALAH
+             kunci: "profil:42"        <- benar
+             kunci: "profil:42:v3"     <- lebih baik, ada versi skema
+        `,
+      ),
+      p('Kegagalan keempat berupa cache yang tidak pernah dibatalkan, dan bentuknya khas.'),
+      code(
+        'ts',
+        `
+        // Tulis ke sumber, lalu hapus kunci cache-nya.
+        // Yang sering terlewat: SATU perubahan bisa membatalkan
+        // BEBERAPA kunci.
+        async function ubahArtikel(id: number, data: DataArtikel) {
+          await db.artikel.update({ where: { id }, data });
+
+          await cache.del(\`artikel:\${id}\`);         // halaman detail
+          await cache.del('artikel:terbaru');         // daftar terbaru
+          await cache.del('artikel:populer');         // daftar populer
+          await cache.del(\`penulis:\${data.penulisId}:artikel\`);
+          // ...dan setiap daftar lain yang memuat artikel ini
+        }
+
+        // Itulah kenapa penandaan (tagging) jauh lebih mudah dijaga
+        // daripada menghapus kunci satu per satu: satu penulisan
+        // membatalkan satu TAG, dan tag itu yang menaungi semua
+        // daftar yang terpengaruh.
+        `,
+        {
+          caption:
+            'Daftar penghapusan yang ditulis manual selalu tertinggal dari daftar tempat data itu muncul.',
+        },
+      ),
+      p('Dan ada satu kesalahan yang membuat cache-nya sendiri menjadi sumber kegagalan.'),
+      code(
+        'text',
+        `
+        Cache yang mati membuat SELURUH sistem mati.
+
+        Itu terjadi bila kode-nya berbentuk:
+
+          const hasil = await cache.get(kunci);      // melempar bila cache mati
+          if (hasil) return hasil;
+
+        Bentuk yang benar memperlakukan cache sebagai OPSIONAL:
+
+          let hasil = null;
+          try { hasil = await cache.get(kunci); } catch { /* abaikan */ }
+          if (hasil) return hasil;
+          const segar = await hitungDariSumber();
+          try { await cache.set(kunci, segar, 300); } catch { /* abaikan */ }
+          return segar;
+
+        Dengan bentuk itu, cache yang mati membuat sistem LAMBAT,
+        bukan MATI. Dan itu selisih yang sangat besar.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Cache memberi hasil yang terlihat bagus dengan cepat, dan kesalahannya baru terlihat ketika seseorang melihat data yang salah.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menambah cache sebelum mengukur query aslinya',
+            'Cache kan selalu lebih cepat',
+            'Diukur, satu perubahan query mengubah 468,9 ms menjadi 0,068 ms tanpa komponen baru',
+          ],
+          [
+            'Membuat kunci cache tanpa identitas pengguna',
+            'Isinya kan sama',
+            'Pengguna lain menerima data milik orang lain. Sertakan id pengguna di kunci',
+          ],
+          [
+            'Menghapus kunci cache satu per satu secara manual',
+            'Hanya beberapa tempat',
+            'Daftarnya selalu tertinggal dari tempat data itu muncul. Pakai penandaan',
+          ],
+          [
+            'Memperlakukan cache sebagai wajib',
+            'Cache kan bagian dari sistem',
+            'Cache yang mati membuat seluruh sistem mati. Bungkus dengan `try`, dan jatuh ke sumbernya',
+          ],
+          [
+            'Menganggap cache jaringan hampir gratis',
+            'Di memori kan cepat',
+            'Diukur, cache lewat jaringan ~1,7 ms melawan cache di proses ~43 ns, yaitu 39.000 kali',
+          ],
+          [
+            'Tidak memeriksa apakah cache-nya benar-benar kena',
+            'Kodenya sudah dipasang',
+            'Jalankan permintaan dua kali dan baca status cache-nya. Yang kedua seharusnya HIT',
+          ],
+        ],
+      ),
+      p(
+        'Satu pertanyaan pantas diajukan sebelum memasang cache, dan ia menghemat banyak pekerjaan yang tidak perlu. Apakah hasil ini sama untuk semua orang, dan berapa lama ia boleh basi? Bila jawabannya tidak sama untuk semua orang, kuncinya harus menyertakan identitas. Bila jawabannya tidak boleh basi sama sekali, yang kamu butuhkan bukan cache melainkan query yang lebih cepat.',
+      ),
       references(
         {
           label: 'Redis: Key eviction',
@@ -1650,7 +2680,7 @@ export const lessons: LessonDraft[] = [
   written(
     'masalah-cache',
     'Ketika Cache Justru Jadi Masalah',
-    12,
+    18,
     'Cache stampede, hot key, cache penetration, dan cold cache, beserta cara menutup masing-masing.',
     [
       p(
@@ -1999,6 +3029,221 @@ export const lessons: LessonDraft[] = [
         'Tidak satu pun dari empat masalah ini muncul sebagai error. Semuanya muncul sebagai beban database yang lebih tinggi daripada seharusnya. Pantau hit ratio, beban database, dan pola bergerigi pada grafiknya, karena bentuk grafik sering menjadi petunjuk pertama sebelum ada yang mengeluh.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Cache menyelesaikan masalah beban dan menciptakan kelas masalahnya sendiri. Yang membedakannya dari masalah lain adalah bahwa hampir semuanya tidak menghasilkan error, dan sebagian justru muncul tepat saat sistem sedang paling ramai.',
+      ),
+      p(
+        'Yang paling terkenal adalah serbuan ke sumber ketika satu kunci populer kedaluwarsa bersamaan.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan di bab Desain API: 50 permintaan bersamaan
+        untuk satu kunci cache yang baru saja kedaluwarsa.
+
+          tanpa penggabungan : 50 perhitungan
+          dengan penggabungan:  1 perhitungan
+
+          waktu dinding      : 122 ms melawan 121 ms
+
+        Perhatikan baris terakhir. Yang dihemat BUKAN latensi,
+        melainkan BEBAN. Lima puluh perhitungan berat yang berjalan
+        bersamaan itulah yang menjatuhkan basis data, bukan lamanya.
+        `,
+        {
+          caption:
+            'Melebih-lebihkan manfaatnya sebagai "lebih cepat" membuat orang salah menilai kapan ia dibutuhkan.',
+        },
+      ),
+      code(
+        'ts',
+        `
+        // Penggabungan permintaan: pemanggil kedua sampai kelima puluh
+        // menunggu promise YANG SAMA, bukan memulai pekerjaan sendiri.
+        const sedangDihitung = new Map<string, Promise<unknown>>();
+
+        async function ambil<T>(kunci: string, hitung: () => Promise<T>, ttl: number): Promise<T> {
+          const tersimpan = await cache.get(kunci).catch(() => null);
+          if (tersimpan) return tersimpan as T;
+
+          const berjalan = sedangDihitung.get(kunci);
+          if (berjalan) return berjalan as Promise<T>;
+
+          const janji = hitung()
+            .then(async (hasil) => {
+              // TTL diberi sebaran acak supaya kunci-kunci yang lahir
+              // bersamaan tidak kedaluwarsa bersamaan pula.
+              const sebaran = Math.floor(ttl * 0.1 * Math.random());
+              await cache.set(kunci, hasil, ttl + sebaran).catch(() => {});
+              return hasil;
+            })
+            .finally(() => sedangDihitung.delete(kunci));
+
+          sedangDihitung.set(kunci, janji);
+          return janji;
+        }
+        `,
+      ),
+      p(
+        'Sebaran acak pada TTL itu menutup masalah kedua, yaitu banyak kunci yang kedaluwarsa pada detik yang sama.',
+      ),
+      code(
+        'text',
+        `
+        Kenapa itu terjadi:
+
+          Sistem restart, atau cache dikosongkan.
+          Seluruh kunci diisi ulang dalam beberapa detik yang sama,
+          semuanya dengan TTL 300 detik.
+          Lima menit kemudian, SELURUHNYA kedaluwarsa bersamaan.
+
+          -> lonjakan beban berulang setiap lima menit, dan
+             puncaknya makin tajam setiap siklus
+
+        Dengan sebaran 10%, TTL-nya tersebar antara 300 dan 330
+        detik, dan gelombangnya melandai dengan sendirinya.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Masalah ketiga adalah kunci yang dicari tidak pernah ada, sehingga cache-nya tidak pernah melindungi apa pun.',
+      ),
+      code(
+        'text',
+        `
+        PENETRASI CACHE
+
+          Penyerang, atau bug, meminta id yang tidak ada:
+            /produk/99999999
+            /produk/99999998
+            ...
+
+          Cache: kosong. Basis data: dicari, tidak ada.
+          Cache TIDAK menyimpan hasil "tidak ada", jadi permintaan
+          berikutnya mengulang seluruhnya.
+
+          Setiap permintaan menembus langsung ke basis data.
+
+        Menutupnya: simpan juga hasil NEGATIF, dengan TTL pendek.
+          cache.set('produk:99999999', NIHIL, 60)
+
+        Dan batasi lajunya, sebab ruang id yang tidak ada
+        jauh lebih besar daripada yang ada.
+        `,
+      ),
+      code(
+        'text',
+        `
+        MASALAH KEEMPAT: cache yang mati menjatuhkan seluruh sistem.
+
+          const hasil = await cache.get(kunci);   // melempar bila mati
+          if (hasil) return hasil;
+
+        Bentuk itu membuat ketersediaan sistem TIDAK PERNAH lebih
+        tinggi daripada ketersediaan cache-nya.
+
+        Dihitung sungguhan, komponen berantai:
+          2 komponen @ 99,9% -> 99,8%
+          3 komponen @ 99,9% -> 99,7003%  (26,3 jam/tahun)
+
+        Bentuk yang benar memperlakukan cache sebagai OPSIONAL,
+        sehingga cache yang mati membuat sistem LAMBAT, bukan MATI.
+        `,
+      ),
+      p(
+        'Masalah kelima adalah yang paling berbahaya dari semuanya, dan ia menyangkut siapa yang melihat apa.',
+      ),
+      code(
+        'text',
+        `
+        Diukur di bab Keamanan Fullstack pada CDN:
+
+          Satu pengunjung membuka /dasbor. CDN menyimpannya.
+          Pengunjung berikutnya menerima salinan dasbor ORANG LAIN.
+
+        Penyebabnya hampir selalu sama: respons yang isinya
+        bergantung pada cookie di-cache tanpa Cache-Control: private
+        atau tanpa Vary yang benar.
+
+        Pada cache aplikasi, bentuknya:
+          kunci: "profil"        <- isinya berbeda per pengguna
+          kunci: "profil:42"     <- benar
+
+        Aturannya keras: setiap respons yang isinya bergantung pada
+        SIAPA yang meminta harus menyatakan itu secara eksplisit,
+        dan tidak boleh pernah dirender statis.
+        `,
+        {
+          caption:
+            'Kecepatan yang didapat dari meng-cache halaman pribadi tidak pernah sebanding dengan satu kejadian kebocoran.',
+        },
+      ),
+      code(
+        'text',
+        `
+        MASALAH KEENAM: cache yang tidak pernah dibersihkan.
+
+          cache tumbuh tanpa batas -> kehabisan memori
+          kebijakan pengusiran salah -> data panas terusir oleh
+            data yang hanya dibaca sekali
+
+        Dan yang paling halus: bentuk data yang disimpan BERUBAH
+        setelah rilis, sementara isi cache lama masih memakai bentuk
+        yang lama.
+
+          TypeError: Cannot read properties of undefined (reading 'nama')
+
+        Menutupnya: sertakan versi skema di dalam kunci.
+          "profil:42:v3"
+        Rilis yang mengubah bentuknya cukup menaikkan v3 menjadi v4,
+        dan seluruh isi lama diabaikan tanpa perlu dikosongkan.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Masalah cache hampir semuanya muncul pada skala, dan tidak satu pun terlihat saat diuji di laptop dengan satu pengguna.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Tidak menggabungkan permintaan untuk kunci yang sama',
+            'Toh hasilnya akan tersimpan',
+            'Diukur, 50 permintaan bersamaan menghasilkan 50 perhitungan. Yang dihemat penggabungan adalah beban',
+          ],
+          [
+            'Memberi TTL yang sama persis untuk semua kunci',
+            'Biar seragam',
+            'Seluruh kunci kedaluwarsa bersamaan, dan lonjakannya berulang tiap siklus. Beri sebaran acak',
+          ],
+          [
+            'Tidak menyimpan hasil "tidak ada"',
+            'Buat apa menyimpan yang kosong',
+            'Setiap permintaan untuk id yang tidak ada menembus ke basis data. Simpan hasil negatif berumur pendek',
+          ],
+          [
+            'Memperlakukan cache sebagai wajib',
+            'Cache kan bagian dari sistem',
+            'Ketersediaan sistem tidak pernah melebihi ketersediaan cache-nya. Buat ia opsional',
+          ],
+          [
+            'Meng-cache respons yang isinya bergantung pengguna',
+            'Halamannya kan sama',
+            'Diukur di CDN, pengunjung lain menerima salinan dasbor orang lain',
+          ],
+          [
+            'Tidak menyertakan versi skema di kunci',
+            'Bentuknya kan tidak berubah',
+            'Rilis yang mengubah bentuk data membuat isi cache lama menghasilkan `undefined` di mana-mana',
+          ],
+        ],
+      ),
+      p(
+        'Ada satu cara sederhana menguji apakah sistemmu siap menghadapi masalah-masalah ini, dan ia bisa dijalankan kapan saja di lingkungan yang bukan produksi. Kosongkan seluruh cache saat ada lalu lintas, lalu perhatikan apa yang terjadi. Bila basis datanya melonjak sesaat lalu pulih, sistemmu sehat. Bila ia tersendat dan tidak pulih sendiri, kamu baru saja menemukan bahwa cache yang selama ini terlihat sebagai optimasi sebenarnya sudah menjadi penopang yang tidak boleh dilepas.',
+      ),
       references(
         {
           label: 'Redis: SET',
@@ -2030,7 +3275,7 @@ export const lessons: LessonDraft[] = [
   written(
     'antrean-pesan',
     'Message Queue dan Pekerjaan Latar',
-    14,
+    21,
     'Memisahkan menjawab dari mengerjakan, dan menerima bahwa pekerjaan bisa berjalan dua kali.',
     [
       p(
@@ -2400,6 +3645,241 @@ export const lessons: LessonDraft[] = [
         'Baris terakhir layak dikerjakan sejak awal. Satu antrean bercampur berarti seribu pekerjaan pembuatan PDF yang lambat akan menahan email verifikasi yang seharusnya terkirim dalam hitungan detik. Memisahkan menjadi antrean cepat dan antrean lambat, masing-masing dengan kelompok workernya sendiri, menghilangkan seluruh kelas masalah itu dengan satu keputusan.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Antrean menjawab satu pertanyaan yang sangat konkret, yaitu apakah pengguna harus menunggu sampai pekerjaannya selesai. Selisih antara menunggu dan tidak menunggu bisa diukur.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada Node 26.5.0, 1 pekerjaan berat
+        ditambah 5 permintaan ringan yang datang bersamaan:
+
+          pekerjaan berat SINKRON  : permintaan ringan 73,9 - 74,6 ms
+          pekerjaan berat ASINKRON : permintaan ringan  6,1 -  7,5 ms
+
+        Permintaan yang tidak ada hubungannya dengan pekerjaan berat
+        itu tetap ikut menunggu, sebab keduanya berbagi proses yang
+        sama.
+        `,
+        {
+          caption:
+            'Itulah alasan pertama antrean ada: melindungi permintaan lain dari pekerjaan yang berat.',
+        },
+      ),
+      p(
+        'Alasan keduanya menyangkut kegagalan. Pekerjaan yang berjalan di dalam permintaan hanya punya satu kesempatan, sementara pekerjaan di antrean bisa diulang.',
+      ),
+      code(
+        'text',
+        `
+        Kontrak yang lazim untuk pekerjaan asinkron, diukur di bab
+        Desain API:
+
+          202 Accepted
+          Location: /unggah/abc123
+          Retry-After: 1
+          {"status":"antre","kemajuan":0}
+
+          lalu klien memantau:
+          200 {"status":"berjalan","kemajuan":34}
+          200 {"status":"selesai","kemajuan":100,"hasilUrl":"/unduh/..."}
+
+        Yang berubah bagi pengguna: hasilnya tidak lagi seketika.
+        Itu harga yang dibayar, dan ia harus terlihat di antarmuka.
+        `,
+      ),
+      p(
+        'Sifat antrean yang paling menentukan cara menulis pekerjaannya adalah bahwa pengiriman dijamin **paling sedikit sekali**, bukan tepat sekali.',
+      ),
+      code(
+        'text',
+        `
+        Kenapa "tepat sekali" hampir mustahil:
+
+          pekerja mengambil pesan
+          pekerja menyelesaikan pekerjaannya
+          pekerja MATI sebelum sempat menandai selesai
+          -> antrean tidak pernah menerima konfirmasi
+          -> pesan dikirim ulang ke pekerja lain
+          -> pekerjaannya berjalan DUA KALI
+
+        Tidak ada cara menghindarinya tanpa transaksi terdistribusi,
+        dan itu jauh lebih mahal daripada membuat pekerjaannya
+        idempoten.
+        `,
+      ),
+      code(
+        'ts',
+        `
+        // Idempoten: menjalankan dua kali menghasilkan keadaan yang
+        // sama dengan menjalankan sekali.
+        async function kirimSurelPesanan(pesan: { pesananId: number }) {
+          // Kunci unik di basis data yang menolak pengiriman kedua.
+          const baru = await db.surelTerkirim
+            .create({ data: { pesananId: pesan.pesananId, jenis: 'konfirmasi' } })
+            .then(() => true)
+            .catch(() => false);        // pelanggaran UNIQUE = sudah pernah
+
+          if (!baru) return;            // sudah terkirim, selesai
+          await penyediaEmail.kirim(...);
+        }
+
+        // Diuji di bab Desain API dengan bentuk yang sama:
+        //   satu kunci, dikirim BERSAMAAN lima kali
+        //   -> 201, 201, 201, 201, 201
+        //   -> pembayaran yang benar-benar lahir: 1
+        `,
+      ),
+      p(
+        'Yang membuat fungsi ini idempoten adalah kunci unik di basis data, bukan pemeriksaan di kode. Memeriksa lebih dulu lalu menulis akan lolos ketika dua pekerjaan berjalan bersamaan, sebab keduanya sama-sama membaca keadaan sebelum salah satunya sempat menulis. Membiarkan basis data yang menolak membuat pemenangnya ditentukan di satu tempat yang memang dirancang untuk itu.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Antrean punya beberapa kegagalan yang khas, dan yang pertama tidak berupa error melainkan angka yang terus naik.',
+      ),
+      code(
+        'text',
+        `
+        1. Antrean tumbuh dan tidak pernah turun
+
+           panjang antrean: 200 -> 1.400 -> 8.900 -> 41.000
+
+           Artinya laju masuk melebihi laju keluar. Penyebabnya
+           salah satu dari:
+             - pekerjanya mati dan tidak ada yang menyadarinya
+             - pekerjanya terlalu sedikit
+             - satu jenis pekerjaan menjadi jauh lebih lambat
+             - pekerjanya terus gagal dan pesannya diulang terus
+
+           Ini metrik yang HARUS dipantau, dan ambangnya bukan
+           panjang antreannya melainkan ARAHNYA: tumbuh 30 menit
+           berturut-turut sudah cukup untuk membunyikan alarm.
+
+        2. Satu jenis pekerjaan memblokir yang lain
+
+           Ekspor laporan 10 menit dan pengiriman surel 200 ms
+           berada di antrean yang sama. Seribu ekspor masuk, dan
+           tidak ada surel yang terkirim selama berjam-jam.
+
+           Menutupnya: antrean TERPISAH per jenis pekerjaan, dengan
+           pekerja yang terpisah pula.
+        `,
+      ),
+      p(
+        'Kegagalan ketiga adalah pekerjaan yang gagal terus-menerus, dan tanpa batas ia menjadi pemadaman yang berjalan lambat.',
+      ),
+      code(
+        'text',
+        `
+        Pesan gagal -> diulang -> gagal -> diulang -> selamanya
+
+        Bila penyebabnya permanen (data rusak, bug, sumber daya
+        yang sudah dihapus), pengulangan tidak akan pernah berhasil.
+        Yang terjadi:
+          - pekerja sibuk mengulang pesan yang tidak mungkin berhasil
+          - pekerjaan lain menunggu
+          - log dipenuhi error yang sama
+          - biaya naik tanpa satu pun hasil
+
+        Yang wajib ada:
+          BACKOFF        jeda yang membesar: 1s, 2s, 4s, 8s, ...
+          BATAS          misalnya 5 kali percobaan
+          DEAD LETTER    tujuan akhir untuk yang menyerah
+          DAN ALARM      pada dead letter yang tidak kosong
+
+        Dead letter yang tidak pernah dilihat siapa pun sama dengan
+        menghapus pekerjaan itu diam-diam.
+        `,
+        {
+          caption:
+            'Baris terakhir yang paling sering terjadi: antreannya ada, alarmnya tidak pernah dipasang.',
+        },
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KEEMPAT: pesan yang menunjuk data yang sudah berubah.
+
+          pesan dibuat  : {"pesananId": 42, "total": 150000}
+          pekerja jalan : 3 jam kemudian
+          kenyataannya  : pesanan 42 sudah dibatalkan
+
+        Bila pesannya membawa SALINAN data, pekerja bekerja dengan
+        data basi. Bila pesannya hanya membawa ID, pekerja membaca
+        keadaan TERBARU.
+
+          {"pesananId": 42}          <- lebih aman
+          {"pesananId": 42, ...}     <- hati-hati
+
+        Dan pesan dari antrean tetap harus DIVALIDASI dan
+        DIOTORISASI. "Datang dari antrean kita sendiri" bukan
+        autentikasi — siapa pun yang bisa menulis ke antrean bisa
+        mengirim pesan.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KELIMA: urutan yang diasumsikan padahal tidak dijamin.
+
+          pesan A: "ubah nama menjadi Ana"
+          pesan B: "ubah nama menjadi Budi"
+
+          Dengan beberapa pekerja paralel, B bisa selesai lebih dulu.
+          Hasil akhirnya "Ana", padahal yang terakhir diminta "Budi".
+
+        Antrean umumnya TIDAK menjamin urutan lintas pesan. Bila
+        urutan menentukan:
+          - pakai antrean berpartisi dengan kunci yang sama untuk
+            entitas yang sama, atau
+          - sertakan nomor versi di pesannya dan tolak yang lebih tua
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Antrean memindahkan pekerjaan keluar dari permintaan, dan bersamanya memindahkan seluruh kelas masalah baru yang tidak ada sebelumnya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis pekerjaan yang tidak idempoten',
+            'Kan hanya dikirim sekali',
+            'Pengiriman dijamin PALING SEDIKIT sekali. Pekerja yang mati sesudah bekerja membuatnya diulang',
+          ],
+          [
+            'Memakai satu antrean untuk semua jenis pekerjaan',
+            'Lebih sederhana',
+            'Seribu ekspor 10 menit memblokir surel 200 ms selama berjam-jam. Pisahkan per jenis',
+          ],
+          [
+            'Mengulang tanpa batas dan tanpa backoff',
+            'Nanti juga berhasil',
+            'Kegagalan permanen tidak akan pernah berhasil. Pasang batas, backoff, dan dead letter',
+          ],
+          [
+            'Memasang dead letter tanpa alarm',
+            'Pesannya kan tersimpan',
+            'Tidak ada yang melihatnya. Itu sama dengan menghapus pekerjaan itu diam-diam',
+          ],
+          [
+            'Menyertakan salinan data di dalam pesan',
+            'Biar pekerja tidak perlu query lagi',
+            'Pekerja bekerja dengan data basi. Kirim ID, dan baca keadaan terbaru saat dijalankan',
+          ],
+          [
+            'Mengandalkan urutan pesan',
+            'Kan masuknya berurutan',
+            'Beberapa pekerja paralel menyelesaikannya dengan urutan berbeda. Pakai partisi atau nomor versi',
+          ],
+        ],
+      ),
+      p(
+        'Ada satu metrik yang lebih berguna daripada semua metrik antrean lainnya, dan ia sering tidak dipasang. Bukan panjang antreannya, melainkan **umur pesan tertua di dalamnya**. Panjang antrean yang besar dengan pekerja yang cepat tidak berbahaya, sementara antrean pendek yang pesan tertuanya sudah menunggu empat jam berarti ada sesuatu yang macet. Angka kedua itulah yang benar-benar mewakili pengalaman orang yang menunggu hasilnya.',
+      ),
       references(
         {
           label: 'BullMQ: Retrying failing jobs',
@@ -2438,7 +3918,7 @@ export const lessons: LessonDraft[] = [
   written(
     'consistent-hashing',
     'Consistent Hashing',
-    12,
+    19,
     'Cara membagi kunci ke banyak simpul tanpa mengacak semuanya saat jumlah simpulnya berubah.',
     [
       p(
@@ -2733,6 +4213,232 @@ export const lessons: LessonDraft[] = [
         'Teknik ini juga menjadi pijakan langsung untuk Bab 3, karena pemilihan shard pada database memakai pertanyaan yang persis sama, hanya dengan taruhan yang jauh lebih besar. Memindahkan isi cache berarti beberapa menit dengan hit ratio rendah, sedangkan memindahkan isi database berarti memindahkan data sungguhan yang harus tetap benar sepanjang perpindahannya.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Consistent hashing menyelesaikan satu masalah yang sangat spesifik, yaitu apa yang terjadi pada pemetaan kunci ke server ketika jumlah servernya berubah. Selisihnya bisa diukur, dan angkanya tajam.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan Node 26.5.0, 100.000 kunci,
+        dari 4 server menjadi 5:
+
+          modulo sederhana              : 80.229 kunci pindah (80,2%)
+          consistent hashing,   1 vnode :  2.861 kunci pindah ( 2,9%)
+          consistent hashing,  50 vnode : 20.015 kunci pindah (20,0%)
+          consistent hashing, 200 vnode : 16.769 kunci pindah (16,8%)
+
+          ideal secara teori            : 20.000 kunci pindah (20,0%)
+        `,
+        {
+          caption:
+            'Delapan puluh persen melawan sekitar dua puluh persen. Untuk cache, itu selisih antara pulih cepat dan pemadaman.',
+        },
+      ),
+      p(
+        'Kenapa modulo seburuk itu bisa dilihat dari rumusnya. `hash(kunci) % 4` dan `hash(kunci) % 5` adalah dua pemetaan yang sama sekali tidak berhubungan, sehingga hampir semua kunci mendarat di tempat berbeda.',
+      ),
+      code(
+        'text',
+        `
+        Dan saat satu server MATI, diukur sungguhan:
+
+          consistent hashing, 200 vnode : 20.259 kunci (20,3%)
+          modulo sederhana              : 80.229 kunci (80,2%)
+
+        Dengan consistent hashing, kunci yang terdampak hanyalah
+        yang memang milik server yang mati. Kunci di server lain
+        tidak bergerak sama sekali.
+        `,
+      ),
+      p(
+        'Sekarang bagian yang melawan dugaan. Consistent hashing **tidak** lebih baik dalam segala hal, dan sebarannya justru lebih buruk.',
+      ),
+      code(
+        'text',
+        `
+        Diukur, seberapa RATA sebaran 100.000 kunci ke 4 server:
+
+          modulo sederhana              : min 24.893  maks 25.122  simpangan  0,9%
+          consistent hashing,   1 vnode : min 17.111  maks 29.553  simpangan 49,8%
+          consistent hashing,  50 vnode : min 22.523  maks 27.036  simpangan 18,1%
+          consistent hashing, 200 vnode : min 23.889  maks 25.846  simpangan  7,8%
+
+        Modulo memberi sebaran yang HAMPIR SEMPURNA. Consistent
+        hashing dengan satu titik per server memberi sebaran yang
+        kacau: satu server menerima 73% lebih banyak daripada yang
+        paling sedikit.
+        `,
+        {
+          caption:
+            'Inilah seluruh alasan simpul virtual ada: membeli kembali kerataan yang hilang.',
+        },
+      ),
+      p(
+        'Jadi pertukarannya bisa dinyatakan dengan tepat. Modulo membeli sebaran yang rata dengan harga redistribusi besar-besaran saat jumlah server berubah, dan consistent hashing membeli kestabilan dengan harga sebaran yang kurang rata, yang lalu diperbaiki dengan menambah simpul virtual.',
+      ),
+      code(
+        'ts',
+        `
+        // Cincin dibangun sekali; pencarian memakai pencarian biner.
+        function buatCincin(simpul: string[], virtualPerSimpul: number) {
+          const cincin: { posisi: number; simpul: string }[] = [];
+          for (const s of simpul) {
+            for (let v = 0; v < virtualPerSimpul; v++) {
+              cincin.push({ posisi: hash32(\`\${s}#\${v}\`), simpul: s });
+            }
+          }
+          cincin.sort((a, b) => a.posisi - b.posisi);
+          return cincin;
+        }
+
+        function cari(cincin: { posisi: number; simpul: string }[], kunci: string) {
+          const h = hash32(kunci);
+          if (h > cincin[cincin.length - 1].posisi) return cincin[0].simpul;  // melingkar
+          let lo = 0, hi = cincin.length - 1;
+          while (lo < hi) {
+            const m = (lo + hi) >> 1;
+            if (cincin[m].posisi < h) lo = m + 1;
+            else hi = m;
+          }
+          return cincin[lo].simpul;
+        }
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan pada consistent hashing tidak berupa error melainkan berupa perilaku yang tidak seperti dijanjikan, dan penyebabnya biasanya satu dari beberapa hal.',
+      ),
+      code(
+        'text',
+        `
+        1. Simpul virtualnya terlalu sedikit
+
+           Diukur: dengan 1 vnode, simpangannya 49,8%. Satu server
+           menerima hampir dua kali lipat yang lain, dan ia yang akan
+           tumbang lebih dulu.
+
+           Angka yang lazim: 100 sampai 200 vnode per server. Diukur
+           di sini, 200 vnode memberi simpangan 7,8%.
+
+        2. Fungsi hash-nya tidak menyebar rata
+
+           Memakai hash sederhana seperti menjumlahkan kode karakter
+           membuat kunci yang mirip mendarat berdekatan, dan cincinnya
+           menggumpal.
+
+        3. Daftar simpulnya BERBEDA antar klien
+
+           Klien A tahu ada 5 server, klien B masih tahu 4.
+           Keduanya menghitung cincin yang berbeda, dan menaruh kunci
+           yang sama di tempat yang berbeda.
+
+           Gejalanya: cache miss yang tidak masuk akal, dan data yang
+           "hilang lalu muncul lagi".
+
+        4. Urutan penambahan simpul mengubah hasilnya
+
+           Bila posisi vnode dihitung dari INDEKS simpul dan bukan
+           dari NAMANYA, menambah server di tengah daftar menggeser
+           semuanya. Pakai nama simpul sebagai masukan hash.
+        `,
+      ),
+      p(
+        'Masalah ketiga pantas ditegaskan karena ia yang paling sering terjadi di sistem sungguhan.',
+      ),
+      code(
+        'text',
+        `
+        Saat sebuah simpul ditambahkan, tidak semua klien
+        mengetahuinya pada detik yang sama.
+
+          detik 0  : simpul baru menyala
+          detik 0-30: sebagian klien memakai cincin LAMA,
+                      sebagian memakai cincin BARU
+
+        Selama jendela itu, kunci yang sama bisa ditulis ke satu
+        simpul dan dibaca dari simpul lain.
+
+        Untuk CACHE, itu berarti cache miss sementara — tidak fatal.
+        Untuk PENYIMPANAN, itu berarti data yang tidak ditemukan,
+        dan itu fatal.
+
+        Karena itu consistent hashing di sisi klien cocok untuk
+        cache, dan penyimpanan sungguhan memerlukan lapisan yang
+        menyepakati keanggotaan simpul secara terkoordinasi.
+        `,
+        {
+          caption:
+            'Selisih antara "boleh meleset sebentar" dan "tidak boleh meleset" menentukan di mana teknik ini boleh dipakai.',
+        },
+      ),
+      code(
+        'text',
+        `
+        DAN SATU LAGI: consistent hashing TIDAK menyelesaikan hotspot.
+
+        Diukur sungguhan, sebaran 100.000 baris ke 4 shard:
+
+          shard key = kode negara (70% pengguna dari ID):
+            shard 0: 70.000 baris
+            shard 1: 10.000
+            shard 2: 10.000
+            shard 3: 10.000
+
+          shard key = id pengguna:
+            shard 0: 24.946   shard 1: 24.893
+            shard 2: 25.122   shard 3: 25.039
+
+        Bila satu KUNCI jauh lebih sering diakses daripada yang lain,
+        tidak ada cara membagi hash yang menolongnya. Yang menolong
+        adalah mengubah kuncinya, atau menyalin data panas itu ke
+        beberapa tempat.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Consistent hashing sering disebut sebagai jawaban umum untuk distribusi, padahal ia menjawab satu pertanyaan yang sangat sempit.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai modulo untuk memetakan kunci ke server',
+            'Sederhana dan sebarannya rata',
+            'Diukur, 80,2% kunci pindah saat satu server ditambah. Untuk cache itu berarti pemadaman',
+          ],
+          [
+            'Memakai consistent hashing tanpa simpul virtual',
+            'Kan sudah konsisten',
+            'Diukur, simpangannya 49,8%. Satu server menerima hampir dua kali lipat yang lain',
+          ],
+          [
+            'Menganggap consistent hashing selalu lebih baik',
+            'Namanya saja konsisten',
+            'Diukur, sebarannya lebih buruk daripada modulo. Yang ia beli adalah kestabilan, bukan kerataan',
+          ],
+          [
+            'Menghitung posisi vnode dari indeks simpul',
+            'Sama saja dengan namanya',
+            'Menambah simpul di tengah daftar menggeser semuanya. Pakai NAMA simpul sebagai masukan hash',
+          ],
+          [
+            'Memakainya untuk penyimpanan tanpa koordinasi keanggotaan',
+            'Kan pemetaannya stabil',
+            'Klien yang daftar simpulnya berbeda menaruh kunci di tempat berbeda. Untuk cache itu miss, untuk penyimpanan itu data hilang',
+          ],
+          [
+            'Berharap ia menyelesaikan hotspot',
+            'Kan membagi beban',
+            'Diukur, kunci yang sangat panas tetap mendarat di satu simpul. Ubah kuncinya, atau salin datanya',
+          ],
+        ],
+      ),
+      p(
+        'Angka yang paling pantas diingat dari sub-bab ini adalah pasangan 80,2% dan 7,8%. Yang pertama adalah berapa banyak kunci yang berpindah bila kamu memakai modulo, dan yang kedua adalah seberapa tidak rata sebaran consistent hashing dengan dua ratus simpul virtual. Keduanya bukan angka yang satu lebih baik dari yang lain, melainkan dua harga yang berbeda, dan yang menentukan pilihannya adalah apakah jumlah servermu akan berubah.',
+      ),
       references(
         {
           label: 'Redis: Cluster specification',

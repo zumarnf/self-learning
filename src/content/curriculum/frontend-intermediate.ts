@@ -29,7 +29,31 @@ const tailwind = defineChapter({
   // di sub-bab `dark-mode` untuk menjelaskan sintaks `@custom-variant dark`.
   // 2026-08-05: pass ketiga (sisir seluruh bab) — 6 paragraf tambahan: state dasar,
   // named group, variant lainnya, skrip pra-paint, skip-link, target sentuh.
-  reviewedAt: '2026-08-05',
+  //
+  // 2026-09-07: revisi studi kasus, error, dan kesalahan umum
+  // (plans/revisi-studi-kasus-error-kesalahan/) — ketiga bagian berjudul tetap ditambahkan
+  // di seluruh 12 sub-bab.
+  //
+  // Tailwind 4.3.3 TERPASANG di project ini, jadi setiap keluaran CSS dan setiap pesan error
+  // dihasilkan sungguhan lewat @tailwindcss/postcss, dan setiap angka geometri/warna diukur di
+  // Chrome for Testing 151 (dari cache Playwright) lewat protokol DevTools. Yang diambil dari
+  // keluaran asli, antara lain:
+  //   - `Cannot apply unknown utility class` (salah ketik, dan CSS Module tanpa `@reference`)
+  //   - "`@theme` blocks must only contain custom properties or `@keyframes`"
+  //   - "`@custom-variant gelap` has no selector or body"
+  //   - "Can't resolve './tailwind.config.js'"
+  // Empat kegagalan SENYAP juga diukur, sebab justru itu yang paling sering ditemui:
+  //   - sintaks v3 `@tailwind base/components/utilities` di v4 -> build LOLOS, tapi keluaran
+  //     turun dari 51.240 ke 20.086 byte, preflight hilang, dan seluruh utility bertema hilang
+  //   - CSS tak berlayer mengalahkan seluruh utility (`.kartu` 8px menang atas `p-6` 24px)
+  //   - `@theme` biasa vs `@theme inline` pada pulau `.dark` bersarang (143,83,20 vs 229,161,60)
+  //   - drawer tertutup ber-`opacity-0` masih menyerap tiga tekanan Tab; `inert` memperbaikinya
+  //
+  // Yang TIDAK dijalankan dan dinyatakan begitu di materinya: contoh `cva`, `tailwind-merge`,
+  // dan `clsx`. Ketiganya tidak terpasang, dan Dependency Version Gate (core.md) melarang
+  // menambah dependency tanpa persetujuan user. Masalah yang mendasarinya diukur sebagai
+  // gantinya, yaitu urutan aturan CSS yang mengalahkan urutan class di markup.
+  reviewedAt: '2026-09-07',
   lessons: lessonsTailwind,
   quiz: [
     q(
@@ -90,7 +114,11 @@ const reactFundamental = defineChapter({
   // 2026-08-05: pass ketiga (sisir seluruh bab) — 13 paragraf tambahan: props dasar,
   // data-turun-perubahan-naik, sisa props, kondisional, skeleton, key (×2), CSS Module,
   // class kondisional, slot, komponen-di-dalam-komponen, posisi/identitas, memoization manual.
-  reviewedAt: '2026-08-05',
+  // 2026-09-06: revisi studi kasus, error, dan kesalahan umum
+  // (plans/revisi-studi-kasus-error-kesalahan/) — ketiga bagian berjudul tetap ditambahkan
+  // di seluruh 11 sub-bab. Peringatan dan error React diuji lewat renderToStaticMarkup
+  // pada React 19 sungguhan, dan error tipe lewat tsc dengan tipe React asli.
+  reviewedAt: '2026-09-06',
   lessons: lessonsReactFundamental,
   quiz: [
     q(
@@ -152,7 +180,13 @@ const komponenReact = defineChapter({
   // langsung ke sub-bagian berikutnya tanpa penjelasan.
   // 2026-08-05: pass ketiga (sisir seluruh bab) — 1 paragraf tambahan: "Fokus ke error
   // pertama" di `studi-field`.
-  reviewedAt: '2026-08-05',
+  // 2026-09-06: revisi studi kasus, error, dan kesalahan umum
+  // (plans/revisi-studi-kasus-error-kesalahan/) — ketiga bagian berjudul tetap ditambahkan
+  // di seluruh 11 sub-bab. Perilaku aksesibilitas diukur di Chromium sungguhan: <dialog>
+  // showModal menjebak fokus dan mengembalikannya sendiri, div bertabIndex -1 tidak bisa
+  // difokus, dan tombol berisi SVG saja tidak punya nama aksesibel. Error tipe diambil
+  // dari tsc 5.9.3 dengan tipe React 19, termasuk hilangnya namespace global JSX.
+  reviewedAt: '2026-09-06',
   lessons: lessonsKomponen,
   quiz: [
     q(
@@ -210,7 +244,12 @@ const stateEvent = defineChapter({
   // 2026-08-05: pass kedua (lebih ketat) — 3 paragraf tambahan: walkthrough early-return
   // `DaftarTugas`, alasan dua Context terpisah, dan penjelasan render keempat keadaan
   // di praktik akhir bab.
-  reviewedAt: '2026-08-05',
+  // 2026-09-06: revisi studi kasus, error, dan kesalahan umum
+  // (plans/revisi-studi-kasus-error-kesalahan/) — ketiga bagian berjudul tetap ditambahkan
+  // di seluruh 12 sub-bab. Perilaku snapshot, batching, dan updater diukur dengan React 19
+  // sungguhan lewat vitest dan jsdom: setN(n+1) tiga kali menghasilkan 1, bentuk updater
+  // menghasilkan 4, dan dua setState dalam satu penangan menghasilkan satu render.
+  reviewedAt: '2026-09-06',
   lessons: lessonsState,
   quiz: [
     q(
@@ -278,7 +317,22 @@ const stateManagement = defineChapter({
   // 2026-08-05: revisi kedalaman narasi (plans/revisi-kedalaman-narasi/) — seluruh sub-bab
   // diperiksa; sudah memenuhi standar tanpa perlu tambahan paragraf.
   // 2026-08-05: pass kedua (lebih ketat) — diperiksa ulang; tidak ditemukan gap tambahan.
-  reviewedAt: '2026-08-05',
+  // 2026-09-06: revisi studi kasus, error, dan kesalahan umum
+  // (plans/revisi-studi-kasus-error-kesalahan/) — ketiga bagian berjudul tetap ditambahkan
+  // di seluruh 11 sub-bab.
+  //
+  // CATATAN KEJUJURAN. Zustand, Redux Toolkit, Jotai, dan TanStack Query TIDAK terpasang
+  // di project ini, dan Dependency Version Gate di core.md melarang menambah dependency
+  // tanpa persetujuan user. Karena itu kode contoh keempat pustaka ditulis mengikuti
+  // dokumentasi resminya dan TIDAK dieksekusi. Setiap sub-bab pustaka menyatakan itu
+  // secara eksplisit di callout penutupnya.
+  //
+  // Yang DIUKUR sungguhan adalah perilaku React yang mendasari seluruhnya, dijalankan
+  // lewat vitest + jsdom dengan React 19: Context menggambar ulang SELURUH pembacanya
+  // (ctx-A dan ctx-B) saat satu nilai berubah, sedangkan store berbasis selektor lewat
+  // useSyncExternalStore hanya menggambar ulang pembaca yang relevan (store-A saja).
+  // Jebakan hidrasi juga diuji: localStorage dan window tidak ada di server.
+  reviewedAt: '2026-09-06',
   lessons: lessonsStateManagement,
   quiz: [
     q(
@@ -336,7 +390,13 @@ const jenisKomponen = defineChapter({
   // 2026-08-05: pass kedua (lebih ketat) — 4 paragraf tambahan: implementasi
   // `Accordion.Item/Trigger/Content` + Context kedua, `withAuth` (HOC), `useUkuranJendela`,
   // dan `createPortal` + pola SSR di `portal-layering`.
-  reviewedAt: '2026-08-05',
+  // 2026-09-06: revisi studi kasus, error, dan kesalahan umum
+  // (plans/revisi-studi-kasus-error-kesalahan/) — ketiga bagian berjudul tetap ditambahkan
+  // di seluruh 12 sub-bab. Batas error boundary diukur dengan React 19 di jsdom: ia
+  // menangkap error saat render (componentDidCatch jalan) dan TIDAK menangkap error dari
+  // penangan peristiwa. Peringatan 'Functions are not valid as a React child' dan error
+  // tipe komponen polimorfik diambil dari keluaran sungguhan.
+  reviewedAt: '2026-09-06',
   lessons: lessonsJenisKomponen,
   quiz: [
     q(
@@ -393,7 +453,14 @@ const hooks = defineChapter({
   // diperiksa; sudah memenuhi standar tanpa perlu tambahan paragraf.
   // 2026-08-05: pass kedua (lebih ketat) — 1 paragraf tambahan: walkthrough studi kasus
   // `Tooltip` di sub-bab `useLayoutEffect`.
-  reviewedAt: '2026-08-05',
+  // 2026-09-06: revisi studi kasus, error, dan kesalahan umum
+  // (plans/revisi-studi-kasus-error-kesalahan/) — ketiga bagian berjudul tetap ditambahkan
+  // di seluruh 15 sub-bab. Perilaku hook diukur dengan React 19 di jsdom: urutan
+  // render → useLayoutEffect → useEffect, cleanup berjalan SEBELUM efek berikutnya, ref
+  // tidak memicu render, dan useMemo dengan dependensi objek literal dihitung 3x untuk
+  // 3 render. Pesan lint diambil dari konfigurasi ESLint project ini sendiri, termasuk
+  // aturan React Compiler 'Calling setState synchronously within an effect'.
+  reviewedAt: '2026-09-06',
   lessons: lessonsReactHooks,
   quiz: [
     q(
@@ -463,7 +530,23 @@ const nextjs = defineChapter({
   // 2026-08-05: pass kedua (lebih ketat) — 4 paragraf tambahan: implementasi Route Handler
   // GET/POST, `ImageResponse` untuk gambar OG, pasangan `notFound()`/`not-found.tsx`, dan
   // fungsi `ambilSesi` yang dibungkus `cache()`.
-  reviewedAt: '2026-08-05',
+  // 2026-09-07: revisi studi kasus, error, dan kesalahan umum
+  // (plans/revisi-studi-kasus-error-kesalahan/) — ketiga bagian berjudul tetap ditambahkan
+  // di seluruh 16 sub-bab.
+  //
+  // Next.js 16.2.12 TERPASANG di project ini, jadi errornya dijalankan sungguhan lewat
+  // app percobaan sementara di dalam project (dihapus setelah selesai; symlink
+  // node_modules tidak bisa dipakai sebab Turbopack menolaknya). Lima pesan diambil dari
+  // keluaran asli:
+  //   - build: "importing a module that depends on `useState` into a React Server
+  //     Component module"
+  //   - build: "attempting to export metadata from a component marked with use client"
+  //   - build: "Server Actions must be async functions"
+  //   - build: "importing a module that depends on server-only" (pesannya salah sebut
+  //     Pages Router di versi ini; dicatat apa adanya di materi)
+  //   - RUNTIME, HTTP 500: "Event handlers cannot be passed to Client Component props"
+  //     — build LOLOS untuk kasus ini, dan materi menyatakan bedanya secara eksplisit.
+  reviewedAt: '2026-09-07',
   lessons: lessonsNextjs,
   quiz: [
     q(

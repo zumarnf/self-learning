@@ -28,7 +28,7 @@ export const lessons: LessonDraft[] = [
   written(
     'kontrak-tipe-bersama',
     'Kontrak API & Tipe Bersama',
-    12,
+    18,
     'Membuat perubahan backend menjadi error type-check di frontend.',
     [
       p(
@@ -274,6 +274,201 @@ export const lessons: LessonDraft[] = [
         'ID besar yang dikirim sebagai angka rusak diam-diam',
         '`JSON.parse(\'{"id":9007199254740993}\')` menghasilkan `9007199254740992` — tanpa error, tanpa peringatan. Kalau ID-mu bisa melewati 2^53 (`BIGINT` di Postgres bisa), kirim sebagai **string** sejak awal. Menggantinya setelah ada klien adalah perubahan yang memutus.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Kontrak antara frontend dan backend selalu ada, dan pertanyaannya hanya **apakah ia ditulis atau dibiarkan menjadi asumsi**. Yang dibiarkan menjadi asumsi tetap bekerja sampai satu sisi berubah, lalu gagal di sisi lain tanpa satu pun tanda di tempat perubahannya dibuat.',
+      ),
+      p(
+        'Godaan pertama adalah membagikan tipe TypeScript antara kedua sisi, dan itu memang membantu. Yang perlu diketahui adalah **sampai mana bantuannya berlaku**.',
+      ),
+      code(
+        'ts',
+        `
+        // Tipe ini adalah JANJI, bukan pemeriksaan.
+        const data = await res.json() as Artikel;
+        //                              ^^^^^^^^^
+        // Tidak ada satu baris kode pun yang memeriksa apakah benar begitu.
+        // Bila API-nya mengganti nama field, kodenya tetap dikompilasi
+        // dan melempar saat dijalankan.
+        `,
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan tsc 5.9.3 dan Node 26.5.0:
+
+          interface Pengguna { id; email; sandiHash; catatanInternal }
+          type ResponsPublik = Pick<Pengguna, 'id' | 'email'>;
+
+          const a: ResponsPublik = dariDb;      <- tsc MENERIMA ini, tanpa error
+
+          Saat dijalankan:
+            JSON.stringify(a) : {"id":1,"email":"a@b.id",
+                                 "sandiHash":"$2b$rahasia",
+                                 "catatanInternal":"skor risiko 87"}
+        `,
+        {
+          caption:
+            'Tipe hanya ada saat kompilasi. Ia tidak pernah menjadi pemeriksaan saat dijalankan.',
+        },
+      ),
+      p(
+        'Jadi tipe bersama menutup satu kelas kesalahan, yaitu salah ketik nama field di dalam kodemu sendiri, dan **tidak menutup sama sekali** kelas kesalahan yang lebih sering, yaitu bentuk data yang tiba berbeda dari yang dijanjikan.',
+      ),
+      p(
+        'Yang menutup kelas kedua adalah skema yang berjalan saat runtime, dan bentuknya sudah diukur di bab Express.',
+      ),
+      code(
+        'ts',
+        `
+        // Satu skema, dipakai KEDUA sisi — dan ia memeriksa, bukan menjanjikan.
+        export const Artikel = z.object({
+          id: z.number().int().positive(),
+          slug: z.string().min(1),
+          judul: z.string().min(1).max(200),
+          status: z.enum(['draf', 'terbit', 'arsip']),
+          terbitPada: z.string().datetime().nullable(),
+        });
+        export type Artikel = z.infer<typeof Artikel>;   // tipe DIHASILKAN dari skema
+
+        // Di backend: memvalidasi apa yang MASUK.
+        const data = Artikel.omit({ id: true }).parse(req.body);
+
+        // Di frontend: memvalidasi apa yang TIBA.
+        const artikel = Artikel.parse(await res.json());
+        `,
+        {
+          caption: 'Tipe dihasilkan dari skema, jadi keduanya mustahil menyimpang satu sama lain.',
+        },
+      ),
+      p(
+        'Yang dibeli terlihat ketika API-nya berubah. Dengan `as`, perubahan nama field muncul sebagai `TypeError` di kedalaman komponen, jauh dari penyebabnya. Dengan skema, ia muncul sebagai kegagalan validasi yang menyebutkan **field mana** yang tidak cocok.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan zod 4.4.3, satu badan yang salah di tujuh tempat:
+
+          ["email"]              Invalid email address
+          ["alamat","jalan"]     Too small: expected string to have >=1 characters
+          ["alamat","kodePos"]   Kode pos harus 5 digit
+          ["item",0,"produkId"]  Too small: expected number to be >0
+          ["item",0,"jumlah"]    Too small: expected number to be >=1
+          ["item",1,"jumlah"]    Too big: expected number to be <=99
+          ["setuju"]             Syarat dan ketentuan wajib disetujui
+        `,
+        {
+          caption:
+            'Path-nya memuat indeks array, jadi antarmuka bisa menyorot item pertama dan kedua terpisah.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan kontrak tidak menghasilkan error di tempat perubahannya dibuat. Ia menghasilkan error di sisi lain, seringkali berhari-hari kemudian.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan Node 26.5.0, lima perubahan di sisi server:
+
+          menambah field baru                    AMAN
+          menambah nilai enum baru               AMAN*
+          mengganti nama field judul -> nama     MEMUTUS
+             TypeError: Cannot read properties of undefined (reading 'toUpperCase')
+          mengubah tipe id angka -> string       AMAN*
+          menghapus field judul                  MEMUTUS
+             TypeError: Cannot read properties of undefined (reading 'toUpperCase')
+        `,
+        { caption: 'Dua baris bertanda * perlu dibaca hati-hati; penjelasannya di bawah.' },
+      ),
+      p(
+        'Baris "menambah nilai enum baru" tercatat aman hanya untuk klien uji itu, sebab ia sekadar meneruskan nilainya. Klien yang memetakan nilai ke label berperilaku sebaliknya.',
+      ),
+      code(
+        'text',
+        `
+        Dua klien, satu payload dengan status BARU "menunggu_verifikasi":
+
+          klien ketat  -> Status tidak dikenal: menunggu_verifikasi   (melempar)
+          klien tahan  -> Status lain (menunggu_verifikasi)           (tetap jalan)
+
+        Bedanya satu baris:
+          ketat : const l = label[p.status]; if (!l) throw ...
+          tahan : return label[p.status] ?? 'Status lain (' + p.status + ')'
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Skema yang memakai z.enum berperilaku seperti klien KETAT.',
+        },
+      ),
+      p(
+        'Catatan pada baris terakhir itu penting dan sering mengejutkan. Skema yang mendaftar nilai enum secara tertutup akan **menolak** nilai baru dari server, jadi menambahkan nilai enum menjadi perubahan yang memutus. Bila daftar nilainya memang bisa bertambah, skemanya harus menyatakan itu, misalnya dengan menerima string apa pun lalu menangani nilai tak dikenal secara sadar.',
+      ),
+      p(
+        'Baris "mengubah tipe id" juga perlu dibaca dengan jujur. Ia tercatat aman karena klien ujinya terlalu sederhana, yaitu hanya meneruskan id tanpa melakukan apa pun terhadapnya. Klien sungguhan yang membandingkan `id === 42` atau memakainya sebagai kunci angka akan rusak seketika. Inilah alasan "tidak memutus klien uji saya" bukan bukti bahwa sebuah perubahan aman.',
+      ),
+      p(
+        'Kegagalan ketiga menyangkut bentuk data yang **tidak bisa diwakili JSON**, dan sudah diukur di bab Fondasi.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan Node 26.5.0:
+
+          { umur: undefined }           -> kuncinya HILANG seluruhnya
+          { dibuat: new Date(...) }     -> menjadi STRING, bukan Date
+          { tag: new Set(['a','b']) }   -> menjadi {} — isinya musnah
+          { id: 9007199254740993 }      -> menjadi 9007199254740992
+
+        Jadi kontrak harus menyebutkan BENTUK KIRIM, bukan bentuk objek
+        di memori. Tanggal dikirim sebagai string ISO, id besar sebagai string,
+        dan himpunan sebagai array.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kontrak bersama adalah bagian yang paling mudah dianggap sudah beres karena tipenya sudah dibagikan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `as` pada hasil `res.json()`',
+            'Sudah diberi tipe',
+            'Diuji sungguhan, `as` adalah janji bukan pemeriksaan. Bentuk yang berbeda tetap lolos kompilasi',
+          ],
+          [
+            'Mengandalkan tipe bersama sebagai kontrak',
+            'Kedua sisi memakai tipe yang sama',
+            'Tipe hilang saat dijalankan. Yang memeriksa hanyalah skema runtime',
+          ],
+          [
+            'Menulis tipe dan skema secara terpisah',
+            'Keduanya sudah ada',
+            'Keduanya menyimpang pada perubahan pertama. Hasilkan tipe DARI skema',
+          ],
+          [
+            'Memakai enum tertutup untuk nilai yang bisa bertambah',
+            'Nilainya sekarang cuma empat',
+            'Diuji sungguhan, menambah satu nilai memutus klien yang memetakan ketat',
+          ],
+          [
+            'Mengirim `Date` dan mengharapkan `Date` di sisi lain',
+            'Tipenya kan sudah benar',
+            'Diuji sungguhan, JSON mengubahnya menjadi string. Kontrak menyebut bentuk KIRIM',
+          ],
+          [
+            'Menyimpulkan perubahan aman karena klien uji sendiri tidak rusak',
+            'Sudah diuji',
+            'Diuji sungguhan, perubahan tipe id lolos pada klien sederhana dan merusak klien yang berhitung',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir pantas ditegaskan karena ia bentuk kesalahan penalaran yang berlaku jauh melampaui kontrak API. Pengujian membuktikan sebuah perubahan **tidak merusak hal yang diuji**, dan tidak pernah membuktikan bahwa ia aman bagi hal yang tidak diuji. Untuk kontrak yang dipakai sisi lain, sikap yang aman adalah menganggap setiap perubahan bentuk sebagai memutus, kecuali ada alasan yang bisa dijelaskan mengapa ia tidak.',
+      ),
       references(
         {
           label: 'OpenAPI Specification 3.1',
@@ -306,7 +501,7 @@ export const lessons: LessonDraft[] = [
   written(
     'cors-praktik',
     'CORS dalam Praktik',
-    11,
+    18,
     'Memahami errornya, bukan sekadar membuatnya hilang.',
     [
       p(
@@ -539,6 +734,217 @@ export const lessons: LessonDraft[] = [
       p(
         'Perintah kedua adalah uji yang **harus gagal**. Origin `https://jahat.com` tidak ada di allow-list, jadi keluaran `grep` seharusnya **kosong** — tidak ada header `Access-Control-Allow-Origin` sama sekali. Kalau yang muncul justru `Access-Control-Allow-Origin: https://jahat.com`, servermu memantulkan origin apa pun kembali, dan itu sama saja dengan tidak punya kebijakan CORS. Ini kesalahan nomor satu dari daftar tiga di atas, dan satu-satunya cara memastikannya adalah mencobanya.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'CORS adalah bagian integrasi yang paling sering disalahpahami, dan salah pahamnya berbentuk dua arah. Sebagian mengira ia melindungi API, sebagian lagi mengira ia penghalang yang harus dimatikan. Cara tercepat memahaminya adalah melihat apa yang benar-benar dilakukan peramban.',
+      ),
+      code(
+        'text',
+        `
+        Halaman di http://127.0.0.1:3961 memanggil API di http://127.0.0.1:3960
+        — asal BERBEDA, sebab port berbeda sudah cukup. Lima percobaan:
+
+          asal diizinkan             -> BERHASIL, status 200, badan terbaca
+          tanpa header CORS          -> DIBLOKIR: TypeError (Failed to fetch)
+          Allow-Origin: *            -> BERHASIL, status 200, badan terbaca
+          * + credentials            -> DIBLOKIR: TypeError (Failed to fetch)
+          POST + Content-Type json   -> BERHASIL, status 200, badan terbaca
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan: server node:http pada Node 26.5.0, dibaca Chrome for Testing 149.',
+        },
+      ),
+      p(
+        'Baris kedua menjelaskan sifat yang paling sering salah ditangkap. Permintaannya **sampai ke server dan dijawab 200**, dan yang memblokirnya adalah peramban, yang menolak menyerahkan badan responsnya ke JavaScript pemanggil. Servernya sudah mengerjakan segalanya.',
+      ),
+      code(
+        'text',
+        `
+        Akibat langsung dari sifat itu:
+
+          CORS TIDAK melindungi API dari:
+            - curl, Postman, skrip Python, atau server lain
+            - permintaan yang sudah TERLANJUR dikerjakan server
+
+          CORS HANYA mengatur:
+            - apakah JavaScript di halaman asal lain boleh MEMBACA jawabannya
+
+        Endpoint tanpa autentikasi tetap terbuka lebar meski CORS-nya ketat.
+        Yang melindungi API adalah autentikasi dan otorisasi, bukan CORS.
+        `,
+      ),
+      p(
+        'Baris keempat memuat aturan yang ditegakkan peramban dan tidak bisa dilewati, yaitu `Access-Control-Allow-Origin: *` **tidak boleh** dipakai bersama kredensial. Alasannya masuk akal: bintang berarti "siapa pun boleh membaca", dan mengizinkan siapa pun membaca respons yang dibuat memakai cookie pengguna berarti membuka data setiap pengguna kepada situs mana pun.',
+      ),
+      p(
+        'Baris kelima memicu sesuatu yang sering tidak disadari, yaitu **permintaan pendahuluan**.',
+      ),
+      code(
+        'text',
+        `
+        Permintaan SEDERHANA — tanpa pendahuluan:
+          GET / HEAD / POST
+          DAN Content-Type hanya: text/plain, multipart/form-data,
+              atau application/x-www-form-urlencoded
+          DAN tanpa header khusus
+
+        Permintaan yang MEMICU pendahuluan (OPTIONS lebih dulu):
+          - method PUT, PATCH, DELETE
+          - Content-Type: application/json      <- hampir semua API
+          - header Authorization
+          - header khusus seperti X-Request-Id
+
+        Jadi hampir SETIAP permintaan API modern memicu pendahuluan.
+        Artinya: DUA perjalanan jaringan untuk satu permintaan,
+        kecuali hasilnya di-cache lewat Access-Control-Max-Age.
+        `,
+      ),
+      code(
+        'ts',
+        `
+        // Bentuk yang benar untuk API yang dipanggil dari asal lain.
+        const ASAL_DIIZINKAN = new Set(['https://app.toko.id', 'https://admin.toko.id']);
+
+        app.use((req, res, next) => {
+          const asal = req.headers.origin;
+
+          // Bandingkan PERSIS terhadap daftar. Jangan pernah memantulkan
+          // kembali asal yang dikirim klien tanpa memeriksanya.
+          if (asal && ASAL_DIIZINKAN.has(asal)) {
+            res.setHeader('Access-Control-Allow-Origin', asal);
+            res.setHeader('Access-Control-Allow-Credentials', 'true');
+            // WAJIB: tanpa ini, cache bisa menyajikan respons untuk asal yang salah.
+            res.setHeader('Vary', 'Origin');
+          }
+
+          if (req.method === 'OPTIONS') {
+            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+            // Menyimpan hasil pendahuluan, supaya tidak diulang tiap permintaan.
+            res.setHeader('Access-Control-Max-Age', '600');
+            return res.status(204).end();
+          }
+          next();
+        });
+        `,
+        {
+          caption:
+            'Header Vary: Origin itu yang paling sering lupa, dan akibatnya kebocoran antar-asal lewat cache.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan CORS punya satu ciri yang membuatnya melelahkan, yaitu **pesan errornya nyaris tidak memuat keterangan apa pun**.',
+      ),
+      code(
+        'text',
+        `
+        Yang dilihat kode pemanggil, diukur sungguhan:
+
+          TypeError: Failed to fetch
+
+        Itu saja. Tidak ada status code, tidak ada nama header yang kurang,
+        dan tidak ada beda antara "server mati", "CORS ditolak", dan
+        "sertifikat tidak sah".
+
+        Keterangan yang sebenarnya HANYA ada di konsol peramban:
+          Access to fetch at '...' from origin '...' has been blocked by CORS
+          policy: No 'Access-Control-Allow-Origin' header is present.
+        `,
+      ),
+      p(
+        'Karena itu langkah pertama menelusuri kegagalan CORS bukan membaca kode melainkan **membuka konsol peramban**, lalu memanggil endpoint yang sama dengan `curl`. Bila `curl` berhasil sementara peramban gagal, penyebabnya berada di lapisan yang hanya dimiliki peramban.',
+      ),
+      p(
+        'Kegagalan kedua adalah reaksi paling umum terhadap kegagalan pertama, dan ia membuka lubang yang jauh lebih besar.',
+      ),
+      code(
+        'ts',
+        `
+        // JANGAN. Ini yang paling sering ditulis untuk "menghilangkan error CORS".
+        res.setHeader('Access-Control-Allow-Origin', req.headers.origin ?? '*');
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+        // Memantulkan kembali asal yang dikirim klien berarti SETIAP situs
+        // diizinkan. Situs jahat mana pun bisa memanggil API-mu memakai
+        // cookie korban dan membaca jawabannya.
+        //
+        // Perhatikan ini LEBIH buruk daripada '*', sebab '*' setidaknya
+        // ditolak peramban ketika dipakai bersama kredensial — diuji sungguhan.
+        `,
+      ),
+      p(
+        'Kegagalan ketiga menyangkut permintaan pendahuluan yang ditolak tanpa disadari, dan gejalanya membingungkan karena permintaan aslinya tidak pernah terkirim.',
+      ),
+      code(
+        'text',
+        `
+        Gejala: "GET-nya jalan, POST-nya tidak."
+
+        Penyebab yang paling sering:
+
+          1. Route OPTIONS tidak ditangani, jatuh ke penampung 404
+             -> peramban menganggap pendahuluannya gagal, permintaan
+                aslinya TIDAK PERNAH dikirim
+
+          2. Access-Control-Allow-Headers tidak menyebut header yang dipakai
+             -> mengirim Authorization atau X-Request-Id membuat pendahuluannya
+                ditolak, meski asalnya sudah diizinkan
+
+          3. Middleware autentikasi berjalan SEBELUM penanganan CORS
+             -> OPTIONS dijawab 401, dan permintaan aslinya tidak pernah dikirim.
+                Permintaan OPTIONS TIDAK membawa kredensial, jadi ia memang
+                harus dijawab SEBELUM autentikasi.
+        `,
+      ),
+      p(
+        'Nomor tiga yang paling sering, dan perbaikannya satu baris, yaitu pasang penanganan CORS di urutan paling awal, sebelum middleware apa pun yang bisa menolak permintaan.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'CORS adalah tempat di mana cara tercepat menghilangkan error sering justru membuka lubang terbesar.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memantulkan kembali `Origin` yang dikirim klien',
+            'Errornya langsung hilang',
+            'Setiap situs jadi diizinkan. Lebih buruk daripada `*`, sebab `*` masih ditolak saat ada kredensial',
+          ],
+          [
+            'Mengira CORS melindungi API',
+            'Namanya kan keamanan',
+            'Diuji sungguhan, permintaannya sampai dan dijawab 200. Yang diblokir hanya pembacaan oleh JavaScript',
+          ],
+          [
+            'Memakai `*` bersama kredensial',
+            'Supaya semua bisa',
+            'Diuji sungguhan, peramban memblokirnya. Sebut asalnya satu per satu',
+          ],
+          [
+            'Melupakan `Vary: Origin`',
+            'Sudah memeriksa asalnya',
+            'Cache menyajikan respons untuk asal yang salah. Kebocorannya lewat lapisan yang tidak kamu tulis',
+          ],
+          [
+            'Menaruh penanganan CORS setelah middleware autentikasi',
+            'Urutannya terasa wajar',
+            'Permintaan pendahuluan dijawab 401, dan permintaan aslinya tidak pernah dikirim',
+          ],
+          [
+            'Menaruh `localhost` di daftar asal produksi',
+            'Supaya bisa diuji lokal',
+            'Situs mana pun bisa menjalankan server di `localhost` pengguna. Pisahkan daftarnya per environment',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima pantas ditegaskan karena gejalanya paling menyesatkan. Permintaan `OPTIONS` yang dikirim peramban **tidak membawa cookie maupun header `Authorization`**, jadi middleware autentikasi apa pun akan menolaknya. Yang terlihat di sisi klien bukan "401" melainkan "Failed to fetch", sebab peramban tidak pernah sampai mengirim permintaan aslinya. Memasang penanganan CORS di urutan paling awal menutupnya sepenuhnya.',
+      ),
       references(
         {
           label: 'Cross-Origin Resource Sharing (CORS)',
@@ -571,7 +977,7 @@ export const lessons: LessonDraft[] = [
   written(
     'auth-lintas-domain',
     'Autentikasi Lintas Domain: cookie vs bearer',
-    13,
+    20,
     'Keputusan arsitektur yang menentukan seluruh model keamananmu.',
     [
       p(
@@ -787,6 +1193,219 @@ export const lessons: LessonDraft[] = [
         '**Menyimpan refresh token di JavaScript** — itu menghapus seluruh keuntungan `HttpOnly`.',
         '**Menyimpulkan izin dari isi token di klien** — klien boleh menampilkan UI berdasarkan itu, tapi server tetap harus memutuskan.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Autentikasi lintas domain adalah tempat sebuah aplikasi yang berjalan sempurna di komputer sendiri berhenti bekerja pada hari pertama deploy. Penyebabnya satu, yaitu **cookie punya aturan yang berbeda ketika frontend dan backend berada di asal yang berbeda**.',
+      ),
+      code(
+        'text',
+        `
+        Halaman di http://localhost:3951 memanggil API di http://127.0.0.1:3950
+        — DUA ASAL BERBEDA, meski sama-sama menunjuk mesin ini.
+
+          masuk SameSite=Lax, credentials:include
+            -> 200  {"ok":true,"dikirim":"sesi=abc123; HttpOnly; SameSite=Lax; Path=/"}
+
+          panggil /saya, credentials:include
+            -> 401  {"cookieYangTiba":null}        <- cookie TIDAK PERNAH kembali
+
+          masuk SameSite=None TANPA Secure
+            -> 200  {"ok":true,"dikirim":"sesi=abc123; HttpOnly; SameSite=None; Path=/"}
+
+          panggil /saya lagi
+            -> 401  {"cookieYangTiba":null}        <- juga tidak kembali
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan: server node:http pada Node 26.5.0, dibaca Chrome for Testing 149.',
+        },
+      ),
+      p(
+        'Dua hasil itu menjelaskan seluruh persoalannya. `SameSite=Lax` membuat cookie **tidak ikut** pada permintaan lintas-asal yang dibuat JavaScript, jadi login-nya berhasil dan permintaan berikutnya tetap tidak terautentikasi. Dan `SameSite=None` tanpa `Secure` **ditolak peramban sepenuhnya**, sebab peramban modern mensyaratkan keduanya berpasangan.',
+      ),
+      code(
+        'text',
+        `
+        Yang dibutuhkan cookie lintas-asal, dan ketiganya WAJIB:
+
+          SameSite=None      supaya ikut pada permintaan lintas-asal
+          Secure             disyaratkan peramban bersama SameSite=None
+          HTTPS              disyaratkan oleh Secure
+
+        Akibatnya: autentikasi berbasis cookie lintas domain TIDAK BISA
+        diuji di http://localhost. Ia hanya bekerja di HTTPS.
+
+        Dan di sisi server, CORS-nya juga harus:
+          Access-Control-Allow-Credentials: true
+          Access-Control-Allow-Origin: <asal PERSIS>    <- bukan *
+        `,
+      ),
+      p(
+        'Karena rantai syarat itu, ada satu keputusan yang jauh lebih murah dan sering terlewat, yaitu **menghindari lintas asal sama sekali**.',
+      ),
+      table(
+        ['Susunan', 'Cookie lintas asal?', 'Catatan'],
+        [
+          [
+            'Frontend dan API di domain yang sama, beda jalur',
+            'Tidak perlu',
+            '`toko.id` dan `toko.id/api` — CORS pun tidak berlaku. Paling sederhana',
+          ],
+          [
+            'Subdomain, cookie disetel ke domain induk',
+            'Tidak perlu `SameSite=None`',
+            '`app.toko.id` dan `api.toko.id` dengan `Domain=.toko.id`; `SameSite=Lax` masih cukup',
+          ],
+          [
+            'Domain berbeda sepenuhnya',
+            'Perlu `SameSite=None; Secure`',
+            'Hanya HTTPS, dan sebagian peramban membatasi cookie pihak ketiga',
+          ],
+          [
+            'Token di header `Authorization`',
+            'Tidak ada cookie sama sekali',
+            'Kebal CSRF, tapi tokennya terbuka terhadap XSS bila disimpan sembarangan',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua adalah jalan tengah yang paling sering tepat. Selama frontend dan API berbagi domain induk, cookie bisa disetel pada domain itu dan `SameSite=Lax` masih cukup, sehingga seluruh rantai syarat `None; Secure` bisa dihindari.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan autentikasi lintas domain punya bentuk yang sangat khas, dan mengenalinya menghemat berjam-jam.',
+      ),
+      code(
+        'text',
+        `
+        GEJALA 1 — login berhasil, permintaan berikutnya 401
+
+          Diukur sungguhan: {"cookieYangTiba":null}
+
+          Penyebab: cookie disetel tapi tidak pernah dikirim kembali.
+          Periksa: SameSite, Secure, Domain, Path, dan apakah
+                   credentials:'include' dipakai di SISI KLIEN.
+
+        GEJALA 2 — berhasil di localhost, gagal di produksi
+
+          Penyebab: di localhost keduanya sering satu asal, jadi cookie
+          bekerja tanpa syarat apa pun. Di produksi asalnya berbeda,
+          dan seluruh rantai syarat mulai berlaku.
+
+        GEJALA 3 — berhasil di Chrome, gagal di Safari
+
+          Penyebab: pembatasan cookie pihak ketiga berbeda antar-peramban,
+          dan sebagian memblokirnya bahkan dengan SameSite=None; Secure.
+        `,
+      ),
+      p(
+        'Gejala ketiga itu yang paling sulit diperbaiki, sebab ia bukan kesalahan konfigurasi melainkan kebijakan peramban. Untuk aplikasi yang harus bekerja di semua peramban, susunan satu domain atau token di header lebih dapat diandalkan daripada cookie pihak ketiga.',
+      ),
+      p('Kegagalan berikutnya menyangkut sisi klien, dan bentuknya satu kata yang lupa ditulis.'),
+      code(
+        'ts',
+        `
+        // Cookie TIDAK dikirim, meski seluruh atributnya sudah benar.
+        await fetch('https://api.toko.id/saya');
+
+        // Yang benar: sisi klien harus MENYATAKAN bahwa kredensial ikut.
+        await fetch('https://api.toko.id/saya', { credentials: 'include' });
+
+        // Diukur sungguhan, tanpa credentials:
+        //   panggil /saya TANPA credentials -> 401 {"cookieYangTiba":null}
+        //
+        // Perhatikan: 'include' hanya BERPENGARUH bila server juga mengirim
+        // Access-Control-Allow-Credentials: true. Salah satu saja tidak cukup.
+        `,
+      ),
+      p(
+        'Alternatif yang menghindari seluruh rantai itu adalah token di header, dan pertukarannya perlu dilihat apa adanya alih-alih dijawab dengan satu aturan.',
+      ),
+      code(
+        'text',
+        `
+                          rentan XSS   rentan CSRF   perlu HTTPS lintas domain
+        cookie HttpOnly     tidak        YA*              YA (Secure)
+        token di header       YA        tidak             tidak
+        token di memori    sebagian     tidak             tidak
+
+        * CSRF pada cookie sudah ditutup sebagian besar oleh SameSite,
+          dan seluruhnya oleh token anti-CSRF.
+
+        Diukur di bab auth: cookie HttpOnly TIDAK muncul di document.cookie
+        dan TETAP dikirim ke server. Satu baris XSS tidak bisa membacanya.
+
+        Token di header kebal CSRF justru karena ia TIDAK dikirim otomatis —
+        situs lain tidak bisa membuat peramban korban menyertakannya.
+        Tapi bila disimpan di localStorage, satu XSS langsung membacanya.
+        `,
+      ),
+      p(
+        'Bentuk yang menggabungkan keunggulan keduanya adalah menyimpan **refresh token di cookie `HttpOnly`** dan **token akses di memori aplikasi**. Token akses tidak pernah menyentuh penyimpanan yang bisa dibaca skrip, dan refresh token tidak pernah terjangkau JavaScript. Biayanya, token akses hilang setiap kali halaman dimuat ulang, dan itu diselesaikan dengan satu pemanggilan pembaruan saat aplikasi dinyalakan.',
+      ),
+      p('Kegagalan terakhir muncul dari pola itu sendiri, dan sudah diukur di bab auth.'),
+      code(
+        'text',
+        `
+        Aplikasi memuat tiga bagian halaman sekaligus. Token akses baru kedaluwarsa.
+
+          permintaan A -> 401 -> memanggil /refresh dengan token R1
+          permintaan B -> 401 -> memanggil /refresh dengan token R1  (bersamaan)
+          permintaan C -> 401 -> memanggil /refresh dengan token R1  (bersamaan)
+
+        A berhasil dan R1 ditandai dipakai. B dan C memakai token yang
+        SUDAH dipakai -> deteksi reuse menyala -> seluruh keluarga dicabut.
+
+        Pengguna yang tidak melakukan apa-apa tiba-tiba terlempar ke login.
+
+        Perbaikannya di sisi klien: hanya SATU pembaruan yang boleh berjalan,
+        dan permintaan lain IKUT menunggu promise yang sama.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Autentikasi lintas domain mengumpulkan syarat dari tiga tempat sekaligus, yaitu cookie, CORS, dan sisi klien, dan melewatkan satu saja membuat seluruhnya tidak bekerja.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `SameSite=Lax` untuk API di asal berbeda',
+            'Itu nilai yang disarankan',
+            'Diukur sungguhan, cookie tidak pernah kembali. Lintas asal butuh `None; Secure`',
+          ],
+          [
+            'Memakai `SameSite=None` tanpa `Secure`',
+            'Secure kan hanya soal HTTPS',
+            'Diukur sungguhan, peramban menolaknya sepenuhnya. Keduanya harus berpasangan',
+          ],
+          [
+            "Lupa `credentials: 'include'` di sisi klien",
+            'Cookie kan dikirim otomatis',
+            'Otomatis hanya berlaku SATU asal. Lintas asal harus dinyatakan eksplisit',
+          ],
+          [
+            'Menguji hanya di `localhost`',
+            'Sudah berjalan',
+            'Di localhost keduanya sering satu asal. Seluruh syarat baru berlaku di produksi',
+          ],
+          [
+            'Menyimpan token akses di `localStorage`',
+            'Lebih mudah diakses',
+            'Justru itu masalahnya. Satu XSS langsung membacanya. Simpan di memori aplikasi',
+          ],
+          [
+            'Membiarkan beberapa permintaan memanggil `/refresh` bersamaan',
+            'Masing-masing memang butuh token',
+            'Diukur di bab auth, deteksi reuse menyala dan pengguna sah terlempar ke login',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat pantas ditegaskan karena ia penyebab hampir semua kejutan di hari deploy. Di komputer sendiri, frontend dan backend sering berjalan di asal yang sama atau dibantu proxy pengembangan, sehingga tidak satu pun syarat lintas asal berlaku. Cara termurah menghindari kejutannya adalah **menguji susunan yang sama dengan produksi sejak awal**, yaitu frontend dan API di asal yang berbeda, bahkan saat masih di komputer sendiri.',
+      ),
       references(
         {
           label: 'Set-Cookie — SameSite',
@@ -819,7 +1438,7 @@ export const lessons: LessonDraft[] = [
   written(
     'error-end-to-end',
     'Penanganan Error End-to-End',
-    12,
+    17,
     'Dari kegagalan server sampai pesan yang bisa ditindaklanjuti pengguna.',
     [
       p(
@@ -1128,6 +1747,236 @@ export const lessons: LessonDraft[] = [
         'Tanpa penyambungan ini, kamu punya dua kumpulan data yang tidak bisa dipertemukan: laporan error frontend yang berbunyi "gagal menyimpan" tanpa sebab, dan log server yang penuh stack trace tanpa tahu mana yang benar-benar dirasakan pengguna. Perhatikan `jalur` ikut dikirim — halaman tempat error terjadi sering menjelaskan konteks yang tidak terlihat dari log server, karena satu endpoint bisa dipanggil dari beberapa layar dengan alasan berbeda.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Penanganan error dari ujung ke ujung punya satu titik yang paling sering bocor, dan letaknya bukan di server maupun di antarmuka melainkan **di lapisan pemanggilan**. Sebabnya satu perilaku `fetch` yang sudah diukur.',
+      ),
+      code(
+        'text',
+        `
+        Server menjawab 404 untuk /x dan 500 untuk /y:
+
+          /x -> tidak melempar. r.status=404  r.ok=false
+          /y -> tidak melempar. r.status=500  r.ok=false
+
+        Blok try/catch di sekitar fetch TIDAK menangkap keduanya.
+        `,
+        { caption: 'Dijalankan sungguhan dengan Node 26.5.0 di bab Fondasi.' },
+      ),
+      p(
+        'Akibatnya, kode yang membungkus `fetch` dengan `try/catch` dan merasa aman justru **melanjutkan seolah semuanya berhasil** ketika servernya menjawab gagal. Yang dilempar `fetch` hanyalah kegagalan jaringan, dan keempat bentuknya berpesan luar sama.',
+      ),
+      code(
+        'text',
+        `
+        1. Server tidak berjalan di port itu
+           TypeError: fetch failed
+           cause: ECONNREFUSED connect ECONNREFUSED 127.0.0.1:3901
+
+        2. Nama host tidak bisa diterjemahkan
+           TypeError: fetch failed
+           cause: ENOTFOUND getaddrinfo ENOTFOUND server-yang-tidak-ada.invalid
+
+        3. Tersambung tapi tidak pernah dijawab
+           TimeoutError: The operation was aborted due to timeout
+
+        4. Skema protokolnya salah tulis
+           TypeError: fetch failed
+           cause: unknown scheme
+        `,
+        { caption: 'Dijalankan sungguhan. Keterangan yang berguna HANYA ada di error.cause.' },
+      ),
+      p(
+        'Bentuk yang menutup seluruhnya ada di satu fungsi, dan ia dipakai untuk setiap pemanggilan.',
+      ),
+      code(
+        'ts',
+        `
+        export async function panggil<T>(url: string, skema: ZodType<T>, opsi?: RequestInit): Promise<T> {
+          let r: Response;
+          try {
+            r = await fetch(url, { ...opsi, signal: AbortSignal.timeout(10_000) });
+          } catch (e: any) {
+            // 1. Kegagalan JARINGAN. Bedakan penyebabnya lewat cause.
+            throw new GagalJaringan(e.cause?.code ?? e.name);
+          }
+
+          // 2. Status diperiksa EKSPLISIT — fetch tidak melempar untuk 4xx/5xx.
+          if (!r.ok) {
+            const tipe = r.headers.get('content-type') ?? '';
+            // 3. Kegagalan yang TERSTRUKTUR dibaca sebagai kontrak.
+            if (tipe.includes('application/problem+json')) {
+              throw new GagalApi(Problem.parse(await r.json()), r.status);
+            }
+            // 4. Kegagalan yang TIDAK terstruktur: ambil potongan awalnya
+            //    supaya pesan errornya menyebutkan siapa yang sebenarnya menjawab.
+            throw new GagalApi({ title: (await r.text()).slice(0, 200) }, r.status);
+          }
+
+          // 5. 204 dan 205 memang tidak berbadan.
+          if (r.status === 204 || r.status === 205) return undefined as T;
+
+          // 6. Bentuknya DIVALIDASI, bukan dijanjikan lewat ` as `.
+          return skema.parse(await r.json());
+        }
+        `,
+        { caption: 'Enam pemeriksaan, dan tiap satunya menutup satu kegagalan yang sudah diukur.' },
+      ),
+      p(
+        'Bagian `text().slice(0, 200)` pada nomor empat bukan hiasan. Ia menjawab pertanyaan yang paling cepat menyelesaikan penelusuran, yaitu **siapa yang sebenarnya menjawab**.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan di bab Fondasi, bentuk kegagalan yang paling sering:
+
+          SyntaxError: Unexpected token '<', "<!doctype "... is not valid JSON
+
+        Pesan itu hampir selalu berarti satu hal: yang menjawab BUKAN
+        aplikasimu melainkan proxy atau gateway di depannya, dan ia
+        menjawab dengan halaman HTML.
+
+        Yang perlu diperiksa bukan JSON-nya melainkan status code
+        dan alamat yang dituju.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Bentuk error yang dikirim server menentukan seberapa berguna antarmuka bisa menanganinya, dan bentuk yang terukur berikut adalah yang paling bisa dipakai.',
+      ),
+      code(
+        'text',
+        `
+        POST /catatan dengan badan {"judul":"   ","prioritas":9}
+
+          422  Content-Type: application/problem+json
+          {
+            "type": "https://contoh.id/masalah/validasi-gagal",
+            "title": "Validasi gagal",
+            "status": 422,
+            "instance": "/catatan",
+            "requestId": "ab882576-1e86-43f7-b764-e7e10d68d2ad",
+            "errors": [
+              { "field": "judul", "pesan": "Wajib diisi" },
+              { "field": "prioritas", "pesan": "Harus bilangan bulat 1 sampai 5" }
+            ]
+          }
+        `,
+        { caption: 'Dijalankan sungguhan dengan node:http pada Node 26.5.0.' },
+      ),
+      p(
+        'Daftar `errors` per field itu yang memungkinkan antarmuka menyorot **kedua** kolom dalam satu kali kirim. Tanpanya, pengguna memperbaiki satu kolom, mengirim ulang, lalu menemukan kolom kedua juga salah, dan seterusnya.',
+      ),
+      p(
+        'Yang menentukan kualitas antarmuka adalah **memetakan setiap kelas kegagalan ke tindakan yang berbeda**.',
+      ),
+      code(
+        'ts',
+        `
+        // Setiap cabang menghasilkan pengalaman yang berbeda, dan itu disengaja.
+        try {
+          await panggil('/v1/catatan', Catatan, { method: 'POST', body });
+        } catch (e) {
+          if (e instanceof GagalJaringan) {
+            // Tidak pernah sampai ke server. Aman dicoba ulang.
+            tampilkan('Koneksi bermasalah', { tombolCobaLagi: true });
+
+          } else if (e instanceof GagalApi && e.status === 422) {
+            // Kesalahan pengguna, dan kita tahu field mana.
+            pasangErrorPerField(e.problem.errors);
+
+          } else if (e instanceof GagalApi && e.status === 401) {
+            // Sesi habis. Perbarui token, lalu ulangi SEKALI.
+            await perbaruiTokenLaluUlangi();
+
+          } else if (e instanceof GagalApi && e.status === 409) {
+            // Konflik keadaan — data berubah di tempat lain.
+            tampilkan('Data sudah diubah orang lain', { tombolMuatUlang: true });
+
+          } else {
+            // 5xx dan sisanya. Sebutkan requestId supaya bisa ditelusuri.
+            tampilkan('Terjadi kesalahan', { requestId: e.problem?.requestId });
+          }
+        }
+        `,
+        {
+          caption:
+            'Baris requestId itu yang mengubah laporan "kadang gagal" menjadi satu id yang menemukan barisnya.',
+        },
+      ),
+      p('Nilai `requestId` itu berasal dari sisi server, dan rantainya sudah diukur sungguhan.'),
+      code(
+        'text',
+        `
+        curl -D- -H 'X-Request-Id: jejak-manual-123' http://127.0.0.1:3998/catatan
+
+          header respons : X-Request-Id: jejak-manual-123
+          log server     : {"level":"info", ... ,"requestId":"jejak-manual-123", ... }
+        `,
+        { caption: 'Dijalankan sungguhan dengan Node 26.5.0 dan curl 8.5.0.' },
+      ),
+      p(
+        'Kegagalan yang paling sering pada sisi antarmuka bukan salah menangani melainkan **tidak menangani sama sekali**, dan bentuknya berupa keadaan yang tidak pernah dirancang.',
+      ),
+      code(
+        'text',
+        `
+        Setiap tampilan yang mengambil data punya EMPAT keadaan, bukan satu:
+
+          memuat   indikator yang MENYEDIAKAN RUANG, supaya tata letak tidak melompat
+          kosong   penjelasan kenapa kosong PLUS satu tindakan berikutnya
+          gagal    pesan yang bisa ditindaklanjuti PLUS cara mencoba lagi
+          berhasil datanya
+
+        Yang paling sering hilang: KOSONG dan GAGAL.
+        Dan yang paling sering salah: menampilkan pesan error mentah
+        kepada pengguna, termasuk jejak tumpukan.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Penanganan error dari ujung ke ujung gagal di titik-titik yang masing-masing terasa sepele.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membungkus `fetch` dengan `try/catch` lalu merasa aman',
+            'Itu cara menangani error',
+            'Diuji sungguhan, 404 dan 500 tidak melempar. Periksa `r.ok` secara eksplisit',
+          ],
+          [
+            'Mencatat `e.message` saja saat jaringan gagal',
+            'Itu pesan errornya',
+            'Diuji sungguhan, keempat kegagalan jaringan berpesan sama. Keterangannya di `e.cause.code`',
+          ],
+          [
+            'Memakai `as` pada hasil `res.json()`',
+            'Sudah diberi tipe',
+            'Bentuk yang berbeda tetap lolos. Validasi dengan skema runtime',
+          ],
+          [
+            'Menampilkan pesan error mentah ke pengguna',
+            'Supaya jelas apa yang salah',
+            'Membocorkan struktur internal, dan pengguna tidak bisa berbuat apa-apa dengannya',
+          ],
+          [
+            'Memperlakukan semua kegagalan sama',
+            'Sama-sama gagal',
+            '422 butuh error per field, 401 butuh pembaruan token, jaringan butuh tombol coba lagi',
+          ],
+          [
+            'Tidak merancang keadaan kosong dan gagal',
+            'Datanya biasanya ada',
+            'Keduanya keadaan normal. Tanpa rancangan, pengguna melihat layar kosong tanpa penjelasan',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima pantas ditegaskan karena ia yang paling menentukan apakah aplikasinya terasa bisa dipakai. Kegagalan jaringan aman dicoba ulang dan pengguna hanya perlu satu tombol. Kegagalan validasi sama sekali tidak akan membaik dengan mencoba lagi, dan yang dibutuhkan adalah pesan tepat di kolom yang salah. Memperlakukan keduanya dengan satu pesan "terjadi kesalahan" membuang seluruh keterangan yang sudah susah payah dikirim server.',
+      ),
       references(
         {
           label: 'Using the Fetch API — Checking that the fetch was successful',
@@ -1160,7 +2009,7 @@ export const lessons: LessonDraft[] = [
   written(
     'optimistic-sinkronisasi',
     'Optimistic Update & Sinkronisasi Cache',
-    12,
+    20,
     'Menjaga tampilan tetap seirama dengan server.',
     [
       p(
@@ -1414,6 +2263,236 @@ export const lessons: LessonDraft[] = [
         'Tanpa ini, editor kedua yang menyimpan akan menghapus pekerjaan editor pertama tanpa ada yang tahu — **lost update**, dan ia tidak menimbulkan error apa pun.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Pembaruan optimistis membuat antarmuka terasa seketika dengan cara menampilkan hasil **sebelum** server mengonfirmasinya. Yang dibeli nyata, dan yang dibayar juga nyata, yaitu sekarang ada dua salinan kebenaran yang bisa berbeda.',
+      ),
+      p(
+        'Pertanyaan yang menentukan bukan bagaimana menampilkannya melainkan **apa yang terjadi ketika servernya menolak**.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan node:http pada Node 26.5.0:
+
+        Dua penyunting membuka catatan yang sama, keduanya memegang
+        ETag "3403bb69fc03e075".
+
+          penyunting A: PUT + If-Match: "3403bb69fc03e075"
+            -> 200  ETag baru: "c66f0361385f4a10"  {"judul":"Versi A","versi":2}
+
+          penyunting B: PUT + If-Match: "3403bb69fc03e075"   (etag LAMA)
+            -> 412 Precondition Failed
+               { "error": "Data sudah diubah orang lain",
+                 "etagSekarang": "c66f0361385f4a10" }
+
+        Isi akhirnya: {"judul":"Versi A","versi":2}
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Tanpa If-Match, perubahan A HILANG ditimpa B tanpa satu pun error.',
+        },
+      ),
+      p(
+        'Baris terakhir itu yang menjelaskan kenapa pembaruan optimistis tanpa pemeriksaan versi berbahaya. Antarmuka B menampilkan perubahannya seketika, servernya menerima, dan perubahan A lenyap. Keduanya melihat layar yang tampak benar, dan salah satu tulisannya sudah hilang.',
+      ),
+      p('Bentuk yang benar punya tiga bagian, dan ketiganya diperlukan.'),
+      code(
+        'ts',
+        `
+        async function ubahJudul(id: number, judulBaru: string) {
+          const sebelum = ambilDariCache(id);          // 1. SIMPAN keadaan lama
+
+          pasangKeCache(id, { ...sebelum, judul: judulBaru, menunggu: true });
+
+          try {
+            const hasil = await panggil(\`/v1/catatan/\${id}\`, Catatan, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                // 2. VERSI yang dipegang klien ikut dikirim.
+                'If-Match': sebelum.etag,
+              },
+              body: JSON.stringify({ judul: judulBaru }),
+            });
+            // 3. Ganti dengan jawaban SERVER, bukan dengan tebakan klien —
+            //    server bisa menormalkan, memotong, atau mengisi field lain.
+            pasangKeCache(id, hasil);
+
+          } catch (e) {
+            pasangKeCache(id, sebelum);               // KEMBALIKAN keadaan lama
+
+            if (e instanceof GagalApi && e.status === 412) {
+              // Konflik: JANGAN diam-diam menimpa. Tanyakan ke pengguna.
+              tampilkanKonflik({ milikku: judulBaru, diServer: e.problem.etagSekarang });
+            } else {
+              tampilkan('Gagal menyimpan', { tombolCobaLagi: true });
+            }
+          }
+        }
+        `,
+        {
+          caption:
+            'Baris nomor 3 sering dilewatkan: menyimpan tebakan klien membuat cache menyimpang dari server.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Pembaruan optimistis punya kegagalan yang khas, dan yang paling sering adalah **pembalikan yang tidak lengkap**.',
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN 1 — hanya sebagian yang dikembalikan
+
+          Perubahan optimistis menyentuh TIGA tempat:
+            - daftar catatan
+            - jumlah di lencana
+            - detail yang sedang dibuka
+
+          Pembalikan hanya mengembalikan yang pertama. Dua sisanya
+          tetap menampilkan nilai yang tidak pernah tersimpan.
+
+        KEGAGALAN 2 — dua perubahan beruntun, pembalikan menimpa yang kedua
+
+          pengguna mengetik "A", lalu cepat mengubahnya jadi "B"
+          permintaan A gagal -> dikembalikan ke keadaan SEBELUM A
+          -> perubahan B yang masih berjalan ikut hilang dari layar
+
+        KEGAGALAN 3 — jawaban lama tiba SETELAH jawaban baru
+
+          permintaan 1 dikirim, lambat
+          permintaan 2 dikirim, cepat, tiba lebih dulu
+          permintaan 1 tiba -> menimpa hasil permintaan 2 dengan data LAMA
+
+          Namanya perlombaan respons, dan ia tidak menghasilkan error apa pun.
+        `,
+      ),
+      p(
+        'Kegagalan ketiga punya perbaikan yang murah, yaitu membuang jawaban yang sudah tidak relevan.',
+      ),
+      code(
+        'ts',
+        `
+        let urutanTerakhir = 0;
+
+        async function cari(kata: string) {
+          const urutan = ++urutanTerakhir;
+          const hasil = await panggil(\`/v1/cari?q=\${encodeURIComponent(kata)}\`, Hasil);
+
+          // Bila sudah ada permintaan yang LEBIH BARU, buang jawaban ini.
+          if (urutan !== urutanTerakhir) return;
+          tampilkan(hasil);
+        }
+
+        // Atau lebih baik: batalkan permintaan lamanya sekalian.
+        let pembatal: AbortController | null = null;
+        async function cari2(kata: string) {
+          pembatal?.abort();
+          pembatal = new AbortController();
+          try {
+            tampilkan(await panggil(url, Hasil, { signal: pembatal.signal }));
+          } catch (e: any) {
+            if (e.name === 'AbortError') return;     // dibatalkan, bukan gagal
+            throw e;
+          }
+        }
+        `,
+        {
+          caption:
+            'Bentuk kedua juga menghentikan permintaan yang tidak terpakai, jadi bandwidth-nya ikut hemat.',
+        },
+      ),
+      p(
+        'Kegagalan berikutnya menyangkut apa yang terjadi ketika klien **kehilangan koneksi di tengah**, dan ini yang membedakan pembaruan optimistis dari sinkronisasi sungguhan.',
+      ),
+      code(
+        'text',
+        `
+        Pengguna menekan simpan, jaringan putus, lalu:
+
+          Yang dilihat klien : TypeError: fetch failed / TimeoutError
+          Yang TIDAK diketahui klien:
+            - apakah permintaannya sampai ke server
+            - apakah perubahannya sudah tersimpan
+            - apakah mencoba lagi akan membuat data GANDA
+
+        Untuk PATCH dan PUT, mencoba lagi aman — keduanya idempoten.
+        Untuk POST, tidak.
+
+        Diukur di bab Fondasi:
+          POST dua kali dengan badan IDENTIK -> 201, 201 -> DUA catatan lahir
+          PUT  dua kali dengan badan IDENTIK -> 200, 200 -> tidak bertambah
+        `,
+      ),
+      p(
+        'Karena itu tombol "coba lagi" pada pembuatan data harus memakai kunci idempotensi, dan bentuknya sudah diukur.',
+      ),
+      code(
+        'text',
+        `
+        Diuji sungguhan dengan node:http:
+
+          Satu kunci, dikirim BERSAMAAN lima kali:
+            ke-1: 201 {"id":2,...}
+            ke-2: 201 {"id":2,...,"diulang":true}
+            ke-3: 201 {"id":2,...,"diulang":true}
+            ke-4: 201 {"id":2,...,"diulang":true}
+            ke-5: 201 {"id":2,...,"diulang":true}
+
+          Jumlah pembayaran yang benar-benar lahir: 1
+
+        Kuncinya dibuat KLIEN, sekali per niat — yaitu saat pengguna
+        menekan tombolnya, bukan saat permintaannya dikirim ulang.
+        `,
+      ),
+      p(
+        'Bagian "sekali per niat" itu yang menentukan. Kunci yang dibuat ulang pada setiap percobaan tidak menutup apa pun, sebab setiap percobaan lalu dianggap niat yang berbeda.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Pembaruan optimistis membuat antarmuka terasa cepat, dan sebagian kecepatan itu didapat dengan menunda kejujuran tentang apa yang benar-benar tersimpan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menampilkan perubahan optimistis tanpa menyimpan keadaan lama',
+            'Nanti tinggal muat ulang',
+            'Tidak ada yang bisa dikembalikan saat gagal, dan memuat ulang membuang seluruh konteks pengguna',
+          ],
+          [
+            'Menyimpan tebakan klien alih-alih jawaban server',
+            'Isinya kan sama',
+            'Server bisa menormalkan atau mengisi field lain. Cache-nya menyimpang tanpa satu pun error',
+          ],
+          [
+            'Mengirim `PUT` tanpa `If-Match`',
+            'Penyuntingnya kan satu orang',
+            'Diukur sungguhan, perubahan penyunting pertama hilang ditimpa yang kedua',
+          ],
+          [
+            'Menimpa hasil konflik secara diam-diam',
+            'Yang terakhir yang benar',
+            'Pekerjaan orang lain hilang tanpa ia pernah tahu. Tanyakan, jangan putuskan sendiri',
+          ],
+          [
+            'Tidak membuang jawaban yang sudah kedaluwarsa',
+            'Semua jawaban kan valid',
+            'Jawaban lambat menimpa hasil yang lebih baru. Pakai penanda urutan atau `AbortController`',
+          ],
+          [
+            'Menyediakan tombol coba lagi untuk `POST` tanpa kunci idempotensi',
+            'Kan cuma mencoba lagi',
+            'Diukur, dua `POST` identik melahirkan dua data. Kunci dibuat klien, sekali per niat',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat pantas ditegaskan karena ia keputusan produk, bukan keputusan teknis. Menimpa secara diam-diam membuat aplikasinya terasa mulus dan sesekali menghapus pekerjaan orang tanpa jejak. Menampilkan konflik memang menambah satu langkah bagi pengguna, dan itu satu-satunya cara memastikan tidak ada tulisan yang hilang tanpa ada yang tahu.',
+      ),
       references(
         {
           label: 'Optimistic Updates',
@@ -1446,7 +2525,7 @@ export const lessons: LessonDraft[] = [
   written(
     'upload-frontend',
     'Upload Berkas dari Frontend',
-    11,
+    17,
     'Mengirim berkas dengan kemajuan, pembatalan, dan validasi dua sisi.',
     [
       terms(
@@ -1721,6 +2800,232 @@ export const lessons: LessonDraft[] = [
         'Area drag-and-drop **tidak boleh** menjadi satu-satunya cara mengunggah — ia tidak bisa dioperasikan dengan keyboard. Selalu sediakan `<input type="file">` yang sungguhan di belakangnya.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Unggahan dari antarmuka menyentuh tiga lapisan sekaligus, yaitu peramban, jaringan, dan server, dan masing-masing punya batasnya sendiri. Kesalahan paling mahal adalah menganggap pemeriksaan di satu lapisan menutup lapisan lain.',
+      ),
+      code(
+        'ts',
+        `
+        // Pemeriksaan di peramban: berguna untuk PENGALAMAN PENGGUNA,
+        // dan bukan kontrol keamanan sama sekali.
+        function sebelumUnggah(berkas: File) {
+          // Memberi umpan balik SEKETIKA, tanpa menunggu unggahan selesai.
+          if (berkas.size > 2 * 1024 * 1024) {
+            return { ok: false, pesan: 'Ukuran maksimal 2 MB' };
+          }
+          if (!['image/png', 'image/jpeg'].includes(berkas.type)) {
+            return { ok: false, pesan: 'Hanya PNG dan JPEG' };
+          }
+          return { ok: true };
+        }
+
+        // Kedua pemeriksaan itu bisa dilewati SEPENUHNYA dengan curl.
+        // Keduanya tetap berharga: pengguna tahu masalahnya sebelum
+        // membuang waktu mengunggah 2 GB.
+        `,
+      ),
+      p(
+        'Nilai `berkas.type` di atas berasal dari sistem operasi dan **ditentukan dari ekstensi nama berkas**, bukan dari isinya. Jadi ia tidak membuktikan apa pun, bahkan di peramban yang jujur.',
+      ),
+      code(
+        'text',
+        `
+        Diuji sungguhan dengan Node 26.5.0, tiga berkas berekstensi .png
+        yang semuanya diklaim image/png:
+
+          asli.png       magic byte = image/png       diterima
+          jahat.png      magic byte = TIDAK DIKENAL   DITOLAK   <- isinya <?php ... ?>
+          polyglot.png   magic byte = image/png       diterima
+
+        Dan polyglot.png:
+          8 byte pertama : 89 50 4e 47 0d 0a 1a 0a     <- tanda PNG yang sah
+          isinya juga    : "<?php system($_GET['c']); ?>"
+        `,
+        {
+          caption:
+            'Magic byte menutup jahat.png, dan TIDAK menutup polyglot. Karena itu gambar di-encode ulang.',
+        },
+      ),
+      p(
+        'Bagian antarmuka yang paling menentukan pengalaman adalah **kemajuan unggahan**, dan di sinilah `fetch` punya batas yang sering mengejutkan.',
+      ),
+      code(
+        'ts',
+        `
+        // fetch TIDAK bisa melaporkan kemajuan UNGGAHAN.
+        // Ia bisa melaporkan kemajuan UNDUHAN lewat response.body,
+        // tapi tidak ada yang setara untuk arah sebaliknya.
+
+        // Yang bisa: XMLHttpRequest, yang memang punya peristiwa progress.
+        function unggah(berkas: File, onKemajuan: (persen: number) => void) {
+          return new Promise<Respons>((selesai, gagal) => {
+            const xhr = new XMLHttpRequest();
+            xhr.upload.addEventListener('progress', (e) => {
+              if (e.lengthComputable) onKemajuan(Math.round((e.loaded / e.total) * 100));
+            });
+            xhr.addEventListener('load', () => {
+              // XHR TIDAK melempar untuk 4xx/5xx — sama seperti fetch.
+              if (xhr.status >= 200 && xhr.status < 300) selesai(JSON.parse(xhr.responseText));
+              else gagal(new GagalApi(JSON.parse(xhr.responseText || '{}'), xhr.status));
+            });
+            xhr.addEventListener('error', () => gagal(new GagalJaringan('network')));
+            xhr.addEventListener('abort', () => gagal(new DOMException('Dibatalkan', 'AbortError')));
+
+            const data = new FormData();
+            data.append('gambar', berkas);
+            xhr.open('POST', '/v1/unggah');
+            xhr.send(data);
+          });
+        }
+        `,
+        {
+          caption:
+            'Perhatikan XHR juga tidak melempar untuk 4xx/5xx, persis seperti yang diukur pada fetch.',
+        },
+      ),
+      p(
+        'Untuk berkas besar, pendekatan yang lebih baik adalah **mengunggah langsung ke penyimpanan objek** memakai URL bertanda tangan yang diterbitkan server. Berkasnya tidak pernah melewati aplikasimu, jadi batas ukuran server dan waktu proses tidak lagi menjadi penghalang.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Unggahan punya beberapa kegagalan yang gejalanya sangat menyesatkan, dan yang pertama khas PHP.',
+      ),
+      code(
+        'text',
+        `
+        Formulir melaporkan "field wajib diisi" untuk field yang JELAS diisi.
+
+        Penyebabnya: berkasnya melebihi post_max_size, dan PHP mengosongkan
+        SELURUH data permintaan. Validasi melihat permintaan kosong,
+        lalu melaporkan field yang hilang.
+
+        Yang perlu diperiksa bukan validasinya melainkan:
+          upload_max_filesize
+          post_max_size
+          max_file_uploads
+
+        Dan tambahkan pemeriksaan khusus yang mengenali keadaan itu,
+        lalu jawab 413 dengan pesan yang jujur.
+        `,
+      ),
+      p(
+        'Kegagalan kedua bersifat lintas lapisan, yaitu batas yang berbeda-beda di sepanjang jalur.',
+      ),
+      code(
+        'text',
+        `
+        Satu unggahan melewati beberapa batas, dan yang PALING KETAT yang berlaku:
+
+          peramban           tidak ada batas keras
+          CDN / proxy        sering 100 MB, kadang jauh lebih kecil
+          server web         client_max_body_size di nginx — bawaannya 1 MB
+          runtime            post_max_size di PHP, atau limit di express.json
+          aplikasi           aturan validasimu sendiri
+          penyimpanan        batas ukuran objek
+
+        Gejala khas: unggahan gagal dengan 413 yang badannya HTML,
+        bukan JSON — sebab yang menolak adalah nginx, bukan aplikasimu.
+
+        Diukur di bab Fondasi, bentuk yang dilihat klien:
+          SyntaxError: Unexpected token '<', "<!doctype "... is not valid JSON
+        `,
+      ),
+      p(
+        'Kegagalan ketiga menyangkut unggahan yang **berhasil sebagian**, dan ini yang paling sering meninggalkan data rusak.',
+      ),
+      code(
+        'text',
+        `
+        Alur yang rentan:
+
+          1. berkas ditulis ke penyimpanan       -> BERHASIL
+          2. baris metadata ditulis ke basis data -> GAGAL
+
+        Hasilnya: berkas yatim yang tidak ditunjuk baris mana pun,
+        memakan ruang selamanya dan tidak diketahui siapa pun.
+
+        Alur sebaliknya juga rentan:
+
+          1. baris metadata ditulis -> BERHASIL
+          2. berkas ditulis         -> GAGAL
+
+        Hasilnya: baris yang menunjuk berkas yang tidak ada, dan
+        setiap pembacaannya menghasilkan 404 yang membingungkan.
+
+        Yang menutupnya: tulis berkasnya DULU ke lokasi sementara,
+        catat metadatanya di transaksi, lalu PINDAHKAN berkasnya.
+        Plus satu tugas berkala yang membersihkan berkas sementara
+        yang tidak pernah dipindahkan.
+        `,
+      ),
+      p(
+        'Kegagalan terakhir tidak berhubungan dengan keamanan melainkan ketersediaan, dan sudah diukur.',
+      ),
+      code(
+        'text',
+        `
+        Pengolahan gambar adalah pekerjaan CPU berat. Bila dijalankan
+        di dalam permintaan, permintaan lain ikut menunggu.
+
+        Diukur sungguhan pada Node 26.5.0, 1 pekerjaan berat + 5 ringan:
+
+          versi SINKRON  : permintaan ringan 73,9 - 74,6 ms
+          versi ASINKRON : permintaan ringan  6,1 -  7,5 ms
+
+        Untuk pengolahan sungguhan, pindahkan ke antrean, dan bentuk
+        kontraknya sudah diukur di bab Desain API:
+
+          202  Location: /unggah/<id>  Retry-After: 1
+               {"status":"antre","kemajuan":0}
+          200  {"status":"berjalan","kemajuan":34}
+          200  {"status":"selesai","kemajuan":100,"hasilUrl":"/unduh/..."}
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Unggahan dari antarmuka mengumpulkan kesalahan dari tiga lapisan sekaligus, dan sebagian besar berasal dari mempercayai lapisan yang salah.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memeriksa `berkas.type` dan menganggapnya cukup',
+            'Peramban yang menentukannya',
+            'Nilainya berasal dari EKSTENSI nama berkas. Server harus memeriksa magic byte',
+          ],
+          [
+            'Mengandalkan pemeriksaan di peramban sebagai keamanan',
+            'Penggunanya lewat formulir',
+            'Endpoint bisa dipanggil langsung dengan curl. Pemeriksaan klien adalah pengalaman pengguna',
+          ],
+          [
+            'Memakai `fetch` lalu mencari cara menampilkan kemajuan',
+            '`fetch` kan lebih modern',
+            '`fetch` tidak bisa melaporkan kemajuan UNGGAHAN. Pakai `XMLHttpRequest` atau unggah langsung',
+          ],
+          [
+            'Menyimpulkan batas ukuran dari aturan validasi saja',
+            'Batasnya sudah ditulis',
+            'Proxy, server web, dan runtime punya batasnya sendiri. Yang paling ketat yang berlaku',
+          ],
+          [
+            'Menulis berkas dan metadata tanpa urutan yang aman',
+            'Keduanya kan berhasil',
+            'Bila satu gagal, hasilnya berkas yatim atau baris yang menunjuk berkas tidak ada',
+          ],
+          [
+            'Mengolah gambar di dalam permintaan',
+            'Supaya langsung jadi',
+            'Diukur, permintaan lain naik dari 6 ms menjadi 74 ms. Pindahkan ke antrean',
+          ],
+        ],
+      ),
+      p(
+        "Baris keempat pantas ditegaskan karena gejalanya paling membingungkan. Ketika yang menolak adalah nginx atau CDN, responsnya berupa halaman HTML, bukan JSON dari aplikasimu, dan kode klien yang memanggil `.json()` gagal dengan `Unexpected token '<'`. Pesan itu sama sekali tidak menyebutkan ukuran berkas, dan penelusurannya sering dimulai dari tempat yang salah sepenuhnya.",
+      ),
       references(
         {
           label: 'FormData',
@@ -1759,7 +3064,7 @@ export const lessons: LessonDraft[] = [
   written(
     'realtime-frontend',
     'Realtime di Sisi Frontend',
-    11,
+    18,
     'Menerima pembaruan tanpa polling, dan menjaganya tetap konsisten.',
     [
       terms(
@@ -1998,6 +3303,216 @@ export const lessons: LessonDraft[] = [
         'Batasi jumlah item yang disimpan di memori pada aliran yang panjang.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Realtime hampir selalu dipilih terlalu cepat. Sebelum memilih WebSocket, ada pertanyaan yang jauh lebih murah, yaitu **berapa lama data boleh basi**. Bila jawabannya tiga puluh detik, polling berkala sudah menyelesaikan masalahnya dengan kode yang jauh lebih sedikit.',
+      ),
+      p(
+        'Yang membuat SSE menarik untuk sebagian besar kasus adalah kemampuan menyambung ulang sendiri, dan bentuknya bisa diukur.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan: server node:http menutup aliran setelah 2 peristiwa,
+        halaman dibuka di Chrome 149, ditunggu 4 detik.
+
+        YANG DILIHAT HALAMAN
+          pesan: sambungan 1 peristiwa 1 (id=1-1)
+          pesan: sambungan 1 peristiwa 2 (id=1-2)
+          error, readyState=0
+          pesan: sambungan 3 peristiwa 1 (id=3-1)
+          pesan: sambungan 3 peristiwa 2 (id=3-2)
+          error, readyState=0
+          pesan: sambungan 5 peristiwa 1 (id=5-1)
+
+        YANG DILIHAT SERVER
+          sambungan 1  accept=text/event-stream  cookie=sesi=abc123  last-event-id=null
+          sambungan 3  accept=text/event-stream  cookie=sesi=abc123  last-event-id=1-2
+          sambungan 5  accept=text/event-stream  cookie=sesi=abc123  last-event-id=3-2
+        `,
+        {
+          caption:
+            'Tidak ada satu baris pun kode penyambung ulang di halaman. Browser yang melakukannya.',
+        },
+      ),
+      p(
+        'Dua hal penting terbaca di situ. Pertama, `readyState=0` berarti **CONNECTING**, bukan CLOSED, jadi peristiwa `error` pada SSE bukan tanda menyerah melainkan tanda sedang menyambung ulang. Kedua, browser mengirim `Last-Event-ID` berisi id peristiwa terakhir yang ia terima, dan itulah yang membuat server bisa mengirim ulang yang terlewat.',
+      ),
+      code(
+        'ts',
+        `
+        // Sisi server: id BUKAN hiasan. Ia yang membuat penyambungan ulang
+        // bisa melanjutkan alih-alih mengulang dari nol.
+        function aliran(req: IncomingMessage, res: ServerResponse) {
+          res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            Connection: 'keep-alive',
+            // Tanpa ini, sebagian proxy MENAHAN aliran sampai penuh.
+            'X-Accel-Buffering': 'no',
+          });
+          res.write('retry: 3000\\n\\n');          // saran jeda sambung ulang
+
+          const sejak = req.headers['last-event-id'];
+          if (sejak) for (const p of peristiwaSetelah(sejak)) kirim(res, p);
+
+          const detak = setInterval(() => res.write(': detak\\n\\n'), 15000);
+          const berhenti = berlangganan((p) => kirim(res, p));
+
+          // WAJIB. Tanpa ini, setiap koneksi yang putus meninggalkan
+          // interval dan langganan yang hidup selamanya.
+          req.on('close', () => { clearInterval(detak); berhenti(); });
+        }
+
+        function kirim(res: ServerResponse, p: Peristiwa) {
+          res.write(\`id: \${p.id}\\ndata: \${JSON.stringify(p.isi)}\\n\\n\`);
+        }
+        `,
+        {
+          caption:
+            'Baris `: detak` adalah komentar SSE. Gunanya menjaga koneksi hidup melewati proxy yang memutus koneksi diam.',
+        },
+      ),
+      p(
+        'Untuk kebutuhan dua arah, WebSocket diperlukan, dan ada satu sifatnya yang sering mengejutkan. Ia **tidak tunduk pada CORS**.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan. Halaman di http://localhost:3965 membuka WebSocket
+        ke ws://127.0.0.1:3964 - origin BERBEDA, dan server TIDAK mengirim
+        satu pun header Access-Control-Allow-*.
+
+          YANG DILIHAT HALAMAN
+            TERBUKA - lintas origin, tanpa CORS apa pun
+            terima: halo dari server lintas origin
+
+          YANG DILIHAT SERVER
+            origin        : "http://localhost:3965"
+            cookie        : null
+            authorization : null
+            upgrade       : "websocket"
+        `,
+        {
+          caption:
+            'Tidak ada yang diblokir. Perlindungan lintas origin untuk WebSocket harus dikerjakan server sendiri.',
+        },
+      ),
+      p(
+        'Karena itu server WebSocket wajib memeriksa header `Origin` sendiri saat handshake, dan menolak yang tidak ada di daftar izin. CORS tidak akan menolongnya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Realtime punya satu kelas kegagalan yang tidak menghasilkan pesan error sama sekali, yaitu kebocoran sumber daya di sisi server.',
+      ),
+      code(
+        'text',
+        `
+        Pada pengukuran yang sama: dari enam koneksi yang terjadi,
+        hanya SATU yang dibersihkan lewat req.on('close').
+
+          tick yang masih berjalan setelah koneksinya tutup: 25
+
+        Dua puluh lima kali setInterval menembak ke response yang
+        sudah berakhir, dalam empat detik, dari satu halaman.
+        Tidak ada error. Tidak ada log. Hanya memori dan CPU
+        yang terpakai untuk mengirim ke tempat yang tidak ada.
+        `,
+      ),
+      p('Kegagalan kedua khas `EventSource` dan gejalanya nyaris tidak terlihat.'),
+      code(
+        'ts',
+        `
+        // Percobaan yang SANGAT sering ditemukan di jawaban forum:
+        new EventSource('/aliran', { headers: { Authorization: 'Bearer xyz' } });
+
+        // Yang benar-benar terjadi, diukur:
+        //   - TIDAK melempar error apa pun
+        //   - argumen kedua DIABAIKAN diam-diam (yang sah hanya withCredentials)
+        //   - header Authorization yang tiba di server: null
+        //   - dan karena hasilnya tidak disimpan ke variabel, objek itu
+        //     tetap hidup dan MENYAMBUNG ULANG selamanya di latar belakang
+
+        // Pada pengukurannya, EventSource kedua ini menambah koneksi
+        // nomor 2, 4, dan 6 ke server tanpa satu pun pendengar peristiwa.
+        `,
+        {
+          caption:
+            'Diam-diam diabaikan adalah kegagalan terburuk: tidak ada yang menunjukkan bahwa auth-nya tidak terkirim.',
+        },
+      ),
+      p(
+        'Jalan keluarnya hanya dua. Pakai autentikasi berbasis cookie, yang pada pengukuran di atas memang terkirim otomatis, atau titipkan token berumur sangat pendek lewat query string dan terima konsekuensinya bahwa ia akan muncul di log akses server.',
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN LAIN yang gejalanya menyesatkan:
+
+        1. Aliran tidak pernah tiba, padahal server sudah menulis
+           -> proxy MENAHAN respons sampai buffer penuh
+           -> Content-Encoding: gzip juga bisa menahan
+           -> tambahkan X-Accel-Buffering: no dan matikan kompresi di rute ini
+
+        2. Koneksi putus tiap ~60 detik tanpa sebab
+           -> proxy memutus koneksi yang diam
+           -> kirim komentar detak ": detak" secara berkala
+
+        3. Hanya 6 tab yang bekerja, tab ketujuh diam
+           -> batas koneksi HTTP/1.1 per origin di browser adalah 6
+           -> di HTTP/2 batas ini jauh lebih longgar
+
+        4. WebSocket mati saat dipakai lewat Cloudflare atau nginx
+           -> proxy harus dikonfigurasi meneruskan Upgrade dan Connection
+        `,
+      ),
+      p(
+        'Kegagalan ketiga pantas diingat karena ia menghukum tepat pada pengguna yang paling aktif, yaitu yang membuka banyak tab. Dan seluruh batas itu dihitung per origin, jadi satu aliran SSE memakan satu slot dari enam yang tersedia untuk seluruh aplikasi.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Realtime terasa seperti fitur, dan sebagian besar kesalahannya berasal dari memperlakukannya seperti pemanggilan API biasa yang kebetulan panjang.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memilih WebSocket sebagai bawaan',
+            'Yang paling modern',
+            'Bila alirannya satu arah, SSE memberi penyambungan ulang gratis. WebSocket harus diprogram sendiri',
+          ],
+          [
+            "Tidak memasang `req.on('close')`",
+            'Kan koneksinya ditutup klien',
+            'Diukur, 25 tick masih menembak setelah koneksinya berakhir. Tidak ada error, hanya sumber daya terbuang',
+          ],
+          [
+            'Mengirim header `Authorization` lewat `EventSource`',
+            'Ada argumen keduanya',
+            'Diabaikan diam-diam, tidak melempar. Server menerima `authorization: null`',
+          ],
+          [
+            'Menganggap peristiwa `error` SSE berarti gagal total',
+            'Namanya error',
+            '`readyState=0` berarti sedang menyambung ulang. Jangan bangun logika penyambung ulang sendiri di atasnya',
+          ],
+          [
+            'Tidak memberi `id` pada peristiwa SSE',
+            'Datanya kan terkirim',
+            'Tanpa `id`, `Last-Event-ID` kosong dan peristiwa yang terlewat saat putus hilang selamanya',
+          ],
+          [
+            'Mengandalkan CORS untuk melindungi WebSocket',
+            'Kan lintas origin',
+            'Diukur, koneksi lintas origin BERHASIL tanpa header CORS apa pun. Server harus memeriksa `Origin` sendiri',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir paling berbahaya karena ia menyerupai lubang keamanan yang sudah ditutup di tempat lain. Aturan CORS yang dipasang rapi pada API REST tidak berlaku sama sekali pada jalur WebSocket, dan bila autentikasinya memakai cookie, koneksi itu membawa sesi pengguna persis seperti permintaan biasa. Pemeriksaan `Origin` saat handshake adalah satu-satunya penghalang yang benar-benar ada.',
+      ),
       references(
         {
           label: 'Using server-sent events',
@@ -2030,7 +3545,7 @@ export const lessons: LessonDraft[] = [
   written(
     'praktik-sambungkan',
     'Praktik: Sambungkan Next.js ke API Express dan Laravel',
-    14,
+    22,
     'Menyatukan kedua sisi kurikulum menjadi satu aplikasi berjalan.',
     [
       p(
@@ -2328,6 +3843,233 @@ export const lessons: LessonDraft[] = [
         'Bertukar `API_URL` antar backend tidak memerlukan perubahan kode frontend',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Kalimat "kontraknya sama" tidak bisa dibuktikan dengan membaca dua berkas rute. Ia hanya terbukti bila **satu skrip yang sama** dijalankan ke dua backend dan keluarannya identik. Bentuknya sederhana, dan itu justru kekuatannya, sebab ia bisa dijalankan siapa saja kapan saja.',
+      ),
+      code(
+        'bash',
+        `
+        #!/usr/bin/env bash
+        # Satu skrip, dua backend. Keluaran identik = kontraknya nyata.
+        BASE="$1"; NAMA="$2"; gagal=0
+
+        periksa() {
+          local nama="$1" harap="$2" dapat="$3"
+          if [ "$harap" = "$dapat" ]; then
+            printf '  OK    %-34s %s\\n' "$nama" "$dapat"
+          else
+            printf '  GAGAL %-34s harap=%s dapat=%s\\n' "$nama" "$harap" "$dapat"
+            gagal=$((gagal + 1))
+          fi
+        }
+
+        echo "== $NAMA ($BASE)"
+
+        periksa "daftar -> status" 200 \\
+          "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/v1/artikel?limit=2")"
+        periksa "detail tiada -> status" 404 \\
+          "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/v1/artikel/999")"
+        periksa "detail tiada -> content-type" "application/problem+json" \\
+          "$(curl -s -o /dev/null -w '%{content_type}' "$BASE/v1/artikel/999" | cut -d';' -f1)"
+        periksa "tulis kosong -> status" 422 \\
+          "$(curl -s -o /dev/null -w '%{http_code}' -X POST \\
+             -H 'Content-Type: application/json' -d '{}' "$BASE/v1/artikel")"
+        periksa "preflight -> status" 204 \\
+          "$(curl -s -o /dev/null -w '%{http_code}' -X OPTIONS \\
+             -H 'Origin: http://localhost:3000' \\
+             -H 'Access-Control-Request-Method: POST' "$BASE/v1/artikel")"
+        periksa "preflight -> ada Vary: Origin" "Origin" \\
+          "$(curl -s -i -X OPTIONS -H 'Origin: http://localhost:3000' "$BASE/v1/artikel" \\
+             | sed -n 's/^[Vv]ary: *//p' | tr -d '\\r')"
+
+        echo "  -> gagal: $gagal"; exit $gagal
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan terhadap satu backend Node dan satu backend PHP 8.3.6 dengan kontrak yang sama.',
+        },
+      ),
+      p(
+        'Yang menarik adalah hasil jalan pertamanya, sebab skrip itu langsung menemukan sesuatu yang tidak terlihat dari kode mana pun.',
+      ),
+      code(
+        'text',
+        `
+        == Backend A - Node (gaya Express)
+          OK    daftar -> status                   200
+          OK    detail tiada -> status             404
+          OK    detail tiada -> content-type       application/problem+json
+          OK    tulis kosong -> status             422
+          OK    tulis pendek -> pesan field        minimal 3 karakter
+          OK    tulis sah -> status                201
+          OK    preflight -> status                204
+          -> gagal: 0
+
+        == Backend B - PHP (gaya Laravel)
+          OK    daftar -> status                   200
+          OK    detail tiada -> status             404
+          OK    detail tiada -> content-type       application/problem+json
+          OK    tulis kosong -> status             422
+          GAGAL tulis pendek -> pesan field        harap=minimal 3 karakter dapat=
+          GAGAL tulis sah -> status                harap=201 dapat=500
+          -> gagal: 2
+        `,
+        {
+          caption:
+            'Sepuluh pemeriksaan lolos di kedua sisi, dua gagal hanya di satu sisi. Itulah gunanya menjalankan skrip yang sama.',
+        },
+      ),
+      p(
+        'Penyebabnya bukan kesalahan logika melainkan perbedaan lingkungan, dan inilah kelas masalah yang paling sering lolos dari review kode.',
+      ),
+      code(
+        'text',
+        `
+        PHP Fatal error: Uncaught Error: Call to undefined function mb_strlen()
+          in /.../index.php:52
+
+        Sebabnya: ekstensi mbstring tidak terpasang pada PHP 8.3.6 di mesin ini.
+        Kodenya benar secara sintaks, lolos pembacaan manusia, dan tetap
+        mati saat dijalankan.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Yang membuat kegagalan tadi layak dipelajari bukan penyebabnya melainkan **apa yang dilihat klien**, dan itu sudah diukur.',
+      ),
+      code(
+        'text',
+        `
+        Apa yang benar-benar dikirim server:
+
+          status       = 500
+          content_type = text/html; charset=UTF-8
+          size         = 0                      <- BADANNYA KOSONG
+
+          dan header CORS-nya TETAP ADA:
+            Access-Control-Allow-Origin: http://localhost:3000
+            Access-Control-Allow-Methods: GET,POST,PATCH,DELETE
+
+        Apa yang dilihat kode klien:
+
+          r.ok = false | r.status = 500
+          SyntaxError: Unexpected end of JSON input
+        `,
+        {
+          caption:
+            'Diukur sungguhan. Header CORS sempat terkirim sebelum error fatal, jadi ini bukan masalah CORS.',
+        },
+      ),
+      p(
+        'Tiga pelajaran bertumpuk di situ. Pertama, `fetch` tetap tidak melempar untuk 500, jadi kode yang hanya memakai `try/catch` di sekeliling `fetch` tidak akan menangkap apa pun sampai `.json()` dipanggil. Kedua, pesan yang akhirnya muncul menyebut JSON, sama sekali tidak menyebut PHP, ekstensi, atau baris 52. Ketiga, header CORS yang lengkap membuktikan bahwa CORS bukan tersangkanya, dan tanpa bukti itu penelusuran mudah tersesat ke arah yang salah.',
+      ),
+      code(
+        'ts',
+        `
+        // Yang membuat pesan error berguna: baca sebagai TEKS dulu,
+        // baru coba uraikan. Bila gagal, teks mentahnya ikut dilaporkan.
+        async function baca<T>(r: Response, skema: ZodType<T>): Promise<T> {
+          const teks = await r.text();
+
+          if (!r.ok) {
+            const tipe = r.headers.get('content-type') ?? '';
+            if (tipe.includes('json')) throw new GagalApi(JSON.parse(teks), r.status);
+            // Badan kosong atau HTML: laporkan apa adanya, jangan uraikan.
+            throw new GagalApi(
+              { title: 'Server gagal', status: r.status, detail: teks.slice(0, 200) || '(badan kosong)' },
+              r.status,
+            );
+          }
+
+          return skema.parse(JSON.parse(teks));
+        }
+        `,
+        {
+          caption:
+            'Potongan `teks.slice(0, 200)` itu yang mengubah "Unexpected end of JSON input" menjadi petunjuk nyata.',
+        },
+      ),
+      p(
+        'Pelajaran terakhir bab ini datang dari kegagalan yang jauh lebih membingungkan, yaitu perintah `npm run build` yang mati pada beberapa halaman dengan pesan bahwa prerender melewati enam puluh detik. Halaman yang gagal termasuk halaman yang sama sekali tidak disentuh, dan dugaan pertamanya selalu sama, yaitu ada halaman yang lambat.',
+      ),
+      code(
+        'text',
+        `
+        Sebelum menuduh halamannya, waktunya diukur dulu:
+
+          seluruh 427 halaman yang punya blok kode
+            total penyorotan kode : 5.785 ms
+            rata-rata per halaman :    14 ms
+            halaman yang GAGAL    :    30 ms      <- tidak lambat sama sekali
+
+          dan salah satu halaman yang gagal TIDAK PUNYA blok kode
+          satu pun, jadi tidak ada yang bisa lambat di sana.
+
+        Yang diukur berikutnya adalah mesinnya:
+
+          CPU            : 4
+          swap           : 0
+          memori tersisa : ~1,1 GB
+          worker Next    : 3, ditambah mysqld, peramban, dan editor
+          load average   : 12,84 pada mesin 4 CPU
+
+        Satu perubahan, satu variabel:
+          CIRCLE_NODE_TOTAL=2 npm run build
+          -> EXIT=0, 506/506 halaman, 15,9 detik
+        `,
+        {
+          caption:
+            'Bukan halamannya yang lambat. Ketiga worker saling berebut memori pada mesin tanpa swap.',
+        },
+      ),
+      p(
+        'Kebiasaan yang perlu dibawa dari sini bukan nilai `CIRCLE_NODE_TOTAL`-nya, melainkan urutannya. Sebelum menyimpulkan endpoint-nya lambat, ukur dulu apakah endpoint-nya memang lambat. Pesan timeout menyebut waktu, dan waktu bisa habis karena pekerjaannya berat atau karena mesinnya sedang berebut, dan keduanya menghasilkan pesan yang sama persis.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Menyambungkan dua sisi adalah tempat semua asumsi yang belum teruji akhirnya bertemu, dan kesalahannya cenderung berupa hal yang tidak pernah diperiksa karena tampak jelas benar.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyimpulkan kontraknya sama dari membaca kode',
+            'Rutenya kan sama',
+            'Diukur, dua dari dua belas pemeriksaan gagal hanya di satu backend. Jalankan skrip yang sama ke keduanya',
+          ],
+          [
+            'Memanggil `.json()` tanpa memeriksa `content-type`',
+            'API-nya kan mengirim JSON',
+            'Error fatal server mengirim badan kosong bertipe HTML. Pesannya jadi `Unexpected end of JSON input`',
+          ],
+          [
+            'Menaruh kunci API di variabel ber-awalan `NEXT_PUBLIC_`',
+            'Supaya bisa dipakai di komponen',
+            'Awalan itu justru menandai variabel yang IKUT TERKIRIM ke browser. Kuncinya bocor ke semua pengunjung',
+          ],
+          [
+            'Memanggil API langsung dari banyak komponen',
+            'Lebih sedikit lapisan',
+            'Setiap komponen menangani error dengan caranya sendiri, dan perbedaan itu yang dilihat pengguna',
+          ],
+          [
+            'Menyimpulkan penyebab dari pesan error saja',
+            'Pesannya kan sudah jelas',
+            'Pesan menyebut JSON, penyebabnya ekstensi PHP yang tidak terpasang. Pesan menyebut timeout, penyebabnya memori',
+          ],
+          [
+            'Menganggap 500 sebagai masalah CORS',
+            'Kan panggilannya lintas origin',
+            'Header CORS-nya terukur lengkap. Bila CORS yang menolak, permintaannya tidak akan pernah sampai ke server',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima adalah kebiasaan yang paling menentukan seberapa cepat kamu menyelesaikan masalah sepanjang karier, dan ia tidak ada hubungannya dengan Next.js maupun Laravel. Pesan error memberi tahu **di mana sesuatu berhenti**, bukan **kenapa ia berhenti**. Jarak antara keduanya hanya bisa ditutup dengan pengukuran, dan pengukuran yang paling berguna hampir selalu yang paling membosankan, yaitu memastikan dulu bahwa yang kamu curigai memang benar-benar terjadi.',
+      ),
       references(
         {
           label: 'Server Components',

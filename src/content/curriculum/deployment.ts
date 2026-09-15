@@ -21,7 +21,30 @@ const fondasi = defineChapter({
   ],
   prerequisites: [],
   stackVersions: ['Nginx 1.27', 'Caddy 2'],
-  reviewedAt: '2026-08-02',
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (Node 26.5.0, Docker 29.8.0, dig, curl 8.5.0):
+  //   - selisih lingkungan diukur: Node v26.5.0 di mesin melawan v22.23.2 di image,
+  //     Linux Mint 22.3 melawan Alpine Linux v3.24
+  //   - keluaran build project ini: 30 berkas JS klien, 506 halaman HTML, dan isi materi
+  //     terbaca di 1.250 berkas .next/server sementara 0 berkas .next/static
+  //   - DNS: dua rekaman A untuk satu nama, TTL 152 detik, dan www.github.com berupa
+  //     CNAME sementara apex-nya rekaman A
+  //   - TLS: TLSv1.3 / TLS_AES_256_GCM_SHA384 lewat curl, dan empat kegagalan verifikasi
+  //     (kedaluwarsa, nama salah, self-signed, akar tidak dipercaya) yang SEMUANYA
+  //     menjawab 200 begitu -k dipakai
+  //   - reverse proxy: header teruskan diukur dengan dua server node:http
+  //
+  // SATU HASIL YANG SENGAJA DILAPORKAN KARENA MELAWAN DUGAAN AWAL:
+  //   - Header X-Forwarded-* yang dikirim LANGSUNG oleh klien diterima apa adanya oleh
+  //     aplikasi yang "sudah benar" membacanya. Materinya memakai itu untuk menegaskan
+  //     bahwa header teruskan hanya boleh dipercaya bila akses langsung memang tertutup.
+  //
+  // nginx dan Caddy TIDAK terpasang di mesin ini; contoh konfigurasinya ditandai tidak
+  // dieksekusi, dan perilaku header teruskannya diukur dengan proxy node:http.
+  // 2026-09-15: ADR-0006 menyusul di bab ini (plans/revisi-materi-istilah-rujukan/, batch 13).
+  //   Kategori ini satu-satunya yang tertinggal dari pass istilah+rujukan, dan celahnya tercatat
+  //   di ratchet test sendiri: `toBeGreaterThanOrEqual(402)`, yaitu 440 - 38.
+  //   Seluruh URL rujukan diverifikasi hidup dengan curl lebih dulu, bukan diambil dari ingatan.
+  reviewedAt: '2026-09-15',
   lessons: lessonsFondasiDeploy,
   quiz: [
     q(
@@ -61,7 +84,24 @@ const git = defineChapter({
   ],
   prerequisites: [],
   stackVersions: ['Git 2.4x', 'Conventional Commits 1.0', 'SemVer 2.0'],
-  reviewedAt: '2026-08-02',
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (git 2.43.0, repositori buangan):
+  //   - tiga wilayah git dibuktikan lewat dua kolom keluaran git status --short
+  //   - reset --soft / --mixed / --hard diukur isinya: hanya --hard yang MENGUBAH isi
+  //     berkas, dari "satu/dua/tiga" menjadi "satu/dua"
+  //   - reflog mencatat setiap perpindahan HEAD, termasuk sesudah reset --hard
+  //   - stash dan stash pop memulihkan kolom staging juga
+  //   - amend mengubah hash: 34792eb menjadi 5b46a0f
+  //   - konflik merge sungguhan beserta penanda <<<<<<< dan status UU
+  //   - bentuk graf riwayat sesudah merge, dengan percabangannya terlihat
+  //
+  // SATU HASIL YANG SENGAJA DILAPORKAN:
+  //   - Konflik yang diukur TIDAK bisa diselesaikan dengan memilih salah satu sisi:
+  //     jawaban yang benar adalah pajak baru BESERTA diskon. Materinya memakai itu
+  //     untuk menegaskan bahwa menyelesaikan konflik adalah keputusan produk.
+  // 2026-09-15: ADR-0006 menyusul di bab ini — blok istilah dan rujukan resmi ditambahkan
+  //   di kelima sub-bab. Rujukannya menunjuk Pro Git dan GitHub Docs, keduanya sudah ada di
+  //   OFFICIAL_DOC_HOSTS sehingga allow-list tidak perlu diubah.
+  reviewedAt: '2026-09-15',
   lessons: lessonsGitRilis,
   quiz: [
     q(
@@ -100,7 +140,25 @@ const deployFe = defineChapter({
   ],
   prerequisites: [{ category: 'frontend-intermediate', chapter: 'nextjs' }],
   stackVersions: ['Next.js 16.2', 'Vercel', 'Cloudflare Pages'],
-  reviewedAt: '2026-08-02',
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (Chrome for Testing 149 lewat CDP, curl 8.5.0):
+  //   - keluaran build produksi project ini: 30 berkas JS klien 1.823,4 KB, chunk terbesar
+  //     653,4 KB, 506 halaman HTML 108,1 MB, halaman terbesar 487,8 KB
+  //   - Core Web Vitals terhadap build itu: LCP 332 / 232 / 144 ms, CLS 0 di ketiganya
+  //   - halaman 487,8 KB hanya 56,1 KB DI KABEL, yaitu 8,7 kali lebih kecil
+  //   - empat kegagalan verifikasi TLS beserta pesan curl-nya, dan keempatnya 200 dengan -k
+  //
+  // SATU HASIL YANG SENGAJA DILAPORKAN KARENA MELAWAN DUGAAN AWAL:
+  //   - Percobaan CLS pertama memakai PNG 1x1 dan menghasilkan CLS 0 pada KEDUA versi,
+  //     yaitu tidak menunjukkan apa-apa. Setelah gambarnya diganti menjadi 600x300, barulah
+  //     selisihnya muncul: 0,0302 tanpa width/height melawan 0 dengan. Angka yang dipakai
+  //     di materi adalah yang kedua.
+  //
+  // Penyebaran ke Vercel, Netlify, dan Cloudflare Pages TIDAK dijalankan — semuanya
+  // memerlukan akun penyedia. Angka TTFB berasal dari jaringan lokal dan dinyatakan begitu.
+  // 2026-09-15: ADR-0006 menyusul di bab ini — enam sub-bab mendapat istilah dan rujukan.
+  //   Dua URL kandidat ditolak karena membalas 404 saat diverifikasi, dan diganti halaman lain
+  //   yang benar-benar hidup. Itulah alasan verifikasinya dijalankan, bukan diasumsikan.
+  reviewedAt: '2026-09-15',
   lessons: lessonsDeployFrontend,
   quiz: [
     q(
@@ -139,7 +197,28 @@ const deployBe = defineChapter({
   ],
   prerequisites: [{ category: 'backend-intermediate', chapter: 'express-intermediate' }],
   stackVersions: ['PM2 5', 'Nginx 1.27', 'PHP-FPM 8.3'],
-  reviewedAt: '2026-08-02',
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (Node 26.5.0, PostgreSQL 16.15, Chrome 149):
+  //   - header teruskan di belakang proxy, beserta pemalsuannya oleh klien langsung
+  //   - pg_dump tiga format: 2,6 MB / 552 KB / 560 KB dalam 57 / 84 / 87 ms
+  //   - pg_restore penuh ke basis data baru: 123 ms, 5.000 pelanggan dan 50.000 pesanan
+  //   - constraint CHECK, foreign key, dan sequence terbukti ikut pulih
+  //   - biaya operasi migrasi pada 300.000 baris: ADD COLUMN 7 ms, ALTER TYPE 288 ms,
+  //     CREATE INDEX 384 ms, CONCURRENTLY 419 ms
+  //   - rollback sesudah RENAME: column "nama_lengkap" does not exist
+  //
+  // DUA HASIL YANG SENGAJA DILAPORKAN KARENA MELAWAN DUGAAN AWAL:
+  //   - ADD COLUMN dengan DEFAULT konstan sama cepatnya dengan tanpa default (7 ms vs 7 ms).
+  //     Sejak PostgreSQL 11 ia hanya mengubah metadata; yang menulis ulang adalah DEFAULT
+  //     yang nilainya berbeda per baris (316 ms).
+  //   - pg_restore --data-only ke tabel BER-primary key GAGAL dan jumlahnya tetap 50.000,
+  //     sementara ke tabel TANPA primary key ia berlipat 1.000 menjadi 2.000 tanpa satu pun
+  //     error. Yang menyelamatkan bukan pg_restore melainkan constraint-nya. Dugaan awal
+  //     materi ini keliru dan dikoreksi setelah diukur.
+  //
+  // Laravel, Composer, PM2, dan nginx TIDAK terpasang; perintahnya ditandai tidak dieksekusi.
+  // 2026-09-15: ADR-0006 menyusul di bab ini — lima sub-bab mendapat istilah dan rujukan
+  //   ke Express, Laravel, PHP Manual, dan PostgreSQL Docs.
+  reviewedAt: '2026-09-15',
   lessons: lessonsDeployBackend,
   quiz: [
     q(
@@ -178,7 +257,27 @@ const docker = defineChapter({
   ],
   prerequisites: [{ category: 'deployment', chapter: 'fondasi-deployment' }],
   stackVersions: ['Docker 27', 'Docker Compose v2'],
-  reviewedAt: '2026-08-02',
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (Docker 29.8.0, node:22-alpine):
+  //   - .dockerignore: konteks 33,01 MB menjadi 195 byte, image 301 MB menjadi 235 MB
+  //   - urutan lapisan: mengubah satu baris kode menyisakan RUN npm install CACHED bila
+  //     package.json disalin lebih dulu, dan menjalankannya ulang bila COPY . . mendahului
+  //   - multi-stage dengan devDependency yang sama: 290 MB melawan 232 MB, dan image
+  //     multi-stage hanya berisi dist + package.json serta berjalan sebagai pengguna "app"
+  //   - healthcheck: starting -> healthy, /healthz 000 -> 503 -> 200, exit=1 lalu exit=0
+  //   - compose: Waiting -> Healthy lalu layanan kedua dimulai, dan http://api:3000 bekerja
+  //   - versi di dalam image: Node v22.23.2 di Alpine 3.24, melawan v26.5.0 di Mint 22.3
+  //
+  // SATU HASIL YANG SENGAJA DILAPORKAN KARENA MELAWAN DUGAAN AWAL:
+  //   - Perbandingan multi-stage yang PERTAMA menghasilkan 232 MB melawan 232 MB, yaitu
+  //     tidak menunjukkan apa-apa, sebab ENV NODE_ENV=production membuat npm install
+  //     MELEWATI devDependencies. Kekeliruan itu justru menghasilkan error yang dipakai
+  //     di materi ("npx tsc: To get access to the TypeScript compiler..."), dan angka
+  //     perbandingan yang benar baru didapat setelah NODE_ENV dipindah ke bawah.
+  //
+  // Container mysql84 milik user TIDAK disentuh. Seluruh image uji dihapus sesudah diukur.
+  // 2026-09-15: ADR-0006 menyusul di bab ini — lima sub-bab mendapat istilah dan rujukan
+  //   ke Docker Docs, Kubernetes Docs, dan Twelve-Factor App.
+  reviewedAt: '2026-09-15',
   lessons: lessonsDocker,
   quiz: [
     q(
@@ -218,7 +317,29 @@ const cicd = defineChapter({
   ],
   prerequisites: [{ category: 'deployment', chapter: 'git-alur-rilis' }],
   stackVersions: ['GitHub Actions'],
-  reviewedAt: '2026-08-02',
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (project ini sendiri):
+  //   - durasi tiap langkah pipeline: format:check 3.691 ms, lint 6.021 ms,
+  //     type-check 2.403 ms, test 7.184 ms, build 64.834 ms
+  //   - angka itulah yang dipakai menyusun urutan langkah, bukan selera
+  //   - kegagalan rollback sesudah migrasi RENAME pada PostgreSQL 16.15
+  //   - selisih status starting dan healthy pada Docker 29.8.0
+  //
+  // SATU HASIL YANG SENGAJA DILAPORKAN APA ADANYA:
+  //   - format:check pada project ini keluar dengan exit=1. Berkas yang gagal
+  //     (src/test/sidebar-nav.test.tsx) terakhir diubah pada commit yang jauh lebih lama
+  //     dan TIDAK disentuh dalam pekerjaan ini, sehingga pemeriksaan format memang belum
+  //     pernah dijalankan otomatis di sini. Temuan itu dipakai sebagai contoh di materi
+  //     alih-alih diperbaiki diam-diam, sebab memperbaikinya akan mencampur perubahan
+  //     yang tidak diminta ke dalam pekerjaan ini. Belakangan (2026-09-15), atas
+  //     persetujuan pemilik project, berkas itu diformat sebagai perubahan TERPISAH, dan
+  //     sub-bab yang mengutip exit=1 diberi catatan lanjutan.
+  //
+  // GitHub Actions TIDAK dijalankan — menjalankannya menuntut repositori GitHub beserta
+  // runner-nya. Yang diukur adalah perintah di dalam workflow-nya, dan angka itu berlaku
+  // di mana pun pipeline-nya dijalankan.
+  // 2026-09-15: ADR-0006 menyusul di bab ini — enam sub-bab mendapat istilah dan rujukan
+  //   ke GitHub Docs, Google SRE Book, dan dokumentasi alat pemeriksaan yang dipakai project ini.
+  reviewedAt: '2026-09-15',
   lessons: lessonsCicd,
   quiz: [
     q(
@@ -257,7 +378,29 @@ const setelahRilis = defineChapter({
   ],
   prerequisites: [{ category: 'deployment', chapter: 'ci-cd' }],
   stackVersions: ['Sentry', 'Core Web Vitals'],
-  reviewedAt: '2026-08-02',
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (Chrome 149, PostgreSQL 16.15, Node 26.5.0):
+  //   - Core Web Vitals terhadap build produksi project ini: LCP 332 / 232 / 144 ms, CLS 0
+  //   - CLS gambar tanpa width/height 0,0302 melawan 0 dengan, pada gambar dan waktu tiba
+  //     yang sama persis
+  //   - pg_dump tiga format beserta ukuran dan waktunya, dan pg_restore 123 ms
+  //   - constraint CHECK, foreign key, dan sequence terbukti ikut pulih
+  //   - redaksi log beserta batasnya: kunci berhuruf besar tertangkap, rahasia di teks
+  //     bebas lolos
+  //   - log injection: baris palsu tersisip pada log yang digabung string, tetap satu
+  //     baris pada JSON.stringify
+  //   - skrip audit 10 butir: 10 temuan pada versi rentan, 0 pada versi diperbaiki
+  //
+  // SATU HASIL YANG SENGAJA DILAPORKAN KARENA MELAWAN DUGAAN AWAL:
+  //   - pg_restore --data-only ke tabel TANPA primary key melipatgandakan barisnya dari
+  //     1.000 menjadi 2.000 TANPA satu pun error, sementara ke tabel ber-primary key ia
+  //     gagal dan jumlahnya tetap. Yang menyelamatkan bukan pg_restore melainkan
+  //     constraint-nya, dan itu mengoreksi dugaan awal materi ini.
+  //
+  // Sentry maupun layanan pemantauan lain TIDAK dipasang — semuanya memerlukan akun.
+  // Kemampuan pengelompokannya dijelaskan dan ditandai tidak dieksekusi.
+  // 2026-09-15: ADR-0006 menyusul di bab ini — enam sub-bab mendapat istilah dan rujukan
+  //   ke Google SRE Book, Prometheus, OpenTelemetry, dan web.dev.
+  reviewedAt: '2026-09-15',
   lessons: lessonsOperasional,
   quiz: [
     q(

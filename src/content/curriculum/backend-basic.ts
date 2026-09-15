@@ -20,7 +20,25 @@ const fondasi = defineChapter({
   prerequisites: [],
   stackVersions: ['HTTP/1.1 & HTTP/2', 'REST'],
   // Bumped by the ADR-0006 pass: every lesson now carries `terms` + `references`.
-  reviewedAt: '2026-08-05',
+  // 2026-09-07: revisi studi kasus, error, dan kesalahan umum
+  // (plans/revisi-studi-kasus-error-kesalahan/) — ketiga bagian berjudul tetap ditambahkan
+  // di seluruh 9 sub-bab.
+  //
+  // Seluruh pesan error dan angka di bab ini dihasilkan sungguhan dengan Node 26.5.0,
+  // curl 8.5.0, dan Chrome for Testing 151 (dari cache Playwright). Yang diambil dari
+  // keluaran asli, antara lain: byte HTTP mentah lewat net.connect (200/201/405/HEAD/301
+  // beserta Transfer-Encoding chunked), empat kegagalan jaringan fetch yang semuanya
+  // berpesan luar sama (ECONNREFUSED/ENOTFOUND/TimeoutError/unknown scheme), EADDRINUSE,
+  // lima SyntaxError JSON.parse, dua TypeError JSON.stringify (BigInt dan struktur
+  // melingkar), TypeError circular dependency CommonJS beserta jejak tumpukannya, dan
+  // empat issue zod 4.4.3 yang dilaporkan sekaligus.
+  //
+  // Dua temuan yang MELAWAN dugaan awal dan tetap dilaporkan apa adanya:
+  //   - fetch TIDAK melempar untuk 404 maupun 500 (r.ok=false, tanpa throw), jadi
+  //     try/catch di sekitar fetch tidak menangkap keduanya.
+  //   - Lingkaran ketergantungan yang sama GAGAL di CommonJS tapi BERHASIL di ESM
+  //     (live binding), jadi materinya tidak boleh menyatakan "circular selalu error".
+  reviewedAt: '2026-09-07',
   lessons: lessonsFondasi,
   quiz: [
     q(
@@ -67,7 +85,39 @@ const sql = defineChapter({
   prerequisites: [{ category: 'backend-basic', chapter: 'fondasi-backend' }],
   stackVersions: ['PostgreSQL 17', 'SQL:2023'],
   // Bumped by the ADR-0006 pass: every lesson now carries `terms` + `references`.
-  reviewedAt: '2026-08-05',
+  // 2026-09-14: revisi studi kasus, error, dan kesalahan umum
+  // (plans/revisi-studi-kasus-error-kesalahan/) — ketiga bagian berjudul tetap ditambahkan
+  // di seluruh 12 sub-bab.
+  //
+  // SELURUH angka dan pesan error dihasilkan sungguhan pada PostgreSQL 16.15 yang dijalankan
+  // sebagai cluster SEMENTARA TERPISAH (initdb di scratchpad, TCP 127.0.0.1:5455, dihentikan
+  // dan dihapus setelah selesai). Cluster sistem dan container MySQL milik user TIDAK disentuh:
+  // role "zum" tidak ada di cluster sistem, dan membuat role di sana adalah perubahan pada
+  // mesin user yang tidak diminta.
+  //
+  // Data ujinya nyata: 205.000 pelanggan, 5.000 produk, 300.000 pesanan, 600.000 item, plus
+  // skema blog 50.000 artikel + 60.000 komentar. Angka yang masuk materi antara lain:
+  //   - Seq Scan 10,688 ms (Rows Removed by Filter: 150000) vs Index Scan 0,047 ms
+  //   - OFFSET 250000 membaca 250.020 baris / 24,2 ms vs keyset 20 baris / 0,06 ms
+  //   - index parsial 1040 kB vs index penuh 1552 kB; query halaman depan 8,865 -> 0,018 ms
+  //   - LEFT JOIN + WHERE = 75.000 baris, identik dengan INNER JOIN; syarat di ON = 230.000
+  //   - lost update: dua proses baca-lalu-tulis menyisakan saldo 90 dari seharusnya 80
+  //   - N+1: 1.000 query 53 ms vs 1 JOIN 3 ms di LOKAL (0,053 ms per round trip) — materinya
+  //     menyebut angka ini lokal secara eksplisit, sebab di situlah jebakannya
+  //
+  // Error asli yang dipakai: duplicate key (SQLSTATE 23505, diverifikasi lewat blok DO),
+  // not-null, dua check constraint, dua arah foreign key, invalid input syntax, column does
+  // not exist, "must appear in the GROUP BY clause", "aggregate functions are not allowed in
+  // WHERE", "current transaction is aborted", dan deadlock detected dari dua sesi bersamaan.
+  //
+  // Tiga temuan yang MELAWAN dugaan dan tetap ditulis apa adanya:
+  //   - LIKE 'awalan%' TIDAK memakai index biasa pada collation en_US.UTF-8 (12,5 ms);
+  //     baru terpakai setelah index text_pattern_ops (0,119 ms).
+  //   - ORDER BY $1 lewat parameter TIDAK mengurutkan — ia diperlakukan sebagai teks tetap,
+  //     jadi gagal diam-diam, bukan error.
+  //   - Injeksi lewat ORDER BY yang dirangkai BENAR-BENAR menghapus tabel artikel_tag di
+  //     basis data percobaan, dan respons query-nya tetap terlihat normal.
+  reviewedAt: '2026-09-14',
   lessons: lessonsDatabaseSql,
   quiz: [
     q(
@@ -135,7 +185,40 @@ const express = defineChapter({
   ],
   stackVersions: ['Node.js 22 LTS', 'Express 5', 'Zod 4'],
   // Bumped by the ADR-0006 pass: every lesson now carries `terms` + `references`.
-  reviewedAt: '2026-08-05',
+  // 2026-09-14: revisi studi kasus, error, dan kesalahan umum
+  // (plans/revisi-studi-kasus-error-kesalahan/) — ketiga bagian berjudul tetap ditambahkan
+  // di seluruh 14 sub-bab.
+  //
+  // BATAS KEJUJURAN YANG PALING MENENTUKAN DI BAB INI: Express TIDAK terpasang, dan
+  // Dependency Version Gate (core.md) melarang menambahnya tanpa persetujuan user. Jadi
+  // seluruh potongan ber-API Express disusun dari dokumentasi resmi dan DINYATAKAN tidak
+  // dieksekusi lewat callout di sub-bab setup. Yang dijalankan sungguhan adalah MEKANISME
+  // di bawahnya memakai node:http bawaan Node 26.5.0 — termasuk rantai middleware lengkap
+  // dengan aturan "penangan error dikenali dari jumlah argumen", yang ditulis ulang dari nol
+  // lalu benar-benar dijalankan untuk membuktikan urutannya.
+  //
+  // Angka dan pesan yang diambil dari keluaran asli:
+  //   - event loop: 1 permintaan berat sinkron membuat 5 permintaan ringan menunggu
+  //     73,9-74,6 ms; versi asinkron menurunkannya ke 6,1-7,5 ms
+  //   - lima error modul (require di ESM, import di CJS, ERR_MODULE_NOT_FOUND,
+  //     top-level await di CJS, __dirname di ESM) plus keterangan Node soal "type": "module"
+  //   - enam jalur badan permintaan: 200 / 400 / 415 / 415 / 400 / 413
+  //   - empat issue zod 4.4.3 untuk env, dan tujuh issue bersarang untuk badan pesanan
+  //     (termasuk path ber-indeks array seperti ["item",0,"jumlah"])
+  //
+  // Tiga temuan yang MELAWAN dugaan awal dan tetap dilaporkan apa adanya:
+  //   - Handler async yang melempar TIDAK menghasilkan 500; kliennya menggantung sampai
+  //     TimeoutError 1205 ms tanpa respons apa pun. Tanpa penangan unhandledRejection,
+  //     prosesnya mati dengan exit 1 dan seluruh sambungan lain ikut putus.
+  //   - `.refine` zod TETAP dilaporkan meski skema dasarnya sudah gagal — dugaan awal saya
+  //     sebaliknya, dan materinya ditulis mengikuti hasil pengukuran.
+  //   - z.coerce.number() memakai Number(), jadi parse("") dan parse(null) sama-sama
+  //     menghasilkan 0, bukan gagal. Materinya menyebut .min(1) sebagai penutupnya.
+  //
+  // Klaim yang DICABUT karena tidak bisa diverifikasi: bentuk bawaan `query parser` Express
+  // untuk sintaks `?filter[harga][gte]=`. Nilai bawaannya berbeda antar-major dan Express
+  // tidak terpasang, jadi materinya menyuruh pembaca mencetak req.query sendiri.
+  reviewedAt: '2026-09-14',
   lessons: lessonsExpress,
   quiz: [
     q(
@@ -196,7 +279,35 @@ const laravel = defineChapter({
   prerequisites: [{ category: 'backend-basic', chapter: 'database-sql-dasar' }],
   stackVersions: ['PHP 8.3+', 'Laravel 12'],
   // Bumped by the ADR-0006 pass: every lesson now carries `terms` + `references`.
-  reviewedAt: '2026-08-05',
+  // 2026-09-14: revisi studi kasus, error, dan kesalahan umum
+  // (plans/revisi-studi-kasus-error-kesalahan/) — ketiga bagian berjudul tetap ditambahkan
+  // di seluruh 14 sub-bab.
+  //
+  // BATAS KEJUJURAN: Composer dan Laravel TIDAK terpasang, dan Dependency Version Gate
+  // (core.md) melarang menambahnya tanpa persetujuan user. Seluruh potongan ber-API Laravel
+  // disusun dari dokumentasi resmi dan DINYATAKAN tidak dieksekusi lewat callout di sub-bab
+  // composer-struktur. Yang dijalankan sungguhan adalah PHP 8.3.6 yang memang terpasang.
+  //
+  // Yang benar-benar dieksekusi dengan PHP 8.3.6:
+  //   - strict_types: TypeError/ArgumentCountError untuk empat bentuk masukan salah
+  //   - tanpa strict_types: '89000' -> 178000, 89000.5 -> 178000, true -> 2
+  //   - readonly (Error: Cannot modify readonly property), enum from/tryFrom
+  //     (ValueError vs NULL), match (UnhandledMatchError), dan perbedaan ketat/longgar
+  //     antara match dan switch
+  //   - ?-> versus akses langsung (PHP Warning, hasilnya NULL, program TERUS BERJALAN)
+  //   - service container lengkap lewat Reflection — autowiring, pengikatan interface,
+  //     dan penukaran implementasi untuk test, semuanya dijalankan
+  //   - autoload PSR-4 lewat spl_autoload_register, termasuk jejak "dicari:" per berkas
+  //   - htmlspecialchars atas lima masukan XSS nyata, yang mendasari {{ }} vs {!! !!}
+  //
+  // TEMUAN YANG TIDAK DIDUGA: PHP 8.3.6 PUNYA peringatan untuk pemotongan float ke int
+  // ("Implicit conversion from float 89000.5 to int loses precision"), tetapi setelan
+  // bawaan CLI (error_reporting=22527) TIDAK menyertakan E_DEPRECATED, jadi peringatan itu
+  // tidak pernah tampil. Materinya menyebut kedua keluaran itu berdampingan.
+  //
+  // Angka dari bab lain yang dirujuk ulang di sini semuanya berasal dari pengukuran nyata
+  // di bab database dan bab Fondasi, bukan dari perkiraan.
+  reviewedAt: '2026-09-14',
   lessons: lessonsLaravel,
   quiz: [
     q(
@@ -253,7 +364,35 @@ const auth = defineChapter({
   ],
   stackVersions: ['OWASP ASVS 5', 'OAuth 2.1'],
   // Bumped by the ADR-0006 pass: every lesson now carries `terms` + `references`.
-  reviewedAt: '2026-08-05',
+  // 2026-09-14: revisi studi kasus, error, dan kesalahan umum
+  // (plans/revisi-studi-kasus-error-kesalahan/) — ketiga bagian berjudul tetap ditambahkan
+  // di seluruh 9 sub-bab.
+  //
+  // SELURUH angka dihasilkan sungguhan dengan node:crypto, node:sqlite, dan node:http pada
+  // Node 26.5.0, plus Chrome for Testing 149 untuk perilaku cookie. Yang diukur:
+  //   - SHA-256 1.270.049 hash/detik vs scrypt N=2^14 35 hash/detik (~36.000x)
+  //   - SHA-256 + salt 1.228.039/detik: salt TIDAK memperlambat apa pun, hanya menggagalkan
+  //     tabel pelangi — itu dua pekerjaan yang berbeda
+  //   - kebocoran waktu login: email tak terdaftar 0,0 ms vs email ada 28,7 ms; versi aman
+  //     28,4 / 28,5 / 28,2 ms
+  //   - backoff eksponensial: 298 tebakan per 24 jam vs tanpa batas
+  //   - HttpOnly: cookie `sesi` TIDAK muncul di document.cookie tapi TETAP dikirim ke server
+  //   - IDOR: pengguna lain membaca baris utuh sampai syarat pemilik masuk ke query
+  //   - rotasi refresh token + deteksi reuse mencabut seluruh keluarga token
+  //   - tiga serangan JWT (payload diubah, alg:none, token kedaluwarsa) semuanya LOLOS pada
+  //     verifikasi yang hanya mengurai, dan tertahan pada verifikasi bertiga lapis
+  //
+  // TEMUAN YANG MELAWAN BUKU TEKS, dan tetap ditulis apa adanya: perbandingan `===` atas
+  // string 64 karakter TIDAK menunjukkan bocoran waktu bertingkat (3,23 / 0,79 / 0,59 / 0,59
+  // / 0,62 ns) — V8 memeriksa panjang lebih dulu, menyamakan string identik, dan membandingkan
+  // beberapa byte sekaligus. Materinya karena itu TIDAK mengklaim `===` pasti bocor; alasan
+  // memakai timingSafeEqual dirumuskan sebagai "waktunya tidak bisa diperkirakan", dan
+  // kerataan timingSafeEqual (70,87 / 71,02 / 78,50 ns) yang dijadikan buktinya.
+  //
+  // Catatan alat: binary Chrome berpindah dari cache Playwright chromium-1234 (Chrome 151,
+  // dipakai bab Tailwind) ke chromium-1228 (Chrome 149) di tengah program ini. Pengukuran
+  // lama tetap sah sebab benar-benar dijalankan saat itu; yang baru memakai 149.
+  reviewedAt: '2026-09-14',
   lessons: lessonsAuth,
   quiz: [
     q(

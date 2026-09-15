@@ -42,7 +42,27 @@ const fondasi = defineChapter({
     { category: 'backend-intermediate', chapter: 'express-intermediate' },
   ],
   stackVersions: ['TypeScript 5.9', 'ESLint 9', 'Node.js 20', 'Azure Architecture Center'],
-  reviewedAt: '2026-08-27',
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (Node 26.5.0, git 2.43.0, project INI SENDIRI):
+  //   - graf ketergantungan project ini ditelusuri dari seluruh pernyataan impor:
+  //     116 berkas, 337 sisi, rata-rata 2,9 per berkas
+  //   - fan-in: authoring.ts 58 langsung dan 82 dari 116 (71%) secara transitif;
+  //     builders.ts 49; queries.ts 19
+  //   - arah lapisan: 12 dari 13 kelompok sisi mengikuti arah yang diharapkan, dan
+  //     SATU melawan arah: src/lib/curriculum/queries.ts -> src/content/curriculum/index.ts
+  //   - tiga siklus ditemukan, seluruhnya pasangan halaman-server dan komponen-klien Next.js
+  //   - perubahan bersama dari riwayat git: types.ts + curriculum-integrity.test.ts 50%,
+  //     glossary.ts + curriculum-integrity.test.ts 60%
+  //   - ketergantungan melingkar diuji di CommonJS dan ESM
+  //
+  // SATU HASIL YANG SENGAJA DILAPORKAN KARENA MELAWAN DUGAAN AWAL:
+  //   - ESM MENOLERANSI siklus untuk deklarasi fungsi (di-hoist, binding hidup) dan GAGAL
+  //     untuk nilai yang dibaca saat modul dievaluasi:
+  //       CommonJS -> TypeError: a.dariA is not a function
+  //       ESM + fungsi -> BERHASIL
+  //       ESM + const dibaca saat muat -> ReferenceError: Cannot access 'DARI_C' before initialization
+  //     Materinya memakai itu untuk menjelaskan kenapa siklus tetap dilarang meski
+  //     kebetulan tidak menimbulkan masalah sekarang.
+  reviewedAt: '2026-09-14',
   lessons: lessonsFondasi,
   quiz: [
     q(
@@ -129,7 +149,19 @@ const gayaDanBatas = defineChapter({
     { category: 'deployment', chapter: 'ci-cd' },
   ],
   stackVersions: ['PostgreSQL 17', 'Express 5', 'Next.js 16', 'ESLint 9', 'Vercel Functions'],
-  reviewedAt: '2026-08-27',
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (project ini sendiri, plus angka dari bab lain):
+  //   - fitness function 5 aturan dijalankan terhadap graf impor project ini:
+  //     3 GAGAL (1 pelanggaran arah, 3 siklus), 2 LULUS
+  //   - sebaran ukuran berkas: p50 19 KB, p90 271 KB, maks 340 KB, total 9,7 MB
+  //   - angka pembanding dari bab lain yang dipakai menimbang pemecahan:
+  //     ketersediaan berantai (10 komponen @ 99,9% -> 87,2 jam/tahun), latensi panggilan
+  //     (fungsi puluhan ns, loopback 1,69 ms, internet p50 70,04 ms), dan biaya migrasi
+  //
+  // SATU HASIL YANG SENGAJA DILAPORKAN:
+  //   - Ketiga siklus yang ditemukan BELUM TENTU harus diperbaiki; ketiganya bentuk lazim
+  //     di Next.js. Materinya menyatakan itu apa adanya alih-alih menyajikannya sebagai
+  //     cacat, dan menekankan bahwa nilai pengukurannya adalah temuan itu kini TERLIHAT.
+  reviewedAt: '2026-09-14',
   lessons: lessonsGayaDanBatas,
   quiz: [
     q(
@@ -216,7 +248,22 @@ const komunikasi = defineChapter({
     { category: 'system-design', chapter: 'skala-data' },
   ],
   stackVersions: ['PostgreSQL 17', 'Redis 8', 'BullMQ 5', 'Zod 4', 'OpenAPI 3.1'],
-  reviewedAt: '2026-08-27',
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (angka dari bab lain di kurikulum ini,
+  // seluruhnya diukur sungguhan pada Node 26.5.0, PHP 8.3.6, dan PostgreSQL 16.15):
+  //   - pekerjaan berat sinkron vs asinkron: permintaan ringan 73,9-74,6 ms vs 6,1-7,5 ms
+  //   - latensi panggilan: fungsi puluhan ns, loopback 1,69 ms, internet p50 70,04 ms
+  //   - isolasi listener: tanpa isolasi hanya 1 dari 3 berjalan; dengan isolasi 2 dari 3
+  //   - idempotensi: satu kunci, lima permintaan bersamaan -> satu pembayaran lahir
+  //   - read-after-write pada replika: 5/5 berhasil saat diam, 8/8 gagal saat beban
+  //   - denormalisasi: baca 468,922 ms -> 0,068 ms, tulis 0,0090 -> 0,2825 ms
+  //   - pertentangan baris: 2.000 UPDATE baris sama 459 ms vs berbeda 29 ms
+  //   - kontrak identik diuji ke dua backend: 12 pemeriksaan, 2 gagal hanya di satu sisi
+  //
+  // SATU HASIL YANG SENGAJA DILAPORKAN:
+  //   - Pengujian "mengubah tipe id angka -> string" tercatat AMAN dan itu MENYESATKAN:
+  //     klien ujinya terlalu sederhana. Materinya memakai hasil itu untuk menjelaskan
+  //     kenapa "tidak merusak klien uji saya" bukan bukti sebuah perubahan aman.
+  reviewedAt: '2026-09-14',
   lessons: lessonsKomunikasi,
   quiz: [
     q(
@@ -302,7 +349,22 @@ const dokumentasiEvolusi = defineChapter({
     { category: 'deployment', chapter: 'setelah-rilis' },
   ],
   stackVersions: ['C4 model', 'MADR 4', 'arc42 8', 'Vitest 4', 'ESLint 9'],
-  reviewedAt: '2026-08-27',
+  // Yang BENAR-BENAR dieksekusi untuk bab ini (project ini sendiri, git 2.43.0):
+  //   - fitness function 5 aturan dijalankan: 3 GAGAL, 2 LULUS, dengan berkas pelanggarnya
+  //     disebut satu per satu
+  //   - kesegaran dokumen diukur dari git: README.md terakhir 2026-08-27 (4 commit),
+  //     src/ terakhir 2026-08-27 (12 commit)
+  //   - berkas yang paling sering berubah: curriculum-integrity.test.ts 9x, types.ts 6x
+  //   - data yang bocor ke bundel klien: 0 berkas di .next/static, 1.250 di .next/server
+  //
+  // SATU HASIL YANG SENGAJA DILAPORKAN KARENA MELAWAN DUGAAN AWAL:
+  //   - Aturan "tidak ada import paket luar di src/content" ditulis dua cara. Versi NAIF
+  //     yang mencocokkan teks di mana saja menghasilkan 259 "pelanggaran"; versi BENAR
+  //     yang hanya membaca blok impor di awal berkas menghasilkan 0. Seluruh selisihnya
+  //     positif palsu dari contoh kode di dalam materi. Kekeliruan itu tidak diperbaiki
+  //     diam-diam melainkan dipakai sebagai studi kasus tentang fitness function yang
+  //     dimatikan karena tidak dipercaya.
+  reviewedAt: '2026-09-14',
   lessons: lessonsDokumentasiEvolusi,
   quiz: [
     q(

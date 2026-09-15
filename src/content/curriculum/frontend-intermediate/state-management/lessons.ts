@@ -28,7 +28,7 @@ export const lessons: LessonDraft[] = [
   written(
     'peta-kategori-state',
     'Peta Kategori State',
-    11,
+    19,
     'Lima jenis state yang sering disamakan padahal butuh perlakuan berbeda.',
     [
       p(
@@ -188,6 +188,235 @@ export const lessons: LessonDraft[] = [
         'Cara memakai bab ini',
         'Sepuluh sub-bab berikutnya adalah jawaban untuk kategori-kategori di atas. Kalau kamu sedang bingung memilih library, kembali ke tabel ini dulu — pertanyaannya hampir selalu "ini kategori apa", bukan "library mana yang terbaik".',
       ),
+      divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Tim memasang Redux di minggu pertama karena aplikasinya akan besar. Enam bulan kemudian, store berisi dua puluh tiga potongan dan sembilan belas di antaranya adalah data dari server yang disalin ke sana lalu harus disegarkan manual. Tim kedua tidak memasang apa pun, dan setelah enam bulan punya lima belas komponen yang meneruskan props tujuh tingkat. Keduanya salah, dan keduanya berasal dari keputusan yang sama, yaitu memilih alat sebelum tahu jenis state yang dihadapi.',
+      ),
+      p(
+        'Yang menentukan pilihan bukan besarnya aplikasi melainkan **jenis state**-nya. Ada lima jenis, dan masing-masing punya jawaban yang berbeda.',
+      ),
+      table(
+        ['Jenis state', 'Contoh', 'Tempatnya', 'Kenapa'],
+        [
+          [
+            'Lokal komponen',
+            'Dialog terbuka, tab aktif, isi kotak input',
+            '`useState`',
+            'Hanya satu komponen yang membacanya',
+          ],
+          [
+            'Dibagi beberapa komponen',
+            'Filter yang dipakai sidebar dan daftar',
+            'Angkat ke induk bersama',
+            'Cukup satu sumber kebenaran di induk terdekat',
+          ],
+          [
+            'Global dan jarang berubah',
+            'Tema, bahasa, pengguna yang masuk',
+            'Context',
+            'Sedikit perubahan, jadi penggambaran ulang menyeluruh tidak terasa',
+          ],
+          [
+            'Global dan sering berubah',
+            'Keranjang, papan kolaboratif, notifikasi',
+            'Pustaka store',
+            'Butuh pemilihan bagian supaya tidak semua ikut digambar ulang',
+          ],
+          [
+            'Data dari server',
+            'Daftar produk, detail pesanan, profil',
+            'Pustaka pengambil data',
+            'Punya cache, kesegaran, dan penanganan gagal sendiri',
+          ],
+          [
+            'Bisa dibagikan lewat tautan',
+            'Kata pencarian, halaman keberapa, urutan',
+            'Alamat halaman',
+            'Harus bertahan setelah muat ulang dan bisa dibagikan',
+          ],
+        ],
+        'Enam baris, dan hanya dua di antaranya membutuhkan pustaka tambahan.',
+      ),
+      p(
+        'Baris kelima adalah yang paling sering salah tempat, dan itu penyebab store dua puluh tiga potongan pada cerita di awal. Data dari server bukan state biasa. Ia punya salinan asli di tempat lain, bisa basi, bisa gagal dimuat, dan bisa diminta ulang. Menyimpannya di store global berarti kamu menulis sendiri seluruh cache, penandaan basi, dan penyegaran yang sudah disediakan pustaka pengambil data.',
+      ),
+      p(
+        'Baris terakhir adalah yang paling sering dilupakan sama sekali. Filter dan nomor halaman yang disimpan di `useState` akan hilang saat halaman dimuat ulang, tidak bisa dibagikan lewat tautan, dan tidak mengikuti tombol kembali. Alamat halaman adalah tempat penyimpanan yang sudah tersedia dan sudah dipahami setiap pengguna, dan mengabaikannya berarti membangun ulang sesuatu yang sudah ada.',
+      ),
+      code(
+        'text',
+        `
+        Urutan bertanya yang jarang keliru:
+
+        1. Bisakah nilai ini DIHITUNG dari yang sudah ada?
+           -> Kalau ya, ia bukan state sama sekali. Hitung saat render.
+
+        2. Apakah ia berasal dari server?
+           -> Kalau ya, pakai pustaka pengambil data. Jangan salin ke store.
+
+        3. Apakah pengguna perlu bisa membagikannya lewat tautan?
+           -> Kalau ya, tempatnya alamat halaman.
+
+        4. Apakah lebih dari satu komponen membacanya?
+           -> Kalau tidak, useState di komponen itu. Selesai.
+
+        5. Apakah keduanya bersebelahan di pohon?
+           -> Kalau ya, angkat ke induk bersama. Selesai.
+
+        6. Seberapa sering ia berubah?
+           -> Jarang: Context. Sering dan dibaca banyak: pustaka store.
+        `,
+        { caption: 'Empat pertanyaan pertama menutup sebagian besar kebutuhan.' },
+      ),
+      p(
+        'Yang layak diperhatikan dari urutan itu, pustaka baru muncul di langkah keenam. Lima langkah sebelumnya diselesaikan dengan hal yang sudah ada di React dan di peramban. Ini bukan sikap anti-pustaka melainkan urutan yang mencegah kamu membayar biaya perawatan untuk kemampuan yang tidak kamu butuhkan.',
+      ),
+      callout(
+        'warning',
+        'Setiap pustaka state adalah kontrak jangka panjang',
+        'Ia menambah satu API yang harus dipelajari setiap orang baru, satu dependensi yang harus diikuti versinya, dan satu cara berpikir yang menyebar ke seluruh kode. Biaya itu sepadan kalau kebutuhannya nyata. Memasangnya karena aplikasinya akan besar adalah menebak, dan tebakan itu sering salah.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Salah menempatkan state jarang melempar error. Empat gejala berikut adalah cara mengenalinya, dan yang pertama diukur dengan React 19 sungguhan.',
+      ),
+      code(
+        'text',
+        `
+        # Diukur dengan React 19: satu nilai berubah di Context.
+
+        CONTEXT — setelah menaikkan a:
+          ctx-A render
+          ctx-B render (hanya baca b)     <- ikut, padahal b tidak berubah
+        `,
+        { caption: 'Diukur sungguhan. Seluruh pembaca Context ikut digambar ulang.' },
+      ),
+      p(
+        'Komponen `ctx-B` hanya membaca `b` dan tidak pernah menyentuh `a`, dan ia tetap digambar ulang. Ini bukan bug melainkan cara kerja Context, yaitu seluruh pembacanya diberi tahu saat nilainya berubah tanpa cara memilih bagian. Untuk tema yang berubah sekali sehari itu tidak masalah. Untuk keranjang yang berubah tiap klik dan dibaca lima puluh komponen, itu penyebab kelambatan.',
+      ),
+      code(
+        'text',
+        `
+        # Data produk disimpan di store global.
+        # Pengguna membuka halaman lain lalu kembali.
+
+        # Daftar produk masih menampilkan data dari lima menit lalu.
+        # Tidak ada yang memberi tahu bahwa datanya sudah basi.
+        `,
+        { caption: 'Data server disimpan sebagai state global.' },
+      ),
+      p(
+        'Tidak ada error, dan datanya salah tanpa satu pun tanda. Store global tidak punya konsep kesegaran, sehingga kamu harus menulis sendiri kapan data dianggap basi, kapan disegarkan, dan apa yang terjadi kalau penyegarannya gagal. Ketiganya adalah kemampuan bawaan pustaka pengambil data, dan menulisnya sendiri berarti membangun ulang pustaka itu sepotong demi sepotong.',
+      ),
+      code(
+        'text',
+        `
+        # Pengguna menyetel filter, lalu menyalin alamat halaman
+        # dan mengirimkannya ke rekan.
+
+        # Rekan membuka tautan itu dan melihat daftar tanpa filter.
+        `,
+        { caption: 'Filter disimpan di `useState`, bukan di alamat halaman.' },
+      ),
+      p(
+        'Tidak ada error, dan yang rusak adalah kegunaannya. Gejala lain dari penyebab yang sama, yaitu memuat ulang halaman mengembalikan filter ke bawaan, dan tombol kembali tidak mengembalikan filter sebelumnya. Ketiganya selesai sekaligus dengan memindahkan nilainya ke parameter alamat.',
+      ),
+      code(
+        'text',
+        `
+        <Halaman filter={filter}>
+          <Isi filter={filter}>
+            <Panel filter={filter}>
+              <Kartu filter={filter}>
+                <Tombol filter={filter} />
+
+        # Tiga komponen di tengah tidak memakainya sama sekali.
+        `,
+        { caption: 'Props diteruskan lewat komponen yang tidak membutuhkannya.' },
+      ),
+      p(
+        'Ini gejala yang sering dipakai sebagai alasan memasang pustaka state, padahal jalan keluarnya sering lebih sederhana. Komposisi lewat `children` menyelesaikan sebagian besar kasusnya, sebab elemen bisa dibuat di tempat datanya tersedia lalu dikirim ke bawah. Pustaka baru diperlukan kalau nilainya dibutuhkan di banyak cabang yang berbeda.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Komponen digambar ulang untuk nilai yang tidak ia baca',
+            'Context tidak punya pemilihan bagian',
+            'Pisahkan konteksnya, atau pakai pustaka store untuk state yang sering berubah',
+          ],
+          [
+            'Data basi tanpa ada yang memberi tahu',
+            'Data server disimpan sebagai state global',
+            'Pakai pustaka pengambil data yang punya cache dan kesegaran',
+          ],
+          [
+            'Tautan yang dibagikan tidak membawa filter',
+            'Filter disimpan di `useState`',
+            'Pindahkan ke parameter alamat halaman',
+          ],
+          [
+            'Props diteruskan lima tingkat tanpa dipakai',
+            'Jarak antara pemilik dan pemakai terlalu jauh',
+            'Coba komposisi lewat `children` lebih dulu, baru Context',
+          ],
+          [
+            'Store berisi puluhan potongan yang sebagian besar data server',
+            'Pustaka dipasang sebelum jenis statenya dipetakan',
+            'Pindahkan data server ke pustaka pengambil data',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Sebagian besar kesalahan di bawah bukan soal salah memakai alat, melainkan soal memilih alat sebelum tahu masalahnya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memasang pustaka state di minggu pertama',
+            'Aplikasinya akan besar',
+            'Sebagian besar isinya ternyata data server yang butuh alat berbeda. Petakan jenis statenya dulu',
+          ],
+          [
+            'Menyimpan data server di store global',
+            'Semua state di satu tempat',
+            'Kamu menulis sendiri cache, kesegaran, dan penyegaran yang sudah disediakan pustaka pengambil data',
+          ],
+          [
+            'Memakai Context untuk state yang berubah tiap detik',
+            'Ia sudah bawaan React',
+            'Seluruh pembacanya digambar ulang tiap perubahan, dan itu terukur',
+          ],
+          [
+            'Menghindari pustaka sama sekali karena ingin sederhana',
+            'Lebih sedikit dependensi lebih baik',
+            'Props tujuh tingkat dan cache yang ditulis sendiri jauh lebih mahal dirawat daripada satu pustaka',
+          ],
+          [
+            'Menyimpan nilai yang bisa dihitung',
+            'Supaya tidak dihitung ulang',
+            'Dua sumber kebenaran yang harus dijaga sinkron. Ini berlaku di store global juga, bukan hanya di `useState`',
+          ],
+          [
+            'Melupakan alamat halaman sebagai tempat penyimpanan',
+            'Ia kan bukan state',
+            'Ia satu-satunya tempat yang bertahan setelah muat ulang dan bisa dibagikan, dan tidak butuh pustaka apa pun',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat perlu ditegaskan supaya sikapnya seimbang. Menghindari pustaka bukan tujuan. Kalau kamu menemukan diri menulis cache dengan penandaan basi, penghapusan otomatis, dan penggabungan permintaan, kamu sedang menulis ulang pustaka pengambil data dengan lebih sedikit pengujian. Pada titik itu, memasangnya justru pilihan yang lebih hemat.',
+      ),
+      callout(
+        'info',
+        'Sepuluh sub-bab berikutnya adalah jawaban untuk kategori di atas',
+        'Kalau kamu sudah tahu jenis state yang dihadapi, bacalah sub-bab yang sesuai dan lewati sisanya. Kalau belum, urutan bertanya di studi kasus adalah tempat memulai. Yang tidak dianjurkan adalah membaca seluruhnya lalu memilih yang namanya paling sering disebut.',
+      ),
       references(
         {
           label: 'Managing State',
@@ -220,7 +449,7 @@ export const lessons: LessonDraft[] = [
   written(
     'belum-butuh-library',
     'Kapan Kamu Belum Butuh Library',
-    9,
+    18,
     'Sebagian besar aplikasi kecil tidak membutuhkannya.',
     [
       p(
@@ -359,6 +588,263 @@ export const lessons: LessonDraft[] = [
         'Biaya yang tidak kelihatan di awal',
         'Setiap library state adalah kontrak jangka panjang: satu lagi API untuk dipelajari, satu lagi cara debug, satu lagi sumber "kenapa komponen ini re-render". Untuk aplikasi belajar atau proyek kecil, `useState` plus komposisi hampir selalu pilihan yang lebih dewasa — bukan yang lebih malas.',
       ),
+      divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Sebuah aplikasi dasbor memasang pustaka state karena ada tiga komponen yang perlu berbagi filter tanggal. Setelah dipasang, muncul satu store, satu berkas potongan, satu berkas selektor, dan satu berkas aksi. Total empat berkas baru untuk berbagi satu object berisi dua tanggal. Ketiga komponen itu ternyata bersebelahan di pohon, dan mengangkat state ke induknya menyelesaikannya dalam enam baris.',
+      ),
+      p(
+        'Sebelum memasang apa pun, ada tiga jalan yang sudah tersedia di React dan sering cukup. Ketiganya dibahas di kategori ini dan layak dicoba berurutan.',
+      ),
+      compare(
+        {
+          title: 'Dengan pustaka store',
+          lang: 'tsx',
+          code: `
+          // src/store/filter.ts
+          export const useFilter = buatStore((set) => ({
+            dari: null,
+            sampai: null,
+            setRentang: (dari, sampai) => set({ dari, sampai }),
+          }));
+
+          // Tiga komponen memakainya:
+          function PilihTanggal() {
+            const setRentang = useFilter((s) => s.setRentang);
+            // ...
+          }
+          function Ringkasan() {
+            const dari = useFilter((s) => s.dari);
+            // ...
+          }
+          `,
+          notes: ['Satu dependensi, satu API baru, empat berkas'],
+        },
+        {
+          title: 'Mengangkat ke induk bersama',
+          lang: 'tsx',
+          code: `
+          function PanelDasbor() {
+            const [rentang, setRentang] = useState<Rentang>({ dari: null, sampai: null });
+
+            return (
+              <>
+                <PilihTanggal nilai={rentang} onUbah={setRentang} />
+                <Ringkasan rentang={rentang} />
+                <Grafik rentang={rentang} />
+              </>
+            );
+          }
+          `,
+          notes: ['Nol dependensi, enam baris, dan alur datanya terlihat langsung'],
+        },
+      ),
+      p(
+        'Kolom kanan bukan sekadar lebih pendek. Alur datanya terlihat sepenuhnya di satu tempat, sehingga siapa pun yang membaca `PanelDasbor` langsung tahu siapa yang memiliki `rentang` dan siapa yang mengubahnya. Pada versi store, informasi itu tersebar dan harus dikumpulkan dari beberapa berkas.',
+      ),
+      code(
+        'tsx',
+        `
+        // Jalan kedua: komposisi, untuk props yang harus melewati banyak tingkat.
+        // BURUK: 'pengguna' diteruskan lima tingkat, tiga di antaranya tidak memakainya.
+        <Halaman pengguna={pengguna}>
+          <Isi pengguna={pengguna}>
+            <Panel pengguna={pengguna}>
+              <Kartu pengguna={pengguna}>
+                <Avatar pengguna={pengguna} />
+
+        // BAIK: buat elemennya di tempat datanya tersedia, kirim sebagai children.
+        <Halaman>
+          <Isi>
+            <Panel>
+              <Kartu>
+                <Avatar pengguna={pengguna} />   {/* dibuat di sini, bukan diteruskan */}
+              </Kartu>
+            </Panel>
+          </Isi>
+        </Halaman>
+        `,
+        { caption: 'Komposisi menyelesaikan sebagian besar kasus props berantai.' },
+      ),
+      p(
+        'Ini jalan keluar yang paling sering dilewatkan padahal paling sederhana. Karena elemen React hanya object seperti dibahas di Bab 6 Frontend Basic, ia bisa dibuat di tempat datanya tersedia lalu dikirim ke bawah sebagai `children`. Tiga komponen di tengah tidak perlu tahu apa pun tentang `pengguna`, dan tidak ada satu pun dependensi baru.',
+      ),
+      p(
+        'Jalan ketiga adalah alamat halaman, dan ia sering menyelesaikan lebih banyak daripada yang diduga. Filter, urutan, nomor halaman, dan tab yang aktif semuanya lebih tepat di sana. Selain menghapus kebutuhan state global, ia sekaligus membuat tautannya bisa dibagikan dan tombol kembali bekerja tanpa satu baris kode tambahan.',
+      ),
+      code(
+        'text',
+        `
+        Tanda bahwa kamu MEMANG butuh pustaka:
+
+        - Nilainya dibaca di cabang pohon yang berjauhan, bukan bersebelahan
+        - Nilainya berubah sering DAN dibaca banyak komponen
+        - Komposisi sudah dicoba dan bentuknya justru jadi lebih rumit
+        - Ada beberapa komponen yang perlu mengubahnya dari tempat berbeda
+
+        Tanda bahwa kamu BELUM butuh:
+
+        - Yang berbagi hanya dua atau tiga komponen bersebelahan
+        - Nilainya berasal dari server
+        - Nilainya bisa dibagikan lewat tautan
+        - Kamu belum mencoba mengangkat state ke induk bersama
+        `,
+        { caption: 'Daftar kedua jauh lebih sering benar daripada yang pertama.' },
+      ),
+      callout(
+        'tip',
+        'Coba berurutan, dan berhenti begitu satu berhasil',
+        'Angkat ke induk bersama lebih dulu. Kalau jaraknya terlalu jauh, coba komposisi. Kalau nilainya layak dibagikan lewat tautan, pindahkan ke alamat. Kalau ketiganya sudah dicoba dan bentuknya justru lebih rumit, barulah pustaka. Urutan itu memastikan kamu membayar biaya perawatan hanya untuk kemampuan yang benar-benar dibutuhkan.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Memaksakan jalan tanpa pustaka punya gejalanya sendiri, dan mengenalinya menentukan kapan berhenti mencoba.',
+      ),
+      code(
+        'text',
+        `
+        function PanelDasbor() {
+          const [rentang, setRentang] = useState(...);
+          const [filter, setFilter] = useState(...);
+          const [urut, setUrut] = useState(...);
+          const [terpilih, setTerpilih] = useState(...);
+          // ...delapan state lagi
+
+          return <Isi rentang={rentang} setRentang={setRentang} filter={filter} ... />;
+        }
+
+        # Induk menjadi tempat penampungan state, dan propsnya belasan.
+        `,
+        { caption: 'Mengangkat state terlalu banyak ke satu induk.' },
+      ),
+      p(
+        'Tidak ada error, dan gejalanya berupa komponen induk yang tidak melakukan apa pun selain memegang state dan meneruskannya. Ini tanda bahwa mengangkat sudah mencapai batasnya. Ada dua jalan keluar, yaitu mengelompokkan state yang berhubungan dengan `useReducer`, atau memindahkan sebagiannya ke Context atau pustaka.',
+      ),
+      code(
+        'text',
+        `
+        # Diukur dengan React 19: mengetik satu huruf di kotak pencarian
+        # yang statenya berada di komponen halaman.
+
+        # Seluruh isi halaman digambar ulang, termasuk grafik berat
+        # yang tidak ada hubungannya dengan pencarian.
+        `,
+        { caption: 'State diangkat lebih tinggi daripada yang dibutuhkan.' },
+      ),
+      p(
+        'React menggambar ulang komponen tempat state berubah beserta seluruh keturunannya. Mengangkat ke induk yang terlalu tinggi berarti seluruh saudara ikut terkena. Turunkan sampai induk bersama yang **sesungguhnya**, yaitu komponen terdekat yang memiliki seluruh pembacanya, dan jangan lebih tinggi dari itu.',
+      ),
+      code(
+        'text',
+        `
+        <Halaman>
+          <Isi>{(a) => <Panel>{(b) => <Kartu>{(c) => ...}</Kartu>}</Panel>}</Isi>
+        </Halaman>
+
+        # Komposisi dipaksakan, dan bentuknya justru lebih sulit dibaca
+        # daripada meneruskan props.
+        `,
+        { caption: 'Komposisi yang dipaksakan sampai bersarang berlapis.' },
+      ),
+      p(
+        'Komposisi punya batasnya. Kalau menyelesaikan props berantai berarti membuat tiga lapis fungsi bersarang di JSX, ia sudah tidak menolong. Ini justru tanda yang jelas bahwa Context atau pustaka adalah jawaban yang tepat, sebab keduanya menembus kedalaman berapa pun tanpa mengubah bentuk kode di antaranya.',
+      ),
+      code(
+        'text',
+        `
+        # Empat komponen di cabang yang berjauhan perlu mengubah keranjang.
+        # Solusinya: variabel modul.
+
+        let keranjang = [];
+        export function tambah(b) { keranjang.push(b); }
+
+        # Tidak ada error. Tampilan tidak pernah berubah,
+        # dan dua instance halaman saling mengganggu.
+        `,
+        { caption: 'Variabel modul dipakai sebagai jalan pintas state global.' },
+      ),
+      p(
+        'Ini jalan pintas yang paling sering diambil saat pustaka dihindari, dan ia rusak dalam dua cara sekaligus. Mengubahnya tidak memicu penggambaran ulang sehingga tampilan tidak ikut berubah, dan ia dibagi seluruh instance sehingga dua halaman yang terbuka bersamaan saling menimpa. Kalau kamu sampai di sini, pustaka store memang jawabannya.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Induk hanya memegang state dan meneruskan belasan props',
+            'Terlalu banyak state diangkat ke satu tempat',
+            'Kelompokkan dengan `useReducer`, atau pindahkan sebagian ke Context',
+          ],
+          [
+            'Seluruh halaman digambar ulang untuk perubahan kecil',
+            'State diangkat lebih tinggi daripada yang dibutuhkan',
+            'Turunkan ke induk bersama terdekat',
+          ],
+          [
+            'Komposisi menghasilkan fungsi bersarang berlapis',
+            'Komposisi dipaksakan melewati batasnya',
+            'Ini tanda Context atau pustaka memang diperlukan',
+          ],
+          [
+            'Tampilan tidak berubah, dan dua halaman saling mengganggu',
+            'Variabel modul dipakai sebagai state global',
+            'Pakai pustaka store yang memicu penggambaran ulang',
+          ],
+          [
+            'Props diteruskan lima tingkat tanpa dipakai di tengah',
+            'Belum mencoba komposisi',
+            'Buat elemennya di tempat datanya tersedia, kirim sebagai `children`',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Keputusan memasang atau tidak memasang pustaka sering diambil sebagai soal selera, padahal ia punya jawaban yang bisa diperiksa.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memasang pustaka untuk berbagi antara dua komponen bersebelahan',
+            'Supaya tidak perlu meneruskan props',
+            'Mengangkat ke induk bersama menyelesaikannya dalam beberapa baris tanpa dependensi',
+          ],
+          [
+            'Tidak pernah mencoba komposisi',
+            'Props berantai kan memang butuh state global',
+            'Komposisi menyelesaikan sebagian besar kasusnya, dan tidak butuh apa pun',
+          ],
+          [
+            'Memakai variabel modul sebagai jalan pintas',
+            'Paling cepat dan bekerja',
+            'Tidak memicu penggambaran ulang, dan dibagi seluruh instance',
+          ],
+          [
+            'Mengangkat seluruh state ke komponen paling atas',
+            'Supaya bisa dijangkau semua',
+            'Setiap perubahan menggambar ulang seluruh pohon, dan induknya menjadi penampungan',
+          ],
+          [
+            'Memaksakan komposisi sampai bersarang berlapis',
+            'Katanya komposisi lebih baik',
+            'Bentuknya justru lebih sulit dibaca. Itu tanda pustaka memang diperlukan',
+          ],
+          [
+            'Menunda memasang pustaka padahal tandanya sudah jelas',
+            'Ingin tetap sederhana',
+            'Cache dan langganan yang ditulis sendiri jauh lebih mahal dirawat daripada satu pustaka',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir adalah sisi lain dari sikap yang sama, dan sama merugikannya. Menghindari pustaka bukan tujuan. Kalau kamu sudah mencoba ketiga jalan di atas dan bentuknya justru lebih rumit, memasang pustaka adalah keputusan yang benar. Yang salah hanya memasangnya sebelum ketiganya dicoba.',
+      ),
+      callout(
+        'info',
+        'Aturan tiga berlaku untuk pustaka juga',
+        'Pola yang sama dengan abstraksi di Bab 2 Frontend Basic. Jangan memasang pustaka untuk satu kebutuhan. Tunggu sampai ada dua atau tiga tempat yang benar-benar membutuhkannya, sebab pada titik itu bentuk kebutuhannya sudah terlihat dan pilihan pustakanya jauh lebih mudah diputuskan.',
+      ),
       references(
         {
           label: 'Sharing State Between Components',
@@ -391,7 +877,7 @@ export const lessons: LessonDraft[] = [
   written(
     'context-api',
     'Context API & Jebakan Re-render',
-    12,
+    21,
     'Alat yang benar untuk masalah yang salah.',
     [
       p(
@@ -555,6 +1041,241 @@ export const lessons: LessonDraft[] = [
         ],
         'Polanya sederhana: jarang berubah, banyak pembaca.',
       ),
+      divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Tema terang dan gelap disimpan di Context yang dibaca lima puluh komponen. Setelah dipasang, mengetik satu huruf di kotak pencarian membuat seluruh halaman berkedip. Penyebabnya bukan pencariannya melainkan nilai Context yang berupa object literal, sehingga setiap render penyedianya membuat object baru dan seluruh pembacanya menganggap nilainya berubah.',
+      ),
+      p(
+        'Berikut perilakunya, diukur dengan React 19 sungguhan. Dua komponen membaca Context yang sama, dan hanya satu yang memakai nilai yang berubah.',
+      ),
+      code(
+        'text',
+        `
+        # Diukur dengan React 19: menaikkan 'a' di dalam Context.
+
+        CONTEXT — setelah menaikkan a:
+          ctx-A render
+          ctx-B render (hanya baca b)     <- ikut, padahal b tidak berubah
+
+        # Bandingkan dengan store berbasis selektor:
+        STORE + SELECTOR — setelah menaikkan a:
+          store-A render                  <- hanya ini
+        `,
+        { caption: 'Diukur sungguhan. Inilah batas Context yang paling menentukan.' },
+      ),
+      p(
+        'Context tidak punya cara memilih bagian. Setiap komponen yang memanggil `useContext` diberi tahu saat nilainya berubah, tanpa peduli bagian mana yang benar-benar ia baca. Untuk tema yang berubah sekali sehari, itu tidak masalah sama sekali. Untuk keranjang yang berubah tiap klik dan dibaca lima puluh komponen, itu penyebab kelambatan yang terukur.',
+      ),
+      code(
+        'tsx',
+        `
+        // Pola tiga bagian untuk setiap Context.
+        // 1. Konteksnya sendiri, bawaan null, dan TIDAK diekspor.
+        const KonteksTema = createContext<IsiTema | null>(null);
+
+        // 2. Penyedianya, dengan nilai yang dibungkus useMemo.
+        export function PenyediaTema({ children }: { children: ReactNode }) {
+          const [tema, setTema] = useState<'terang' | 'gelap'>('terang');
+
+          // Tanpa useMemo, object baru tiap render dan seluruh pembaca
+          // digambar ulang walaupun tema tidak berubah.
+          // setTema dari useState sudah stabil, jadi tidak perlu di dependensi.
+          const nilai = useMemo(() => ({ tema, setTema }), [tema]);
+
+          return <KonteksTema.Provider value={nilai}>{children}</KonteksTema.Provider>;
+        }
+
+        // 3. Fungsi pembaca dengan penjaga.
+        export function pakaiTema() {
+          const konteks = useContext(KonteksTema);
+          if (!konteks) throw new Error('pakaiTema harus dipakai di dalam <PenyediaTema>');
+          return konteks;
+        }
+        `,
+        { filename: 'src/tema/PenyediaTema.tsx' },
+      ),
+      p(
+        'Ketiga bagian itu menutup kesalahan yang paling sering sekaligus. Bawaan `null` membuat pemakaian tanpa penyedia gagal dengan jelas alih-alih bekerja dengan nilai palsu. `useMemo` mencegah penggambaran ulang menyeluruh. Dan fungsi pembaca dengan penjaga mengubah `Cannot read properties of null` menjadi pesan yang menyebut penyedianya.',
+      ),
+      code(
+        'tsx',
+        `
+        // Memisahkan data dari aksi: pembaca aksi tidak ikut digambar ulang.
+        const KonteksPengguna = createContext<Pengguna | null>(null);
+        const KonteksAksi = createContext<AksiAuth | null>(null);
+
+        export function PenyediaAuth({ children }: { children: ReactNode }) {
+          const [pengguna, setPengguna] = useState<Pengguna | null>(null);
+
+          // Aksi tidak pernah berubah, jadi dependensinya kosong.
+          const aksi = useMemo(() => ({
+            keluar: () => { hapusSesi(); setPengguna(null); },
+          }), []);
+
+          return (
+            <KonteksAksi.Provider value={aksi}>
+              <KonteksPengguna.Provider value={pengguna}>
+                {children}
+              </KonteksPengguna.Provider>
+            </KonteksAksi.Provider>
+          );
+        }
+        `,
+        { caption: 'Tombol Keluar hanya membaca aksi, jadi tidak ikut saat pengguna berubah.' },
+      ),
+      p(
+        'Pemisahan ini adalah pengoptimalan yang sering menentukan pada aplikasi besar, dan ia tidak butuh pustaka apa pun. Tombol Keluar di bilah navigasi hanya butuh fungsinya, dan tanpa pemisahan ia akan digambar ulang setiap kali data pengguna disegarkan. Dengan pemisahan, ia membaca konteks yang nilainya tidak pernah berubah.',
+      ),
+      p(
+        'Yang perlu jujur disebut, pemisahan ini punya batasnya. Untuk dua atau tiga bagian ia masuk akal, dan untuk sepuluh bagian kamu akan punya sepuluh penyedia bersarang. Pada titik itu, pustaka store yang mendukung pemilihan bagian jauh lebih tepat sebab satu store bisa dibaca sebagian tanpa membuat penyedia terpisah.',
+      ),
+      callout(
+        'warning',
+        'Context bukan pengganti pustaka state',
+        'Ia menyelesaikan masalah **props berantai**, yaitu menyalurkan nilai ke kedalaman berapa pun tanpa melewatkannya satu per satu. Ia tidak menyelesaikan masalah **penggambaran ulang selektif**. Untuk nilai yang jarang berubah, Context sudah cukup. Untuk yang sering berubah dan dibaca banyak, pemilihan bagian adalah kebutuhan nyata.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut diuji dengan React 19, dan dua di antaranya tidak melempar apa pun.',
+      ),
+      code(
+        'text',
+        `
+        # Diukur: seluruh pembaca Context digambar ulang.
+        ctx-A render
+        ctx-B render (hanya baca b)
+
+        # Tidak ada error. Halaman terasa berat.
+        `,
+        { caption: 'Diukur sungguhan. Nilai Context berupa object literal.' },
+      ),
+      p(
+        'Cara menemukannya adalah menyalakan Highlight updates di React DevTools. Kalau seluruh halaman berkedip untuk perubahan yang hanya menyentuh satu bagian, periksa nilai Contextnya. Perbaikan pertamanya `useMemo`, dan kalau setelah itu masih terasa berat, berarti nilainya memang berubah terlalu sering untuk Context.',
+      ),
+      code(
+        'text',
+        `
+        const C = createContext(undefined);
+        function K() { const v = useContext(C); return <div>{String(v)}</div>; }
+
+        # Diuji: dirender sebagai <div>undefined</div>. TIDAK melempar.
+        `,
+        { caption: 'Diuji sungguhan. Konteks tanpa penyedia mengembalikan nilai bawaan.' },
+      ),
+      p(
+        'Inilah kenapa penjaga di fungsi pembaca penting. Tanpa penyedia, nilainya adalah bawaan yang diberikan saat `createContext` dan komponennya tetap dirender. Error baru muncul jauh kemudian saat ada yang menulis `konteks.tema`, dengan pesan yang tidak menyebut konteks sama sekali.',
+      ),
+      code(
+        'text',
+        `
+        const C = createContext({ tema: 'terang', setTema: () => {} });
+
+        # Komponen yang LUPA dibungkus penyedia tetap berjalan,
+        # dengan setter yang tidak melakukan apa-apa.
+        # Tombol ganti tema diam tanpa satu pun error.
+        `,
+        { caption: 'Nilai bawaan yang terlihat sah menyembunyikan bug.' },
+      ),
+      p(
+        'Ini diambil dengan niat baik dan hasilnya menyembunyikan kesalahan. Memberi bawaan yang berfungsi membuat komponen tanpa penyedia tetap tampil normal, dan gejalanya berupa tombol yang tidak berfungsi tanpa penjelasan. Pakai `null` sebagai bawaan, dan biarkan penjaga yang berteriak.',
+      ),
+      code(
+        'text',
+        `
+        <PenyediaA>
+          <PenyediaB>
+            <PenyediaC>
+              <PenyediaD>
+                <PenyediaE>
+
+        # Lima penyedia bersarang. Menambah satu nilai global
+        # berarti menambah satu lapisan lagi.
+        `,
+        { caption: 'Pemisahan Context yang sudah melewati batas kewajarannya.' },
+      ),
+      p(
+        'Tidak ada error, dan yang rusak adalah keterbacaannya. Setiap nilai global baru menambah satu lapisan di akar aplikasi, dan urutannya kadang penting sehingga tidak bebas diatur. Pada titik ini, satu store yang bisa dibaca sebagian menyelesaikan hal yang sama tanpa lapisan tambahan.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Seluruh halaman digambar ulang untuk perubahan kecil',
+            'Nilai Context berupa object literal baru tiap render',
+            'Bungkus dengan `useMemo`',
+          ],
+          [
+            'Nilai Context `undefined` tanpa error',
+            'Tidak ada penyedia, dan bawaannya `undefined`',
+            'Tulis penjaga di fungsi pembaca',
+          ],
+          [
+            'Tombol diam tanpa satu pun error',
+            'Bawaan Context berupa nilai yang terlihat sah',
+            'Pakai `null` sebagai bawaan',
+          ],
+          [
+            'Lima penyedia bersarang di akar aplikasi',
+            'Pemisahan Context sudah melewati batasnya',
+            'Pindahkan ke satu store yang mendukung pemilihan bagian',
+          ],
+          [
+            'Masih berat setelah `useMemo` ditambahkan',
+            'Nilainya memang berubah terlalu sering untuk Context',
+            'Pakai pustaka store dengan selektor',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Context sering dipakai sebagai pengganti pustaka state, dan sebagian besar kesalahan di bawah berasal dari harapan yang tidak sesuai kemampuannya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memberikan object literal sebagai nilai Context',
+            'Nilainya kan sama',
+            'Rujukannya baru tiap render, sehingga seluruh pembaca digambar ulang. Ini terukur',
+          ],
+          [
+            'Memakai Context untuk state yang berubah tiap detik',
+            'Ia sudah bawaan React',
+            'Tidak ada pemilihan bagian, sehingga seluruh pembaca ikut. Pakai store dengan selektor',
+          ],
+          [
+            'Memberi nilai bawaan yang berfungsi',
+            'Supaya tidak `undefined`',
+            'Komponen tanpa penyedia jadi bekerja dengan nilai palsu, dan bugnya tersembunyi',
+          ],
+          [
+            'Tidak menulis penjaga di fungsi pembaca',
+            'Penyedianya kan selalu ada',
+            'Sampai ada yang memakainya di luar, dan pesan errornya tidak menyebut penyedia',
+          ],
+          [
+            'Menaruh seluruh state aplikasi di satu Context',
+            'Satu tempat untuk semuanya',
+            'Setiap perubahan apa pun menggambar ulang seluruh pembacanya',
+          ],
+          [
+            'Memakai Context untuk dua komponen bersebelahan',
+            'Supaya tidak perlu meneruskan props',
+            'Mengangkat ke induk bersama lebih sederhana dan alur datanya lebih terlihat',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua adalah keputusan yang paling menentukan, dan sekarang kamu punya angkanya. Pengukuran di studi kasus menunjukkan Context menggambar ulang seluruh pembacanya sedangkan store berselektor hanya yang relevan. Untuk lima pembaca, selisihnya tidak terasa. Untuk lima puluh pembaca dengan perubahan tiap klik, selisihnya adalah perbedaan antara halaman yang terasa ringan dan yang terasa berat.',
+      ),
+      callout(
+        'tip',
+        'Context tetap pilihan yang tepat untuk tiga hal ini',
+        'Tema dan preferensi tampilan, identitas pengguna yang sedang masuk, dan nilai konfigurasi seperti bahasa atau zona waktu. Ketiganya jarang berubah, dibaca di banyak tempat, dan tidak butuh pemilihan bagian. Untuk ketiganya, memasang pustaka justru berlebihan.',
+      ),
       references(
         {
           label: 'useContext',
@@ -584,7 +1305,7 @@ export const lessons: LessonDraft[] = [
     ],
   ),
 
-  written('zustand', 'Zustand', 11, 'Store global yang ringan.', [
+  written('zustand', 'Zustand', 20, 'Store global yang ringan.', [
     p(
       'Zustand adalah store global tanpa Provider, tanpa boilerplate, dan dengan satu kemampuan penting yang tidak dimiliki Context: **selector**. Komponen bisa berlangganan hanya pada potongan state yang benar-benar ia baca, sehingga perubahan di bagian lain tidak ikut melakukan re-render.',
     ),
@@ -765,6 +1486,228 @@ export const lessons: LessonDraft[] = [
       'Persist + SSR = ketidakcocokan hidrasi',
       'Di Next.js, server tidak punya `localStorage`, jadi render pertama selalu memakai state kosong sementara browser langsung punya isinya. Perbedaan itu memicu hydration mismatch. Polanya sama seperti yang dipakai website ini sendiri: tampilkan skeleton sampai store selesai terhidrasi, jangan langsung menampilkan datanya.',
     ),
+    divider,
+    h2('Studi kasus di project nyata'),
+    p(
+      'Keranjang belanja dipindahkan dari Context ke Zustand karena setiap penambahan barang membuat seluruh halaman berkedip. Setelah dipindahkan, kedipannya hilang di sebagian tempat dan tetap ada di bilah navigasi. Penyebabnya satu baris, yaitu bilah navigasi membaca seluruh store alih-alih memilih bagian yang ia butuhkan.',
+    ),
+    p(
+      'Keunggulan store dibanding Context adalah **pemilihan bagian**, dan keunggulan itu hilang begitu selektornya salah. Berikut perbandingannya, diukur dengan React 19 sungguhan memakai store berbasis `useSyncExternalStore` yang mekanismenya sama.',
+    ),
+    code(
+      'text',
+      `
+        # Diukur dengan React 19: satu nilai berubah, dua komponen membaca.
+
+        CONTEXT — setelah menaikkan a:
+          ctx-A render
+          ctx-B render (hanya baca b)     <- ikut, padahal tidak relevan
+
+        STORE + SELECTOR — setelah menaikkan a:
+          store-A render                  <- hanya ini
+        `,
+      { caption: 'Diukur sungguhan. Pemilihan bagian yang membuat selisihnya.' },
+    ),
+    code(
+      'tsx',
+      `
+        import { create } from 'zustand';
+
+        type Keranjang = {
+          barang: Barang[];
+          tambah: (b: Barang) => void;
+          hapus: (id: string) => void;
+        };
+
+        export const useKeranjang = create<Keranjang>((set) => ({
+          barang: [],
+
+          // set menerima fungsi yang mengembalikan BAGIAN yang berubah.
+          // Zustand menggabungkannya, jadi tidak perlu menyebar seluruh state.
+          tambah: (b) => set((s) => ({ barang: [...s.barang, b] })),
+          hapus: (id) => set((s) => ({ barang: s.barang.filter((x) => x.id !== id) })),
+        }));
+        `,
+      { filename: 'src/store/keranjang.ts' },
+    ),
+    code(
+      'tsx',
+      `
+        // SALAH: membaca seluruh store. Digambar ulang untuk perubahan apa pun.
+        function BilahNavigasi() {
+          const store = useKeranjang();
+          return <span>{store.barang.length}</span>;
+        }
+
+        // BENAR: pilih hanya yang dibaca. Hanya digambar ulang saat itu berubah.
+        function BilahNavigasi() {
+          const jumlah = useKeranjang((s) => s.barang.length);
+          return <span>{jumlah}</span>;
+        }
+
+        // JEBAKAN: selektor yang mengembalikan object BARU tiap panggilan.
+        function Ringkasan() {
+          // Object baru tiap kali, jadi perbandingannya selalu berbeda.
+          const { barang, total } = useKeranjang((s) => ({
+            barang: s.barang,
+            total: hitungTotal(s.barang),
+          }));
+        }
+        `,
+      { caption: 'Selektor yang mengembalikan object baru membatalkan seluruh manfaatnya.' },
+    ),
+    p(
+      'Jebakan ketiga adalah yang paling sering dan paling sulit dilihat, sebab kodenya terlihat rapi. Store membandingkan hasil selektor dengan `Object.is`, dan object literal baru selalu berbeda dari yang lama. Akibatnya komponennya digambar ulang pada setiap perubahan store apa pun, persis seperti membaca seluruh store. Seluruh biaya selektor dibayar dan nol penghematan.',
+    ),
+    p(
+      'Ada dua jalan keluar. Pertama, panggil selektor terpisah untuk tiap nilai, yaitu satu untuk `barang` dan satu untuk `total`. Kedua, pakai pembanding khusus yang membandingkan isi alih-alih rujukan, dan pustaka biasanya menyediakannya. Yang pertama lebih sederhana dan hampir selalu cukup.',
+    ),
+    p(
+      'Yang perlu ditegaskan, `hitungTotal(s.barang)` di dalam selektor juga bermasalah di luar soal identitas. Selektor dipanggil pada setiap perubahan store, sehingga perhitungan di dalamnya berjalan jauh lebih sering daripada yang diduga. Pilih data mentahnya di selektor, lalu hitung turunannya di komponen seperti dibahas di bab tentang state.',
+    ),
+    callout(
+      'warning',
+      'Pantangan mutasi tetap berlaku penuh di dalam store',
+      'Menulis `s.barang.push(b)` di dalam `set` mengubah array di tempat, sehingga rujukannya tidak berubah dan pembaca yang memilih `barang` tidak ikut diberi tahu. Gejalanya berupa data yang bertambah kalau dicetak tapi layar diam. Buat array baru dengan spread, persis seperti di `useState`.',
+    ),
+
+    h2('Saat error-nya muncul'),
+    p(
+      'Empat kegagalan berikut adalah yang paling sering saat berpindah ke store. Dua yang pertama diukur dengan React 19 sungguhan, dan dua sisanya berupa gejala yang perlu kamu kenali sendiri.',
+    ),
+    code(
+      'text',
+      `
+        const store = useKeranjang();      // membaca seluruh store
+
+        # Komponen digambar ulang untuk perubahan APA PUN di store,
+        # termasuk bagian yang tidak ia baca. Tidak ada error.
+        `,
+      { caption: 'Seluruh manfaat pemilihan bagian hilang.' },
+    ),
+    p(
+      'Ini persis perilaku Context yang diukur di studi kasus, yaitu seluruh pembaca ikut digambar ulang. Kalau kamu memindahkan state ke store lalu tidak merasakan perbedaan apa pun, hal pertama yang diperiksa adalah apakah selektornya benar-benar memilih. Membaca seluruh store berarti membayar biaya pustaka tanpa mendapat keunggulannya.',
+    ),
+    code(
+      'text',
+      `
+        const { a, b } = useKeranjang((s) => ({ a: s.a, b: s.b }));
+
+        # Object baru tiap panggilan selektor.
+        # Digambar ulang pada setiap perubahan store, sama seperti membaca semuanya.
+        `,
+      { caption: 'Selektor mengembalikan object literal.' },
+    ),
+    p(
+      'Perbandingan hasil selektor memakai `Object.is`, dan ini konsekuensi yang sama dengan dependensi efek dan nilai Context yang sudah dibahas berulang di kategori ini. Polanya selalu sama, yaitu object literal baru selalu berbeda. Panggil selektor terpisah untuk tiap nilai, atau pakai pembanding isi yang disediakan pustaka.',
+    ),
+    code(
+      'text',
+      `
+        tambah: (b) => set((s) => { s.barang.push(b); return s; }),
+
+        # Tidak ada error. Data bertambah kalau dicetak,
+        # dan tampilan tidak pernah berubah.
+        `,
+      { caption: 'Array diubah di tempat lalu state yang sama dikembalikan.' },
+    ),
+    p(
+      'Pantangan mutasi dari Bab 1 Frontend Basic berlaku penuh di sini, dan di store gejalanya lebih membingungkan sebab sebagian komponen bisa saja ikut diperbarui karena alasan lain. Yang benar adalah mengembalikan bagian yang berubah sebagai nilai baru, yaitu `{ barang: [...s.barang, b] }`. Sebagian pustaka menyediakan mode yang memperbolehkan penulisan seperti mengubah di tempat, dan itu tetap menghasilkan salinan baru di baliknya.',
+    ),
+    code(
+      'text',
+      `
+        # Store dengan penyimpanan ke localStorage, dirender di server:
+
+        # Diuji: localStorage di server
+        # ERR :: Cannot read properties of undefined (reading 'getItem')
+
+        # Dan kalau dijaga, HTML server berbeda dari klien:
+        Warning: Text content did not match. Server: "0" Client: "3"
+        `,
+      { caption: 'Diuji sungguhan. Server tidak punya `localStorage`.' },
+    ),
+    p(
+      'Ini jebakan yang khas saat store yang menyimpan isinya ke penyimpanan peramban dipakai di Next.js. Server merender dengan keadaan awal kosong, klien memuat dari penyimpanan dan mendapat isi yang berbeda, dan React melaporkan ketidakcocokan. Jalan keluarnya menunda pembacaan penyimpanan sampai komponennya terpasang, sehingga render pertama di kedua sisi sama-sama memakai nilai awal.',
+    ),
+    table(
+      ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+      [
+        [
+          'Tidak ada perbedaan setelah pindah ke store',
+          'Seluruh store dibaca tanpa selektor',
+          'Pilih hanya nilai yang dibaca komponen itu',
+        ],
+        [
+          'Selektor dipakai dan tetap digambar ulang terus',
+          'Selektor mengembalikan object literal baru',
+          'Panggil selektor terpisah per nilai, atau pakai pembanding isi',
+        ],
+        [
+          'Data bertambah tapi layar diam',
+          'State diubah di tempat di dalam `set`',
+          'Kembalikan nilai baru, bukan yang sama',
+        ],
+        [
+          '`Text content did not match`',
+          'Store memuat dari penyimpanan yang tidak ada di server',
+          'Tunda pembacaan penyimpanan sampai komponennya terpasang',
+        ],
+        [
+          'Perhitungan berat berjalan sangat sering',
+          'Turunan dihitung di dalam selektor',
+          'Pilih data mentahnya, hitung turunannya di komponen',
+        ],
+      ],
+    ),
+
+    h2('Kesalahan umum pemula'),
+    p(
+      'Berpindah ke store menyelesaikan satu masalah dan membawa kelas kesalahannya sendiri, dan sebagian besarnya berkaitan dengan selektor.',
+    ),
+    table(
+      ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+      [
+        [
+          'Membaca seluruh store tanpa selektor',
+          'Lebih pendek ditulis',
+          'Kehilangan seluruh keunggulan store. Perilakunya sama dengan Context',
+        ],
+        [
+          'Selektor mengembalikan object berisi beberapa nilai',
+          'Sekali panggil dapat semuanya',
+          'Object baru tiap panggilan, sehingga perbandingannya selalu berbeda',
+        ],
+        [
+          'Menghitung nilai turunan di dalam selektor',
+          'Supaya komponennya bersih',
+          'Selektor dipanggil pada setiap perubahan store. Hitung di komponen',
+        ],
+        [
+          'Mengubah state di tempat di dalam `set`',
+          'Lebih pendek daripada menyebar',
+          'Rujukannya tidak berubah, sehingga pembaca tidak diberi tahu',
+        ],
+        [
+          'Memindahkan data server ke store',
+          'Semua state di satu tempat',
+          'Kamu menulis sendiri cache dan kesegaran yang sudah disediakan pustaka pengambil data',
+        ],
+        [
+          'Membuat satu store raksasa untuk seluruh aplikasi',
+          'Satu tempat lebih mudah dicari',
+          'Menjadi ratusan baris dan sulit diuji. Pecah per domain, misalnya keranjang dan preferensi terpisah',
+        ],
+      ],
+    ),
+    p(
+      'Baris kelima adalah kesalahan yang paling mahal dan paling sering, dan ia sudah dibahas di Sub-bab 8.1. Data dari server punya kebutuhan yang berbeda, yaitu cache, penandaan basi, penyegaran otomatis, dan penanganan gagal. Store global tidak menyediakan satu pun dari itu, sehingga menyimpannya di sana berarti kamu yang menulisnya, dengan lebih sedikit pengujian daripada pustaka yang sudah ada.',
+    ),
+    callout(
+      'info',
+      'Bab ini tidak memasang pustaka apa pun ke project',
+      'Website ini tidak memakai pustaka state, sehingga contoh Zustand di sini ditulis mengikuti dokumentasi resminya dan tidak dijalankan di sini. Yang **diukur sungguhan** adalah perilaku React yang mendasarinya, yaitu perbandingan `Object.is` pada hasil selektor dan perbedaan penggambaran ulang antara Context dan store berselektor. Untuk API terbaru pustakanya, buka dokumentasi resmi di bagian rujukan.',
+    ),
     references(
       {
         label: 'Zustand — Introduction',
@@ -793,7 +1736,7 @@ export const lessons: LessonDraft[] = [
     ),
   ]),
 
-  written('redux-toolkit', 'Redux Toolkit', 12, 'Redux modern, jauh dari boilerplate versi lama.', [
+  written('redux-toolkit', 'Redux Toolkit', 21, 'Redux modern, jauh dari boilerplate versi lama.', [
     p(
       'Reputasi Redux sebagai "banyak boilerplate" berasal dari cara lama menulisnya: konstanta action, action creator, dan reducer `switch` yang panjang, semuanya ditulis tangan di file terpisah. **Redux Toolkit (RTK)** adalah cara resmi menulis Redux sekarang, dan ia menghapus hampir semua itu.',
     ),
@@ -958,6 +1901,243 @@ export const lessons: LessonDraft[] = [
       'RTK Query ada, tapi jangan pakai Redux biasa untuk data server',
       'Kalau kamu sudah memakai Redux, gunakan **RTK Query** untuk data server — bukan slice biasa dengan `createAsyncThunk` yang mengisi array. Alasannya sama seperti di sub-bab pertama: menyalin data server ke store berarti membangun ulang cache dan invalidasi dengan tangan.',
     ),
+    divider,
+    h2('Studi kasus di project nyata'),
+    p(
+      'Aplikasi lama memakai Redux dengan pola lama, yaitu berkas terpisah untuk tipe aksi, pembuat aksi, reducer, dan penghubung komponen. Menambah satu field ke state berarti menyunting empat berkas. Setelah dipindahkan ke Redux Toolkit, keempatnya menjadi satu berkas dan menambah field menjadi satu baris.',
+    ),
+    p(
+      'Redux Toolkit adalah cara resmi memakai Redux hari ini, dan sebagian besar keluhan tentang Redux berasal dari pola lama yang sudah tidak dianjurkan.',
+    ),
+    compare(
+      {
+        title: 'Redux pola lama',
+        lang: 'ts',
+        code: `
+          // actionTypes.ts
+          export const TAMBAH = 'keranjang/TAMBAH';
+
+          // actions.ts
+          export const tambah = (b) => ({ type: TAMBAH, payload: b });
+
+          // reducer.ts
+          export function keranjang(state = { barang: [] }, aksi) {
+            switch (aksi.type) {
+              case TAMBAH:
+                // WAJIB menyalin manual di setiap cabang.
+                return { ...state, barang: [...state.barang, aksi.payload] };
+              default:
+                return state;
+            }
+          }
+          `,
+        notes: ['Tiga berkas untuk satu aksi', 'Penyalinan manual di tiap cabang'],
+      },
+      {
+        title: 'Redux Toolkit',
+        lang: 'ts',
+        code: `
+          // keranjangSlice.ts — satu berkas untuk semuanya.
+          import { createSlice } from '@reduxjs/toolkit';
+
+          const keranjangSlice = createSlice({
+            name: 'keranjang',
+            initialState: { barang: [] as Barang[] },
+            reducers: {
+              // Terlihat seperti mengubah di tempat, dan sebenarnya TIDAK.
+              // Immer di baliknya menghasilkan salinan baru.
+              tambah(state, aksi: PayloadAction<Barang>) {
+                state.barang.push(aksi.payload);
+              },
+              hapus(state, aksi: PayloadAction<string>) {
+                state.barang = state.barang.filter((b) => b.id !== aksi.payload);
+              },
+            },
+          });
+
+          export const { tambah, hapus } = keranjangSlice.actions;
+          export default keranjangSlice.reducer;
+          `,
+        notes: ['Satu berkas, tipe aksi dibuat otomatis', 'Immer mengurus penyalinannya'],
+      },
+    ),
+    p(
+      'Bagian yang paling mengejutkan bagi yang datang dari pola lama adalah `state.barang.push(...)` di dalam reducer. Ini terlihat melanggar pantangan mutasi yang ditegakkan di seluruh kategori ini, dan sebenarnya tidak. Redux Toolkit memakai Immer yang memberi kamu object draf, mencatat perubahan yang kamu tulis, lalu menghasilkan salinan baru di baliknya. State aslinya tidak pernah tersentuh.',
+    ),
+    p(
+      'Yang perlu diwaspadai, kelonggaran itu **hanya berlaku di dalam reducer** yang dibuat `createSlice` dan di dalam `createReducer`. Di luar keduanya, misalnya di dalam selektor, di dalam komponen, atau di dalam fungsi bantu yang menerima state, pantangan mutasi berlaku penuh seperti biasa. Menulis `state.barang.push(...)` di sana benar-benar mengubah state dan menimbulkan bug yang sulit ditelusuri.',
+    ),
+    code(
+      'ts',
+      `
+        // Selektor: dipanggil pada setiap perubahan store apa pun.
+        // Selektor sederhana tidak perlu apa-apa.
+        export const pilihBarang = (s: RootState) => s.keranjang.barang;
+
+        // Selektor yang MENGHITUNG perlu disimpan hasilnya,
+        // kalau tidak ia menghasilkan array baru tiap panggilan.
+        export const pilihBarangTerpilih = createSelector(
+          [pilihBarang],
+          (barang) => barang.filter((b) => b.terpilih),   // array BARU tiap panggilan
+        );
+
+        // Tanpa createSelector, komponen yang memakainya
+        // digambar ulang pada setiap perubahan store.
+        `,
+      { caption: 'Selektor yang menghasilkan nilai baru wajib disimpan hasilnya.' },
+    ),
+    p(
+      'Ini masalah yang sama persis dengan selektor Zustand di sub-bab sebelumnya, dan dengan dependensi efek, dan dengan nilai Context. Polanya selalu satu, yaitu perbandingan memakai `Object.is` sehingga array atau object baru selalu dianggap berbeda. `createSelector` menyimpan hasilnya dan mengembalikan rujukan yang sama selama masukannya tidak berubah.',
+    ),
+    p(
+      'Kapan Redux Toolkit lebih tepat daripada pustaka yang lebih ringan bisa diringkas. Ia menang saat aplikasinya besar dengan banyak tim, saat kamu butuh perkakas pengembangan yang bisa memutar ulang aksi satu per satu, saat aturan perubahannya rumit dan layak diuji terpisah, atau saat sudah ada kode Redux lama yang harus dirawat. Untuk aplikasi kecil dengan satu atau dua nilai global, ia berlebihan.',
+    ),
+    callout(
+      'tip',
+      'Perkakas pengembangannya adalah alasan tersendiri',
+      'Redux DevTools menampilkan setiap aksi beserta keadaan sebelum dan sesudahnya, dan memungkinkan memutar ulang urutan aksi untuk mereproduksi bug. Untuk alur yang rumit seperti checkout bertahap, kemampuan itu sering lebih berharga daripada selisih ukuran pustaka.',
+    ),
+
+    h2('Saat error-nya muncul'),
+    p(
+      'Empat kegagalan berikut adalah yang paling sering, dan sebagian besarnya berakar pada perbandingan rujukan yang sudah berulang kali muncul di kategori ini.',
+    ),
+    code(
+      'text',
+      `
+        const barangTerpilih = useSelector((s) => s.keranjang.barang.filter((b) => b.terpilih));
+
+        # Array baru tiap panggilan selektor.
+        # Komponen digambar ulang pada SETIAP perubahan store apa pun.
+        `,
+      { caption: 'Selektor menghasilkan array baru tanpa penyimpanan hasil.' },
+    ),
+    p(
+      'Tidak ada error, dan gejalanya berupa komponen yang digambar ulang jauh lebih sering daripada yang masuk akal. Cara menemukannya adalah menyalakan Highlight updates di React DevTools lalu memicu perubahan di bagian store yang sama sekali tidak berhubungan. Kalau komponennya ikut berkedip, selektornya menghasilkan nilai baru. Bungkus dengan `createSelector`.',
+    ),
+    code(
+      'text',
+      `
+        // Di luar createSlice, misalnya di komponen:
+        const barang = useSelector(pilihBarang);
+        barang.push(baru);
+
+        TypeError: Cannot add property 0, object is not extensible
+        `,
+      { caption: 'State Redux dibekukan di mode pengembangan.' },
+    ),
+    p(
+      'Redux Toolkit membekukan state di mode pengembangan justru untuk menangkap kesalahan ini. Kelonggaran menulis seperti mengubah di tempat hanya berlaku di dalam reducer yang dibuat `createSlice`, dan di luar itu state benar-benar tidak boleh disentuh. Pesan errornya cukup jelas, dan tanpa pembekuan itu kesalahan ini akan menjadi bug senyap.',
+    ),
+    code(
+      'text',
+      `
+        reducers: {
+          tambah(state, aksi) {
+            state.barang.push(aksi.payload);
+            return { ...state, jumlah: state.barang.length };   // sekaligus return
+          },
+        }
+
+        # Mencampur mengubah draf DAN mengembalikan nilai baru.
+        `,
+      { caption: 'Immer tidak bisa menerima keduanya sekaligus.' },
+    ),
+    p(
+      'Reducer Immer boleh mengubah draf **atau** mengembalikan nilai baru, dan tidak boleh keduanya dalam satu cabang. Mencampurnya membuat perubahan pada draf diabaikan atau menghasilkan perilaku yang tidak terduga. Pilih satu gaya per cabang, dan biasanya mengubah draf yang lebih pendek.',
+    ),
+    code(
+      'text',
+      `
+        # Data produk dari server disimpan sebagai potongan Redux.
+        # Pengguna berpindah halaman lalu kembali.
+
+        # Daftar masih menampilkan data lima menit lalu.
+        # Tidak ada yang menandai bahwa datanya basi.
+        `,
+      { caption: 'Data server disimpan sebagai state global biasa.' },
+    ),
+    p(
+      'Ini kesalahan penempatan yang sudah dibahas di Sub-bab 8.1, dan di Redux ia sangat sering sebab store terasa seperti tempat semua data. Redux Toolkit menyediakan RTK Query khusus untuk data server, dengan cache dan penandaan basi bawaan. Memakai potongan biasa untuk data server berarti melewatkan alat yang sudah ada di paket yang sama.',
+    ),
+    table(
+      ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+      [
+        [
+          'Komponen digambar ulang untuk perubahan yang tidak relevan',
+          'Selektor menghasilkan array atau object baru',
+          'Bungkus dengan `createSelector`',
+        ],
+        [
+          '`object is not extensible`',
+          'State diubah di luar reducer',
+          'Kelonggaran Immer hanya di dalam `createSlice`',
+        ],
+        [
+          'Perubahan di reducer diabaikan',
+          'Mencampur mengubah draf dan mengembalikan nilai baru',
+          'Pilih satu gaya per cabang',
+        ],
+        [
+          'Data server basi tanpa tanda',
+          'Data server disimpan sebagai potongan biasa',
+          'Pakai RTK Query, atau pustaka pengambil data lain',
+        ],
+        [
+          'Menambah satu field menyentuh empat berkas',
+          'Masih memakai pola Redux lama',
+          'Pindah ke `createSlice`',
+        ],
+      ],
+    ),
+
+    h2('Kesalahan umum pemula'),
+    p(
+      'Sebagian besar keluhan tentang Redux berasal dari pola lama atau dari memakainya untuk hal yang bukan tugasnya.',
+    ),
+    table(
+      ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+      [
+        [
+          'Memakai pola Redux lama dengan berkas terpisah',
+          'Itu yang ada di tutorial lama',
+          'Menambah satu field menyentuh empat berkas. `createSlice` menggabungkannya',
+        ],
+        [
+          'Mengira boleh mengubah state di mana saja',
+          'Di reducer kan boleh',
+          'Kelonggaran Immer hanya di dalam `createSlice` dan `createReducer`. Di luar itu state dibekukan',
+        ],
+        [
+          'Menulis selektor yang menghitung tanpa `createSelector`',
+          'Selektornya kan sederhana',
+          'Ia menghasilkan nilai baru tiap panggilan, sehingga pembacanya digambar ulang terus',
+        ],
+        [
+          'Menyimpan data server sebagai potongan biasa',
+          'Store kan tempat semua data',
+          'Kamu menulis sendiri cache dan kesegaran. RTK Query sudah menyediakannya di paket yang sama',
+        ],
+        [
+          'Memakai Redux untuk aplikasi dengan dua nilai global',
+          'Ia paling matang',
+          'Kematangan itu berharga pada aplikasi besar. Untuk dua nilai, Context atau pustaka ringan lebih hemat',
+        ],
+        [
+          'Menyimpan nilai turunan di dalam state',
+          'Supaya tidak dihitung ulang',
+          'Dua sumber kebenaran yang harus dijaga di tiap reducer. Pakai selektor yang menghitung',
+        ],
+      ],
+    ),
+    p(
+      'Baris kedua layak ditegaskan karena kelonggaran Immer adalah satu-satunya tempat di seluruh kategori ini yang memperbolehkan penulisan seperti mengubah di tempat. Batasnya tegas, yaitu di dalam reducer yang dibuat Redux Toolkit. Membawanya keluar dari sana, misalnya ke fungsi bantu yang menerima state, menghasilkan mutasi sungguhan yang ditangkap pembekuan di mode pengembangan dan lolos di produksi.',
+    ),
+    callout(
+      'info',
+      'Contoh di sub-bab ini tidak dijalankan di project ini',
+      'Website ini tidak memakai Redux, sehingga kode di atas ditulis mengikuti dokumentasi resmi Redux Toolkit dan tidak dieksekusi di sini. Yang **diukur sungguhan** adalah perilaku React yang mendasarinya, yaitu perbandingan `Object.is` yang membuat selektor tanpa penyimpanan hasil menggambar ulang pembacanya. Untuk API terbaru, buka rujukan resmi di bawah.',
+    ),
     references(
       {
         label: 'Redux Toolkit — Getting Started',
@@ -989,7 +2169,7 @@ export const lessons: LessonDraft[] = [
   written(
     'jotai',
     'Jotai (pendekatan atomic)',
-    10,
+    18,
     'State sebagai atom-atom kecil yang saling menurunkan.',
     [
       p(
@@ -1139,6 +2319,211 @@ export const lessons: LessonDraft[] = [
           ],
         ],
       ),
+      divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Editor formulir punya empat puluh field yang tersebar di enam bagian. Disimpan sebagai satu object di store, mengetik di satu field membuat seluruh bagian digambar ulang sebab selektornya membaca object yang sama. Dipecah menjadi empat puluh potongan store terpisah, berkas storenya menjadi tiga ratus baris dan sulit dibaca.',
+      ),
+      p(
+        'Jotai membalik arah penyusunannya. Alih-alih satu store besar yang dipecah dengan selektor, ia dimulai dari potongan-potongan kecil yang digabungkan saat dibutuhkan.',
+      ),
+      code(
+        'tsx',
+        `
+        import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai';
+
+        // Setiap nilai adalah atom sendiri. Sekecil apa pun.
+        export const namaAtom = atom('');
+        export const emailAtom = atom('');
+        export const teleponAtom = atom('');
+
+        // Atom turunan: dihitung dari atom lain, tidak menyimpan apa pun.
+        // Ia diperbarui otomatis saat sumbernya berubah.
+        export const bolehKirimAtom = atom(
+          (baca) => baca(namaAtom).trim() !== '' && baca(emailAtom).includes('@'),
+        );
+        `,
+        { filename: 'src/form/atom.ts' },
+      ),
+      code(
+        'tsx',
+        `
+        // Komponen hanya berlangganan ke atom yang ia pakai.
+        function KolomNama() {
+          const [nama, setNama] = useAtom(namaAtom);
+          return <input value={nama} onChange={(e) => setNama(e.currentTarget.value)} />;
+        }
+
+        // Hanya membaca: tidak ikut digambar ulang saat atom LAIN berubah.
+        function TombolKirim() {
+          const boleh = useAtomValue(bolehKirimAtom);
+          return <button disabled={!boleh}>Kirim</button>;
+        }
+
+        // Hanya menulis: TIDAK digambar ulang sama sekali saat nilainya berubah.
+        function TombolBersihkan() {
+          const setNama = useSetAtom(namaAtom);
+          return <button onClick={() => setNama('')}>Bersihkan</button>;
+        }
+        `,
+        { caption: '`useSetAtom` untuk komponen yang hanya menulis, bukan membaca.' },
+      ),
+      p(
+        'Pembedaan tiga hook itu yang sering dilewatkan dan paling berpengaruh. `useAtom` berlangganan sekaligus menyediakan setter, sehingga komponennya digambar ulang saat nilainya berubah. `useAtomValue` hanya berlangganan. Dan `useSetAtom` hanya menyediakan setter **tanpa berlangganan sama sekali**, sehingga tombol yang hanya menulis tidak pernah digambar ulang oleh perubahan itu.',
+      ),
+      p(
+        'Atom turunan seperti `bolehKirimAtom` adalah penerapan langsung aturan nilai turunan dari bab tentang state. Ia tidak menyimpan apa pun melainkan dihitung dari atom lain, sehingga mustahil tidak sinkron. Bedanya dengan menghitung di komponen, perhitungannya hanya berjalan saat sumbernya berubah dan hasilnya dibagi seluruh pembacanya.',
+      ),
+      p(
+        'Kapan pendekatan ini lebih tepat bisa diringkas. Jotai menang saat state-nya banyak dan berpotongan dengan cara yang sulit diprediksi, misalnya editor, papan gambar, atau formulir sangat panjang. Ia kurang menang saat state-nya sedikit dan hubungannya jelas, sebab satu store dengan beberapa selektor lebih mudah dibaca daripada dua puluh atom yang tersebar.',
+      ),
+      callout(
+        'warning',
+        'Atom yang dibuat di dalam komponen dibuat ulang tiap render',
+        'Bentuk `const a = atom(0)` di dalam badan komponen menghasilkan atom baru pada tiap render, sehingga nilainya tidak pernah bertahan. Definisikan atom di tingkat modul. Kalau kamu memang butuh atom per instance, ada pola khusus untuk itu dan ia bukan sekadar memindahkan pemanggilannya ke dalam komponen.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut adalah yang paling sering, dan seluruhnya berakar pada aturan React yang sudah dibahas di kategori ini.',
+      ),
+      code(
+        'text',
+        `
+        function Kolom() {
+          const namaAtom = atom('');        // dibuat DI DALAM komponen
+          const [nama, setNama] = useAtom(namaAtom);
+          return <input value={nama} onChange={(e) => setNama(e.target.value)} />;
+        }
+
+        # Atom baru tiap render. Ketikan hilang setiap kali.
+        `,
+        { caption: 'Atom didefinisikan di dalam badan komponen.' },
+      ),
+      p(
+        'Gejalanya khas dan mudah dikenali, yaitu kotak input yang tidak bisa diketik sama sekali sebab nilainya kembali kosong pada tiap render. Ini bentuk yang sama dengan mendefinisikan komponen di dalam komponen dari bab sebelumnya, dan penyebabnya sama, yaitu identitas yang berubah tiap render. Definisikan atom di tingkat modul.',
+      ),
+      code(
+        'text',
+        `
+        const [barang, setBarang] = useAtom(barangAtom);
+        barang.push(baru);
+        setBarang(barang);
+
+        # Tidak ada error. Tampilan tidak berubah.
+        `,
+        { caption: 'Array diubah di tempat lalu diserahkan kembali.' },
+      ),
+      p(
+        'Pantangan mutasi berlaku penuh di sini, sama seperti di `useState` dan di store lain. Perbandingannya memakai `Object.is`, dan array yang sama persis dianggap tidak berubah. Ini sudah muncul berkali-kali di kategori ini, dan polanya selalu sama, yaitu buat nilai baru dengan spread.',
+      ),
+      code(
+        'text',
+        `
+        function TombolBersihkan() {
+          const [nama, setNama] = useAtom(namaAtom);   // useAtom, bukan useSetAtom
+          return <button onClick={() => setNama('')}>Bersihkan</button>;
+        }
+
+        # Tombol digambar ulang pada SETIAP ketikan,
+        # padahal ia tidak menampilkan nilainya sama sekali.
+        `,
+        { caption: 'Berlangganan padahal hanya butuh menulis.' },
+      ),
+      p(
+        'Tidak ada error, dan pemborosannya tidak terlihat. `useAtom` berlangganan ke atomnya, sehingga komponennya digambar ulang setiap kali nilainya berubah walaupun ia tidak memakainya. Untuk tombol yang hanya menulis, `useSetAtom` menghilangkan langganan itu sepenuhnya. Ini pembedaan kecil yang dampaknya nyata pada formulir panjang.',
+      ),
+      code(
+        'text',
+        `
+        # Atom dengan penyimpanan ke localStorage, dirender di server:
+
+        # Diuji: localStorage di server
+        # ERR :: Cannot read properties of undefined (reading 'getItem')
+        `,
+        { caption: 'Diuji sungguhan. Server tidak punya penyimpanan peramban.' },
+      ),
+      p(
+        'Ini jebakan yang sama dengan store lain yang menyimpan isinya, dan gejalanya sama, yaitu ketidakcocokan hidrasi kalau pembacaannya dijaga atau error kalau tidak. Jalan keluarnya menunda pembacaan penyimpanan sampai komponennya terpasang, sehingga render pertama di server dan di klien sama-sama memakai nilai awal.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Kotak input tidak bisa diketik',
+            'Atom dibuat di dalam badan komponen',
+            'Definisikan atom di tingkat modul',
+          ],
+          [
+            'Tampilan tidak berubah setelah setter dipanggil',
+            'Nilai diubah di tempat lalu diserahkan kembali',
+            'Buat nilai baru dengan spread',
+          ],
+          [
+            'Komponen yang hanya menulis ikut digambar ulang',
+            '`useAtom` dipakai, seharusnya `useSetAtom`',
+            'Pakai `useSetAtom` untuk yang hanya menulis',
+          ],
+          [
+            'Error atau ketidakcocokan hidrasi saat dirender di server',
+            'Atom memuat dari penyimpanan yang tidak ada di server',
+            'Tunda pembacaannya sampai komponennya terpasang',
+          ],
+          [
+            'Nilai turunan tidak sinkron',
+            'Turunan disimpan sebagai atom biasa, bukan atom turunan',
+            'Pakai atom yang dihitung dari atom lain',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Pendekatan berbasis atom mengubah cara menyusun state, dan sebagian besar kesalahan berasal dari membawa kebiasaan store tunggal.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membuat satu atom besar berisi seluruh state',
+            'Seperti store yang sudah dikenal',
+            'Kehilangan seluruh keunggulannya. Setiap perubahan menggambar ulang seluruh pembacanya',
+          ],
+          [
+            'Mendefinisikan atom di dalam komponen',
+            'Supaya dekat dengan pemakainya',
+            'Atom baru tiap render, sehingga nilainya tidak pernah bertahan',
+          ],
+          [
+            'Memakai `useAtom` untuk komponen yang hanya menulis',
+            'Satu hook untuk semuanya',
+            'Ia berlangganan tanpa perlu. Pakai `useSetAtom`',
+          ],
+          [
+            'Menyimpan nilai turunan sebagai atom biasa',
+            'Supaya tidak dihitung ulang',
+            'Dua sumber kebenaran yang harus dijaga sinkron. Pakai atom turunan',
+          ],
+          [
+            'Menyimpan data server sebagai atom',
+            'Semua state di satu pendekatan',
+            'Data server butuh cache dan kesegaran. Pakai pustaka pengambil data',
+          ],
+          [
+            'Memakai pendekatan atom untuk dua nilai global',
+            'Katanya lebih ringan',
+            'Untuk dua nilai, Context sudah cukup dan tanpa dependensi',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama menghapus seluruh alasan memakai pendekatan ini. Keunggulannya justru pada potongan yang kecil dan berlangganan yang tepat sasaran, dan menyatukan semuanya menjadi satu atom mengembalikan perilakunya menjadi seperti Context. Kalau kamu menemukan diri membuat satu atom berisi sepuluh field, pecah menjadi sepuluh atom.',
+      ),
+      callout(
+        'info',
+        'Contoh di sub-bab ini tidak dijalankan di project ini',
+        'Website ini tidak memakai Jotai, sehingga kode di atas ditulis mengikuti dokumentasi resminya dan tidak dieksekusi di sini. Yang **diukur sungguhan** adalah perilaku React yang mendasarinya, yaitu perbandingan `Object.is`, identitas yang berubah tiap render, dan ketiadaan `localStorage` di server. Untuk API terbaru, buka rujukan resmi di bawah.',
+      ),
       references(
         {
           label: 'Jotai — Introduction',
@@ -1171,7 +2556,7 @@ export const lessons: LessonDraft[] = [
   written(
     'tanstack-query',
     'Server State dengan TanStack Query',
-    14,
+    25,
     'Data server bukan state biasa — ia punya cache, staleness, dan mode gagal sendiri.',
     [
       p(
@@ -1378,6 +2763,231 @@ export const lessons: LessonDraft[] = [
       p(
         "`invalidateQueries` cocok dengan **awalan** key. `{ queryKey: ['produk'] }` akan membatalkan `['produk']`, `['produk', 1]`, dan `['produk', { kategori: 'buku' }]` sekaligus. Karena itu susun key dari yang umum ke yang khusus.",
       ),
+      divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman daftar pesanan mengambil datanya dengan `useEffect` lalu menyimpannya di store global. Setelah dipakai, empat masalah muncul berurutan. Berpindah halaman lalu kembali menampilkan data lima menit lalu tanpa tanda apa pun. Dua komponen yang butuh data sama mengirim dua permintaan. Membuka tab lain lalu kembali tidak menyegarkan apa pun. Dan tidak ada satu tempat pun yang menangani kegagalan secara seragam.',
+      ),
+      p(
+        'Keempatnya adalah kemampuan bawaan pustaka pengambil data. Yang dibedakan bukan cara memanggil server melainkan bahwa data server punya **sifat yang berbeda** dari state biasa.',
+      ),
+      table(
+        ['Sifat data server', 'Yang harus diurus', 'Disediakan pustaka?'],
+        [
+          ['Punya salinan asli di tempat lain', 'Kapan dianggap basi', '**Ya**'],
+          ['Bisa diminta beberapa komponen', 'Penggabungan permintaan yang sama', '**Ya**'],
+          ['Bisa berubah tanpa kamu tahu', 'Penyegaran saat tab kembali aktif', '**Ya**'],
+          ['Bisa gagal dimuat', 'Pengulangan dan penanganan gagal', '**Ya**'],
+          ['Bisa sedang dimuat ulang', 'Membedakan muat pertama dari muat ulang', '**Ya**'],
+        ],
+        'Lima hal yang harus kamu tulis sendiri kalau memakai `useEffect` dan store.',
+      ),
+      code(
+        'tsx',
+        `
+        import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+        function DaftarPesanan({ filter }: { filter: Filter }) {
+          // queryKey adalah identitas data. Filter IKUT di dalamnya,
+          // supaya tiap kombinasi filter punya cache sendiri.
+          const { data, isPending, isError, error, isFetching } = useQuery({
+            queryKey: ['pesanan', filter],
+            queryFn: ({ signal }) => ambilPesanan(filter, signal),   // signal untuk pembatalan
+            staleTime: 30_000,      // dianggap segar selama 30 detik
+          });
+
+          if (isPending) return <Skeleton baris={5} />;
+          if (isError) return <PesanGagal galat={error} />;
+          if (data.length === 0) return <Kosong adaFilter={filter.cari !== ''} />;
+
+          // isFetching membedakan muat ulang dari muat pertama.
+          return (
+            <div aria-busy={isFetching}>
+              <Tabel data={data} />
+            </div>
+          );
+        }
+        `,
+        { filename: 'src/pesanan/DaftarPesanan.tsx' },
+      ),
+      p(
+        'Bagian `queryKey` adalah yang paling menentukan dan paling sering salah. Ia adalah **identitas** data, bukan sekadar nama. Karena `filter` ikut di dalamnya, mengganti filter berarti kunci yang berbeda sehingga cache-nya terpisah dan permintaan barunya otomatis dikirim. Kalau `filter` lupa disertakan, mengganti filter tidak akan memicu apa pun dan data lama terus ditampilkan.',
+      ),
+      p(
+        'Parameter `signal` yang diteruskan ke fungsi pengambil adalah pembatalan yang sudah dibahas di Bab 3 Frontend Basic. Pustaka menyediakannya secara otomatis dan membatalkannya saat kuncinya berubah atau komponennya dilepas. Meneruskannya ke `fetch` berarti permintaan yang sudah tidak relevan benar-benar dihentikan, bukan sekadar hasilnya diabaikan.',
+      ),
+      p(
+        'Perbedaan `isPending` dan `isFetching` menutup masalah kedipan dari Bab 5 Frontend Basic. Yang pertama berarti belum ada data sama sekali sehingga skeleton pantas ditampilkan. Yang kedua berarti sedang mengambil ulang sementara data lama masih ada, dan di situ menampilkan skeleton justru membuat layar berkedip. Menandainya dengan `aria-busy` sudah cukup.',
+      ),
+      code(
+        'tsx',
+        `
+        // Mengubah data: mutation, lalu tandai cache yang terpengaruh sebagai basi.
+        function TombolBatalkan({ id }: { id: string }) {
+          const klien = useQueryClient();
+
+          const { mutate, isPending } = useMutation({
+            mutationFn: () => batalkanPesanan(id),
+            onSuccess: () => {
+              // Bukan menyetel data manual, melainkan menandai basi.
+              // Pustaka yang memutuskan kapan mengambil ulang.
+              klien.invalidateQueries({ queryKey: ['pesanan'] });
+            },
+          });
+
+          return (
+            <button onClick={() => mutate()} disabled={isPending}>
+              {isPending ? 'Membatalkan…' : 'Batalkan'}
+            </button>
+          );
+        }
+        `,
+        { caption: 'Menandai basi, bukan menyetel data secara manual.' },
+      ),
+      callout(
+        'warning',
+        'Jangan menyalin data query ke state lain',
+        'Menulis `useEffect(() => setBarang(data), [data])` mengembalikan seluruh masalah yang pustakanya selesaikan, yaitu salinan yang bisa basi dan tidak ikut disegarkan. Pakai `data` langsung dari query. Kalau kamu butuh mengubahnya untuk tampilan, hitung saat render seperti nilai turunan biasa.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut adalah yang paling sering, dan tiga di antaranya tidak melempar apa pun.',
+      ),
+      code(
+        'text',
+        `
+        useQuery({ queryKey: ['pesanan'], queryFn: () => ambilPesanan(filter) });
+
+        # Filter tidak ikut di queryKey.
+        # Mengganti filter tidak memicu permintaan baru.
+        # Data lama terus ditampilkan.
+        `,
+        { caption: 'Kunci tidak memuat seluruh nilai yang mempengaruhi hasilnya.' },
+      ),
+      p(
+        'Ini kesalahan nomor satu, dan tidak ada error sama sekali. Kunci adalah identitas, sehingga seluruh nilai yang mengubah hasilnya wajib ikut di dalamnya. Aturan praktisnya, apa pun yang dipakai di dalam `queryFn` harus muncul di `queryKey`, persis seperti aturan dependensi pada `useEffect`.',
+      ),
+      code(
+        'text',
+        `
+        useQuery({
+          queryKey: ['pesanan', { cari, urut }],   // object literal baru tiap render
+          queryFn: ...,
+        });
+
+        # Kunci berubah tiap render, sehingga permintaan dikirim terus.
+        `,
+        { caption: 'Kunci berisi object yang identitasnya berubah.' },
+      ),
+      p(
+        "Sebagian pustaka membandingkan kunci secara mendalam sehingga bentuk ini aman, dan sebagian lain tidak. Yang selalu aman adalah menyusun kunci dari nilai primitif, yaitu `['pesanan', cari, urut]`. Kalau kamu memang perlu object, pastikan ia stabil lewat `useMemo`. Ini konsekuensi yang sama dengan dependensi efek dan hasil selektor yang sudah berulang di kategori ini.",
+      ),
+      code(
+        'text',
+        `
+        const { data } = useQuery({ ... });
+        useEffect(() => { setBarang(data); }, [data]);
+
+        # Salinan di state lokal yang tidak ikut disegarkan.
+        # Seluruh keunggulan cache hilang.
+        `,
+        { caption: 'Data query disalin ke state.' },
+      ),
+      p(
+        'Ini mengembalikan seluruh masalah yang pustakanya selesaikan. Salinan di state tidak tahu apa-apa tentang kesegaran, tidak ikut disegarkan saat tab kembali aktif, dan tidak ikut diperbarui saat cache-nya ditandai basi. Aturan lint React Compiler di project ini juga menandai pola menyetel state di dalam efek seperti ini sebagai error.',
+      ),
+      code(
+        'text',
+        `
+        const { data } = useQuery({ ... });
+        return <div>{data.length}</div>;
+
+        TypeError: Cannot read properties of undefined (reading 'length')
+        `,
+        { caption: 'Data dibaca sebelum keadaan memuat diperiksa.' },
+      ),
+      p(
+        'Pada render pertama `data` bernilai `undefined` sebab permintaannya belum selesai. Periksa `isPending` lebih dulu, dan periksa `isError` sebelum memeriksa kekosongan. Urutannya sama dengan empat keadaan tampilan dari bab tentang state, yaitu memuat, gagal, kosong, lalu sukses. Dengan TypeScript, tipe `data` memang menyertakan `undefined` sehingga kesalahan ini ditolak sebelum dijalankan.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Mengganti filter tidak memuat data baru',
+            'Filter tidak ikut di `queryKey`',
+            'Sertakan seluruh nilai yang dipakai `queryFn`',
+          ],
+          [
+            'Permintaan dikirim terus tanpa henti',
+            'Kunci berisi object yang identitasnya berubah',
+            'Susun kunci dari nilai primitif, atau stabilkan dengan `useMemo`',
+          ],
+          [
+            'Data tidak ikut disegarkan',
+            'Data query disalin ke state lokal',
+            'Pakai `data` langsung dari query',
+          ],
+          [
+            '`Cannot read properties of undefined`',
+            'Data dibaca sebelum keadaan memuat diperiksa',
+            'Periksa `isPending` dan `isError` lebih dulu',
+          ],
+          [
+            'Layar berkedip saat filter diganti',
+            '`isPending` dan `isFetching` tidak dibedakan',
+            'Skeleton hanya untuk `isPending`, `aria-busy` untuk `isFetching`',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Pustaka pengambil data menyelesaikan banyak hal sekaligus, dan sebagian besar kesalahan berasal dari tetap menulis sendiri hal yang sudah ia sediakan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyalin data query ke state atau store',
+            'Supaya bisa diubah',
+            'Salinan tidak ikut disegarkan. Pakai data langsung, dan hitung turunannya saat render',
+          ],
+          [
+            'Melupakan sebagian nilai di `queryKey`',
+            'Kuncinya sudah menyebut nama datanya',
+            'Kunci adalah identitas. Apa pun yang dipakai `queryFn` harus ada di sana',
+          ],
+          [
+            'Memakai `useEffect` untuk mengambil data di samping pustaka',
+            'Untuk kasus khusus saja',
+            'Kasus itu kehilangan seluruh cache, pembatalan, dan penanganan gagal yang seragam',
+          ],
+          [
+            'Tidak membedakan muat pertama dari muat ulang',
+            'Keduanya sama-sama memuat',
+            'Skeleton pada muat ulang membuat layar berkedip dan terasa lebih lambat',
+          ],
+          [
+            'Menyetel data cache secara manual setelah mutation',
+            'Supaya langsung terlihat',
+            'Menandai basi lebih aman sebab pustaka yang memutuskan kapan mengambil ulang. Setel manual hanya untuk pembaruan optimistis',
+          ],
+          [
+            'Memakai `staleTime` nol untuk semua query',
+            'Supaya selalu segar',
+            'Setiap komponen yang dipasang memicu permintaan baru. Sesuaikan dengan seberapa cepat datanya benar-benar berubah',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama adalah kesalahan yang paling sering dan paling merusak, sebab ia mengembalikan seluruh masalah yang pustakanya selesaikan sambil tetap membayar biayanya. Kalau kamu menemukan `useEffect` yang menyalin `data` ke state, hapus keduanya dan pakai `data` langsung. Kalau kamu butuh bentuk yang berbeda untuk tampilan, hitung saat render.',
+      ),
+      callout(
+        'info',
+        'Contoh di sub-bab ini tidak dijalankan di project ini',
+        'Website ini tidak memakai TanStack Query, sehingga kode di atas ditulis mengikuti dokumentasi resminya dan tidak dieksekusi di sini. Yang **diukur sungguhan** adalah perilaku React yang mendasarinya. Di App Router, sebagian kebutuhan ini juga bisa diselesaikan Server Component tanpa pustaka tambahan, dan itu dibahas di bab Next.js.',
+      ),
       references(
         {
           label: 'TanStack Query — Overview',
@@ -1410,7 +3020,7 @@ export const lessons: LessonDraft[] = [
   written(
     'optimistic-update',
     'Optimistic Update',
-    11,
+    21,
     'Menampilkan hasil sebelum server mengonfirmasi.',
     [
       p(
@@ -1541,6 +3151,252 @@ export const lessons: LessonDraft[] = [
         'Kaitan dengan aturan formulir',
         'Apa pun pilihanmu, tombol submit harus dinonaktifkan selama permintaan berjalan. Itu mencegah kiriman ganda — dan di sisi server, operasi yang penting tetap harus idempoten, karena penjagaan di sisi klien tidak pernah cukup.',
       ),
+      divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Tombol centang pada daftar tugas memanggil server lalu memperbarui tampilan. Di jaringan kantor terasa seketika. Di jaringan seluler, pengguna mencentang lalu menunggu delapan ratus milidetik sebelum centangnya muncul, sehingga sebagian mencentang dua kali. Setelah diberi pembaruan optimistis, muncul masalah baru, yaitu saat server menolak, centangnya tetap tercentang sebab tidak ada yang mengembalikannya.',
+      ),
+      p('Pembaruan optimistis punya tiga bagian, dan bagian ketiga yang paling sering hilang.'),
+      code(
+        'text',
+        `
+        Tiga bagian yang WAJIB ada:
+
+        1. Tampilkan hasil yang diharapkan sebelum server menjawab
+        2. Kirim permintaannya
+        3. KEMBALIKAN keadaan kalau gagal, DAN beri tahu penggunanya
+
+        Bagian ketiga sering hanya setengah dikerjakan, yaitu keadaannya
+        dikembalikan tanpa satu pun pesan. Dari sudut pandang pengguna,
+        tombolnya berkedip lalu tidak melakukan apa-apa.
+        `,
+        {
+          caption:
+            'Mengembalikan keadaan tanpa memberi tahu sama buruknya dengan tidak mengembalikan.',
+        },
+      ),
+      code(
+        'tsx',
+        `
+        // Dengan useOptimistic: pengembalian diurus React.
+        'use client';
+
+        function TombolCentang({ tugas, ubahAksi }: Props) {
+          const [selesaiTampil, setOptimistis] = useOptimistic(
+            tugas.selesai,
+            (_sekarang, baru: boolean) => baru,
+          );
+
+          async function tangani() {
+            setOptimistis(!tugas.selesai);
+            const hasil = await ubahAksi(tugas.id, !tugas.selesai);
+            // Kalau gagal, nilai optimistis DIBUANG otomatis
+            // dan tampilannya kembali ke nilai sungguhan.
+            if (!hasil.berhasil) tampilkanBanner(hasil.pesan);
+          }
+
+          return (
+            <form action={tangani}>
+              <button type="submit" aria-pressed={selesaiTampil}>
+                {selesaiTampil ? 'Selesai' : 'Belum'}
+              </button>
+            </form>
+          );
+        }
+        `,
+        { filename: 'src/tugas/TombolCentang.tsx' },
+      ),
+      p(
+        'Yang membedakan `useOptimistic` dari menyimpan salinan sendiri adalah pengembaliannya **otomatis**. Begitu aksinya selesai, nilai optimistisnya dibuang dan React memakai nilai sungguhan dari props. Kalau aksinya gagal, nilai sungguhan tidak berubah sehingga tampilannya kembali tanpa satu baris kode pengembalian. Yang tetap harus kamu tulis hanya pesannya.',
+      ),
+      code(
+        'tsx',
+        `
+        // Dengan pustaka pengambil data: simpan keadaan lama, kembalikan kalau gagal.
+        const { mutate } = useMutation({
+          mutationFn: ({ id, selesai }) => ubahTugas(id, selesai),
+
+          onMutate: async ({ id, selesai }) => {
+            // Hentikan pengambilan yang sedang berjalan supaya tidak menimpa.
+            await klien.cancelQueries({ queryKey: ['tugas'] });
+
+            const sebelumnya = klien.getQueryData(['tugas']);
+            klien.setQueryData(['tugas'], (lama) =>
+              lama.map((t) => (t.id === id ? { ...t, selesai } : t)),
+            );
+
+            // Dikembalikan supaya bisa dipakai onError.
+            return { sebelumnya };
+          },
+
+          onError: (galat, _variabel, konteks) => {
+            klien.setQueryData(['tugas'], konteks.sebelumnya);   // kembalikan
+            tampilkanBanner('Gagal mengubah tugas');             // DAN beri tahu
+          },
+
+          onSettled: () => {
+            klien.invalidateQueries({ queryKey: ['tugas'] });    // selaraskan lagi
+          },
+        });
+        `,
+        { caption: 'Empat tahap, dan `onSettled` yang memastikan akhirnya selaras.' },
+      ),
+      p(
+        'Baris `cancelQueries` di awal sering dilewatkan dan penting. Kalau ada pengambilan yang sedang berjalan, hasilnya bisa tiba setelah perubahan optimistis dan menimpanya dengan data lama dari server. Membatalkannya lebih dulu menutup celah itu. Ini race condition yang sama dengan yang dibahas di Bab 3 Frontend Basic, muncul dalam bentuk yang lebih halus.',
+      ),
+      p(
+        'Tahap `onSettled` yang berjalan pada keberhasilan maupun kegagalan memastikan keadaan akhirnya selalu selaras dengan server. Tanpa itu, keberhasilan yang datanya sedikit berbeda dari dugaan optimistis akan meninggalkan tampilan yang salah. Menandai basi jauh lebih aman daripada mengandalkan tebakan optimistis sebagai kebenaran akhir.',
+      ),
+      callout(
+        'danger',
+        'Optimistis hanya untuk aksi yang hampir selalu berhasil',
+        'Menampilkan berhasil lalu menariknya kembali jauh lebih membingungkan daripada menunggu sebentar. Pakai untuk centang, suka, dan hapus dari daftar. Jangan pakai untuk pembayaran, pengiriman pesanan, atau apa pun yang kegagalannya punya akibat nyata bagi pengguna.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut adalah yang paling sering, dan seluruhnya hanya muncul saat servernya menolak atau saat jaringannya lambat.',
+      ),
+      code(
+        'text',
+        `
+        setOptimistis(true);
+        await kirim();
+        # tidak ada penanganan kalau gagal
+
+        # Server menolak. Centangnya tetap tercentang,
+        # dan pengguna mengira perubahannya tersimpan.
+        `,
+        { caption: 'Keadaan tidak dikembalikan pada kegagalan.' },
+      ),
+      p(
+        'Ini kegagalan paling merugikan sebab pengguna yakin perubahannya tersimpan padahal tidak. Ia baru menyadarinya saat memuat ulang halaman dan menemukan keadaan lama. Dengan `useOptimistic`, pengembaliannya otomatis. Dengan pendekatan manual, `onError` yang mengembalikannya, dan melupakannya berarti bug ini.',
+      ),
+      code(
+        'text',
+        `
+        onError: (galat, v, konteks) => {
+          klien.setQueryData(['tugas'], konteks.sebelumnya);
+        }
+        # dikembalikan, tanpa satu pun pesan
+
+        # Centang berkedip lalu kembali. Pengguna menekan lagi.
+        `,
+        { caption: 'Keadaan dikembalikan tanpa memberi tahu penggunanya.' },
+      ),
+      p(
+        'Dari sudut pandang pengguna, tombolnya berkedip lalu tidak melakukan apa-apa, dan reaksi wajarnya adalah menekan lagi. Setelah beberapa kali, ia menyimpulkan aplikasinya rusak. Pengembalian keadaan **wajib** dipasangkan dengan pesan yang menjelaskan kenapa, dan itu satu baris yang sering terlewat.',
+      ),
+      code(
+        'text',
+        `
+        onMutate: ({ id, selesai }) => {
+          const sebelumnya = klien.getQueryData(['tugas']);
+          klien.setQueryData(['tugas'], ...);
+          return { sebelumnya };
+        }
+        # tanpa cancelQueries
+
+        # Pengambilan yang sedang berjalan selesai setelah perubahan optimistis
+        # dan menimpanya dengan data lama dari server.
+        `,
+        { caption: 'Pengambilan yang sedang berjalan tidak dibatalkan.' },
+      ),
+      p(
+        'Gejalanya berupa perubahan optimistis yang muncul lalu hilang sendiri tanpa ada kegagalan apa pun. Penyebabnya permintaan yang sudah melayang sebelum perubahan dibuat, dan hasilnya tiba belakangan lalu menimpa. Membatalkannya lebih dulu di `onMutate` menutup celah itu.',
+      ),
+      code(
+        'text',
+        `
+        const [tampil, setOptimistis] = useOptimistic(nilai);
+        <button onClick={() => setOptimistis(true)}>Centang</button>
+
+        Warning: An optimistic state update occurred outside a transition or
+        action. To fix, move the update to an action, or wrap with startTransition.
+        `,
+        { caption: 'Perubahan optimistis dipakai di luar Action atau transisi.' },
+      ),
+      p(
+        'Nilai optimistis hanya berarti selama ada aksi yang sedang berjalan, sebab React membuangnya begitu aksinya selesai. Di luar aksi, tidak ada titik akhir yang jelas sehingga nilainya bisa tertinggal selamanya. Pakai `<form action={...}>`, atau bungkus dengan `startTransition`.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Perubahan tetap terlihat padahal server menolak',
+            'Keadaan tidak dikembalikan pada kegagalan',
+            'Pakai `useOptimistic`, atau kembalikan di `onError`',
+          ],
+          [
+            'Tombol berkedip lalu tidak melakukan apa-apa',
+            'Keadaan dikembalikan tanpa pesan',
+            'Selalu pasangkan pengembalian dengan pesan yang menjelaskan',
+          ],
+          [
+            'Perubahan optimistis hilang sendiri tanpa kegagalan',
+            'Pengambilan yang sedang berjalan menimpanya',
+            'Batalkan pengambilan lebih dulu di `onMutate`',
+          ],
+          [
+            '`optimistic state update occurred outside a transition or action`',
+            'Dipakai di luar Action',
+            'Pakai `<form action={...}>` atau `startTransition`',
+          ],
+          [
+            'Tampilan tidak selaras dengan server setelah berhasil',
+            'Tidak ada penyelarasan akhir',
+            'Tandai basi di `onSettled`, yang berjalan pada kedua hasil',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Pembaruan optimistis membuat aplikasi terasa cepat dan sekaligus membuka kelas bug yang hanya muncul saat gagal, yaitu keadaan yang paling jarang diuji.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Tidak menulis jalur pengembalian',
+            'Servernya kan hampir selalu berhasil',
+            'Saat gagal, pengguna yakin perubahannya tersimpan padahal tidak',
+          ],
+          [
+            'Mengembalikan keadaan tanpa memberi tahu',
+            'Tampilannya sudah benar lagi',
+            'Pengguna melihat kedipan tanpa penjelasan dan menekan lagi',
+          ],
+          [
+            'Memakai optimistis untuk pembayaran',
+            'Supaya terasa cepat',
+            'Menampilkan berhasil lalu menariknya kembali jauh lebih membingungkan daripada menunggu',
+          ],
+          [
+            'Lupa membatalkan pengambilan yang sedang berjalan',
+            'Perubahannya kan sudah dibuat',
+            'Hasil lama tiba belakangan dan menimpa perubahan optimistis',
+          ],
+          [
+            'Menganggap tebakan optimistis sebagai kebenaran akhir',
+            'Servernya menerima perubahannya',
+            'Server bisa mengubah nilainya, misalnya menambah stempel waktu. Selaraskan lagi setelah selesai',
+          ],
+          [
+            'Menguji hanya jalur berhasil',
+            'Itu yang biasa terjadi',
+            'Seluruh bug di sub-bab ini hanya muncul saat gagal. Matikan servernya lalu coba',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir adalah kebiasaan yang menemukan seluruh masalah di sub-bab ini dalam dua menit. Matikan server pengembangan, lalu picu aksinya. Perhatikan apakah tampilannya kembali, apakah ada pesan, dan apakah pengguna punya cara mencoba lagi. Tiga pemeriksaan itu adalah satu-satunya cara memastikan jalur pengembalian benar-benar bekerja.',
+      ),
+      callout(
+        'info',
+        'React 19 menyediakan `useOptimistic` tanpa pustaka tambahan',
+        'Untuk aksi sederhana seperti centang dan suka, `useOptimistic` bersama Action sudah cukup dan pengembaliannya otomatis. Pendekatan manual lewat pustaka pengambil data lebih tepat saat kamu perlu mengubah cache yang dibaca banyak komponen sekaligus. Keduanya bisa hidup berdampingan.',
+      ),
       references(
         {
           label: 'Optimistic Updates',
@@ -1570,7 +3426,7 @@ export const lessons: LessonDraft[] = [
     ],
   ),
 
-  written('url-state', 'URL sebagai State', 11, 'State yang harus bisa dibagikan lewat tautan.', [
+  written('url-state', 'URL sebagai State', 21, 'State yang harus bisa dibagikan lewat tautan.', [
     p(
       'Ada satu kategori state yang hampir selalu ditaruh di tempat yang salah: **apa yang sedang dilihat pengguna**. Filter, urutan, kata kunci, halaman ke berapa, tab yang aktif. Semua itu disimpan di `useState`, dan akibatnya baru terasa saat pengguna menekan refresh — semuanya kembali ke awal.',
     ),
@@ -1742,6 +3598,243 @@ export const lessons: LessonDraft[] = [
       'URL itu publik',
       'Apa pun yang kamu taruh di query string akan muncul di riwayat browser, log server, dan header `Referer` saat pengguna mengeklik tautan keluar. Jangan pernah menaruh token, id sesi, atau data pribadi di sana.',
     ),
+    divider,
+    h2('Studi kasus di project nyata'),
+    p(
+      'Panel admin punya filter status, rentang tanggal, kata pencarian, urutan, dan nomor halaman. Kelimanya disimpan di `useState`. Tim dukungan meminta pengguna mengirimkan tautan ke daftar yang bermasalah, dan ternyata mustahil sebab alamat halamannya selalu sama. Setelah dipindahkan ke alamat, tiga masalah lain ikut selesai tanpa satu baris kode tambahan.',
+    ),
+    p(
+      'Alamat halaman adalah tempat penyimpanan yang sudah tersedia, sudah dipahami setiap pengguna, dan sudah terhubung dengan tombol kembali. Empat kemampuan berikut didapat sekaligus.',
+    ),
+    table(
+      ['Kemampuan', 'Dengan `useState`', 'Dengan alamat halaman'],
+      [
+        ['Tautan bisa dibagikan', 'Tidak', '**Ya**'],
+        ['Bertahan setelah muat ulang', 'Tidak', '**Ya**'],
+        ['Tombol kembali mengembalikan keadaan', 'Tidak', '**Ya**'],
+        ['Bisa dibuka di tab baru', 'Tidak', '**Ya**'],
+        ['Perlu kode tambahan', 'Tidak', 'Sedikit, untuk membaca dan menulis'],
+      ],
+      'Empat kemampuan pertama gratis begitu nilainya pindah ke alamat.',
+    ),
+    code(
+      'tsx',
+      `
+        'use client';
+        import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+
+        export function PanelPesanan() {
+          const params = useSearchParams();
+          const router = useRouter();
+          const jalur = usePathname();
+
+          // DIBACA dari alamat, bukan disimpan. Satu sumber kebenaran.
+          const status = params.get('status') ?? '';
+          const urut = bacaUrut(params.get('urut'));            // divalidasi, lihat di bawah
+          const halaman = Math.max(1, Number(params.get('halaman') ?? '1') || 1);
+
+          // Kotak pencarian tetap state lokal supaya ketikan terasa seketika.
+          const cariAlamat = params.get('q') ?? '';
+          const [ketikan, setKetikan] = useState(cariAlamat);
+
+          function perbarui(bagian: Record<string, string | null>, ganti = true) {
+            const baru = new URLSearchParams(params);
+            for (const [kunci, nilai] of Object.entries(bagian)) {
+              if (nilai === null || nilai === '') baru.delete(kunci);
+              else baru.set(kunci, nilai);
+            }
+            const kueri = baru.toString();
+            // replace supaya riwayat tidak penuh untuk perubahan filter.
+            router[ganti ? 'replace' : 'push'](kueri ? \`\${jalur}?\${kueri}\` : jalur, {
+              scroll: false,
+            });
+          }
+
+          // Alamat diperbarui setelah pengguna berhenti mengetik.
+          useEffect(() => {
+            if (ketikan === cariAlamat) return;
+            const timer = setTimeout(
+              () => perbarui({ q: ketikan || null, halaman: null }),   // reset halaman
+              400,
+            );
+            return () => clearTimeout(timer);
+          }, [ketikan, cariAlamat]);
+
+          return (
+            <>
+              <input value={ketikan} onChange={(e) => setKetikan(e.currentTarget.value)} />
+              <PilihStatus nilai={status} onUbah={(s) => perbarui({ status: s, halaman: null })} />
+              <Hasil status={status} cari={cariAlamat} urut={urut} halaman={halaman} />
+            </>
+          );
+        }
+        `,
+      { filename: 'src/admin/PanelPesanan.tsx' },
+    ),
+    p(
+      'Kotak pencarian tetap memakai state lokal, dan itu keputusan yang disengaja. Memperbarui alamat pada tiap huruf akan memenuhi riwayat peramban sehingga tombol kembali harus ditekan dua puluh kali, dan setiap perubahan alamat memicu navigasi yang lebih mahal daripada perubahan state. Alamat diperbarui setelah pengguna berhenti mengetik, memakai debounce dari Bab 1 Frontend Basic.',
+    ),
+    p(
+      'Baris `halaman: null` pada tiap penangan filter menutup bug yang sangat sering. Kalau pengguna berada di halaman lima lalu mengganti status, hasil status baru mungkin hanya punya satu halaman sehingga daftarnya kosong. Mereset halaman setiap kali filter berubah adalah aturan yang berlaku di hampir semua daftar berpaginasi, dan menuliskannya di satu fungsi membuatnya tidak mungkin terlewat.',
+    ),
+    code(
+      'tsx',
+      `
+        // Nilai dari alamat adalah MASUKAN DARI LUAR. Validasi seperti data server.
+        const URUT_SAH = ['terbaru', 'terlama', 'termahal'] as const;
+        type Urut = (typeof URUT_SAH)[number];
+
+        function bacaUrut(mentah: string | null): Urut {
+          return URUT_SAH.includes(mentah as Urut) ? (mentah as Urut) : 'terbaru';
+        }
+        `,
+      { caption: 'Siapa pun bisa mengetik apa saja di bilah alamat.' },
+    ),
+    p(
+      'Ini penerapan aturan dari Bab 6 Frontend Basic, yaitu tipe TypeScript hilang saat build sehingga data dari luar tetap harus diperiksa saat berjalan. Alamat halaman adalah data dari luar, sama seperti respons server. Tautan lama yang beredar juga bisa memuat nilai yang sudah tidak didukung, dan tanpa validasi ia menghasilkan kelas CSS yang tidak ada atau pemanggilan API yang gagal.',
+    ),
+    callout(
+      'warning',
+      'Jangan menyimpan seluruh state di alamat',
+      'Alamat untuk hal yang layak dibagikan, yaitu filter, urutan, halaman, dan tab. Bukan untuk baris mana yang sedang disorot, dialog mana yang terbuka, atau posisi gulir. Alamat yang penuh dengan hal yang tidak berarti bagi orang lain justru menyulitkan, dan tiap perubahannya memicu navigasi.',
+    ),
+
+    h2('Saat error-nya muncul'),
+    p(
+      'Empat kegagalan berikut adalah yang paling sering, dan seluruhnya hanya muncul saat halaman dimuat ulang atau tautannya dibuka langsung.',
+    ),
+    code(
+      'text',
+      `
+        onChange={(e) => perbarui({ q: e.target.value })}
+
+        # Pengguna mengetik 'kaos polos'. Sepuluh entri riwayat.
+        # Tombol kembali harus ditekan sepuluh kali.
+        `,
+      { caption: 'Alamat diperbarui pada tiap ketikan tanpa `replace`.' },
+    ),
+    p(
+      'Setiap pemanggilan yang menambah entri riwayat membuat tombol kembali harus ditekan sekali lagi. Ada dua perbaikan yang dipakai bersama, yaitu menunda pembaruan sampai pengguna berhenti mengetik, dan memakai `replace` supaya entri yang ada digantikan. Untuk perubahan yang memang berarti navigasi, misalnya berpindah halaman, `push` justru yang tepat.',
+    ),
+    code(
+      'text',
+      `
+        const halaman = Number(params.get('halaman'));
+        const mulai = (halaman - 1) * 20;
+
+        # Alamat tanpa parameter halaman: Number(null) = 0
+        # mulai = -20, dan daftarnya kosong. Tidak ada error.
+        `,
+      { caption: '`Number(null)` bernilai nol, bukan `NaN`.' },
+    ),
+    p(
+      "Ini jebakan coercion dari Bab 1 Frontend Basic yang muncul di tempat yang tidak diduga. Method `get` mengembalikan `null` untuk parameter yang tidak ada, dan `Number(null)` bernilai nol. Bentuk yang aman memakai `?? '1'` untuk bawaan, `|| 1` untuk menangkap `NaN`, dan `Math.max` untuk menjaga batas bawahnya.",
+    ),
+    code(
+      'text',
+      `
+        const [cari, setCari] = useState(params.get('q') ?? '');
+
+        # Pengguna menekan tombol kembali. Alamat berubah,
+        # dan kotak pencarian tetap menampilkan kata lama.
+        `,
+      { caption: 'Nilai alamat disalin ke state.' },
+    ),
+    p(
+      'Ini kesalahan menyalin props ke state dari bab tentang state, muncul kembali dengan alamat sebagai sumbernya. Argumen `useState` hanya dibaca sekali, sehingga perubahan alamat dari tombol kembali tidak pernah sampai. Baca langsung dari alamat sebagai sumber kebenaran, dan pakai state lokal hanya untuk ketikan yang belum sempat dikirim ke alamat.',
+    ),
+    code(
+      'text',
+      `
+        # Alamat: ?urut=xyz
+        <div className={\`daftar daftar-\${urut}\`} />
+
+        # class="daftar daftar-xyz". Tidak ada gaya yang menempel.
+        # Tidak ada error.
+        `,
+      { caption: 'Nilai dari alamat dipakai tanpa divalidasi.' },
+    ),
+    p(
+      'Siapa pun bisa mengetik apa saja di bilah alamat, dan tautan lama bisa memuat nilai yang sudah tidak didukung. Tanpa pemeriksaan terhadap daftar nilai yang sah, akibatnya bisa berupa gaya yang hilang, pemanggilan API yang gagal, atau pada kasus terburuk nilai yang disisipkan ke tempat yang berbahaya. Perlakukan alamat sebagai masukan yang tidak dipercaya.',
+    ),
+    table(
+      ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+      [
+        [
+          'Tombol kembali harus ditekan berkali-kali',
+          'Tiap ketikan menambah entri riwayat',
+          'Tunda dengan debounce, dan pakai `replace`',
+        ],
+        [
+          'Daftar kosong padahal datanya ada',
+          '`Number(null)` bernilai nol, sehingga indeksnya negatif',
+          'Beri bawaan dengan `??`, tangkap `NaN`, batasi dengan `Math.max`',
+        ],
+        [
+          'Kotak pencarian tidak mengikuti tombol kembali',
+          'Nilai alamat disalin ke state',
+          'Baca langsung dari alamat sebagai sumber kebenaran',
+        ],
+        [
+          'Gaya atau perilaku hilang untuk nilai tertentu',
+          'Nilai dari alamat tidak divalidasi',
+          'Cocokkan terhadap daftar nilai yang sah, dengan bawaan',
+        ],
+        [
+          'Daftar kosong setelah mengganti filter',
+          'Nomor halaman tidak direset',
+          'Reset halaman setiap kali filter berubah',
+        ],
+      ],
+    ),
+
+    h2('Kesalahan umum pemula'),
+    p(
+      'Alamat halaman sering dilupakan sebagai tempat penyimpanan, dan saat dipakai ia sering dipakai berlebihan.',
+    ),
+    table(
+      ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+      [
+        [
+          'Menyimpan filter dan halaman di `useState`',
+          'Itu kan state',
+          'Tautan tidak bisa dibagikan, muat ulang mengosongkan pilihan, dan tombol kembali tidak bekerja',
+        ],
+        [
+          'Memperbarui alamat pada tiap ketikan',
+          'Supaya selalu sinkron',
+          'Riwayat penuh dan tiap perubahan memicu navigasi. Tunda dan pakai `replace`',
+        ],
+        [
+          'Memercayai nilai dari alamat',
+          'Kita sendiri yang menulisnya',
+          'Siapa pun bisa mengetik apa saja, dan tautan lama bisa memuat nilai usang',
+        ],
+        [
+          'Menyimpan seluruh state di alamat',
+          'Supaya semuanya bisa dibagikan',
+          'Alamat penuh hal yang tidak berarti bagi orang lain, dan tiap perubahan memicu navigasi',
+        ],
+        [
+          'Melupakan reset halaman saat filter berubah',
+          'Halamannya kan tidak disentuh',
+          'Hasil filter baru bisa lebih pendek, dan pengguna melihat daftar kosong',
+        ],
+        [
+          'Menguji hanya dengan mengklik, tidak dengan memuat ulang',
+          'Alurnya kan sama',
+          'Seluruh masalah di sub-bab ini hanya muncul saat halaman dimuat ulang atau tautannya dibuka langsung',
+        ],
+      ],
+    ),
+    p(
+      'Baris terakhir adalah kebiasaan yang menemukan sebagian besar masalah di sub-bab ini dalam satu menit. Setelah menyetel filter, salin alamatnya lalu buka di tab baru. Kalau halamannya tidak menampilkan keadaan yang sama, ada nilai yang seharusnya berada di alamat tapi tersimpan di state. Uji juga tombol kembali setelah beberapa perubahan.',
+    ),
+    callout(
+      'info',
+      'Ada pustaka yang menyederhanakan pembacaan dan penulisan ini',
+      'Pustaka seperti nuqs menyediakan hook yang membaca dan menulis parameter alamat dengan tipe yang benar, termasuk validasi dan nilai bawaan. Untuk panel dengan lima filter, ia menghemat banyak baris. Yang penting dipahami lebih dulu adalah bentuk manualnya, sebab seluruh jebakan di sub-bab ini tetap berlaku di balik pustaka mana pun.',
+    ),
     references(
       {
         label: 'useSearchParams',
@@ -1773,7 +3866,7 @@ export const lessons: LessonDraft[] = [
   written(
     'kriteria-memilih',
     'Kriteria Memilih & Anti-pattern',
-    11,
+    19,
     'Cara memutuskan tanpa mengikuti tren.',
     [
       p(
@@ -1943,6 +4036,226 @@ export const lessons: LessonDraft[] = [
       p(
         'Saat memilih, jangan bandingkan library berdasarkan popularitas atau jumlah bintang. Bandingkan berdasarkan: berapa banyak konsep baru yang harus dipelajari orang lain di timmu, seberapa mudah melacak "kenapa komponen ini re-render", dan seberapa jelas batas tanggung jawabnya terhadap data server.',
       ),
+      divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Tim harus memutuskan alat state untuk aplikasi baru. Diskusi berjalan dua jam dan berakhir pada pustaka yang namanya paling sering disebut di internet. Enam bulan kemudian, delapan puluh persen isi store ternyata data server, dan alat yang dipilih tidak punya satu pun kemampuan cache. Diskusinya salah bukan karena kesimpulannya melainkan karena pertanyaannya, yaitu alat mana yang terbaik alih-alih jenis state apa yang kami punya.',
+      ),
+      p(
+        'Berikut kriteria yang bisa diperiksa, bukan diperdebatkan. Urutannya penting sebab pertanyaan pertama menyingkirkan sebagian besar kandidat.',
+      ),
+      table(
+        ['Pertanyaan', 'Kalau ya', 'Kalau tidak'],
+        [
+          [
+            'Datanya berasal dari server?',
+            '**Pustaka pengambil data.** Bukan store',
+            'Lanjut ke pertanyaan berikutnya',
+          ],
+          ['Layak dibagikan lewat tautan?', '**Alamat halaman.** Tanpa pustaka', 'Lanjut'],
+          ['Hanya satu komponen yang membaca?', '**`useState`.** Selesai', 'Lanjut'],
+          ['Pembacanya bersebelahan di pohon?', '**Angkat ke induk bersama.** Selesai', 'Lanjut'],
+          ['Berubahnya jarang, misalnya tema?', '**Context.** Sudah bawaan React', 'Lanjut'],
+          ['Sisanya', '**Pustaka store.** Barulah di sini', '—'],
+        ],
+        'Pustaka store hanya muncul di baris terakhir, dan itu memang seharusnya.',
+      ),
+      p(
+        'Kalau kamu sampai di baris terakhir, barulah membandingkan pustaka masuk akal. Tabel di bawah membandingkan yang sudah dibahas di bab ini, dan yang perlu dipegang, tidak ada yang terbaik secara mutlak. Yang ada adalah yang paling cocok untuk bentuk kebutuhanmu.',
+      ),
+      table(
+        ['Kebutuhan', 'Pilihan yang biasanya cocok', 'Alasannya'],
+        [
+          [
+            'Beberapa nilai global, tim kecil',
+            'Zustand atau sejenisnya',
+            'API kecil, sedikit yang perlu dipelajari, selektor bawaan',
+          ],
+          [
+            'State banyak dan saling berpotongan',
+            'Jotai atau sejenisnya',
+            'Potongan kecil dengan langganan tepat sasaran',
+          ],
+          [
+            'Aplikasi besar, banyak tim, aturan rumit',
+            'Redux Toolkit',
+            'Perkakas pengembangan, pola yang seragam, mudah diuji',
+          ],
+          [
+            'Sebagian besar data server',
+            'TanStack Query atau RTK Query',
+            'Cache, kesegaran, dan penanganan gagal bawaan',
+          ],
+          [
+            'Filter dan paginasi',
+            'Alamat halaman',
+            'Bisa dibagikan, bertahan, dan tanpa dependensi',
+          ],
+        ],
+        'Sebagian besar aplikasi memakai lebih dari satu baris di tabel ini.',
+      ),
+      p(
+        'Kalimat terakhir itu yang paling sering luput. Pilihan ini bukan satu lawan satu. Aplikasi yang sehat biasanya memakai alamat halaman untuk filter, pustaka pengambil data untuk data server, Context untuk tema, dan `useState` untuk sisanya, dengan pustaka store hanya untuk satu atau dua hal yang benar-benar global dan sering berubah. Memaksakan satu alat untuk semuanya adalah sumber sebagian besar masalah di bab ini.',
+      ),
+      code(
+        'text',
+        `
+        Yang layak dipertimbangkan sebelum memilih pustaka:
+
+        - Berapa orang yang akan menyentuh kode ini, dan berapa lama umurnya?
+        - Apakah pustakanya masih dirawat aktif? Kapan rilis terakhirnya?
+        - Berapa ukurannya di bundel klien?
+        - Apakah ia bekerja dengan Server Component kalau kamu memakai App Router?
+        - Apakah tim sudah mengenal salah satunya?
+
+        Pertanyaan terakhir sering lebih menentukan daripada yang lain.
+        Pustaka yang sudah dikenal tim biasanya menang atas yang secara
+        teknis sedikit lebih baik.
+        `,
+        { caption: 'Kriteria teknis penting, dan bukan satu-satunya.' },
+      ),
+      callout(
+        'tip',
+        'Keputusan ini bisa diubah, dan biayanya tidak seragam',
+        'Berpindah dari `useState` ke pustaka relatif murah sebab pemakaiannya terbatas. Berpindah antar-pustaka store lebih mahal sebab APInya menyebar. Berpindah dari store ke pustaka pengambil data untuk data server justru sering menghapus lebih banyak kode daripada yang ditambahkan. Kalau ragu, mulai dari yang paling sedikit menyebar.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Salah memilih jarang melempar error. Empat gejala berikut adalah cara mengenali bahwa pilihannya sudah tidak cocok lagi.',
+      ),
+      code(
+        'text',
+        `
+        $ grep -c "createSlice\\|create(" src/store/*.ts
+        23
+
+        # Dua puluh tiga potongan store.
+        # Sembilan belas di antaranya berisi data dari server.
+        `,
+        { caption: 'Store dipakai untuk data yang bukan tugasnya.' },
+      ),
+      p(
+        'Cara memeriksanya cepat, yaitu buka store lalu hitung berapa potongan yang isinya berasal dari server. Kalau lebih dari separuh, kamu sedang menulis ulang pustaka pengambil data sepotong demi sepotong, dengan lebih sedikit pengujian. Memindahkannya biasanya justru **menghapus** kode, sebab cache dan penyegaran yang ditulis tangan ikut hilang.',
+      ),
+      code(
+        'text',
+        `
+        # Diukur dengan React 19: satu nilai berubah di Context.
+        ctx-A render
+        ctx-B render (hanya baca b)
+
+        # Halaman terasa berat setiap kali keranjang berubah.
+        `,
+        { caption: 'Diukur sungguhan. Context dipakai untuk state yang sering berubah.' },
+      ),
+      p(
+        'Ini gejala yang paling jelas bahwa Context sudah melewati batasnya. Cara memastikannya adalah menyalakan Highlight updates di React DevTools, lalu memicu perubahan. Kalau seluruh halaman berkedip untuk perubahan yang hanya relevan bagi satu bagian, pemilihan bagian memang dibutuhkan dan Context tidak menyediakannya.',
+      ),
+      code(
+        'text',
+        `
+        # Pengguna melaporkan: "tautan yang saya kirim tidak menampilkan
+        # daftar yang sama".
+
+        # Filter disimpan di store, bukan di alamat.
+        `,
+        { caption: 'Nilai yang layak dibagikan disimpan di tempat yang tidak bisa dibagikan.' },
+      ),
+      p(
+        'Tidak ada error, dan yang rusak adalah kegunaannya. Gejala lain dari penyebab yang sama, yaitu memuat ulang halaman mengembalikan filter ke bawaan dan tombol kembali tidak bekerja. Ketiganya selesai sekaligus dengan memindahkan nilainya ke parameter alamat, dan itu justru mengurangi kode di store.',
+      ),
+      code(
+        'text',
+        `
+        # Orang baru bergabung. Butuh dua minggu untuk paham
+        # kenapa ada empat cara menyimpan state di aplikasi yang sama.
+
+        # useState, Context, Zustand, dan Redux semuanya dipakai.
+        `,
+        { caption: 'Terlalu banyak pendekatan hidup berdampingan tanpa aturan.' },
+      ),
+      p(
+        'Memakai beberapa alat sesuai jenis state adalah hal yang benar, dan yang salah adalah memakai beberapa alat untuk **jenis yang sama** tanpa aturan. Kalau ada dua pustaka store yang sama-sama memegang state global, salah satunya adalah sisa keputusan lama yang belum diselesaikan. Tuliskan aturannya di dokumentasi project, dan selesaikan perpindahannya.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Sebagian besar store berisi data server',
+            'Store dipakai untuk jenis state yang bukan tugasnya',
+            'Pindahkan ke pustaka pengambil data',
+          ],
+          [
+            'Seluruh halaman berkedip untuk perubahan kecil',
+            'Context dipakai untuk state yang sering berubah',
+            'Pindahkan ke store dengan pemilihan bagian',
+          ],
+          [
+            'Tautan tidak membawa keadaan yang sama',
+            'Nilai yang layak dibagikan disimpan di store',
+            'Pindahkan ke parameter alamat',
+          ],
+          [
+            'Dua pustaka store hidup berdampingan',
+            'Keputusan lama belum diselesaikan',
+            'Pilih satu, tuliskan aturannya, selesaikan perpindahannya',
+          ],
+          [
+            'Orang baru butuh berminggu-minggu memahami alur data',
+            'Tidak ada aturan tertulis tentang apa disimpan di mana',
+            'Tulis satu halaman yang memetakan jenis state ke tempatnya',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Memilih alat state adalah keputusan yang sering diambil sebagai soal selera, padahal ia punya kriteria yang bisa diperiksa.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memilih pustaka sebelum memetakan jenis state',
+            'Perlu diputuskan di awal',
+            'Sebagian besar isinya ternyata data server yang butuh alat berbeda',
+          ],
+          [
+            'Memilih yang namanya paling sering disebut',
+            'Populer berarti teruji',
+            'Populer untuk kebutuhan orang lain, belum tentu untuk kebutuhanmu. Periksa kriterianya',
+          ],
+          [
+            'Memaksakan satu alat untuk semua jenis state',
+            'Supaya seragam',
+            'Tiap jenis punya kebutuhan berbeda. Aplikasi yang sehat memakai beberapa alat sesuai jenisnya',
+          ],
+          [
+            'Memakai beberapa pustaka untuk jenis yang sama',
+            'Masing-masing punya kelebihan',
+            'Orang baru harus mempelajari semuanya. Pilih satu per jenis, dan tuliskan aturannya',
+          ],
+          [
+            'Menunda keputusan sampai aplikasinya besar',
+            'Nanti kalau sudah perlu',
+            'Memindahkan state yang tersebar jauh lebih mahal. Petakan jenisnya sejak awal, walau alatnya menyusul',
+          ],
+          [
+            'Mengabaikan apa yang sudah dikenal tim',
+            'Yang penting yang terbaik secara teknis',
+            'Pustaka yang sudah dikenal biasanya menang atas yang sedikit lebih baik tapi asing bagi semua orang',
+          ],
+        ],
+      ),
+      p(
+        'Baris ketiga adalah kesalahan yang paling sering dan paling mudah dihindari. Tidak ada aturan yang mengharuskan seluruh state memakai satu alat. Aplikasi yang sehat biasanya memakai empat sekaligus, yaitu `useState` untuk lokal, alamat untuk yang dibagikan, pustaka pengambil data untuk data server, dan satu pustaka store untuk sisanya. Yang perlu seragam adalah **aturannya**, bukan alatnya.',
+      ),
+      callout(
+        'info',
+        'Tuliskan aturannya, satu halaman sudah cukup',
+        'Satu berkas di dokumentasi project yang memetakan jenis state ke tempatnya menghemat berminggu-minggu bagi setiap orang baru. Isinya cukup lima baris, yaitu data server di mana, filter di mana, tema di mana, state lokal di mana, dan sisanya di mana. Tanpa itu, tiap orang memutuskan sendiri dan aplikasinya lambat laun memakai keempatnya untuk hal yang sama.',
+      ),
       references(
         {
           label: 'Managing State',
@@ -1975,7 +4288,7 @@ export const lessons: LessonDraft[] = [
   written(
     'praktik-migrasi-state',
     'Praktik: Pindahkan state ke tempat yang benar',
-    13,
+    20,
     'Merapikan aplikasi yang menyimpan semuanya di satu tempat.',
     [
       p(
@@ -2155,6 +4468,204 @@ export const lessons: LessonDraft[] = [
         'Uji tombol kembali dan refresh — filter harus bertahan',
       ),
 
+      divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Aplikasi punya store Redux dengan dua puluh tiga potongan, dan sembilan belas di antaranya berisi data server. Tim memutuskan memindahkan yang sembilan belas ke pustaka pengambil data. Percobaan pertama memindahkan seluruhnya dalam satu perubahan, dan aplikasinya rusak selama tiga hari sebab tidak ada satu titik pun yang bisa dijalankan.',
+      ),
+      p(
+        'Perpindahan state yang berhasil hampir selalu bertahap, dan yang menentukan bukan teknisnya melainkan **urutan langkahnya**.',
+      ),
+      steps(
+        {
+          title: 'Petakan dulu, jangan sentuh kode',
+          body: 'Buat daftar seluruh potongan store beserta jenis statenya. Data server, nilai yang layak dibagikan lewat tautan, state global sungguhan, atau state yang sebenarnya lokal. Daftar ini biasanya sudah menunjukkan bahwa sebagian besarnya bukan state global sama sekali.',
+        },
+        {
+          title: 'Mulai dari yang paling sedikit pemakainya',
+          body: 'Cari potongan yang hanya dibaca satu atau dua komponen. Itu yang paling murah dipindahkan dan paling cepat memberi keyakinan bahwa polanya bekerja. Jangan mulai dari yang dibaca dua puluh tempat.',
+        },
+        {
+          title: 'Pindahkan satu potongan, jalankan seluruh check',
+          body: 'Tulis pengganti di sebelahnya, pindahkan pemakainya, lalu hapus yang lama. Jalankan `npm run lint`, `npx tsc --noEmit`, dan test sebelum menyentuh potongan berikutnya. Tiap langkah harus menghasilkan keadaan yang bisa dijalankan.',
+        },
+        {
+          title: 'Hapus yang lama sebelum lanjut',
+          body: 'Jangan menumpuk potongan lama yang sudah tidak dipakai. Cari rujukannya dengan `grep -rn "namaPotongan" src/`, dan kalau kosong hapus berkasnya. Membiarkannya berarti orang berikutnya tidak tahu mana yang benar.',
+        },
+        {
+          title: 'Ulangi sampai habis, lalu cabut dependensinya',
+          body: 'Setelah seluruh potongan pindah, hapus pustaka lamanya dari `package.json`. Kalau masih ada satu potongan tersisa, pertanyakan apakah ia memang butuh pustaka itu atau bisa diselesaikan Context.',
+        },
+      ),
+      code(
+        'tsx',
+        `
+        // Langkah 3 dalam praktik: pengganti ditulis DI SEBELAH yang lama.
+
+        // Lama, masih ada dan masih dipakai halaman lain.
+        export const pilihPesanan = (s: RootState) => s.pesanan.daftar;
+
+        // Baru, dipakai satu halaman dulu untuk menguji polanya.
+        export function usePesanan(filter: Filter) {
+          return useQuery({
+            queryKey: ['pesanan', filter.status, filter.cari],
+            queryFn: ({ signal }) => ambilPesanan(filter, signal),
+            staleTime: 30_000,
+          });
+        }
+        `,
+        { caption: 'Keduanya hidup berdampingan selama perpindahan berjalan.' },
+      ),
+      p(
+        'Menulis pengganti di sebelah yang lama terasa seperti membuat duplikat, dan itu justru yang membuat perpindahannya aman. Selama keduanya ada, tiap halaman bisa dipindahkan sendiri-sendiri dan aplikasinya tetap jalan di setiap titik. Yang menjadi utang adalah membiarkan keduanya hidup berbulan-bulan, jadi selesaikan lalu hapus yang lama.',
+      ),
+      p(
+        'Yang perlu diwaspadai selama perpindahan adalah **dua sumber kebenaran**. Kalau satu halaman membaca dari store lama dan halaman lain dari pustaka baru, keduanya bisa menampilkan data yang berbeda. Pindahkan seluruh pembaca satu potongan sekaligus, bukan setengah-setengah, dan jangan pernah menyalin data dari yang baru ke yang lama supaya keduanya sinkron.',
+      ),
+      callout(
+        'warning',
+        'Jangan menggabungkan perpindahan dengan perbaikan bug',
+        'Kalau ada yang rusak setelah perubahan, kamu perlu tahu apakah karena perpindahannya atau karena perbaikannya. Pindahkan bentuknya lebih dulu sampai seluruh check hijau, baru perbaiki bugnya sebagai perubahan berikutnya. Urutan itu juga membuat tinjauan kodenya jauh lebih mudah.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut adalah yang paling sering selama perpindahan, dan dua di antaranya tidak melempar apa pun.',
+      ),
+      code(
+        'text',
+        `
+        # Halaman A membaca dari store lama.
+        # Halaman B membaca dari pustaka baru.
+        # Pengguna mengubah data di B lalu berpindah ke A.
+
+        # A menampilkan data lama. Tidak ada error.
+        `,
+        { caption: 'Dua sumber kebenaran hidup bersamaan.' },
+      ),
+      p(
+        'Ini risiko terbesar dari perpindahan bertahap, dan pencegahannya satu aturan, yaitu pindahkan seluruh pembaca satu potongan sekaligus. Kalau sebuah potongan dibaca lima komponen, kelimanya pindah dalam satu perubahan. Yang boleh bertahap adalah antar-potongan, bukan di dalam satu potongan.',
+      ),
+      code(
+        'text',
+        `
+        $ npm run build
+        Module not found: Can't resolve './store/pesananSlice'
+
+        # Potongan lama dihapus, dan masih ada satu berkas yang mengimpornya.
+        `,
+        { caption: 'Rujukan tertinggal setelah potongan lama dihapus.' },
+      ),
+      p(
+        'Ini justru kegagalan yang diinginkan, sebab ia tertangkap saat membangun bukan saat berjalan. Cara mencegahnya lebih awal adalah mencari seluruh rujukan sebelum menghapus, dengan `grep -rn "pesananSlice" src/`. Kalau hasilnya kosong, penghapusannya aman. Melewatkan langkah itu berarti build yang gagal di akhir.',
+      ),
+      code(
+        'text',
+        `
+        const { data } = usePesanan(filter);
+        useEffect(() => { dispatch(setPesanan(data)); }, [data]);
+
+        # Data dari pustaka baru disalin ke store lama supaya sinkron.
+        # Seluruh keunggulan cache hilang, dan ada dua salinan.
+        `,
+        { caption: 'Jembatan sementara yang justru mengembalikan masalah aslinya.' },
+      ),
+      p(
+        'Ini jalan pintas yang sering diambil supaya kode lama tidak perlu disentuh, dan ia mengembalikan seluruh masalah yang perpindahannya selesaikan. Salinan di store tidak ikut disegarkan, dan sekarang ada dua tempat yang bisa berbeda. Aturan lint React Compiler di project ini juga menandai pola menyetel state di dalam efek seperti ini sebagai error. Pindahkan pembacanya, jangan menjembatani.',
+      ),
+      code(
+        'text',
+        `
+        # Perpindahan selesai. Seluruh check hijau.
+        # Dua minggu kemudian: "kenapa daftar tidak menyegarkan
+        # setelah saya mengubah data di tab lain?"
+
+        # Perilaku itu ada di kode lama dan tidak ikut dipindahkan.
+        `,
+        { caption: 'Perilaku yang tidak tertulis di mana pun ikut hilang.' },
+      ),
+      p(
+        'Ini risiko yang paling sulit dicegah, yaitu ada perilaku yang tidak tertulis di tipe, tidak tertulis di dokumentasi, dan hanya diketahui dari kodenya. Cara menguranginya adalah membaca potongan lama sampai habis sebelum menulis penggantinya, dan menuliskan daftar perilakunya sebagai catatan. Kalau ada test, jalankan test lama terhadap kode baru.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Dua halaman menampilkan data berbeda',
+            'Satu potongan dibaca dari dua sumber',
+            'Pindahkan seluruh pembaca satu potongan sekaligus',
+          ],
+          [
+            '`Module not found` setelah menghapus',
+            'Masih ada rujukan tertinggal',
+            'Cari dengan `grep` sebelum menghapus',
+          ],
+          [
+            'Cache tidak bekerja setelah pindah',
+            'Data disalin dari pustaka baru ke store lama',
+            'Pindahkan pembacanya, jangan menjembatani',
+          ],
+          [
+            'Perilaku hilang tanpa disadari',
+            'Ada perilaku yang tidak tertulis di mana pun',
+            'Baca kode lama sampai habis, dan jalankan test lamanya',
+          ],
+          [
+            'Aplikasi rusak berhari-hari di tengah perpindahan',
+            'Seluruh potongan dipindahkan sekaligus',
+            'Satu potongan per perubahan, dan jalankan check tiap kali',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Praktik penutup bab ini tentang mengubah kode yang sudah dipakai, dan sebagian besar kesalahan berasal dari mengubah terlalu banyak sekaligus.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memindahkan seluruh store dalam satu perubahan',
+            'Sekalian selesai',
+            'Aplikasinya rusak berhari-hari, dan tidak ada titik aman untuk berhenti',
+          ],
+          [
+            'Menjembatani data baru ke store lama',
+            'Supaya kode lama tidak perlu disentuh',
+            'Mengembalikan seluruh masalah yang perpindahannya selesaikan, plus dua salinan',
+          ],
+          [
+            'Memindahkan setengah pembaca satu potongan',
+            'Bertahap kan lebih aman',
+            'Dua sumber kebenaran yang bisa berbeda. Bertahap antar-potongan, bukan di dalamnya',
+          ],
+          [
+            'Menghapus yang lama tanpa memeriksa rujukan',
+            'Semua sudah dipindahkan',
+            'Selalu ada satu yang terlewat. Cari dengan `grep` lebih dulu',
+          ],
+          [
+            'Menggabungkan perpindahan dengan perbaikan bug',
+            'Sekalian dibereskan',
+            'Kalau ada yang rusak, ada dua tersangka. Pisahkan menjadi dua perubahan',
+          ],
+          [
+            'Tidak memetakan jenis state sebelum memindahkan',
+            'Tujuannya kan sudah jelas',
+            'Sebagian potongan ternyata tidak butuh pustaka sama sekali, dan memindahkannya ke pustaka lain hanya memindahkan masalah',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir sering menghemat lebih banyak pekerjaan daripada seluruh langkah lainnya. Saat memetakan dua puluh tiga potongan, biasanya beberapa di antaranya ternyata hanya dibaca satu komponen dan bisa langsung menjadi `useState`, dan beberapa lagi ternyata filter yang tempatnya di alamat halaman. Keduanya dipindahkan tanpa menyentuh pustaka mana pun, dan itu pengurangan bersih.',
+      ),
+      callout(
+        'info',
+        'Yang kamu bawa dari bab ini ke bab berikutnya',
+        'Jenis state menentukan alatnya, bukan sebaliknya. Data server punya kebutuhan tersendiri dan bukan state biasa. Context menyelesaikan props berantai, bukan penggambaran ulang selektif. Nilai yang layak dibagikan tempatnya di alamat halaman. Bab berikutnya membahas Next.js App Router, dan di sana sebagian kebutuhan data server diselesaikan Server Component tanpa pustaka sama sekali.',
+      ),
       references(
         {
           label: 'Managing State',

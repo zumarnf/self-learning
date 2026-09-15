@@ -1,6 +1,7 @@
 import {
   callout,
   code,
+  compare,
   divider,
   h2,
   p,
@@ -20,7 +21,7 @@ export const lessons: LessonDraft[] = [
   written(
     'kenapa-oop',
     'Kenapa OOP — dan kapan justru tidak perlu',
-    9,
+    18,
     'OOP sebagai alat, bukan kewajiban: masalah apa yang ia pecahkan, dan kapan fungsi biasa lebih tepat.',
     [
       p(
@@ -153,6 +154,193 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Toko yang kamu kerjakan mulanya hanya menerima transfer bank. Fungsi pembayarannya satu, isinya sepuluh baris, dan semuanya jelas. Enam bulan kemudian ada kartu kredit, lalu dompet digital, lalu bayar di tempat. Fungsi yang tadinya sepuluh baris kini dua ratus baris berisi rantai `if` yang memeriksa jenis pembayaran, dan tiap penambahan metode baru berarti menyunting fungsi yang sama sekaligus berdoa tidak merusak tiga metode lain.',
+      ),
+      p(
+        'Bentuk seperti ini yang membuat orang mulai mencari cara lain, dan gejalanya selalu sama. Data pembayaran tersebar di satu tempat, aturan biayanya di tempat lain, dan cara memvalidasinya di tempat ketiga. Untuk menambah satu metode, kamu harus ingat menyentuh ketiganya.',
+      ),
+      code(
+        'js',
+        `
+        // Semua aturan bercampur dalam satu fungsi, dan tiap metode baru
+        // menambah satu cabang di SETIAP fungsi seperti ini.
+        function hitungBiaya(jenis, jumlah) {
+          if (jenis === 'transfer') return 0;
+          if (jenis === 'kartu') return Math.round(jumlah * 0.029);
+          if (jenis === 'dompet') return Math.round(jumlah * 0.015);
+          if (jenis === 'cod') return 5000;
+          throw new Error('Metode tidak dikenal');
+        }
+
+        function labelMetode(jenis) {
+          if (jenis === 'transfer') return 'Transfer Bank';
+          if (jenis === 'kartu') return 'Kartu Kredit';
+          // ... dan seterusnya, rantai yang sama diulang
+        }
+
+        function butuhVerifikasi(jenis) {
+          if (jenis === 'kartu') return true;
+          // ... rantai yang sama lagi
+        }
+        `,
+        { filename: 'Sebelum, tiga rantai if yang harus dijaga tetap sinkron' },
+      ),
+      p(
+        'Masalahnya bukan panjangnya melainkan penyebarannya. Pengetahuan tentang satu metode pembayaran tersebar di tiga fungsi berbeda, sehingga menambah metode kelima berarti mengingat tiga tempat. Yang lebih berbahaya, kalau kamu lupa satu tempat, tidak ada yang memberi tahu. Program tetap berjalan, dan label pembayaran barunya muncul kosong.',
+      ),
+      code(
+        'js',
+        `
+        // Satu metode pembayaran = satu object yang membawa datanya
+        // SEKALIGUS aturannya. Menambah metode berarti menambah satu object.
+        const metode = {
+          transfer: {
+            label: 'Transfer Bank',
+            butuhVerifikasi: false,
+            biaya: () => 0,
+          },
+          kartu: {
+            label: 'Kartu Kredit',
+            butuhVerifikasi: true,
+            biaya: (jumlah) => Math.round(jumlah * 0.029),
+          },
+          cod: {
+            label: 'Bayar di Tempat',
+            butuhVerifikasi: false,
+            biaya: () => 5000,
+          },
+        };
+
+        const pilihan = metode[jenis];
+        if (!pilihan) throw new Error(\`Metode \${jenis} tidak dikenal\`);
+
+        pilihan.label;            // tidak perlu rantai if
+        pilihan.biaya(507000);
+        `,
+        { filename: 'Sesudah, data dan perilaku berkumpul di satu tempat' },
+      ),
+      p(
+        'Inilah gagasan inti pemrograman berorientasi object, dan ia sudah bekerja bahkan sebelum kata `class` muncul. Yang berubah bukan jumlah baris melainkan **letak pengetahuan**. Seluruh yang perlu diketahui tentang kartu kredit ada di satu blok, sehingga menambah metode kelima berarti menambah satu blok baru dan tidak menyentuh satu pun kode lama. Aturan praktisnya, kalau menambah satu hal baru memaksamu menyunting lima tempat, struktur datamu belum sesuai dengan bentuk masalahnya.',
+      ),
+      callout(
+        'info',
+        'Object literal sudah cukup untuk banyak kasus',
+        'Contoh di atas belum memakai `class` sama sekali, dan untuk tabel pengaturan seperti ini object literal memang sudah cukup. `class` mulai berguna saat tiap object perlu menyimpan keadaannya sendiri yang berubah, misalnya saldo dompet atau isi keranjang. Jangan memakai `class` hanya karena materinya sedang membahas `class`.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Bagian ini agak berbeda dari sub-bab lain, sebab kesalahan struktur jarang melempar error. Yang muncul justru gejala, dan tiga di bawah ini adalah tanda paling jelas bahwa struktur datanya perlu diubah.',
+      ),
+      code(
+        'text',
+        `
+        const pilihan = metode[jenisDariForm];
+        pilihan.biaya(507000);
+                ^
+
+        TypeError: Cannot read properties of undefined (reading 'biaya')
+        `,
+        { caption: 'Kunci yang dicari tidak ada di tabel metode.' },
+      ),
+      p(
+        'Error ini justru bagian yang baik dari pendekatan tabel, sebab ia muncul di satu tempat saja dan langsung menunjuk penyebabnya. Bandingkan dengan rantai `if` yang cabang terakhirnya lupa diberi `throw`, di mana fungsi diam-diam mengembalikan `undefined` dan bugnya baru terlihat jauh di hilir. Pemeriksaan `if (!pilihan) throw ...` pada contoh di atas mengubah kegagalan senyap menjadi kegagalan yang menyebut nama metodenya.',
+      ),
+      code(
+        'text',
+        `
+        // Metode baru 'qris' ditambahkan ke hitungBiaya,
+        // tapi lupa ditambahkan ke labelMetode.
+
+        Label pembayaran tampil kosong di halaman faktur.
+        Tidak ada error di console.
+        `,
+        { caption: 'Satu dari tiga rantai `if` lupa diperbarui.' },
+      ),
+      p(
+        'Inilah kerugian sebenarnya dari pengetahuan yang tersebar, dan ia tidak pernah muncul sebagai error. Fungsi `labelMetode` jatuh sampai ke bawah tanpa menemukan cabang yang cocok, lalu mengembalikan `undefined`, dan `undefined` yang ditaruh ke halaman menghasilkan teks kosong. Dengan bentuk tabel, kelalaian yang sama tidak mungkin terjadi, sebab menambah metode berarti menambah satu object yang ketiga fieldnya harus diisi.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Menambah satu fitur memaksa menyunting lima berkas',
+            'Pengetahuan tentang satu hal tersebar di banyak tempat',
+            'Kumpulkan data dan perilakunya ke satu object atau satu kelas',
+          ],
+          [
+            'Rantai `if` yang sama muncul di beberapa fungsi',
+            'Percabangan dipakai untuk hal yang sebenarnya perbedaan jenis',
+            'Ubah menjadi tabel object, atau kelas dengan method yang sama',
+          ],
+          [
+            'Fungsi mengembalikan `undefined` tanpa peringatan',
+            'Rantai `if` tanpa cabang terakhir',
+            'Selalu tutup dengan `throw` atau nilai bawaan yang jelas',
+          ],
+          [
+            'Dua bagian aplikasi menampilkan aturan yang berbeda untuk hal yang sama',
+            'Aturannya disalin, bukan dipakai bersama',
+            'Satu sumber kebenaran, lalu keduanya membaca dari sana',
+          ],
+          [
+            'Sulit menulis test karena harus menyiapkan banyak hal',
+            'Fungsinya bergantung pada banyak nilai luar',
+            'Kirim yang dibutuhkan lewat parameter, atau bungkus dalam object yang bisa dibuat sendiri di test',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan terbesar seputar OOP bukan salah menulis `class` melainkan memakainya di tempat yang tidak membutuhkannya. Empat baris pertama di bawah semuanya bentuk dari itu.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membuat kelas untuk sesuatu yang tidak menyimpan keadaan',
+            'Terlihat lebih terstruktur dan profesional',
+            'Kelas berisi hanya method statis adalah fungsi yang dibungkus tanpa alasan. Ekspor fungsinya langsung',
+          ],
+          [
+            'Membuat kelas `Manager`, `Helper`, atau `Utils`',
+            'Namanya terdengar seperti tempat yang tepat untuk apa pun',
+            'Nama itu tidak menyatakan tanggung jawab, sehingga ia menjadi tempat pembuangan. Isinya tumbuh sampai tidak ada yang berani menyentuhnya',
+          ],
+          [
+            'Menyalin struktur kelas dari Java atau PHP apa adanya',
+            'Konsepnya memang sama',
+            'JavaScript punya object literal, closure, dan modul yang sering lebih cocok. Getter dan setter untuk setiap field adalah pola yang jarang berguna di sini',
+          ],
+          [
+            'Membuat kelas dasar lebih dulu sebelum ada dua turunan nyata',
+            'Supaya nanti tinggal diturunkan',
+            'Kelas dasar yang dirancang tanpa dua contoh nyata hampir selalu salah bentuk. Tulis dua yang konkret dulu, baru cari kesamaannya',
+          ],
+          [
+            'Menyimpan seluruh data aplikasi di satu object besar',
+            'Semuanya jadi mudah dijangkau dari mana saja',
+            'Siapa pun bisa mengubah apa pun, dan menelusuri siapa yang mengubah menjadi mustahil. Pecah sesuai batas tanggung jawabnya',
+          ],
+          [
+            'Menganggap OOP dan fungsi adalah dua kubu yang harus dipilih salah satu',
+            'Materinya memang diajarkan terpisah',
+            'Kode nyata memakai keduanya. Fungsi murni untuk perhitungan, object untuk hal yang punya keadaan dan identitas',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat layak dipegang sebagai aturan tetap, dan namanya aturan tiga. Jangan membuat abstraksi sampai kamu punya minimal dua contoh konkret, dan lebih baik tiga. Abstraksi yang dibuat dari satu contoh hanyalah contoh itu yang diberi nama lebih umum, dan begitu contoh kedua datang, bentuknya hampir selalu tidak cocok.',
+      ),
+      callout(
+        'tip',
+        'Pertanyaan yang memutuskan apakah sesuatu layak jadi object',
+        'Tanyakan apakah hal ini punya keadaan yang berubah seiring waktu, dan apakah ada beberapa hal sejenis yang perlu diperlakukan sama. Kalau kedua jawabannya ya, object atau kelas biasanya tepat. Kalau ia hanya mengubah masukan menjadi keluaran, fungsi sudah cukup dan lebih mudah diuji.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'OOP memecahkan masalah data dan perilaku yang tercecer, bukan masalah "kode terlihat rapi".',
@@ -197,7 +385,7 @@ export const lessons: LessonDraft[] = [
   written(
     'object-factory-constructor',
     'Object Literal, Factory Function, Constructor Function',
-    12,
+    23,
     'Tiga cara membuat objek sebelum ada `class` — dan kenapa semuanya masih relevan.',
     [
       p(
@@ -373,6 +561,226 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Aplikasi yang kamu kerjakan memanggil dua API berbeda, yaitu API internal milik tim sendiri dan API pihak ketiga untuk ongkos kirim. Keduanya butuh alamat dasar yang berbeda, token yang berbeda, dan batas waktu yang berbeda. Menulis dua berkas terpisah yang isinya hampir sama jelas mubazir, dan menaruh keduanya di satu berkas dengan sekumpulan `if` justru mengulang masalah sub-bab sebelumnya.',
+      ),
+      p(
+        'Yang dibutuhkan adalah satu cetakan yang bisa dipakai membuat dua klien dengan pengaturan berbeda. Ada dua cara membuat cetakan itu, dan keduanya sah. Perbandingan di bawah memperlihatkan kapan masing-masing lebih cocok.',
+      ),
+      compare(
+        {
+          title: 'Factory function',
+          lang: 'js',
+          code: `
+          function buatKlien({ dasar, token, batasMs = 5000 }) {
+            // Nilai ini benar-benar tersembunyi.
+            const kepala = { Authorization: \`Bearer \${token}\` };
+
+            async function minta(jalur, opsi = {}) {
+              const kendali = AbortSignal.timeout(batasMs);
+              const r = await fetch(dasar + jalur, {
+                ...opsi,
+                headers: { ...kepala, ...opsi.headers },
+                signal: kendali,
+              });
+              if (!r.ok) throw new Error(\`\${r.status} pada \${jalur}\`);
+              return r.json();
+            }
+
+            return {
+              ambil: (jalur) => minta(jalur),
+              kirim: (jalur, isi) =>
+                minta(jalur, { method: 'POST', body: JSON.stringify(isi) }),
+            };
+          }
+
+          const internal = buatKlien({ dasar: '/api', token: t1 });
+          `,
+          notes: [
+            'Tidak butuh `new`, jadi tidak bisa lupa menulisnya',
+            '`token` benar-benar tidak bisa dibaca dari luar',
+          ],
+        },
+        {
+          title: 'Constructor / class',
+          lang: 'js',
+          code: `
+          class Klien {
+            #kepala;
+
+            constructor({ dasar, token, batasMs = 5000 }) {
+              this.dasar = dasar;
+              this.batasMs = batasMs;
+              this.#kepala = { Authorization: \`Bearer \${token}\` };
+            }
+
+            async #minta(jalur, opsi = {}) {
+              const r = await fetch(this.dasar + jalur, {
+                ...opsi,
+                headers: { ...this.#kepala, ...opsi.headers },
+                signal: AbortSignal.timeout(this.batasMs),
+              });
+              if (!r.ok) throw new Error(\`\${r.status} pada \${jalur}\`);
+              return r.json();
+            }
+
+            ambil(jalur) { return this.#minta(jalur); }
+            kirim(jalur, isi) {
+              return this.#minta(jalur, { method: 'POST', body: JSON.stringify(isi) });
+            }
+          }
+
+          const internal = new Klien({ dasar: '/api', token: t1 });
+          `,
+          notes: [
+            'Method dibagi lewat prototype, jadi lebih hemat untuk ribuan instance',
+            '`instanceof Klien` bekerja, dan itu berguna saat memeriksa jenis',
+          ],
+        },
+      ),
+      p(
+        "Keduanya menghasilkan objek yang dipakai dengan cara yang sama persis, yaitu `internal.ambil('/pesanan')`. Perbedaannya baru terasa pada tiga hal. Pertama, versi factory tidak butuh `new`, sehingga satu kelas kesalahan hilang sama sekali. Kedua, `token` di versi factory disimpan di closure dan benar-benar tidak bisa dijangkau dari luar dengan cara apa pun. Ketiga, versi kelas membagi method lewat prototype, sehingga seribu instance tetap memakai satu salinan tiap method.",
+      ),
+      p(
+        'Untuk kasus ini, di mana klien yang dibuat hanya dua atau tiga sepanjang umur aplikasi, penghematan memori tidak berarti apa-apa dan factory lebih unggul karena tokennya benar-benar tertutup. Kalau yang dibuat adalah ribuan object kecil, misalnya satu object per baris tabel, kelas menang telak. Ukuran itulah yang memutuskan, bukan selera.',
+      ),
+      p(
+        'Perhatikan `AbortSignal.timeout(batasMs)` di kedua sisi. Tanpa batas waktu, satu permintaan yang menggantung akan menahan indikator memuat selamanya, dan pengguna tidak punya cara tahu apakah ia harus menunggu atau mencoba lagi. Batas waktu bukan penyempurnaan melainkan bagian dari perilaku yang benar, dan pembahasan penuhnya ada di Bab 6.',
+      ),
+      callout(
+        'tip',
+        'Aturan memilih yang jarang meleset',
+        'Pakai factory kalau jumlah object-nya sedikit dan ada nilai yang benar-benar harus tersembunyi. Pakai kelas kalau object-nya banyak, atau kalau kamu butuh `instanceof`, atau kalau nanti akan ada turunan. Di antara keduanya, pilih yang membuat kode pemakainya paling enak dibaca.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Tiga error di bawah semuanya berkaitan dengan `new`, dan itu memang perbedaan paling praktis antara dua pendekatan di atas.',
+      ),
+      code(
+        'text',
+        `
+        const klien = Klien({ dasar: '/api' });
+                      ^
+
+        TypeError: Class constructor Klien cannot be invoked without 'new'
+        `,
+        { caption: '`new` lupa ditulis saat membuat instance kelas.' },
+      ),
+      p(
+        'Kelas sengaja menolak dipanggil tanpa `new`, dan itu perbaikan besar dibandingkan `function` biasa yang dipakai sebagai constructor. Dengan `function`, lupa menulis `new` tidak melempar apa pun. Di dalam module yang otomatis mode strict, `this` menjadi `undefined` sehingga penugasan `this.dasar = ...` melempar error di baris yang membingungkan. Di luar mode strict, ia justru menulis ke object global dan bugnya jauh lebih sulit ditemukan.',
+      ),
+      code(
+        'text',
+        `
+        const buat = (opsi) => ({ ...opsi });
+        const k = new buat({ dasar: '/api' });
+                  ^
+
+        TypeError: buat is not a constructor
+        `,
+        { caption: '`new` dipakai pada fungsi panah.' },
+      ),
+      p(
+        'Fungsi panah tidak bisa dipakai dengan `new`, dan itu keputusan desain bukan kelalaian. Fungsi panah dirancang sebagai fungsi ringkas tanpa `this` sendiri, sehingga ia juga tidak punya perilaku constructor. Kalau kamu menulis factory dengan fungsi panah, panggil tanpa `new`, sebab factory memang mengembalikan objectnya sendiri.',
+      ),
+      code(
+        'text',
+        `
+        const k = new Klien({ dasar: '/api', token: t });
+        console.log(k.token);        // undefined
+        console.log(k['#kepala']);   // undefined
+
+        // Bukan error, tapi juga bukan cara membaca field privat.
+        `,
+        {
+          caption:
+            'Field privat tidak bisa dijangkau, dan usaha membacanya menghasilkan `undefined`.',
+        },
+      ),
+      p(
+        'Ini justru perilaku yang benar, dan ditampilkan di sini karena sering disalahpahami sebagai bug. Field berawalan pagar hanya bisa dibaca dari dalam kelas yang mendeklarasikannya. Menuliskannya sebagai teks di dalam kurung siku tidak bekerja karena ia bukan properti biasa. Kalau kamu memang perlu membacanya dari luar, itu tanda bahwa nilainya seharusnya tidak privat, atau perlu ada method yang menyediakannya secara terkendali.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            "`Class constructor X cannot be invoked without 'new'`",
+            '`new` lupa ditulis',
+            'Tambahkan `new`, atau ubah menjadi factory kalau lupa `new` sering terjadi',
+          ],
+          [
+            '`X is not a constructor`',
+            '`new` dipakai pada fungsi panah atau pada nilai yang bukan fungsi',
+            'Panggil tanpa `new`, atau ubah ke `function` bila memang perlu jadi constructor',
+          ],
+          [
+            'Field privat terbaca `undefined` dari luar',
+            'Itu memang perilaku yang benar untuk field berawalan pagar',
+            'Sediakan getter kalau nilainya memang perlu dibaca dari luar',
+          ],
+          [
+            'Semua instance berbagi nilai yang sama',
+            'Nilainya dideklarasikan di luar constructor sebagai object bersama',
+            'Buat nilainya di dalam constructor supaya tiap instance punya sendiri',
+          ],
+          [
+            'Aplikasi berat setelah membuat ribuan object dari factory',
+            'Tiap object membawa salinan sendiri untuk tiap method',
+            'Ubah ke kelas supaya method dibagi lewat prototype',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan di bawah muncul pada dua pendekatan sekaligus, dan yang paling merugikan justru yang tidak melempar error sama sekali.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menaruh array atau object sebagai nilai bawaan di luar constructor',
+            'Terlihat lebih rapi dan hemat',
+            'Seluruh instance berbagi array yang sama, sehingga menambah ke satu object menambah ke semuanya. Buat isinya di dalam constructor',
+          ],
+          [
+            'Memberi constructor lima parameter berurutan',
+            'Semua nilai itu memang dibutuhkan',
+            'Pemanggilnya harus mengingat urutannya, dan menukar dua argumen bertipe sama tidak melempar apa pun. Terima satu object berparameter bernama',
+          ],
+          [
+            'Melakukan pekerjaan berat di dalam constructor',
+            'Sekalian saja supaya objectnya langsung siap',
+            'Constructor yang memanggil jaringan atau membaca berkas membuat object itu mustahil dibuat di test. Pisahkan pembuatan dari penyiapan',
+          ],
+          [
+            'Menyimpan token atau kunci rahasia sebagai properti biasa',
+            'Toh hanya dipakai di dalam',
+            'Properti biasa terbaca siapa pun yang memegang objectnya, dan ikut tercetak saat object di-`console.log`. Pakai closure atau field berawalan pagar',
+          ],
+          [
+            'Memakai `this` di dalam factory function',
+            'Bentuknya mirip dengan kelas',
+            'Factory mengembalikan object literal, jadi `this` di dalamnya tidak menunjuk object itu. Rujuk variabelnya langsung dari closure',
+          ],
+          [
+            'Menambahkan method ke object satu per satu di dalam factory',
+            'Terlihat jelas mana method milik siapa',
+            'Tiap object membawa salinannya sendiri. Untuk object yang jumlahnya banyak, ini beban memori yang nyata',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama adalah kesalahan yang paling sering luput karena ia tidak melempar apa pun. Kalau kamu menulis `const bawaan = []` di badan modul lalu memakainya sebagai nilai awal untuk setiap object yang dibuat, ketiga object itu menunjuk array yang sama. Menambah satu item ke keranjang pengguna pertama akan terlihat juga di keranjang pengguna kedua. Ini akibat langsung dari perbedaan primitif dan reference di Sub-bab 1.3, muncul kembali dalam bentuk yang lebih berbahaya.',
+      ),
+      callout(
+        'warning',
+        'Rahasia di sisi klien tetap bukan rahasia',
+        'Field berawalan pagar dan closure mencegah kode lain di halaman yang sama membacanya, dan itu berguna untuk kerapian. Keduanya tidak melindungi apa pun dari pengguna, sebab siapa pun bisa membuka DevTools dan membaca seluruh berkas. Token yang benar-benar rahasia tidak pernah boleh sampai ke peramban, dan aturan itu dibahas di Kategori Keamanan Fullstack.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Object literal untuk satu objek; factory dan constructor untuk banyak.',
@@ -418,7 +826,7 @@ export const lessons: LessonDraft[] = [
   written(
     'prototype-chain',
     'Prototype & Rantai Prototype',
-    14,
+    25,
     'Mekanisme pewarisan asli JavaScript — yang berada di balik setiap `class`.',
     [
       p(
@@ -579,6 +987,218 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman daftar transaksi menampilkan lima ribu baris, dan tiap baris dibungkus satu object supaya punya method seperti `format()` dan `bolehDibatalkan()`. Halaman terasa berat, dan panel Memory di DevTools menunjukkan pemakaian yang jauh lebih besar daripada ukuran datanya sendiri. Datanya hanya beberapa ratus kilobyte, tapi objectnya memakan belasan megabyte.',
+      ),
+      p(
+        'Penyebabnya adalah tiap object membawa salinan sendiri untuk tiap method. Lima ribu object dikali tiga method berarti lima belas ribu fungsi di memori, padahal isinya identik. Inilah masalah yang prototype selesaikan, dan perbandingan di bawah menunjukkan selisihnya secara langsung.',
+      ),
+      compare(
+        {
+          title: 'Tiap object punya salinan method',
+          lang: 'js',
+          code: `
+          function buatTransaksi(data) {
+            return {
+              ...data,
+              format() { /* ... */ },
+              bolehDibatalkan() { /* ... */ },
+              ringkas() { /* ... */ },
+            };
+          }
+
+          const daftar = baris.map(buatTransaksi);
+
+          // 5.000 object x 3 fungsi = 15.000 fungsi di memori
+          console.log(daftar[0].format === daftar[1].format);
+          // false, keduanya fungsi yang berbeda
+          `,
+          notes: ['Boros untuk jumlah besar, dan tiap object bisa berbeda diam-diam'],
+        },
+        {
+          title: 'Method dibagi lewat prototype',
+          lang: 'js',
+          code: `
+          class Transaksi {
+            constructor(data) { Object.assign(this, data); }
+            format() { /* ... */ }
+            bolehDibatalkan() { /* ... */ }
+            ringkas() { /* ... */ }
+          }
+
+          const daftar = baris.map((b) => new Transaksi(b));
+
+          // 5.000 object, tetap hanya 3 fungsi di memori
+          console.log(daftar[0].format === daftar[1].format);
+          // true, keduanya menunjuk fungsi yang sama
+          `,
+          notes: ['Method disimpan sekali di `Transaksi.prototype`, dipakai bersama'],
+        },
+      ),
+      p(
+        'Baris perbandingan di bagian bawah kedua kolom adalah bukti yang paling langsung. Di kiri, `daftar[0].format` dan `daftar[1].format` adalah dua fungsi berbeda yang isinya kebetulan sama. Di kanan, keduanya benar-benar fungsi yang sama, sebab keduanya tidak menyimpan `format` pada dirinya sendiri melainkan menemukannya lewat rantai prototype. Untuk lima objek, perbedaan ini tidak berarti apa-apa. Untuk lima ribu, ia berarti belasan megabyte.',
+      ),
+      p(
+        'Yang perlu diingat, penghematan itu hanya berlaku untuk **method**, bukan untuk data. `Object.assign(this, data)` tetap menyalin seluruh field ke tiap object, dan memang harus begitu karena tiap transaksi punya nilai yang berbeda. Prototype menyelesaikan pengulangan perilaku, bukan pengulangan data.',
+      ),
+      code(
+        'js',
+        `
+        const t = new Transaksi({ id: 9, jumlah: 50000 });
+
+        // Bagaimana JavaScript mencari 'format':
+        // 1. Apakah ada di object 't' sendiri?          -> tidak
+        // 2. Apakah ada di Transaksi.prototype?          -> YA, dipakai
+        //
+        // Bagaimana ia mencari 'toString':
+        // 1. Di 't' sendiri?                             -> tidak
+        // 2. Di Transaksi.prototype?                     -> tidak
+        // 3. Di Object.prototype?                        -> YA, dipakai
+        //
+        // Bagaimana ia mencari 'tidakAda':
+        // 1, 2, 3 semuanya tidak -> hasilnya undefined, BUKAN error
+
+        console.log(Object.hasOwn(t, 'jumlah'));   // true,  data milik object ini
+        console.log(Object.hasOwn(t, 'format'));   // false, milik prototype
+        `,
+        { caption: 'Pencarian naik satu tingkat setiap kali tidak ditemukan.' },
+      ),
+      p(
+        'Tiga penelusuran itu menjelaskan sekaligus kenapa membaca properti yang tidak ada menghasilkan `undefined` alih-alih error. JavaScript memang mencari sampai ujung rantai, dan ujung rantai adalah `null`. Setelah itu ia menyerah dan mengembalikan `undefined`. Perbedaan `Object.hasOwn` dan operator `in` yang dibahas di Bab 1 juga baru masuk akal sekarang, sebab `in` ikut menelusuri rantai sedangkan `Object.hasOwn` hanya memeriksa object itu sendiri.',
+      ),
+      callout(
+        'danger',
+        'Jangan pernah menambah properti ke prototype bawaan',
+        'Menulis `Array.prototype.terakhir = function () { ... }` terasa menggoda karena semua array langsung mendapatnya. Akibatnya, seluruh `for...in` di aplikasi ikut menemukan `terakhir`, library yang memeriksa keberadaan properti bisa salah menyimpulkan, dan kalau nanti standar menambahkan nama yang sama dengan perilaku berbeda, aplikasimu rusak tanpa satu barisnya diubah. Buat fungsi biasa, atau kelas turunan bila memang perlu.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Rantai prototype jarang melempar error secara langsung. Yang muncul biasanya berupa method yang tiba-tiba hilang, dan tiga bentuk di bawah adalah penyebab yang paling sering.',
+      ),
+      code(
+        'text',
+        `
+        const salinan = { ...transaksi };
+        salinan.format();
+                ^
+
+        TypeError: salinan.format is not a function
+        `,
+        { caption: 'Spread menyalin data, tapi tidak menyalin rantai prototype.' },
+      ),
+      p(
+        'Ini konsekuensi langsung dari cara prototype bekerja, dan ia sangat sering mengejutkan. Tiga titik menyalin properti yang dimiliki object itu **sendiri**, sedangkan `format` bukan miliknya melainkan milik `Transaksi.prototype`. Hasilnya object biasa berisi data yang sama tanpa satu pun method. Hal yang sama terjadi pada `JSON.parse(JSON.stringify(t))` dan pada data yang datang kembali dari server. Kalau kamu butuh objectnya utuh, buat ulang dengan `new Transaksi(salinan)`.',
+      ),
+      code(
+        'text',
+        `
+        new Transaksi({ id: 1 });
+        ^
+
+        ReferenceError: Cannot access 'Transaksi' before initialization
+        `,
+        { caption: 'Kelas dipakai sebelum baris deklarasinya dijalankan.' },
+      ),
+      p(
+        'Berbeda dari `function` yang bisa dipanggil dari baris mana pun di berkas yang sama, deklarasi `class` punya Temporal Dead Zone persis seperti `let` dan `const`. Ini sengaja, sebab kelas bisa `extends` kelas lain dan urutan pembuatannya harus pasti. Perbaikannya menaruh deklarasi kelas di atas pemakaiannya, dan itu memang kebiasaan yang lebih baik untuk dibaca juga.',
+      ),
+      code(
+        'text',
+        `
+        for (const kunci in transaksi) {
+          console.log(kunci);
+        }
+
+        id
+        jumlah
+        format          <- ikut muncul karena ada di prototype
+        `,
+        { caption: '`for...in` menelusuri rantai prototype, bukan hanya object itu.' },
+      ),
+      p(
+        'Contoh di atas memakai object yang prototypenya diisi manual, sebab method kelas sengaja ditandai tidak terhitung sehingga tidak muncul di `for...in`. Yang perlu dipegang, `for...in` memang menelusuri ke atas, jadi begitu ada library yang menempelkan sesuatu ke prototype bawaan, seluruh `for...in` di aplikasimu ikut terpengaruh. Untuk menelusuri milik object itu saja, pakai `Object.keys` atau `Object.entries`.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`x.method is not a function` setelah disalin',
+            'Spread dan `JSON` hanya menyalin data, bukan prototype',
+            'Buat ulang instance-nya, atau pindahkan logikanya ke fungsi biasa',
+          ],
+          [
+            "`Cannot access 'X' before initialization`",
+            'Kelas dipakai sebelum baris deklarasinya',
+            'Pindahkan deklarasi kelas ke atas pemakaiannya',
+          ],
+          [
+            '`for...in` memunculkan nama yang tidak kamu tulis',
+            'Ia ikut menelusuri rantai prototype',
+            'Pakai `Object.keys`, atau saring dengan `Object.hasOwn`',
+          ],
+          [
+            'Method hilang setelah data melewati jaringan',
+            'Yang dikirim hanya data, sedangkan prototype tidak ikut',
+            'Bangun ulang objectnya di sisi penerima',
+          ],
+          [
+            'Perilaku aneh di seluruh aplikasi setelah menambah library',
+            'Ada yang menambah properti ke prototype bawaan',
+            'Cari dengan `Object.getOwnPropertyNames(Array.prototype)`, lalu ganti library-nya',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Prototype adalah bagian JavaScript yang paling sering dipelajari lalu langsung disalahgunakan. Tiga baris pertama di bawah adalah bentuk penyalahgunaan yang paling umum.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menambah method ke `Array.prototype` atau `String.prototype`',
+            'Semua array langsung mendapatnya, terasa sangat praktis',
+            'Mempengaruhi seluruh kode di halaman termasuk library, dan bisa bentrok dengan standar baru. Ini disebut monkey patching dan hampir selalu keputusan buruk',
+          ],
+          [
+            'Mengubah `__proto__` sebuah object setelah dibuat',
+            'Terlihat seperti cara langsung mengganti perilaku',
+            'Mesin JavaScript mengoptimalkan berdasarkan bentuk object, dan mengubah prototype membatalkan optimasi itu untuk seluruh object sejenis',
+          ],
+          [
+            'Menyimpan data yang bisa berubah di prototype',
+            'Hemat karena hanya satu salinan',
+            'Satu salinan itu dibagi seluruh instance, jadi mengubahnya lewat satu object mengubahnya untuk semua. Prototype untuk perilaku, constructor untuk data',
+          ],
+          [
+            'Mengira `class` adalah hal yang berbeda dari prototype',
+            'Sintaksnya memang terlihat seperti bahasa lain',
+            '`class` adalah cara penulisan yang lebih rapi untuk mekanisme prototype yang sama. Memahami ini membuat error prototype menjadi masuk akal',
+          ],
+          [
+            'Memakai `for...in` untuk menelusuri object hasil kelas',
+            'Ia memang menelusuri properti',
+            'Ia ikut naik ke prototype. Pakai `Object.keys` atau `Object.entries`',
+          ],
+          [
+            'Memakai object biasa sebagai penampung dengan kunci dari pengguna',
+            'Object memang penampung pasangan kunci dan nilai',
+            'Kunci `__proto__` bisa mengubah rantai prototype object itu. Pakai `Map`, atau `Object.create(null)` yang tidak punya prototype sama sekali',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat adalah yang paling menentukan untuk pemahaman jangka panjang. Kata `class` di JavaScript tidak memperkenalkan mekanisme baru, ia hanya menyediakan cara menulis yang lebih rapi untuk hal yang sudah ada sejak awal. Begitu itu dipegang, error seperti method yang hilang setelah spread berhenti terasa aneh, sebab kamu tahu method itu memang tidak pernah ada di object-nya.',
+      ),
+      callout(
+        'tip',
+        'Cara cepat melihat rantai prototype sebuah object',
+        'Ketik `Object.getPrototypeOf(obj)` di console, lalu ulangi pada hasilnya sampai mendapat `null`. Itulah seluruh rantai yang ditelusuri JavaScript setiap kali kamu membaca sebuah properti. Di DevTools, rantai yang sama muncul sebagai baris `[[Prototype]]` saat kamu membuka sebuah object.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Pencarian property naik rantai prototype dan berhenti pada kecocokan pertama.',
@@ -625,7 +1245,7 @@ export const lessons: LessonDraft[] = [
   written(
     'this-binding',
     '`this` — Empat Aturan Binding',
-    14,
+    25,
     'Nilai `this` ditentukan oleh **cara fungsi dipanggil**, bukan tempat ia ditulis.',
     [
       p(
@@ -802,6 +1422,204 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Kamu membuat komponen penghitung keranjang yang tombol tambahnya dipasang lewat `addEventListener`. Kodenya terlihat benar, kelasnya rapi, method-nya jelas. Begitu tombolnya diklik, muncul error yang menyebut `Cannot read properties of undefined`, padahal object-nya jelas ada dan barusan dipakai di baris sebelumnya. Inilah `this` yang lepas dari objectnya, dan ia salah satu kebingungan terbesar saat pertama kali memakai kelas di peramban.',
+      ),
+      code(
+        'js',
+        `
+        class Keranjang {
+          jumlah = 0;
+
+          tambahRusak() {
+            this.jumlah += 1;              // 'this' di sini bergantung pada CARA memanggil
+            this.render();
+          }
+
+          tambahAman = () => {             // field kelas berupa fungsi panah
+            this.jumlah += 1;
+            this.render();
+          };
+
+          render() { /* ... */ }
+        }
+
+        const k = new Keranjang();
+
+        tombol.addEventListener('click', k.tambahRusak);   // 'this' hilang
+        tombol.addEventListener('click', k.tambahAman);    // aman
+        tombol.addEventListener('click', () => k.tambahRusak());  // juga aman
+        tombol.addEventListener('click', k.tambahRusak.bind(k));  // juga aman
+        `,
+        { filename: 'src/keranjang.js' },
+      ),
+      p(
+        'Empat baris `addEventListener` di bawah adalah inti seluruh sub-bab ini. Baris pertama gagal karena `k.tambahRusak` hanya mengambil **fungsinya**, bukan hubungannya dengan `k`. Fungsi itu lalu dipanggil peramban tanpa object pemilik, sehingga `this` menjadi `undefined` di dalam module yang berjalan mode strict. Tiga baris sesudahnya sama-sama berhasil, dan ketiganya menyelesaikan masalah yang sama dengan cara berbeda.',
+      ),
+      p(
+        'Bentuk `tambahAman = () => { ... }` adalah field kelas berisi fungsi panah, dan ia bekerja karena fungsi panah tidak punya `this` sendiri melainkan memakai `this` dari tempat ia ditulis, yaitu dari dalam constructor tiap instance. Bentuk pembungkus `() => k.tambahRusak()` bekerja karena yang diberikan ke peramban adalah fungsi baru yang di dalamnya pemanggilan tetap memakai titik. Bentuk `.bind(k)` menghasilkan fungsi baru yang `this`-nya dikunci selamanya ke `k`.',
+      ),
+      p(
+        'Ketiganya benar, dan pilihannya punya konsekuensi. Field panah dibuat ulang untuk tiap instance sehingga ia tidak dibagi lewat prototype, dan untuk ribuan object itu berarti ribuan fungsi. Bentuk pembungkus paling fleksibel tapi menciptakan fungsi baru tiap kali dipasang, sehingga melepasnya dengan `removeEventListener` butuh menyimpan rujukannya. Bentuk `bind` juga menghasilkan fungsi baru, jadi berlaku catatan yang sama.',
+      ),
+      code(
+        'js',
+        `
+        // Kalau listener perlu dilepas nanti, simpan rujukan fungsinya.
+        class Keranjang {
+          #terpasang = null;
+
+          pasang(tombol) {
+            this.#terpasang = () => this.tambah();     // simpan yang PERSIS ini
+            tombol.addEventListener('click', this.#terpasang);
+          }
+
+          lepas(tombol) {
+            tombol.removeEventListener('click', this.#terpasang);
+          }
+        }
+        `,
+        { caption: '`removeEventListener` hanya bekerja pada fungsi yang sama persis.' },
+      ),
+      p(
+        "Kalau kamu menulis `tombol.removeEventListener('click', () => this.tambah())`, tidak ada yang terlepas dan juga tidak ada error. Fungsi panah yang baru saja kamu tulis adalah fungsi yang berbeda dari yang dipasang, dan peramban membandingkan rujukan bukan isi. Ini penyebab kebocoran listener yang sangat sering di aplikasi satu halaman, dan gejalanya berupa handler yang berjalan dua atau tiga kali setelah pengguna bolak-balik antar-halaman.",
+      ),
+      callout(
+        'tip',
+        'Aturan satu kalimat untuk `this`',
+        'Untuk `function` dan method biasa, `this` ditentukan oleh **apa yang ada di kiri titik saat dipanggil**. Untuk fungsi panah, `this` ditentukan oleh **tempat ia ditulis** dan tidak pernah berubah. Hampir seluruh kebingungan soal `this` selesai begitu dua kalimat itu bisa dipakai untuk membaca kode.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Tiga bentuk di bawah semuanya berasal dari satu sebab, yaitu fungsi dilepas dari object pemiliknya. Yang berbeda hanya cara ia terlepas.',
+      ),
+      code(
+        'text',
+        `
+        const f = k.tambah;
+        f();
+               ^
+
+        TypeError: Cannot read properties of undefined (reading 'jumlah')
+        `,
+        { caption: 'Method disimpan ke variabel lalu dipanggil sendiri.' },
+      ),
+      p(
+        'Pesannya menyebut `jumlah` padahal yang bermasalah `this`, dan itu yang menyesatkan. Bacalah sebagai berikut, yaitu ada sesuatu yang `undefined` dan kode mencoba membaca `jumlah` darinya. Sesuatu itu adalah `this`. Di dalam module, `this` pada fungsi yang dipanggil tanpa pemilik bernilai `undefined`, dan itu justru bagus karena errornya jelas. Di luar mode strict, `this` menjadi object global dan `this.jumlah += 1` diam-diam membuat variabel global.',
+      ),
+      code(
+        'text',
+        `
+        setTimeout(k.render, 100);
+
+        TypeError: Cannot read properties of undefined (reading 'elemen')
+        `,
+        { caption: 'Method diberikan sebagai callback ke fungsi lain.' },
+      ),
+      p(
+        'Bentuk ini identik dengan yang di atas, hanya saja yang melepaskannya adalah `setTimeout` bukan penugasan ke variabel. Semua fungsi yang menerima callback punya masalah yang sama, termasuk `map`, `forEach`, `addEventListener`, dan `then`. Kalau kamu memberikan `objek.method` sebagai callback, hampir selalu kamu perlu membungkusnya menjadi `() => objek.method()`.',
+      ),
+      code(
+        'text',
+        `
+        class A {
+          nama = 'A';
+          jalan() {
+            [1, 2].forEach(function (n) {
+              console.log(this.nama);
+            });
+          }
+        }
+        new A().jalan();
+
+        TypeError: Cannot read properties of undefined (reading 'nama')
+        `,
+        { caption: '`function` biasa di dalam method punya `this` sendiri.' },
+      ),
+      p(
+        'Ini bentuk yang paling membingungkan karena fungsinya jelas ditulis di dalam method. Yang menentukan tetap cara memanggilnya, dan `forEach` memanggil fungsi itu tanpa pemilik. Perbaikannya mengganti `function (n)` menjadi `(n) =>`, sebab fungsi panah memakai `this` dari tempat ia ditulis, yaitu dari method `jalan`. Inilah alasan paling praktis kenapa fungsi panah begitu banyak dipakai di dalam kelas.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`Cannot read properties of undefined` di dalam method',
+            '`this` lepas karena fungsinya dipanggil tanpa pemilik',
+            'Bungkus menjadi `() => obj.method()`, atau pakai field panah',
+          ],
+          [
+            'Handler bekerja saat diklik tapi gagal saat dijadwalkan',
+            '`setTimeout` memanggil fungsinya tanpa pemilik',
+            'Berikan pembungkus, bukan rujukan methodnya',
+          ],
+          [
+            '`this` bernilai `undefined` di dalam `forEach`',
+            '`function` biasa punya `this` sendiri yang ditentukan pemanggilnya',
+            'Ganti menjadi fungsi panah',
+          ],
+          [
+            '`removeEventListener` tidak melepas apa pun',
+            'Fungsi yang diberikan bukan rujukan yang sama dengan yang dipasang',
+            'Simpan rujukannya saat memasang, lalu pakai rujukan itu saat melepas',
+          ],
+          [
+            'Handler berjalan dua kali setelah bolak-balik halaman',
+            'Listener lama tidak pernah dilepas',
+            'Lepas listener saat komponennya ditutup',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan seputar `this` hampir semuanya berasal dari satu asumsi yang salah, yaitu mengira `this` ditentukan oleh tempat fungsi ditulis. Untuk `function`, ia ditentukan oleh cara pemanggilan, dan itu berbeda setiap kali.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memberikan `obj.method` langsung sebagai callback',
+            'Method itu jelas milik `obj`, jadi seharusnya ingat pemiliknya',
+            'Yang diambil hanya fungsinya, tanpa hubungan ke `obj`. Bungkus menjadi fungsi panah',
+          ],
+          [
+            'Memakai fungsi panah sebagai method di object literal',
+            'Bentuknya lebih pendek dan konsisten',
+            'Fungsi panah memakai `this` dari luar object itu, jadi `this` tidak menunjuk object-nya. Untuk method object literal, pakai bentuk singkat `method() {}`',
+          ],
+          [
+            'Menulis `const self = this` lalu memakai `self` di mana-mana',
+            'Cara ini beredar luas dan memang bekerja',
+            'Itu solusi era sebelum fungsi panah ada. Sekarang fungsi panah menyelesaikan hal yang sama tanpa variabel tambahan',
+          ],
+          [
+            'Memakai field panah untuk semua method di kelas',
+            'Aman dari masalah `this` untuk semuanya',
+            'Field panah dibuat ulang tiap instance dan tidak dibagi lewat prototype. Pakai hanya untuk method yang memang akan dilepas dari objectnya',
+          ],
+          [
+            'Memakai `bind` berulang kali di tempat pemasangan',
+            'Satu panggilan `bind` sudah menyelesaikannya',
+            'Tiap `bind` menghasilkan fungsi baru, jadi memasang dan melepas tidak akan cocok. Bind sekali di constructor lalu simpan hasilnya',
+          ],
+          [
+            'Mengira `this` di dalam fungsi panah bisa diubah dengan `call` atau `apply`',
+            'Keduanya memang mengubah `this`',
+            'Fungsi panah tidak punya `this` sendiri, jadi `call` dan `apply` tidak berpengaruh padanya',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua sering luput karena bentuknya terlihat rapi. Kalau kamu menulis object literal berisi `sapa: () => this.nama`, `this` di situ adalah `this` dari berkas modulnya, yaitu `undefined`. Bentuk yang benar untuk method di object literal adalah `sapa() { return this.nama; }`, dan bentuk singkat itu memang tersedia justru untuk keperluan ini.',
+      ),
+      callout(
+        'info',
+        'Di React kamu jarang bertemu masalah ini',
+        'Komponen React modern ditulis sebagai fungsi, bukan kelas, sehingga `this` tidak dipakai sama sekali. Materi ini tetap penting karena kamu akan menemuinya di kode lama, di library, dan di kode peramban seperti `addEventListener`. Memahami `this` juga membuat kamu paham kenapa React memilih meninggalkannya.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         '`this` ditentukan call-site, bukan tempat penulisan.',
@@ -848,7 +1666,7 @@ export const lessons: LessonDraft[] = [
   written(
     'class-dasar',
     '`class`: constructor, method, field',
-    11,
+    20,
     'Sintaks class dan apa yang sebenarnya ia hasilkan.',
     [
       p(
@@ -1000,6 +1818,211 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Sepanjang Bab 1 kamu sudah bertemu dua kali dengan masalah uang, yaitu pecahan yang menyimpan selisih dan format rupiah yang harus sama di seluruh aplikasi. Selama uang disimpan sebagai angka biasa, kedua masalah itu akan terus muncul, sebab tidak ada yang mencegah siapa pun menulis `total = harga * 0.11` di berkas mana pun. Kelas menyelesaikannya dengan cara yang berbeda, yaitu membuat uang menjadi jenis nilai tersendiri yang punya aturannya sendiri.',
+      ),
+      code(
+        'js',
+        `
+        export class Uang {
+          #sen;   // selalu bilangan bulat, tidak pernah pecahan
+
+          constructor(sen) {
+            if (!Number.isInteger(sen)) {
+              throw new TypeError(\`Uang butuh bilangan bulat sen, dapat \${sen}\`);
+            }
+            this.#sen = sen;
+          }
+
+          static dariRupiah(rp) { return new Uang(Math.round(rp * 100)); }
+          static nol() { return new Uang(0); }
+
+          get sen() { return this.#sen; }
+
+          // Setiap operasi menghasilkan Uang BARU, tidak pernah mengubah yang lama.
+          tambah(lain) { return new Uang(this.#sen + lain.sen); }
+          kali(n) { return new Uang(Math.round(this.#sen * n)); }
+
+          toString() {
+            return new Intl.NumberFormat('id-ID', {
+              style: 'currency', currency: 'IDR', maximumFractionDigits: 0,
+            }).format(this.#sen / 100);
+          }
+
+          toJSON() { return { sen: this.#sen, tampil: this.toString() }; }
+        }
+        `,
+        { filename: 'src/uang.js' },
+      ),
+      code(
+        'js',
+        `
+        const kaos = Uang.dariRupiah(89000);
+        const total = kaos.kali(3).tambah(Uang.dariRupiah(240000));
+
+        String(total);                       // 'Rp 507.000'
+        JSON.stringify({ total });           // {"total":{"sen":50700000,"tampil":"Rp 507.000"}}
+
+        new Uang(1.5);
+        // TypeError: Uang butuh bilangan bulat sen, dapat 1.5
+        `,
+        { caption: 'Aturan uang berlaku otomatis di mana pun nilainya dipakai.' },
+      ),
+      p(
+        'Lima bagian kelas ini masing-masing menutup satu masalah nyata. Field `#sen` menyimpan satuan terkecil sebagai bilangan bulat, sehingga pecahan tidak pernah masuk. Pemeriksaan di constructor menolak nilai yang salah **di tempat nilainya dibuat**, bukan nanti di tempat hasilnya terlihat aneh. `tambah` dan `kali` mengembalikan `Uang` baru, sehingga tidak ada bagian aplikasi yang bisa mengubah nilai yang sudah dibuat. `toString` membuat seluruh aplikasi memformat dengan cara yang sama. `toJSON` mengatur bentuknya saat dikirim ke server.',
+      ),
+      p(
+        'Method `toString` bekerja otomatis di banyak tempat tanpa kamu memanggilnya. Ia dipakai saat object masuk ke template literal, saat digabung dengan teks, dan saat diberikan ke `textContent`. Ini contoh method dengan nama khusus yang sudah dikenali JavaScript, dan memanfaatkannya membuat pemakai kelasmu tidak perlu mengingat nama method pemformat.',
+      ),
+      p(
+        'Method `toJSON` sama pentingnya dan jauh lebih sering dilupakan. `JSON.stringify` memanggilnya kalau ada, dan hasilnyalah yang dikirim. Tanpa `toJSON`, kelas yang seluruh datanya berupa field privat akan menghasilkan `{}` kosong, sebab field privat memang bukan properti biasa. Bagian error di bawah menunjukkan bentuk kegagalannya.',
+      ),
+      callout(
+        'tip',
+        'Pola ini bernama value object, dan ia bukan hanya untuk uang',
+        'Bentuk yang sama cocok untuk apa pun yang punya aturan sendiri dan tidak berubah setelah dibuat, misalnya alamat email yang harus valid, rentang tanggal yang awalnya tidak boleh melewati akhir, atau berat kiriman yang harus positif. Cirinya, ia dibandingkan berdasarkan nilai bukan identitas, dan setiap operasi menghasilkan nilai baru.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut adalah yang paling sering ditemui saat kelas mulai dipakai lintas berkas dan lintas jaringan.',
+      ),
+      code(
+        'text',
+        `
+        class Polos { #x = 1; get x() { return this.#x; } }
+
+        console.log(JSON.stringify(new Polos()));
+
+        {}
+        `,
+        { caption: 'Tidak ada error, tapi seluruh datanya hilang saat dikirim.' },
+      ),
+      p(
+        'Ini penyebab bug yang sangat mahal, sebab kegagalannya baru terlihat di sisi server. `JSON.stringify` hanya menyertakan properti biasa yang terhitung, sedangkan field privat dan getter tidak termasuk. Aplikasi mengirim `{}` ke server, server menyimpan baris kosong, dan tidak ada satu pun error di jalan. Perbaikannya menulis `toJSON` yang menyebut sendiri bentuk yang ingin dikirim.',
+      ),
+      code(
+        'text',
+        `
+        const u = Uang.dariRupiah(89000);
+        const total = u + 1000;
+        console.log(total);
+
+        Rp 89.0001000
+        `,
+        { caption: 'Object digabung dengan angka lewat operator tambah.' },
+      ),
+      p(
+        'Operator tambah mengubah object menjadi teks lebih dulu lewat `toString`, lalu menggabungkannya dengan angka sebagai teks. Hasilnya teks yang terlihat seperti angka tapi bukan angka, dan ia akan merambat ke seluruh perhitungan berikutnya. Inilah alasan kelas seperti ini menyediakan method `tambah` sendiri, dan alasan seluruh aplikasi harus memakai method itu bukan operator.',
+      ),
+      code(
+        'text',
+        `
+        const a = Uang.dariRupiah(1000);
+        const b = Uang.dariRupiah(1000);
+
+        console.log(a === b);         // false
+        console.log(a.sen === b.sen); // true
+        `,
+        { caption: 'Dua object dengan nilai sama tetap dianggap berbeda.' },
+      ),
+      p(
+        'Operator perbandingan pada object membandingkan **identitas**, yaitu apakah keduanya benar-benar object yang sama di memori, bukan apakah isinya sama. Untuk value object, ini hampir selalu bukan yang kamu inginkan. Sediakan method pembanding sendiri, misalnya `samaDengan(lain) { return this.#sen === lain.sen; }`, dan biasakan memakainya. Hal yang sama berlaku untuk `includes` pada array berisi object, seperti yang sudah dibahas di Bab 1.',
+      ),
+      code(
+        'text',
+        `
+        class A { set nilai(v) { this.nilai = v; } }
+        new A().nilai = 1;
+              ^
+
+        RangeError: Maximum call stack size exceeded
+        `,
+        { caption: 'Setter menulis ke nama yang memicu setter itu sendiri.' },
+      ),
+      p(
+        'Penugasan `this.nilai = v` di dalam setter bernama `nilai` memanggil setter yang sama lagi, dan seterusnya sampai tumpukan pemanggilan habis. Ini kesalahan klasik yang selalu muncul saat orang pertama kali menulis getter dan setter. Perbaikannya menyimpan nilainya di field yang **berbeda nama**, biasanya field privat seperti `#nilai`, dan itulah kenapa hampir semua contoh setter memakai nama berbeda antara field dan aksesornya.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`JSON.stringify` menghasilkan `{}`',
+            'Field privat dan getter tidak ikut disertakan',
+            'Tulis method `toJSON` yang menyebut bentuk yang ingin dikirim',
+          ],
+          [
+            'Hasil perhitungan berubah menjadi teks aneh',
+            'Object dipakai dengan operator tambah',
+            'Sediakan dan pakai method operasi sendiri, jangan operator',
+          ],
+          [
+            'Dua nilai yang sama dianggap berbeda',
+            'Perbandingan object memakai identitas bukan isi',
+            'Sediakan method pembanding, lalu pakai itu',
+          ],
+          [
+            '`Maximum call stack size exceeded` pada setter',
+            'Setter menulis ke nama yang memicu dirinya sendiri',
+            'Simpan di field privat dengan nama berbeda',
+          ],
+          [
+            'Method hilang setelah data diambil dari server',
+            'Yang dikirim hanya data, prototype tidak ikut',
+            'Bangun ulang dengan constructor atau method statis pembuat',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan di bawah muncul justru setelah kelasnya bekerja, yaitu saat ia mulai dipakai berbagai bagian aplikasi dengan cara yang tidak kamu duga.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membuat getter dan setter untuk setiap field',
+            'Itu yang diajarkan di bahasa lain',
+            'Getter yang hanya mengembalikan field dan setter yang hanya menugaskan tidak menambah apa pun. Buat aksesor hanya kalau ia benar-benar menghitung atau menjaga aturan',
+          ],
+          [
+            'Membuat method yang mengubah objectnya sendiri',
+            'Terasa lebih hemat daripada membuat object baru',
+            'Nilai yang bisa berubah membuat penelusuran bug jauh lebih sulit, dan merusak pola seperti riwayat urungkan. Untuk value object, kembalikan yang baru',
+          ],
+          [
+            'Menaruh pemanggilan jaringan di dalam constructor',
+            'Supaya object langsung berisi data lengkap',
+            'Object jadi mustahil dibuat di test tanpa jaringan. Pisahkan pembuatan dari pengambilan data',
+          ],
+          [
+            'Memakai kelas hanya sebagai wadah data tanpa method',
+            'Lebih terstruktur daripada object biasa',
+            'Kalau tidak ada aturan yang dijaga, object literal lebih ringan dan langsung bisa di-`JSON.stringify`',
+          ],
+          [
+            'Membiarkan constructor menerima nilai apa pun',
+            'Pemanggilnya toh sudah tahu bentuk yang benar',
+            'Constructor adalah satu-satunya pintu masuk, jadi pemeriksaan di sana melindungi seluruh pemakaian. Melewatkannya membuang keuntungan terbesar kelas',
+          ],
+          [
+            'Menyimpan nilai yang sudah diformat sebagai teks di dalam object',
+            'Supaya tidak perlu memformat berulang',
+            'Teks tidak bisa dihitung, dan formatnya jadi terkunci pada satu bahasa. Simpan nilai mentah, format saat menampilkan',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima adalah alasan utama kelas seperti `Uang` layak dibuat sama sekali. Kalau constructor menerima apa saja, kelas itu hanya object biasa yang ditulis dengan cara lebih panjang. Nilai sesungguhnya muncul dari jaminan bahwa setiap `Uang` yang ada di aplikasi pasti sah, sebab tidak ada jalan lain membuatnya selain lewat constructor yang memeriksa.',
+      ),
+      callout(
+        'info',
+        'Bidang yang berulang di berbagai bahasa',
+        'Pola menolak nilai yang tidak sah di titik pembuatan dikenal luas dengan sebutan membuat keadaan yang salah menjadi mustahil. Ia bukan khas JavaScript, dan kamu akan menemuinya lagi saat memakai skema validasi di sisi server pada kategori Backend.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Class adalah gula sintaks di atas constructor function + prototype.',
@@ -1045,7 +2068,7 @@ export const lessons: LessonDraft[] = [
   written(
     'encapsulation',
     'Encapsulation: private field `#`, getter & setter',
-    11,
+    18,
     'Menyembunyikan detail internal supaya perubahan di dalam tidak merembet keluar.',
     [
       p(
@@ -1217,6 +2240,184 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Aplikasi dompet digital menyimpan saldo pengguna. Aturannya dua, yaitu saldo tidak boleh negatif dan setiap perubahan harus tercatat. Selama saldo hanya berupa properti biasa, dua aturan itu bergantung pada disiplin setiap orang yang menyentuhnya. Cukup satu berkas yang menulis `dompet.saldo -= jumlah` tanpa memeriksa, dan aplikasi punya pengguna dengan saldo minus yang tidak pernah tercatat asalnya.',
+      ),
+      p(
+        'Enkapsulasi menyelesaikan ini bukan dengan menyembunyikan demi kerapian, melainkan dengan membuat pelanggaran aturan menjadi **mustahil ditulis**, bukan sekadar dilarang.',
+      ),
+      code(
+        'js',
+        `
+        export class Dompet {
+          #saldoSen = 0;
+          #mutasi = [];
+
+          get saldo() { return new Uang(this.#saldoSen); }
+          get mutasi() { return [...this.#mutasi]; }   // salinan, bukan aslinya
+
+          isi(uang, keterangan) {
+            if (uang.sen <= 0) throw new RangeError('Pengisian harus lebih dari nol');
+            this.#saldoSen += uang.sen;
+            this.#catat('isi', uang.sen, keterangan);
+          }
+
+          tarik(uang, keterangan) {
+            if (uang.sen <= 0) throw new RangeError('Penarikan harus lebih dari nol');
+            if (uang.sen > this.#saldoSen) {
+              throw new RangeError(\`Saldo kurang, tersedia \${new Uang(this.#saldoSen)}\`);
+            }
+            this.#saldoSen -= uang.sen;
+            this.#catat('tarik', -uang.sen, keterangan);
+          }
+
+          #catat(jenis, delta, keterangan) {
+            this.#mutasi.push({ jenis, delta, keterangan, pada: new Date().toISOString() });
+          }
+        }
+        `,
+        { filename: 'src/dompet.js' },
+      ),
+      p(
+        'Tidak ada satu pun cara mengubah `#saldoSen` dari luar kelas ini. Dua method publik yang mengubahnya, yaitu `isi` dan `tarik`, keduanya memeriksa aturannya lebih dulu dan keduanya memanggil `#catat`. Artinya jaminan saldo tidak negatif dan jaminan setiap perubahan tercatat bukan lagi bergantung pada ingatan penulis kode, melainkan pada bentuk kelasnya sendiri.',
+      ),
+      p(
+        'Getter `mutasi` mengembalikan `[...this.#mutasi]` dan bukan array aslinya, dan itu bagian yang paling sering dilupakan. Kalau ia mengembalikan array aslinya, siapa pun yang memanggil `dompet.mutasi` bisa menulis `.push(...)` ke dalamnya dan menambahkan mutasi palsu tanpa melewati satu pun pemeriksaan. Pagar yang bocor di satu titik sama saja dengan tidak ada pagar.',
+      ),
+      p(
+        'Method `#catat` juga privat, dan alasannya sama. Kalau ia publik, ada yang bisa mencatat mutasi tanpa mengubah saldo, dan riwayatnya berhenti mencerminkan kenyataan. Aturan praktisnya, buat privat semua yang bukan bagian dari cara kelas ini dipakai, lalu buka satu per satu hanya kalau ada pemakai nyata yang membutuhkannya.',
+      ),
+      callout(
+        'warning',
+        'Enkapsulasi di klien bukan kontrol keamanan',
+        'Kelas ini menjaga kebenaran data di dalam satu program, dan itu berguna. Ia tidak menghalangi siapa pun mengirim permintaan penarikan langsung ke server tanpa lewat halamanmu. Server wajib memeriksa aturan yang sama, dan pemeriksaan di klien hanya untuk memberi tahu pengguna lebih cepat. Aturan ini dibahas penuh di Kategori Keamanan Fullstack.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Field privat punya beberapa pesan error yang khas, dan mengenalinya membuat penyebabnya langsung jelas.',
+      ),
+      code(
+        'text',
+        `
+        class B { baca(o) { return o.#y; } }
+                                  ^^
+
+        SyntaxError: Private field '#y' must be declared in an enclosing class
+        `,
+        { caption: 'Field privat dipakai di kelas yang tidak mendeklarasikannya.' },
+      ),
+      p(
+        'Ini `SyntaxError`, jadi seluruh berkas gagal dimuat. Field privat bukan properti biasa yang bisa dijangkau dari mana pun, melainkan bagian dari kelas tempat ia ditulis. Kalau kamu perlu membacanya dari kelas lain, itu tanda bahwa nilainya bukan urusan privat kelas itu, atau kedua kelas itu sebenarnya satu tanggung jawab yang dipisah terlalu jauh.',
+      ),
+      code(
+        'text',
+        `
+        class Dompet { #saldoSen = 0; static baca(o) { return o.#saldoSen; } }
+        Dompet.baca({});
+                     ^
+
+        TypeError: Cannot read private member #saldoSen from an object
+        whose class did not declare it
+        `,
+        { caption: 'Object yang diberikan bukan instance kelas itu.' },
+      ),
+      p(
+        'Pesan ini muncul saat sintaksnya benar tapi objectnya salah, misalnya object biasa hasil `JSON.parse` diberikan ke method yang mengharapkan instance sungguhan. Ini justru cara paling andal memeriksa apakah sebuah object benar-benar dibuat oleh kelasmu, dan sebagian pustaka memakainya sengaja. Untuk pemeriksaan yang tidak melempar, bentuk `#saldoSen in obj` tersedia dan mengembalikan boolean.',
+      ),
+      code(
+        'text',
+        `
+        const d = new Dompet();
+        d.tarik(Uang.dariRupiah(500000));
+
+        RangeError: Saldo kurang, tersedia Rp 0
+        `,
+        { caption: 'Aturan bisnis ditolak dengan pesan yang menyebut angkanya.' },
+      ),
+      p(
+        'Error ini bukan bug melainkan hasil kerja yang diinginkan. Yang layak dicontoh adalah pesannya menyebut saldo yang tersedia, sehingga penanganan di lapisan tampilan bisa langsung memberi tahu pengguna angka yang benar tanpa memanggil ulang apa pun. Pilih `RangeError` untuk nilai di luar batas dan `TypeError` untuk tipe yang salah, sebab jenis error yang tepat membantu penanganan di hulu memutuskan tanpa membaca teks pesannya.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            "`Private field '#x' must be declared in an enclosing class`",
+            'Field privat dipakai di luar kelas yang mendeklarasikannya',
+            'Sediakan getter, atau tinjau ulang pembagian tanggung jawabnya',
+          ],
+          [
+            '`Cannot read private member #x from an object whose class did not declare it`',
+            'Objectnya bukan instance kelas itu, biasanya hasil `JSON.parse`',
+            'Bangun ulang instance-nya sebelum dipakai',
+          ],
+          [
+            'Data internal ikut berubah dari luar',
+            'Getter mengembalikan array atau object aslinya',
+            'Kembalikan salinan, misalnya `[...this.#daftar]`',
+          ],
+          [
+            'Aturan dilanggar lewat jalur yang tidak terduga',
+            'Ada method publik yang mengubah keadaan tanpa memeriksa',
+            'Kumpulkan seluruh perubahan keadaan ke satu atau dua method yang memeriksa',
+          ],
+          [
+            'Field privat tidak muncul saat object dicetak',
+            'Itu memang perilaku yang benar',
+            'Sediakan `toJSON` atau method ringkasan bila memang perlu dilihat',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Enkapsulasi sering dipahami sebagai menyembunyikan sebanyak mungkin. Yang sebenarnya dijaga adalah **aturan**, dan beberapa baris di bawah adalah bentuk salah paham itu.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membuat semua field privat lalu menambahkan getter dan setter untuk semuanya',
+            'Terlihat seperti enkapsulasi yang benar',
+            'Setter publik untuk setiap field mengembalikan keadaan seperti properti biasa, hanya lebih panjang. Yang menjaga aturan adalah method bermakna seperti `tarik`, bukan `setSaldo`',
+          ],
+          [
+            'Memakai awalan garis bawah seperti `_saldo` sebagai privat',
+            'Sudah lama jadi kebiasaan dan mudah dibaca',
+            'Itu hanya kesepakatan, dan siapa pun tetap bisa menulis ke sana. Pakai pagar kalau memang harus dijaga',
+          ],
+          [
+            'Mengembalikan array internal apa adanya lewat getter',
+            'Pemanggilnya kan hanya ingin membacanya',
+            'Ia bisa diubah lewat `push` dan `splice`. Kembalikan salinan, atau kembalikan bentuk yang memang tidak bisa diubah',
+          ],
+          [
+            'Membuka field privat karena satu test butuh membacanya',
+            'Test juga bagian dari kode kita sendiri',
+            'Test sebaiknya memeriksa perilaku lewat method publik, bukan isi dalamnya. Test yang membaca isi dalam akan rusak setiap kali strukturnya berubah',
+          ],
+          [
+            'Menaruh aturan bisnis di lapisan tampilan',
+            'Di sanalah pesan kesalahannya perlu muncul',
+            'Aturan yang sama harus diulang di tiap tampilan, dan cepat atau lambat ada yang berbeda. Taruh aturan di kelasnya, dan biarkan tampilan hanya menampilkan pesannya',
+          ],
+          [
+            'Menyimpan data mentah dan data turunan sekaligus sebagai field',
+            'Supaya tidak dihitung ulang',
+            'Dua sumber kebenaran yang harus dijaga tetap sinkron, dan itu selalu gagal. Simpan yang mentah, hitung turunannya di getter',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama adalah pembeda antara enkapsulasi sungguhan dan enkapsulasi bergaya. Perhatikan kelas `Dompet` di atas tidak punya satu pun setter. Yang ia sediakan adalah `isi` dan `tarik`, dua kata kerja yang menyatakan kejadian dalam bahasa domainnya. Nama seperti itu memberi tempat alami bagi pemeriksaan dan pencatatan, sedangkan `setSaldo` tidak memberi tempat apa pun karena ia tidak menyatakan apa yang sedang terjadi.',
+      ),
+      callout(
+        'tip',
+        'Uji cepat apakah enkapsulasimu sungguhan',
+        'Coba tulis satu baris dari luar kelas yang membuat keadaannya menjadi salah. Kalau kamu bisa menemukannya, pagarmu bocor di titik itu. Kalau kamu tidak bisa menemukan satu pun, aturan itu benar-benar dijaga bentuk kelasnya.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         '`#field` benar-benar privat; `_field` hanya kesepakatan.',
@@ -1263,7 +2464,7 @@ export const lessons: LessonDraft[] = [
   written(
     'inheritance',
     'Inheritance: `extends`, `super`, overriding',
-    12,
+    22,
     'Mewarisi perilaku dari class lain — dan batas yang perlu dijaga sejak awal.',
     [
       p(
@@ -1416,6 +2617,234 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Aplikasi mengirim tiga jenis pemberitahuan, yaitu email, pesan WhatsApp, dan pemberitahuan di dalam aplikasi. Ketiganya punya bagian yang benar-benar sama, yaitu mencatat percobaan pengiriman, mencoba ulang saat gagal, dan menolak mengirim ke penerima yang sudah berhenti berlangganan. Yang berbeda hanya cara pengirimannya dan bentuk pesannya.',
+      ),
+      p(
+        'Ini salah satu dari sedikit situasi di mana pewarisan memang bentuk yang tepat, sebab ketiganya benar-benar jenis dari satu hal yang sama dan bukan sekadar kebetulan punya kode mirip.',
+      ),
+      code(
+        'js',
+        `
+        export class Notifikasi {
+          #percobaan = 0;
+
+          constructor({ penerima, maksPercobaan = 3 }) {
+            if (new.target === Notifikasi) {
+              throw new TypeError('Notifikasi adalah kelas dasar, turunkan dulu');
+            }
+            this.penerima = penerima;
+            this.maksPercobaan = maksPercobaan;
+          }
+
+          // Wajib ditulis ulang oleh tiap turunan.
+          async kirimSekali() {
+            throw new Error(\`\${this.constructor.name} wajib menulis kirimSekali()\`);
+          }
+
+          // Alur yang sama untuk semua jenis. Turunan tidak menulis ulang ini.
+          async kirim() {
+            if (await sudahBerhentiLangganan(this.penerima)) {
+              return { status: 'dilewati', alasan: 'berhenti langganan' };
+            }
+            while (this.#percobaan < this.maksPercobaan) {
+              this.#percobaan += 1;
+              try {
+                await this.kirimSekali();
+                return { status: 'terkirim', percobaan: this.#percobaan };
+              } catch (e) {
+                if (this.#percobaan >= this.maksPercobaan) {
+                  return { status: 'gagal', percobaan: this.#percobaan, pesan: e.message };
+                }
+                await tunggu(2 ** this.#percobaan * 1000);
+              }
+            }
+          }
+        }
+        `,
+        { filename: 'src/notifikasi/dasar.js' },
+      ),
+      code(
+        'js',
+        `
+        export class NotifEmail extends Notifikasi {
+          constructor({ penerima, subjek, isi }) {
+            super({ penerima });          // WAJIB dipanggil sebelum menyentuh this
+            this.subjek = subjek;
+            this.isi = isi;
+          }
+          async kirimSekali() {
+            await smtp.send({ to: this.penerima, subject: this.subjek, html: this.isi });
+          }
+        }
+
+        export class NotifWhatsApp extends Notifikasi {
+          constructor({ penerima, teks }) {
+            super({ penerima, maksPercobaan: 5 });   // penyedia ini lebih sering gagal
+            this.teks = teks;
+          }
+          async kirimSekali() {
+            await wa.kirim(this.penerima, this.teks.slice(0, 1024));
+          }
+        }
+        `,
+        { filename: 'src/notifikasi/jenis.js' },
+      ),
+      p(
+        'Yang membuat pembagian ini bekerja adalah letak alurnya. Method `kirim` berisi seluruh urutan yang sama untuk semua jenis, yaitu memeriksa langganan, mencoba, menunggu dengan jeda yang membesar, lalu menyerah. Turunan tidak pernah menulis ulang `kirim`, dan itu justru intinya. Kalau nanti aturan percobaan ulang berubah, satu berkas yang disunting dan ketiga jenis ikut berubah.',
+      ),
+      p(
+        'Pemeriksaan `new.target === Notifikasi` di constructor mencegah kelas dasar dibuat langsung. Tanpa itu, `new Notifikasi({ penerima })` menghasilkan object yang `kirimSekali`-nya selalu melempar, dan kegagalannya baru muncul jauh kemudian. `new.target` bernilai kelas yang benar-benar dipanggil dengan `new`, sehingga ia bernilai `NotifEmail` saat turunan yang dibuat.',
+      ),
+      p(
+        'Baris `super({ penerima, maksPercobaan: 5 })` pada `NotifWhatsApp` memperlihatkan sisi berguna lain dari pewarisan, yaitu turunan boleh mengubah pengaturan bawaan tanpa menulis ulang perilakunya. Penyedia WhatsApp yang lebih sering gagal cukup meminta lima percobaan, dan seluruh logika percobaan ulang tetap dipakai apa adanya.',
+      ),
+      callout(
+        'warning',
+        'Pewarisan hanya tepat kalau hubungannya benar-benar adalah sejenis',
+        'Email memang sejenis notifikasi, jadi bentuk ini sesuai. Yang sering salah adalah menurunkan sesuatu hanya karena ada kode yang ingin dipakai bersama, misalnya `Pesanan extends BasisData`. Pesanan bukan jenis basis data. Kalau hubungannya adalah memakai bukan adalah, gunakan komposisi seperti dibahas di Sub-bab 2.10.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Pewarisan punya beberapa error yang bentuknya sangat khas, dan hampir semuanya berkaitan dengan `super`.',
+      ),
+      code(
+        'text',
+        `
+        class B extends A {
+          constructor() { this.x = 1; super(); }
+                          ^
+
+        ReferenceError: Must call super constructor in derived class before
+        accessing 'this' or returning from derived constructor
+        `,
+        { caption: '`this` disentuh sebelum `super()` dipanggil.' },
+      ),
+      p(
+        'Aturannya bukan kesewenangan. Di kelas turunan, object-nya baru benar-benar terbentuk setelah constructor induk selesai, jadi sebelum `super()` dipanggil memang belum ada `this` untuk disentuh. Perbaikannya selalu sama, yaitu jadikan `super(...)` baris pertama constructor. Kalau kamu butuh menghitung sesuatu sebelum memanggil `super`, hitung dalam variabel lokal, bukan lewat `this`.',
+      ),
+      code(
+        'text',
+        `
+        class B extends A {
+          constructor(opsi) { this.opsi = opsi; }
+        }
+        new B({});
+
+        ReferenceError: Must call super constructor in derived class before
+        accessing 'this'
+        `,
+        { caption: '`super()` sama sekali tidak ditulis.' },
+      ),
+      p(
+        'Kalau kelas turunan punya constructor sendiri, `super()` wajib dipanggil. Kalau kamu tidak menulis constructor sama sekali, JavaScript membuatkan yang meneruskan seluruh argumen ke induknya, dan itu sering justru yang kamu inginkan. Menghapus constructor yang hanya memanggil `super(...)` dengan argumen yang sama adalah penyederhanaan yang aman.',
+      ),
+      code(
+        'text',
+        `
+        const n = new Notifikasi({ penerima: 'a@x.id' });
+                  ^
+
+        TypeError: Notifikasi adalah kelas dasar, turunkan dulu
+        `,
+        { caption: 'Kelas dasar dibuat langsung, dan penjaga di constructor menolaknya.' },
+      ),
+      p(
+        'Error ini kamu tulis sendiri, dan itulah gunanya. JavaScript tidak punya kelas abstrak bawaan seperti sebagian bahasa lain, jadi pemeriksaan `new.target` adalah cara yang tersedia. Pesannya sengaja menyebut apa yang harus dilakukan, bukan sekadar menyatakan larangan.',
+      ),
+      code(
+        'text',
+        `
+        await new NotifSms({ penerima }).kirim();
+
+        Error: NotifSms wajib menulis kirimSekali()
+        `,
+        { caption: 'Turunan baru lupa menulis method yang wajib.' },
+      ),
+      p(
+        'Ini jaring pengaman untuk method yang wajib ditulis ulang. Karena JavaScript tidak memaksa turunan menulis ulang apa pun, kelas dasar yang melempar di method itu adalah cara membuat kelalaian menjadi terlihat. Perhatikan pesannya memakai `this.constructor.name`, sehingga ia menyebut nama kelas turunan yang bermasalah, bukan nama kelas dasarnya.',
+      ),
+      table(
+        ['Pesan error', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            "`Must call super constructor ... before accessing 'this'`",
+            '`super()` belum dipanggil, atau tidak ditulis sama sekali',
+            'Jadikan `super(...)` baris pertama, atau hapus constructornya bila hanya meneruskan',
+          ],
+          [
+            '`Class extends value undefined is not a constructor or null`',
+            'Kelas induk belum diimpor, atau impornya salah bentuk',
+            'Periksa bentuk ekspor dan impornya, serta kemungkinan impor melingkar',
+          ],
+          [
+            '`X wajib menulis kirimSekali()`',
+            'Turunan tidak menulis ulang method yang wajib',
+            'Tulis method itu di turunannya',
+          ],
+          [
+            'Perubahan di kelas dasar merusak satu turunan',
+            'Turunan bergantung pada detail dalam kelas dasar',
+            'Batasi hubungan ke method yang memang dimaksudkan untuk ditulis ulang',
+          ],
+          [
+            'Rantai pewarisan sudah empat tingkat dan sulit ditelusuri',
+            'Pewarisan dipakai untuk berbagi kode, bukan untuk menyatakan jenis',
+            'Ubah menjadi komposisi, lihat Sub-bab 2.10',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Pewarisan adalah alat yang paling sering dipakai berlebihan di seluruh materi OOP. Empat baris pertama di bawah adalah tanda paling jelas bahwa ia dipakai di tempat yang salah.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menurunkan kelas hanya untuk memakai ulang beberapa method',
+            'Kodenya jadi tidak diulang',
+            'Turunan ikut membawa seluruh isi induknya, termasuk yang tidak relevan. Kalau hubungannya bukan adalah sejenis, pakai komposisi',
+          ],
+          [
+            'Membuat rantai pewarisan tiga tingkat atau lebih',
+            'Tiap tingkat menambah kekhususan yang masuk akal',
+            'Untuk membaca satu method, pembaca harus membuka empat berkas. Ratakan menjadi satu tingkat, dan pindahkan sisanya ke komposisi',
+          ],
+          [
+            'Menulis ulang method induk lalu lupa memanggil `super.method()`',
+            'Method barunya sudah lengkap',
+            'Bagian penting dari induk ikut hilang, misalnya pencatatan atau pembersihan. Kalau kamu memang mengganti seluruhnya, itu tanda pewarisannya tidak cocok',
+          ],
+          [
+            'Menaruh field yang hanya dipakai satu turunan di kelas dasar',
+            'Nanti mungkin turunan lain memakainya juga',
+            'Semua turunan ikut membawanya, dan kelas dasar berhenti mewakili hal yang benar-benar sama. Taruh di turunan yang memakainya',
+          ],
+          [
+            'Memakai `instanceof` di rantai `if` untuk membedakan perilaku',
+            'Cara langsung untuk memilih penanganan',
+            'Itu mengembalikan rantai `if` yang justru ingin dihilangkan pewarisan. Jadikan perbedaan itu method yang ditulis ulang, lihat Sub-bab 2.8',
+          ],
+          [
+            'Mengubah tanda tangan method saat menulis ulang di turunan',
+            'Turunan butuh parameter tambahan',
+            'Pemanggil yang memegang kelas dasar akan memanggilnya dengan cara lama dan gagal. Turunan harus tetap bisa dipakai di tempat induknya dipakai',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir adalah bentuk sederhana dari prinsip substitusi Liskov yang akan dibahas di Sub-bab 2.11. Intinya satu kalimat, yaitu kode yang bekerja dengan kelas dasar harus tetap bekerja kalau diberi turunan mana pun tanpa tahu turunan yang mana. Begitu sebuah turunan menuntut perlakuan khusus, keuntungan terbesar pewarisan sudah hilang.',
+      ),
+      callout(
+        'tip',
+        'Uji satu kalimat sebelum memakai `extends`',
+        'Ucapkan hubungannya dengan kata adalah. Email **adalah** notifikasi, dan itu terdengar benar. Pesanan **adalah** basis data, dan itu terdengar salah. Kalau kalimatnya terdengar aneh, yang kamu butuhkan hampir pasti komposisi.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         '`super()` wajib dipanggil sebelum menyentuh `this` di constructor turunan.',
@@ -1462,7 +2891,7 @@ export const lessons: LessonDraft[] = [
   written(
     'polymorphism',
     'Polymorphism & Duck Typing',
-    10,
+    18,
     'Satu antarmuka, banyak implementasi — tanpa perlu interface formal.',
     [
       p(
@@ -1629,6 +3058,209 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman checkout harus mendukung tiga cara bayar, dan tiap cara punya biaya layanan, aturan verifikasi, dan alur penyelesaian yang berbeda. Di Sub-bab 2.1 kamu sudah melihat bentuk buruknya, yaitu rantai `if` yang sama diulang di beberapa fungsi. Sekarang bentuk yang benar, di mana rantai itu hilang sama sekali dan digantikan satu pemanggilan.',
+      ),
+      code(
+        'js',
+        `
+        class Pembayaran {
+          get label() { throw new Error(\`\${this.constructor.name} wajib punya label\`); }
+          biaya(_sen) { return 0; }
+          async proses(_pesanan) {
+            throw new Error(\`\${this.constructor.name} wajib menulis proses()\`);
+          }
+        }
+
+        class Transfer extends Pembayaran {
+          get label() { return 'Transfer Bank'; }
+          async proses(pesanan) {
+            return { status: 'menunggu', instruksi: await buatVirtualAccount(pesanan) };
+          }
+        }
+
+        class KartuKredit extends Pembayaran {
+          get label() { return 'Kartu Kredit'; }
+          biaya(sen) { return Math.round(sen * 0.029); }
+          async proses(pesanan) {
+            return { status: 'lunas', bukti: await gesek(pesanan) };
+          }
+        }
+
+        class BayarDiTempat extends Pembayaran {
+          get label() { return 'Bayar di Tempat'; }
+          biaya() { return 500000; }   // 5.000 rupiah dalam sen
+          async proses() {
+            return { status: 'menunggu', instruksi: 'Siapkan uang pas saat kurir tiba' };
+          }
+        }
+        `,
+        { filename: 'src/pembayaran.js' },
+      ),
+      code(
+        'js',
+        `
+        const metode = {
+          transfer: new Transfer(),
+          kartu: new KartuKredit(),
+          cod: new BayarDiTempat(),
+        };
+
+        // Tidak ada satu pun 'if' yang memeriksa jenis pembayaran.
+        function ringkasan(jenis, subtotalSen) {
+          const m = metode[jenis];
+          if (!m) throw new Error(\`Metode \${jenis} tidak dikenal\`);
+
+          const biaya = m.biaya(subtotalSen);
+          return { label: m.label, biaya, total: subtotalSen + biaya };
+        }
+
+        async function selesaikan(jenis, pesanan) {
+          return metode[jenis].proses(pesanan);   // tiap kelas tahu caranya sendiri
+        }
+        `,
+        { filename: 'src/checkout.js' },
+      ),
+      p(
+        'Perhatikan `ringkasan` dan `selesaikan` sama sekali tidak menyebut nama metode pembayaran mana pun. Keduanya hanya tahu bahwa apa pun yang mereka pegang punya `label`, `biaya`, dan `proses`. Inilah polimorfisme dalam bentuk paling langsung, yaitu satu pemanggilan yang berperilaku berbeda tergantung object apa yang sedang dipegang.',
+      ),
+      p(
+        'Keuntungan nyatanya baru terasa saat metode keempat datang. Menambah QRIS berarti menambah satu kelas dan satu baris di object `metode`. Tidak ada satu pun baris di `ringkasan` maupun `selesaikan` yang perlu disentuh, dan itu berarti tidak ada risiko merusak tiga metode yang sudah bekerja. Bandingkan dengan rantai `if` yang menuntut kamu menyunting tiap fungsi yang memeriksa jenis.',
+      ),
+      p(
+        'Method `biaya` di kelas dasar sengaja memberi nilai bawaan nol alih-alih melempar, sedangkan `proses` melempar. Perbedaan itu disengaja. Biaya nol adalah perilaku bawaan yang masuk akal untuk metode yang tidak memungut apa pun, sehingga `Transfer` tidak perlu menulisnya. `proses` tidak punya bawaan yang masuk akal, sehingga lupa menulisnya harus menjadi kegagalan yang terlihat.',
+      ),
+      callout(
+        'tip',
+        'Tabel object lebih ringan daripada `switch` yang mengembalikan instance',
+        'Object `metode` di atas dibuat sekali dan dipakai bersama, sebab ketiga kelas ini tidak menyimpan keadaan per pesanan. Kalau tiap pembayaran perlu membawa keadaannya sendiri, ganti nilainya menjadi fungsi pembuat, misalnya `transfer: () => new Transfer(pesanan)`, dan panggil saat dibutuhkan.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Polimorfisme di JavaScript tidak dijaga compiler, sehingga kesalahan bentuk baru ketahuan saat dijalankan. Tiga bentuk di bawah adalah yang paling sering.',
+      ),
+      code(
+        'text',
+        `
+        await metode.qris.proses(pesanan);
+
+        Error: Qris wajib menulis proses()
+        `,
+        { caption: 'Kelas baru dibuat tapi method wajibnya belum ditulis.' },
+      ),
+      p(
+        'Kegagalan ini datang dari penjaga yang kamu pasang sendiri di kelas dasar, dan tanpa penjaga itu yang terjadi jauh lebih membingungkan. Method yang tidak ditulis ulang akan mewarisi versi kelas dasar, dan kalau versi itu diam saja, pesanan akan dianggap selesai tanpa satu pun pembayaran diproses. Penjaga yang melempar mengubah kegagalan senyap menjadi kegagalan yang menyebut nama kelasnya.',
+      ),
+      code(
+        'text',
+        `
+        const m = metode[jenisDariForm];
+        m.biaya(507000);
+          ^
+
+        TypeError: Cannot read properties of undefined (reading 'biaya')
+        `,
+        { caption: 'Kunci dari formulir tidak ada di tabel metode.' },
+      ),
+      p(
+        'Ini alasan pemeriksaan `if (!m) throw ...` ada di `ringkasan`. Nilai dari formulir tidak kamu kendalikan, dan pengguna atau penyerang bisa mengirim apa saja. Pesan error yang menyebut jenis yang diminta jauh lebih berguna daripada `Cannot read properties of undefined`, baik bagimu saat menelusuri maupun bagi log server.',
+      ),
+      code(
+        'text',
+        `
+        class Qris extends Pembayaran {
+          async proses(pesanan, kodeUnik) { /* ... */ }
+        }
+
+        await metode.qris.proses(pesanan);   // kodeUnik undefined
+        // Tidak ada error, tapi kode QR yang dibuat tidak sah.
+        `,
+        { caption: 'Turunan menuntut parameter tambahan yang tidak diberikan pemanggil.' },
+      ),
+      p(
+        'Ini pelanggaran terhadap kesepakatan bentuk, dan JavaScript tidak akan menghentikanmu. Pemanggil hanya tahu bentuk kelas dasar, jadi ia memanggil dengan satu argumen. Kalau sebuah turunan butuh informasi tambahan, ambil dari `pesanan` atau simpan saat objectnya dibuat, jangan menambah parameter yang tidak dikenal pemanggil.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`X wajib menulis proses()`',
+            'Turunan tidak menulis ulang method wajib',
+            'Tulis methodnya di turunan itu',
+          ],
+          [
+            "`Cannot read properties of undefined (reading 'biaya')`",
+            'Kunci dari luar tidak ada di tabel',
+            'Periksa keberadaannya dan lempar error yang menyebut nilainya',
+          ],
+          [
+            'Turunan berperilaku benar sendiri tapi salah lewat pemanggil umum',
+            'Tanda tangan methodnya berbeda dari kelas dasar',
+            'Samakan bentuknya, dan ambil kebutuhan tambahan dari argumen yang sudah ada',
+          ],
+          [
+            'Masih ada `if` yang memeriksa `instanceof` di beberapa tempat',
+            'Ada perilaku yang belum dipindahkan menjadi method',
+            'Pindahkan perbedaan itu menjadi method yang ditulis ulang tiap turunan',
+          ],
+          [
+            'Semua turunan menulis ulang method yang sama persis',
+            'Perilaku itu sebenarnya sama untuk semuanya',
+            'Naikkan ke kelas dasar supaya tidak diulang',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Polimorfisme sering dipahami sebagai keharusan memakai `class` dan `extends`. Di JavaScript, yang benar-benar dibutuhkan hanya kesamaan bentuk, dan beberapa baris di bawah menyangkut salah paham itu.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Mengira polimorfisme wajib memakai pewarisan',
+            'Contoh-contohnya memang selalu memakai `extends`',
+            'JavaScript hanya peduli apakah methodnya ada. Tiga object literal dengan method bernama sama sudah polimorfik tanpa satu pun kelas',
+          ],
+          [
+            'Menyisakan satu `if (x instanceof A)` untuk kasus khusus',
+            'Hanya satu kasus, jadi tidak apa-apa',
+            'Kasus khusus itu akan bertambah, dan tiap penambahan mengembalikan rantai yang ingin dihilangkan. Jadikan ia method yang ditulis ulang',
+          ],
+          [
+            'Membuat kelas dasar yang methodnya mengembalikan `null` diam-diam',
+            'Supaya turunan tidak wajib menulisnya',
+            'Turunan yang lupa akan gagal diam-diam. Untuk method yang memang wajib, melempar jauh lebih baik daripada mengembalikan nilai kosong',
+          ],
+          [
+            'Menamai method berbeda-beda di tiap kelas',
+            'Nama yang spesifik lebih deskriptif',
+            'Polimorfisme bekerja karena namanya sama. `kirimEmail` dan `kirimWa` memaksa pemanggil tahu jenisnya, sedangkan `kirim` tidak',
+          ],
+          [
+            'Menaruh seluruh kelas turunan di satu berkas raksasa',
+            'Semuanya berkaitan jadi enak dibaca bersama',
+            'Berkas itu tumbuh tiap ada jenis baru, dan menjadi titik bentrok saat beberapa orang bekerja bersamaan. Satu jenis satu berkas',
+          ],
+          [
+            'Menambahkan method baru ke kelas dasar tanpa memberi bawaan',
+            'Semua turunan pasti akan diperbarui juga',
+            'Turunan yang belum diperbarui langsung rusak. Beri bawaan yang aman, atau perbarui seluruh turunan dalam perubahan yang sama',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama layak ditegaskan karena ia membebaskan banyak pilihan. Contoh checkout di atas bisa ditulis tanpa satu pun kelas, cukup dengan tiga object literal yang masing-masing punya `label`, `biaya`, dan `proses`. JavaScript tidak memeriksa jenis sebelum memanggil, ia hanya mencari methodnya. Pilih kelas kalau kamu butuh berbagi implementasi seperti alur percobaan ulang di sub-bab sebelumnya, dan pilih object literal kalau yang dibutuhkan hanya kesamaan bentuk.',
+      ),
+      callout(
+        'info',
+        'Di TypeScript, kesamaan bentuk ini bisa dipaksakan',
+        'TypeScript menyediakan `interface` yang menyatakan bentuk yang wajib dipenuhi, dan pelanggarannya menjadi error sebelum kode dijalankan. Itu menutup persis celah yang dibahas di bagian error di atas. Materinya ada di Bab 4 tentang JSX dan TypeScript.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Polymorphism memindahkan percabangan dari pemanggil ke objeknya.',
@@ -1668,7 +3300,7 @@ export const lessons: LessonDraft[] = [
   written(
     'static-factory',
     'Anggota `static` & Factory Method',
-    10,
+    19,
     'Anggota yang menempel pada class, bukan pada instance.',
     [
       p(
@@ -1818,6 +3450,201 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Kelas `Uang` dari Sub-bab 2.5 menyimpan sen, sedangkan hampir semua tempat di aplikasi bekerja dengan rupiah. Kalau satu-satunya cara membuatnya adalah `new Uang(89000 * 100)`, cepat atau lambat ada yang lupa mengalikan seratus dan aplikasi mengirim tagihan seharga delapan ratus sembilan puluh rupiah. Constructor hanya satu dan namanya terkunci pada nama kelas, sehingga ia tidak bisa menjelaskan satuan apa yang ia terima.',
+      ),
+      p(
+        'Method statis pembuat menyelesaikan itu dengan memberi nama pada tiap cara pembuatan, dan namanya bisa menyebut satuannya.',
+      ),
+      code(
+        'js',
+        `
+        export class Uang {
+          #sen;
+
+          // Constructor dijaga supaya tidak dipakai langsung dari luar.
+          constructor(sen, kunci) {
+            if (kunci !== Uang.#kunci) {
+              throw new TypeError('Pakai Uang.dariRupiah() atau Uang.dariSen()');
+            }
+            this.#sen = sen;
+          }
+          static #kunci = Symbol('uang');
+
+          static dariRupiah(rp) {
+            if (!Number.isFinite(rp)) throw new TypeError(\`Bukan angka, dapat \${rp}\`);
+            return new Uang(Math.round(rp * 100), Uang.#kunci);
+          }
+
+          static dariSen(sen) {
+            if (!Number.isInteger(sen)) throw new TypeError('Sen harus bilangan bulat');
+            return new Uang(sen, Uang.#kunci);
+          }
+
+          static dariBarisDb(baris) { return Uang.dariSen(baris.harga_sen); }
+
+          static nol() { return Uang.dariSen(0); }
+
+          get sen() { return this.#sen; }
+        }
+        `,
+        { filename: 'src/uang.js' },
+      ),
+      code(
+        'js',
+        `
+        Uang.dariRupiah(89000);        // jelas, satuannya disebut namanya
+        Uang.dariSen(8900000);         // sama jelasnya, satuan berbeda
+        Uang.dariBarisDb(baris);       // menyembunyikan nama kolom database
+        Uang.nol();                    // lebih terbaca daripada Uang.dariSen(0)
+
+        new Uang(8900000);
+        // TypeError: Pakai Uang.dariRupiah() atau Uang.dariSen()
+        `,
+        { caption: 'Empat cara membuat, masing-masing dengan nama yang menjelaskan dirinya.' },
+      ),
+      p(
+        'Empat method statis itu semuanya menghasilkan `Uang`, dan yang berbeda hanya bentuk masukannya. Keuntungan pertamanya keterbacaan, sebab `Uang.dariRupiah(89000)` tidak bisa disalahpahami sedangkan `new Uang(89000)` bisa. Keuntungan kedua lebih dalam, yaitu tiap pembuat bisa punya pemeriksaan sendiri yang sesuai bentuk masukannya. `dariRupiah` menerima pecahan lalu membulatkannya, sedangkan `dariSen` menolak pecahan sama sekali.',
+      ),
+      p(
+        "Bagian `static #kunci = Symbol('uang')` adalah cara menutup constructor supaya benar-benar hanya bisa dipanggil dari dalam kelas ini. Nilai `Symbol` selalu unik dan tidak bisa ditebak, sehingga kode di luar tidak punya cara memberikan kunci yang benar. Ini teknik yang layak dipakai kalau memang penting semua pembuatan lewat pintu bernama, dan bisa dilewati kalau kesepakatan tim sudah cukup.",
+      ),
+      p(
+        '`dariBarisDb` menunjukkan gunanya yang paling sering dilupakan, yaitu menyembunyikan bentuk data luar. Nama kolom `harga_sen` hanya disebut di satu tempat, sehingga kalau nanti kolomnya diganti nama, satu berkas yang disunting. Tanpa method itu, nama kolom database akan tersebar ke seluruh berkas yang membaca baris.',
+      ),
+      callout(
+        'tip',
+        'Cara membedakan method statis dari method biasa',
+        'Method statis milik kelasnya, bukan milik object hasil kelas itu, jadi ia dipanggil dengan `Uang.dariRupiah(...)` bukan `sebuahUang.dariRupiah(...)`. Aturan praktisnya, kalau method itu belum butuh sebuah instance untuk bekerja, ia layak statis. Pembuat, pengurai, dan pembanding biasanya masuk kategori itu.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Method statis menghasilkan beberapa kekeliruan yang khas, terutama seputar apa yang ada dan tidak ada di dalamnya.',
+      ),
+      code(
+        'text',
+        `
+        const u = Uang.dariRupiah(1000);
+        u.dariRupiah(2000);
+          ^
+
+        TypeError: u.dariRupiah is not a function
+        `,
+        { caption: 'Method statis dipanggil lewat instance.' },
+      ),
+      p(
+        'Method statis disimpan pada kelasnya, bukan pada `prototype`, sehingga instance tidak menemukannya saat menelusuri rantai. Ini konsekuensi langsung dari materi Sub-bab 2.3, dan mengingat letaknya membuat error ini langsung jelas. Panggil lewat nama kelasnya, atau lewat `u.constructor.dariRupiah(...)` kalau kamu memang perlu memanggil versi milik kelas turunan.',
+      ),
+      code(
+        'text',
+        `
+        class Uang {
+          static bawaan() { return this.dariSen(0); }
+        }
+        const f = Uang.bawaan;
+        f();
+             ^
+
+        TypeError: Cannot read properties of undefined (reading 'dariSen')
+        `,
+        { caption: '`this` di dalam method statis juga bisa lepas.' },
+      ),
+      p(
+        'Di dalam method statis, `this` menunjuk kelasnya, dan itu berguna karena membuat method statis ikut bekerja untuk kelas turunan. Tapi ia tetap tunduk pada aturan `this` dari Sub-bab 2.4, yaitu ia lepas begitu methodnya dipisahkan dari kelasnya. Kalau kamu perlu memberikan method statis sebagai callback, bungkus dengan fungsi panah.',
+      ),
+      code(
+        'text',
+        `
+        Uang.dariRupiah('89000');
+
+        TypeError: Bukan angka, dapat 89000
+        `,
+        { caption: 'Masukan berupa teks ditolak oleh pemeriksaan di pembuat.' },
+      ),
+      p(
+        'Pesan ini agak menjebak saat dibaca sepintas, sebab angka yang disebutnya terlihat benar. Yang salah adalah tipenya, dan tanda kutipnya hilang saat teks disisipkan ke pesan. Kalau kamu menulis pesan error yang menyebut nilai, pertimbangkan menyertakan tipenya juga, misalnya dengan `\${typeof rp}`, sebab nilai yang terlihat benar dengan tipe yang salah adalah kasus yang paling sering.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`u.metodeStatis is not a function`',
+            'Method statis dipanggil lewat instance',
+            'Panggil lewat nama kelasnya',
+          ],
+          [
+            '`Cannot read properties of undefined` di dalam method statis',
+            '`this` lepas karena methodnya dipisahkan dari kelasnya',
+            'Bungkus dengan fungsi panah, atau sebut nama kelasnya langsung',
+          ],
+          [
+            'Pesan error menyebut nilai yang terlihat benar',
+            'Yang salah tipenya, bukan nilainya',
+            'Sertakan `typeof` di pesan errornya',
+          ],
+          [
+            'Field statis dibagi seluruh turunan tanpa disengaja',
+            'Field statis milik kelas, dan turunan menelusuri ke induknya',
+            'Deklarasikan ulang di turunan bila tiap turunan perlu nilainya sendiri',
+          ],
+          [
+            'Method statis pembuat tidak bekerja untuk kelas turunan',
+            'Nama kelas ditulis langsung alih-alih memakai `this`',
+            'Pakai `new this(...)` di dalam method statis supaya turunan mendapat jenisnya sendiri',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Method statis mudah disalahgunakan menjadi tempat menaruh apa pun yang tidak jelas rumahnya. Beberapa baris di bawah adalah bentuk penyalahgunaan itu.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membuat kelas yang isinya hanya method statis',
+            'Terlihat lebih rapi daripada sekumpulan fungsi lepas',
+            'Itu modul yang ditulis dengan cara lebih panjang. Ekspor fungsinya langsung dari berkas, dan alat pembangun bisa membuang yang tidak dipakai',
+          ],
+          [
+            'Menyimpan keadaan yang berubah di field statis',
+            'Satu tempat yang mudah dijangkau dari mana saja',
+            'Itu variabel global dengan nama lain. Nilainya dibagi seluruh aplikasi termasuk antar-test, sehingga test bisa saling mempengaruhi',
+          ],
+          [
+            'Menulis `new Uang(...)` di dalam method statis kelas yang bisa diturunkan',
+            'Nama kelasnya memang itu',
+            'Kelas turunan akan mendapat instance kelas induk, bukan dirinya sendiri. Pakai `new this(...)`',
+          ],
+          [
+            'Membuat method statis untuk hal yang butuh data instance',
+            'Terasa seperti fungsi bantu yang berkaitan',
+            'Ia jadi menerima instance sebagai parameter, dan itu tanda ia seharusnya method biasa',
+          ],
+          [
+            'Memberi nama pembuat dengan awalan `get`',
+            'Konsisten dengan penamaan lain',
+            '`get` menyiratkan membaca sesuatu yang sudah ada, sedangkan pembuat menghasilkan yang baru. Pakai `dari`, `buat`, atau `parse`',
+          ],
+          [
+            'Menaruh pemanggilan jaringan di method statis pembuat',
+            'Sekalian mengambil datanya saat membuat',
+            'Pembuat jadi asinkron dan mustahil dipakai di test tanpa jaringan. Pisahkan pengambilan data dari pembuatan object',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua adalah yang paling berbahaya karena akibatnya baru terasa saat aplikasi sudah besar. Field statis yang berubah nilainya adalah variabel global yang disamarkan sebagai bagian kelas. Ia dibagi seluruh aplikasi, tidak ada yang tahu siapa mengubahnya kapan, dan di lingkungan test ia bertahan antar-berkas sehingga urutan test menentukan hasilnya. Kalau sebuah nilai harus dibagi, buat satu instance yang jelas pemiliknya dan berikan lewat parameter.',
+      ),
+      callout(
+        'info',
+        'Konstanta statis justru berguna',
+        'Yang bermasalah adalah field statis yang **berubah**. Konstanta statis seperti `static MAKS_ITEM = 50` atau `static NOL = Uang.dariSen(0)` sangat berguna, sebab ia memberi nama pada nilai ajaib dan meletakkannya tepat di kelas yang memakainya.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         '`static` milik class, bukan instance — tidak ada `this` ke objek.',
@@ -1857,7 +3684,7 @@ export const lessons: LessonDraft[] = [
   written(
     'composition-over-inheritance',
     'Composition over Inheritance',
-    13,
+    23,
     'Menyusun perilaku dari bagian kecil, alih-alih mewarisi pohon yang kaku.',
     [
       p(
@@ -2020,6 +3847,233 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Aplikasi berisi beberapa jenis dokumen, yaitu faktur, penawaran, dan surat jalan. Awalnya faktur butuh disimpan dan dicetak, jadi lahir `Dokumen` yang bisa menyimpan, lalu `DokumenCetak extends Dokumen`, lalu `Faktur extends DokumenCetak`. Enam bulan kemudian penawaran butuh dicetak tapi tidak butuh nomor urut resmi, surat jalan butuh nomor urut tapi tidak pernah dicetak, dan ada dokumen internal yang butuh ditandatangani digital tapi tidak keduanya.',
+      ),
+      p(
+        'Di titik ini rantai pewarisan berhenti bisa mewakili kenyataan. Kemampuan seperti bisa dicetak, punya nomor urut, dan bisa ditandatangani datang dalam kombinasi yang tidak membentuk satu garis lurus, sedangkan pewarisan hanya bisa membentuk garis. Setiap kombinasi baru memaksa lahirnya satu kelas perantara.',
+      ),
+      compare(
+        {
+          title: 'Rantai pewarisan yang tidak bisa mengikuti',
+          lang: 'text',
+          code: `
+          Dokumen
+            └─ DokumenCetak
+                 └─ DokumenBernomor
+                      └─ Faktur
+
+          Lalu datang:
+          - Penawaran   -> cetak, TANPA nomor
+          - SuratJalan   -> nomor, TANPA cetak
+          - Memo         -> tanda tangan saja
+
+          Tiga kombinasi baru
+          -> butuh tiga kelas perantara lagi
+          -> dan itu belum termasuk kombinasi berikutnya
+          `,
+          notes: ['Jumlah kelas tumbuh mengikuti jumlah kombinasi, bukan jumlah kemampuan'],
+        },
+        {
+          title: 'Kemampuan sebagai bagian yang dirakit',
+          lang: 'text',
+          code: `
+          Dokumen  (data + identitas)
+            ├─ punya PencetakPdf?
+            ├─ punya PemberiNomor?
+            └─ punya PenandaTangan?
+
+          Faktur      = Dokumen + cetak + nomor
+          Penawaran   = Dokumen + cetak
+          SuratJalan  = Dokumen + nomor
+          Memo        = Dokumen + tanda tangan
+
+          Kombinasi baru
+          -> tidak butuh kelas baru sama sekali
+          `,
+          notes: ['Jumlah bagian tumbuh mengikuti jumlah kemampuan, bukan kombinasinya'],
+        },
+      ),
+      code(
+        'js',
+        `
+        // Tiap kemampuan berdiri sendiri dan bisa diuji sendiri.
+        class PencetakPdf {
+          async cetak(dokumen) { return renderPdf(dokumen.isi); }
+        }
+
+        class PemberiNomor {
+          constructor(awalan) { this.awalan = awalan; }
+          async berikutnya() { return \`\${this.awalan}-\${await ambilUrutan(this.awalan)}\`; }
+        }
+
+        class Dokumen {
+          // Kemampuannya DIBERIKAN, bukan diwarisi.
+          constructor({ isi, pencetak = null, penomor = null }) {
+            this.isi = isi;
+            this.pencetak = pencetak;
+            this.penomor = penomor;
+          }
+
+          async cetak() {
+            if (!this.pencetak) throw new Error('Dokumen ini tidak untuk dicetak');
+            return this.pencetak.cetak(this);
+          }
+
+          async beriNomor() {
+            if (!this.penomor) throw new Error('Dokumen ini tidak bernomor');
+            this.nomor = await this.penomor.berikutnya();
+          }
+        }
+
+        const faktur = new Dokumen({
+          isi, pencetak: new PencetakPdf(), penomor: new PemberiNomor('INV'),
+        });
+        const penawaran = new Dokumen({ isi, pencetak: new PencetakPdf() });
+        `,
+        { filename: 'src/dokumen.js' },
+      ),
+      p(
+        'Yang berubah bukan jumlah kode melainkan **arah ketergantungannya**. Pada versi pewarisan, `Faktur` terikat pada seluruh rantai di atasnya dan tidak bisa memilih. Pada versi komposisi, `Dokumen` hanya tahu bahwa ia mungkin punya pencetak dan mungkin punya penomor, dan yang memutuskan adalah tempat pembuatannya. Kombinasi baru tidak menambah satu kelas pun.',
+      ),
+      p(
+        'Keuntungan besar kedua muncul di pengujian. `PencetakPdf` bisa diuji sendiri tanpa dokumen, dan `Dokumen` bisa diuji dengan pencetak tiruan yang hanya mencatat bahwa ia dipanggil. Pada versi pewarisan, menguji faktur berarti ikut menjalankan seluruh rantai induknya, termasuk bagian yang tidak ada hubungannya dengan yang sedang diuji.',
+      ),
+      p(
+        'Perhatikan `pencetak = null` sebagai nilai bawaan dan pemeriksaan di dalam `cetak`. Ini pilihan yang disengaja, yaitu dokumen tanpa kemampuan cetak menolak dengan pesan yang jelas alih-alih diam. Alternatifnya menyediakan pencetak kosong yang tidak melakukan apa-apa, dan itu lebih cocok kalau tidak mencetak memang perilaku yang sah. Pilih sesuai apakah ketiadaan kemampuan itu kesalahan atau bukan.',
+      ),
+      callout(
+        'tip',
+        'Tanda paling jelas bahwa pewarisan sudah harus diganti',
+        'Kalau kamu mulai membuat kelas yang namanya menggabungkan dua kemampuan, seperti `DokumenCetakBernomor`, itu bukan penamaan yang buruk melainkan gejala bahwa strukturnya sudah tidak muat. Nama seperti itu lahir karena pewarisan memaksa kombinasi menjadi kelas.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Komposisi memindahkan kesalahan dari waktu penulisan ke waktu perakitan, dan tiga bentuk di bawah adalah wajah barunya.',
+      ),
+      code(
+        'text',
+        `
+        await penawaran.beriNomor();
+
+        Error: Dokumen ini tidak bernomor
+        `,
+        { caption: 'Kemampuan yang tidak dirakit dipanggil.' },
+      ),
+      p(
+        'Inilah harga yang dibayar komposisi. Pada pewarisan, kelas yang tidak punya kemampuan itu memang tidak punya methodnya sehingga kesalahannya berupa `is not a function`. Pada komposisi, methodnya selalu ada dan yang tidak ada adalah bagiannya. Pesan yang kamu tulis sendiri jauh lebih menolong daripada `Cannot read properties of null`, jadi pemeriksaan eksplisit seperti di atas layak ditulis untuk tiap kemampuan opsional.',
+      ),
+      code(
+        'text',
+        `
+        const d = new Dokumen({ isi });
+        await d.cetak();
+                 ^
+
+        TypeError: Cannot read properties of null (reading 'cetak')
+        `,
+        { caption: 'Pemeriksaan lupa ditulis, dan pesannya jadi tidak menjelaskan apa pun.' },
+      ),
+      p(
+        'Bandingkan pesan ini dengan yang sebelumnya. Keduanya menandakan hal yang sama persis, tapi yang ini memaksa pembacanya membuka kode untuk tahu apa yang kosong dan kenapa. Setiap kemampuan opsional layak punya penjaga dengan pesan yang menyebut nama kemampuannya, dan itu satu baris yang menghemat banyak waktu.',
+      ),
+      code(
+        'text',
+        `
+        const bersama = new PemberiNomor('INV');
+        const a = new Dokumen({ isi: i1, penomor: bersama });
+        const b = new Dokumen({ isi: i2, penomor: bersama });
+
+        // Keduanya memakai penomor yang SAMA.
+        // Kalau PemberiNomor menyimpan penghitung di dalam dirinya,
+        // nomor dokumen b terpengaruh oleh dokumen a.
+        `,
+        { caption: 'Bagian yang menyimpan keadaan dipakai bersama tanpa disadari.' },
+      ),
+      p(
+        'Ini kesalahan yang khas komposisi dan tidak ada padanannya di pewarisan. Object yang diberikan sebagai bagian adalah rujukan, jadi memberikan satu object ke dua pemilik berarti keduanya berbagi keadaannya. Kadang itu memang yang kamu inginkan, misalnya satu pencetak dipakai bersama karena ia tidak menyimpan apa pun. Kadang justru bug. Aturan praktisnya, bagian yang tidak menyimpan keadaan boleh dibagi, dan bagian yang menyimpan keadaan dibuat satu per pemilik.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`Dokumen ini tidak bernomor`',
+            'Kemampuan opsional dipanggil padahal tidak dirakit',
+            'Rakit kemampuannya, atau periksa keberadaannya sebelum memanggil',
+          ],
+          [
+            "`Cannot read properties of null (reading 'cetak')`",
+            'Penjaga untuk kemampuan opsional tidak ditulis',
+            'Tambahkan pemeriksaan yang melempar pesan bernama',
+          ],
+          [
+            'Dua object saling mempengaruhi tanpa hubungan yang jelas',
+            'Bagian yang menyimpan keadaan dipakai bersama',
+            'Buat bagian itu satu per pemilik',
+          ],
+          [
+            'Constructor menerima delapan bagian sekaligus',
+            'Terlalu banyak kemampuan ditumpuk ke satu kelas',
+            'Itu tanda kelasnya punya lebih dari satu tanggung jawab, pecah menjadi beberapa',
+          ],
+          [
+            'Sulit tahu kemampuan apa yang dimiliki sebuah object',
+            'Kemampuannya ditentukan saat perakitan, bukan dari namanya',
+            'Sediakan fungsi pembuat bernama seperti `buatFaktur()` yang merakit kombinasi bakunya',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Komposisi sering diterima sebagai aturan lalu diterapkan tanpa melihat kasusnya. Beberapa baris di bawah adalah bentuk penerapan yang justru merugikan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membuang pewarisan sama sekali karena membaca bahwa komposisi lebih baik',
+            'Nasihatnya memang berbunyi begitu',
+            'Untuk hubungan yang benar-benar adalah sejenis dengan alur bersama, pewarisan satu tingkat lebih sederhana. Nasihatnya menentang pewarisan yang dalam, bukan pewarisan itu sendiri',
+          ],
+          [
+            'Memecah setiap fungsi kecil menjadi kelas bagiannya sendiri',
+            'Semakin banyak bagian semakin fleksibel',
+            'Merakit sepuluh bagian untuk membuat satu object membuat kode pemakainya jauh lebih sulit dibaca. Bagi berdasarkan alasan berubahnya, bukan berdasarkan ukuran',
+          ],
+          [
+            'Menyimpan bagian sebagai properti publik',
+            'Supaya pemakainya bisa mengaturnya kapan saja',
+            'Siapa pun bisa menukar bagian di tengah jalan, dan objectnya berhenti bisa diprediksi. Terima di constructor lalu simpan sebagai field privat',
+          ],
+          [
+            'Meneruskan setiap method bagian lewat method pembungkus',
+            'Supaya pemakainya tidak perlu tahu bagiannya',
+            'Kalau seluruh method hanya meneruskan, kelas pembungkusnya tidak menambah apa pun. Sediakan bagiannya langsung, atau bungkus hanya yang memang menambah aturan',
+          ],
+          [
+            'Membuat bagian yang saling membutuhkan',
+            'Keduanya memang bekerja bersama',
+            'Itu mengembalikan keterikatan yang ingin dihindari, dan bisa berujung impor melingkar. Bagian sebaiknya tidak saling kenal, dan yang menghubungkan adalah pemiliknya',
+          ],
+          [
+            'Merakit bagian di banyak tempat berbeda',
+            'Tiap tempat tahu kebutuhannya sendiri',
+            'Kombinasi yang seharusnya sama jadi berbeda di tiap tempat. Sediakan satu fungsi pembuat per kombinasi baku',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama layak ditegaskan karena nasihat pilih komposisi sering dibaca terlalu keras. Contoh `Notifikasi` di Sub-bab 2.7 memakai pewarisan dan memang tepat, sebab ketiga jenisnya benar-benar sejenis dan berbagi satu alur yang sama. Yang jadi masalah adalah rantai yang dalam dan pewarisan yang dipakai hanya untuk berbagi kode. Satu tingkat dengan hubungan adalah sejenis yang jelas hampir selalu aman.',
+      ),
+      callout(
+        'tip',
+        'Uji penghapusan untuk memutuskan sebuah bagian layak ada',
+        'Bayangkan bagian itu dihapus dan isinya dipindahkan ke pemiliknya. Kalau kerumitannya hilang, bagian itu memang tidak perlu ada. Kalau kerumitannya justru menyebar ke banyak tempat, bagian itu memang menanggung beban dan layak dipertahankan.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Inheritance menjawab "apa benda ini"; composition menjawab "apa yang bisa ia lakukan".',
@@ -2065,7 +4119,7 @@ export const lessons: LessonDraft[] = [
   written(
     'solid-ringkas',
     'SOLID Ringkas untuk JavaScript',
-    13,
+    23,
     'Lima prinsip desain, diterjemahkan ke idiom JavaScript — bukan disalin dari Java.',
     [
       p(
@@ -2240,6 +4294,237 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Fungsi pembuatan pesanan di aplikasi tokomu panjangnya seratus lima puluh baris. Isinya memvalidasi keranjang, menghitung total, memotong stok, menyimpan ke database, mengirim email, dan mencatat ke sistem analitik. Semuanya bekerja. Masalahnya baru terasa saat ada tiga permintaan berbeda datang dalam satu bulan, yaitu ganti penyedia email, tambahkan pesanan yang dibuat admin tanpa email, dan tulis test untuk perhitungan totalnya.',
+      ),
+      p(
+        'Ketiganya menyentuh fungsi yang sama, dan ketiganya berisiko merusak bagian yang tidak ada hubungannya. Test untuk perhitungan total pun mustahil ditulis tanpa mengirim email sungguhan. Dua prinsip pertama SOLID menjelaskan kenapa, dan perbaikannya tidak menambah kerumitan melainkan memindahkannya.',
+      ),
+      code(
+        'js',
+        `
+        // SEBELUM: satu fungsi tahu segalanya dan bergantung pada segalanya.
+        import { kirimEmailSendgrid } from './sendgrid.js';
+        import { db } from './db.js';
+
+        export async function buatPesanan(keranjang, pengguna) {
+          if (keranjang.item.length === 0) throw new Error('Keranjang kosong');
+
+          let total = 0;
+          for (const i of keranjang.item) total += i.harga * i.jumlah;
+          if (pengguna.tingkat === 'emas') total = Math.round(total * 0.95);
+
+          for (const i of keranjang.item) {
+            await db.query('UPDATE produk SET stok = stok - $1 WHERE id = $2', [i.jumlah, i.id]);
+          }
+          const pesanan = await db.query('INSERT INTO pesanan ...');
+
+          await kirimEmailSendgrid(pengguna.email, 'Pesanan diterima', \`Total \${total}\`);
+          await analitik.catat('pesanan_dibuat', { total });
+
+          return pesanan;
+        }
+        `,
+        { filename: 'src/pesanan.js — sebelum' },
+      ),
+      p(
+        'Fungsi ini melanggar dua prinsip sekaligus, dan keduanya bisa dilihat langsung dari kodenya. Ia punya lebih dari satu alasan untuk berubah, yaitu aturan diskon berubah, skema database berubah, atau penyedia email berganti. Itu pelanggaran tanggung jawab tunggal. Ia juga menyebut `kirimEmailSendgrid` secara langsung di baris impor, sehingga ia terikat pada satu penyedia tertentu. Itu pelanggaran pembalikan ketergantungan.',
+      ),
+      code(
+        'js',
+        `
+        // SESUDAH: perhitungan dipisah, dan yang di luar diberikan dari luar.
+
+        // 1. Fungsi murni. Tidak menyentuh database, tidak mengirim apa pun.
+        export function hitungTotal(item, tingkat) {
+          if (item.length === 0) throw new Error('Keranjang kosong');
+          const subtotal = item.reduce((j, i) => j + i.harga * i.jumlah, 0);
+          return tingkat === 'emas' ? Math.round(subtotal * 0.95) : subtotal;
+        }
+
+        // 2. Yang bergantung pada dunia luar DITERIMA, bukan diimpor.
+        export function buatLayananPesanan({ repo, pengirim, pencatat }) {
+          return {
+            async buat(keranjang, pengguna) {
+              const total = hitungTotal(keranjang.item, pengguna.tingkat);
+
+              const pesanan = await repo.simpan({ keranjang, pengguna, total });
+
+              await pengirim.kirim(pengguna.email, 'Pesanan diterima', \`Total \${total}\`);
+              await pencatat.catat('pesanan_dibuat', { total });
+
+              return pesanan;
+            },
+          };
+        }
+        `,
+        { filename: 'src/pesanan.js — sesudah' },
+      ),
+      p(
+        'Perubahan pertama memisahkan `hitungTotal` menjadi fungsi murni. Ia menerima dua nilai dan mengembalikan satu angka, tanpa menyentuh apa pun di luar. Menguji seluruh aturan diskon kini cukup memanggilnya dengan berbagai masukan, tanpa database dan tanpa email. Ini persis alasan pemisahan fungsi murni yang dibahas di Bab 1, muncul kembali sebagai keputusan arsitektur.',
+      ),
+      p(
+        'Perubahan kedua mengubah arah ketergantungan. `buatLayananPesanan` tidak lagi menyebut Sendgrid, PostgreSQL, atau penyedia analitik mana pun. Ia hanya tahu bahwa ia diberi sesuatu yang punya `simpan`, sesuatu yang punya `kirim`, dan sesuatu yang punya `catat`. Mengganti penyedia email berarti memberikan object lain saat merakit, dan satu baris pun di berkas ini tidak berubah.',
+      ),
+      code(
+        'js',
+        `
+        // Di titik masuk aplikasi, barulah penyedia sungguhan dipilih.
+        const layanan = buatLayananPesanan({
+          repo: new RepoPesananPostgres(db),
+          pengirim: new PengirimSendgrid(kunci),
+          pencatat: new PencatatAnalitik(),
+        });
+
+        // Di test, tiruan yang sederhana sudah cukup.
+        const terkirim = [];
+        const layananUji = buatLayananPesanan({
+          repo: { simpan: async (x) => ({ id: 1, ...x }) },
+          pengirim: { kirim: async (...a) => terkirim.push(a) },
+          pencatat: { catat: async () => {} },
+        });
+        `,
+        { caption: 'Perakitan terjadi di satu tempat, dan test merakit versinya sendiri.' },
+      ),
+      p(
+        'Bagian test itu yang paling langsung membuktikan nilai perubahannya. Tiruan yang diberikan hanyalah object literal berisi fungsi, tanpa library apa pun, sebab yang dibutuhkan hanya kesamaan bentuk seperti dibahas di Sub-bab 2.8. Test bisa memeriksa bahwa email dikirim dengan isi yang benar tanpa satu pun email sungguhan terkirim.',
+      ),
+      callout(
+        'info',
+        'Prinsip lain menyusul dengan sendirinya',
+        'Setelah tanggung jawab dipisah dan ketergantungan dibalik, tiga prinsip sisanya jadi jauh lebih mudah dipenuhi. Menambah penyedia email baru tidak menyunting kode lama, itu terbuka untuk perluasan. Tiap pengirim bisa dipakai di tempat pengirim lain dipakai, itu substitusi. Dan kontrak `pengirim` hanya berisi `kirim`, itu antarmuka yang tidak memaksa pemakainya bergantung pada hal yang tidak ia butuhkan.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Pelanggaran prinsip jarang melempar error. Yang muncul adalah gejala saat kode diubah atau diuji, dan tiga bentuk di bawah adalah yang paling sering ditemui.',
+      ),
+      code(
+        'text',
+        `
+        npm test
+
+        Error: Sendgrid API key tidak ditemukan
+            at kirimEmailSendgrid (src/sendgrid.js:4:11)
+            at buatPesanan (src/pesanan.js:18:9)
+            at Object.<anonymous> (src/pesanan.test.js:6:3)
+        `,
+        { caption: 'Test untuk perhitungan total ikut memanggil penyedia email sungguhan.' },
+      ),
+      p(
+        'Jejak tumpukan ini adalah bukti pelanggaran yang paling langsung. Test yang niatnya memeriksa satu perhitungan ternyata menyentuh jaringan, dan itu hanya mungkin kalau perhitungannya tidak bisa dipanggil tanpa segala hal lain di sekitarnya. Kalau kamu perlu memasang variabel lingkungan supaya test perhitungan bisa jalan, itu tanda pemisahan tanggung jawabnya belum ada.',
+      ),
+      code(
+        'text',
+        `
+        const layanan = buatLayananPesanan({ repo, pengirim });
+        await layanan.buat(keranjang, pengguna);
+                                            ^
+
+        TypeError: Cannot read properties of undefined (reading 'catat')
+        `,
+        { caption: 'Satu bagian lupa diberikan saat perakitan.' },
+      ),
+      p(
+        'Ini kelemahan nyata dari pembalikan ketergantungan, yaitu kesalahan berpindah dari waktu impor ke waktu perakitan. Ada dua cara menutupnya. Yang paling sederhana adalah memeriksa di awal fungsi pembuat dan melempar pesan yang menyebut bagian mana yang kurang. Yang lebih kuat adalah memakai TypeScript, sehingga bagian yang kurang menjadi error sebelum kode dijalankan.',
+      ),
+      code(
+        'text',
+        `
+        // Mengganti penyedia email seharusnya satu berkas.
+        $ grep -rl "kirimEmailSendgrid" src/
+
+        src/pesanan.js
+        src/pendaftaran.js
+        src/reset-sandi.js
+        src/pengingat.js
+        src/laporan-bulanan.js
+        `,
+        { caption: 'Satu penyedia disebut langsung di lima berkas.' },
+      ),
+      p(
+        'Perintah `grep` di atas adalah cara termurah mengukur seberapa terikat kodemu pada satu hal. Kalau nama penyedia muncul di lima berkas, mengganti penyedia berarti menyunting lima berkas dan menguji lima alur. Kalau ia hanya muncul di satu berkas perakitan, penggantiannya satu baris. Angka dari `grep` ini layak dipakai sebagai ukuran sebelum dan sesudah refactor.',
+      ),
+      table(
+        ['Gejala', 'Prinsip yang dilanggar', 'Perbaikannya'],
+        [
+          [
+            'Test butuh database atau jaringan untuk memeriksa perhitungan',
+            'Tanggung jawab tunggal',
+            'Pisahkan perhitungannya menjadi fungsi murni',
+          ],
+          [
+            'Satu berkas berubah karena tiga alasan yang tidak berhubungan',
+            'Tanggung jawab tunggal',
+            'Pecah berdasarkan alasan berubahnya, bukan berdasarkan ukuran',
+          ],
+          [
+            'Nama penyedia muncul di banyak berkas',
+            'Pembalikan ketergantungan',
+            'Terima lewat parameter, dan pilih penyedianya di satu titik perakitan',
+          ],
+          [
+            'Menambah satu jenis baru memaksa menyunting `switch` yang sudah ada',
+            'Terbuka untuk perluasan',
+            'Ubah percabangan menjadi method yang ditulis ulang, lihat Sub-bab 2.8',
+          ],
+          [
+            'Sebuah turunan melempar error pada method yang diwarisi',
+            'Substitusi Liskov',
+            'Turunan itu bukan jenis dari induknya, pisahkan atau pakai komposisi',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'SOLID paling sering merugikan bukan karena diabaikan melainkan karena diterapkan terlalu dini dan terlalu harfiah. Empat baris pertama di bawah adalah bentuk itu.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memecah tiap fungsi menjadi kelasnya sendiri demi tanggung jawab tunggal',
+            'Tiap kelas jadi punya satu tugas',
+            'Tanggung jawab tunggal berbicara tentang satu alasan untuk berubah, bukan satu fungsi. Puluhan kelas satu method membuat alur mustahil diikuti',
+          ],
+          [
+            'Membuat antarmuka dan lapisan abstraksi untuk semua hal sejak awal',
+            'Supaya nanti mudah diganti',
+            'Sebagian besar hal itu tidak pernah diganti, dan lapisannya harus dibaca selamanya. Balik ketergantungan pada hal yang memang berbatas dengan dunia luar',
+          ],
+          [
+            'Menambahkan lapisan repositori di atas satu tabel dengan tiga query',
+            'Itu yang dianjurkan arsitektur berlapis',
+            'Untuk kasus sekecil itu, lapisannya hanya meneruskan. Tambahkan saat sudah ada alasan nyata, misalnya kebutuhan menguji tanpa database',
+          ],
+          [
+            'Mengejar kelima huruf SOLID sebagai daftar centang',
+            'Semakin banyak yang dipenuhi semakin baik',
+            'Kelimanya adalah alat untuk mengurangi biaya perubahan. Kalau penerapannya justru menambah biaya membaca, ia sedang dipakai di tempat yang salah',
+          ],
+          [
+            'Menaruh seluruh perakitan di berkas yang mengimpor hampir semuanya',
+            'Memang harus ada satu tempat yang tahu semuanya',
+            'Itu benar, tapi berkas itu harus hanya merakit dan tidak berisi logika. Begitu ia mulai memutuskan sesuatu, ia menjadi titik pusat yang selalu bentrok',
+          ],
+          [
+            'Menyalin struktur berlapis dari project besar ke project kecil',
+            'Struktur itu terbukti bekerja',
+            'Struktur itu menyelesaikan masalah yang belum kamu punya. Mulai sederhana, dan tambahkan lapisan saat rasa sakitnya sudah nyata',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat adalah cara paling sehat membaca seluruh sub-bab ini. Kelima prinsip itu bukan tujuan melainkan alat untuk membuat perubahan berikutnya lebih murah. Ukurannya konkret, yaitu berapa banyak berkas yang harus disunting untuk satu permintaan yang wajar, dan apakah satu bagian bisa diuji tanpa menyalakan seluruh aplikasi. Kalau kedua jawabannya sudah baik, kodenya sudah cukup baik tanpa perlu ditambah lapisan.',
+      ),
+      callout(
+        'tip',
+        'Terapkan saat rasa sakitnya muncul, bukan sebelum',
+        'Cara paling andal memakai prinsip ini adalah menunggu sampai ada permintaan perubahan nyata yang terasa mahal, lalu bertanya prinsip mana yang sedang dilanggar. Refactor yang lahir dari rasa sakit nyata hampir selalu tepat sasaran, sedangkan refactor yang lahir dari bacaan sering menyelesaikan masalah yang tidak ada.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'S: satu alasan untuk berubah. Kalau deskripsinya mengandung "dan", pecah.',
@@ -2281,7 +4566,7 @@ export const lessons: LessonDraft[] = [
   written(
     'praktik-refactor-todo',
     'Praktik: Refactor To-Do List jadi berbasis class',
-    15,
+    27,
     'Mengubah modul fungsional Bab 1 jadi rancangan berorientasi objek — lalu menilai jujur apakah itu memang lebih baik.',
     [
       p(
@@ -2471,6 +4756,261 @@ export const lessons: LessonDraft[] = [
         'Ini pelajaran sesungguhnya dari bab ini. OOP bukan tingkat yang lebih tinggi dari fungsional — ia **alat lain** dengan trade-off berbeda. Bisa memilih dengan alasan lebih berharga daripada menguasai sintaksnya.',
       ),
 
+      divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Logika todo dari Bab 1 sudah dipakai di dua tempat, yaitu di halaman utama dan di widget kecil pada bilah sisi. Sekarang datang tiga permintaan sekaligus. Datanya harus tersimpan supaya tidak hilang saat halaman ditutup, harus bisa disaring per label, dan nanti akan dipindahkan ke server. Permintaan ketiga itu yang menentukan bentuk refactornya, sebab ia berarti tempat penyimpanan harus bisa diganti tanpa menyentuh logikanya.',
+      ),
+      code(
+        'js',
+        `
+        // 1. Satu tugas sebagai value object. Aturannya dijaga di sini.
+        export class Tugas {
+          #selesai;
+
+          constructor({ id = crypto.randomUUID(), judul, label = [], selesai = false }) {
+            const bersih = judul?.trim() ?? '';
+            if (bersih.length === 0) throw new RangeError('Judul tugas tidak boleh kosong');
+            if (bersih.length > 200) throw new RangeError('Judul maksimal 200 karakter');
+
+            this.id = id;
+            this.judul = bersih;
+            this.label = [...label];
+            this.#selesai = selesai;
+          }
+
+          get selesai() { return this.#selesai; }
+
+          // Mengembalikan Tugas BARU, tidak mengubah yang lama.
+          dengan(perubahan) {
+            return new Tugas({ ...this.toJSON(), ...perubahan });
+          }
+
+          toJSON() {
+            return { id: this.id, judul: this.judul, label: this.label, selesai: this.#selesai };
+          }
+        }
+        `,
+        { filename: 'src/todo/tugas.js' },
+      ),
+      code(
+        'js',
+        `
+        // 2. Logikanya. Tidak tahu apa pun tentang localStorage maupun server.
+        export class DaftarTugas {
+          #tugas;
+
+          constructor(tugas = []) { this.#tugas = tugas; }
+
+          get semua() { return [...this.#tugas]; }
+
+          tambah(data) { return new DaftarTugas([...this.#tugas, new Tugas(data)]); }
+
+          ubah(id, perubahan) {
+            return new DaftarTugas(
+              this.#tugas.map((t) => (t.id === id ? t.dengan(perubahan) : t)),
+            );
+          }
+
+          hapusSelesai() {
+            return new DaftarTugas(this.#tugas.filter((t) => !t.selesai));
+          }
+
+          saring({ label = null, selesai = null } = {}) {
+            return this.#tugas.filter(
+              (t) =>
+                (label === null || t.label.includes(label)) &&
+                (selesai === null || t.selesai === selesai),
+            );
+          }
+
+          get ringkasan() {
+            const selesai = this.#tugas.filter((t) => t.selesai).length;
+            return { total: this.#tugas.length, selesai, aktif: this.#tugas.length - selesai };
+          }
+        }
+        `,
+        { filename: 'src/todo/daftar.js' },
+      ),
+      code(
+        'js',
+        `
+        // 3. Penyimpanan. Bentuknya sama, isinya bisa apa saja.
+        export class PenyimpanLokal {
+          constructor(kunci = 'todo') { this.kunci = kunci; }
+          async muat() {
+            try {
+              const teks = localStorage.getItem(this.kunci);
+              return new DaftarTugas((JSON.parse(teks) ?? []).map((d) => new Tugas(d)));
+            } catch {
+              return new DaftarTugas();   // isi rusak diperlakukan seperti kosong
+            }
+          }
+          async simpan(daftar) {
+            localStorage.setItem(this.kunci, JSON.stringify(daftar.semua));
+          }
+        }
+
+        export class PenyimpanApi {
+          constructor(klien) { this.klien = klien; }
+          async muat() {
+            const data = await this.klien.ambil('/tugas');
+            return new DaftarTugas(data.map((d) => new Tugas(d)));
+          }
+          async simpan(daftar) { await this.klien.kirim('/tugas', daftar.semua); }
+        }
+        `,
+        { filename: 'src/todo/penyimpan.js' },
+      ),
+      p(
+        'Tiga berkas ini memakai hampir seluruh materi bab. `Tugas` adalah value object dari Sub-bab 2.5 lengkap dengan enkapsulasi dari Sub-bab 2.6, dan aturan judulnya dijaga di constructor sehingga tidak mungkin ada tugas berjudul kosong di mana pun. `DaftarTugas` menyimpan koleksinya dan setiap methodnya mengembalikan daftar baru, sehingga fitur urungkan dari Bab 1 tetap mungkin. Dua kelas penyimpan punya bentuk yang sama persis, dan itu polimorfisme dari Sub-bab 2.8 tanpa satu pun `extends`.',
+      ),
+      p(
+        'Method `dengan` pada `Tugas` layak diperhatikan. Ia membuat tugas baru dari gabungan isi lama dan perubahan, dan ia memakai `toJSON()` untuk membaca isinya sendiri karena `#selesai` privat. Pola ini menghindari lahirnya sekumpulan method seperti `tandaiSelesai`, `ubahJudul`, dan `tambahLabel` yang isinya hampir sama. Yang tetap dijaga adalah seluruh perubahan lewat constructor, sehingga aturan judul berlaku juga saat diubah bukan hanya saat dibuat.',
+      ),
+      p(
+        'Blok `catch` kosong pada `PenyimpanLokal.muat` adalah satu-satunya `catch` kosong yang boleh, dan alasannya perlu ditulis. Isi penyimpanan bisa rusak karena versi lama aplikasi, karena pengguna menyuntingnya sendiri, atau karena penyimpanan penuh. Untuk daftar tugas, memperlakukan isi rusak sebagai daftar kosong lebih baik daripada halaman yang gagal dimuat. Kalau datanya lebih berharga, pilihannya berbeda dan pengguna harus diberi tahu.',
+      ),
+      callout(
+        'tip',
+        'Urutan refactor yang jarang gagal',
+        'Mulai dari yang paling dalam. Buat value object-nya dulu beserta aturannya, lalu koleksinya, baru lapisan luar seperti penyimpanan dan tampilan. Kalau dimulai dari luar, kamu akan menulis lapisan yang bentuknya menyesuaikan kode lama, dan itu justru membekukan bentuk yang ingin kamu ubah.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut adalah yang paling sering muncul saat refactor seperti ini dijalankan pertama kali.',
+      ),
+      code(
+        'text',
+        `
+        const d = await penyimpan.muat();
+        d.semua[0].dengan({ selesai: true });
+                   ^
+
+        TypeError: d.semua[0].dengan is not a function
+        `,
+        { caption: 'Data dari penyimpanan belum diubah kembali menjadi instance.' },
+      ),
+      p(
+        'Ini persis masalah prototype yang hilang dari Sub-bab 2.3. `JSON.parse` menghasilkan object biasa yang isinya sama tapi tanpa satu pun method. Itulah kenapa `PenyimpanLokal.muat` menulis `.map((d) => new Tugas(d))` dan tidak langsung memberikan hasil `JSON.parse`. Setiap kali data melintasi batas penyimpanan atau jaringan, ia harus dibangun ulang di sisi penerima.',
+      ),
+      code(
+        'text',
+        `
+        new Tugas({ judul: '   ' });
+
+        RangeError: Judul tugas tidak boleh kosong
+        `,
+        { caption: 'Aturan berlaku juga untuk judul yang isinya hanya spasi.' },
+      ),
+      p(
+        "Pemeriksaan memakai `judul?.trim()` sebelum mengukur panjangnya, dan itu disengaja. Tanpa `trim`, judul berisi tiga spasi akan lolos dan muncul sebagai baris kosong di daftar. Tanda tanya pada `judul?.trim()` menangani kasus `judul` tidak dikirim sama sekali, dan `?? ''` sesudahnya mengubah hasilnya menjadi teks kosong supaya `length` bisa dibaca. Tiga penjaga kecil di satu baris, dan ketiganya menutup kasus yang berbeda.",
+      ),
+      code(
+        'text',
+        `
+        localStorage.setItem('todo', teksBesar);
+                     ^
+
+        QuotaExceededError: Failed to execute 'setItem' on 'Storage':
+        Setting the value of 'todo' exceeded the quota.
+        `,
+        { caption: 'Penyimpanan peramban penuh.' },
+      ),
+      p(
+        'Batas penyimpanan peramban umumnya sekitar lima megabyte per asal, dan ia dibagi seluruh data yang disimpan halaman itu. Untuk daftar tugas biasa ini tidak akan tercapai, tapi ia sangat mungkin tercapai kalau kamu menyimpan riwayat urungkan atau menyertakan lampiran. Method `simpan` yang benar-benar siap produksi perlu menangkap error ini dan memberi tahu pengguna, bukan gagal diam-diam.',
+      ),
+      code(
+        'text',
+        `
+        const d1 = daftar.tambah({ judul: 'A' });
+        console.log(daftar.semua.length);   // 0
+        console.log(d1.semua.length);       // 1
+        `,
+        { caption: 'Bukan error, tapi sering mengejutkan saat pertama memakai bentuk ini.' },
+      ),
+      p(
+        "Karena `tambah` mengembalikan daftar baru dan tidak mengubah yang lama, hasilnya harus ditampung. Menulis `daftar.tambah({ judul: 'A' })` sendirian tidak melakukan apa-apa yang terlihat, sama seperti `judul.trim()` yang berdiri sendiri di Bab 1. Ini konsekuensi yang disengaja dari pilihan tidak mengubah data, dan ia yang membuat fitur urungkan serta pemakaian di React menjadi mudah.",
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`x.dengan is not a function`',
+            'Data dari penyimpanan atau jaringan belum dibangun ulang',
+            'Petakan hasilnya menjadi instance sebelum dipakai',
+          ],
+          [
+            '`Judul tugas tidak boleh kosong`',
+            'Aturan bekerja sebagaimana mestinya',
+            'Tangkap di lapisan tampilan lalu sorot kolomnya',
+          ],
+          [
+            '`QuotaExceededError`',
+            'Penyimpanan peramban penuh',
+            'Tangkap errornya, beri tahu pengguna, dan pertimbangkan memangkas data lama',
+          ],
+          [
+            'Perubahan tidak terlihat setelah memanggil method',
+            'Methodnya mengembalikan daftar baru dan hasilnya tidak ditampung',
+            'Tampung hasilnya, misalnya `daftar = daftar.tambah(...)`',
+          ],
+          [
+            'Dua bagian halaman menampilkan jumlah tugas yang berbeda',
+            'Keduanya memegang daftar hasil pembaruan yang berbeda',
+            'Satu sumber kebenaran, dan keduanya membaca dari sana',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Refactor besar punya kesalahan khasnya sendiri, dan hampir semuanya berupa mengubah terlalu banyak sekaligus tanpa jaring pengaman.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis ulang seluruh modul sekaligus lalu menguji di akhir',
+            'Lebih cepat daripada bertahap',
+            'Kalau ada yang rusak, kamu tidak tahu perubahan mana penyebabnya. Ubah satu bagian, jalankan test, lanjut',
+          ],
+          [
+            'Melakukan refactor tanpa test yang sudah hijau lebih dulu',
+            'Kodenya sudah bekerja, jadi tidak akan rusak',
+            'Refactor artinya mengubah bentuk tanpa mengubah perilaku, dan tanpa test tidak ada yang membuktikan perilakunya tidak berubah',
+          ],
+          [
+            'Mencampur perbaikan bug dan perubahan bentuk dalam satu langkah',
+            'Sekalian, karena bagiannya memang sedang dibuka',
+            'Kalau hasilnya rusak, kamu tidak tahu itu karena bentuk barunya atau karena perbaikan bugnya. Pisahkan menjadi dua langkah',
+          ],
+          [
+            'Membuat kelas untuk setiap hal yang disebut di kebutuhan',
+            'Tiap kata benda terdengar seperti kelas',
+            'Sebagian kata benda hanyalah nilai, dan sebagian lagi hanya operasi. Buat kelas untuk yang punya aturan atau keadaan',
+          ],
+          [
+            'Menyimpan hasil penyaringan sebagai field',
+            'Supaya tidak dihitung ulang tiap render',
+            'Ia jadi sumber kebenaran kedua yang harus dijaga sinkron. Hitung di getter, dan optimalkan hanya kalau pengukuran membuktikan perlunya',
+          ],
+          [
+            'Menaruh pemanggilan penyimpanan di dalam `DaftarTugas`',
+            'Supaya setiap perubahan otomatis tersimpan',
+            'Logikanya jadi tidak bisa diuji tanpa penyimpanan, dan pemindahan ke server nanti akan menyentuh berkas yang salah. Biarkan lapisan luar yang memutuskan kapan menyimpan',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua adalah syarat yang tidak bisa ditawar. Refactor didefinisikan sebagai mengubah bentuk tanpa mengubah perilaku, dan satu-satunya cara membuktikan perilakunya tidak berubah adalah test yang sudah hijau sebelum kamu mulai. Kalau belum ada test, tulis dulu beberapa yang menguji perilaku lewat antarmuka publiknya, baru mulai mengubah. Waktu yang dipakai menulis test itu selalu lebih pendek daripada waktu menelusuri bug yang lahir dari refactor buta.',
+      ),
+      callout(
+        'info',
+        'Bentuk ini akan langsung berguna di Bab 6 dan 7',
+        'Daftar yang tidak diubah di tempat, satu sumber kebenaran, dan perubahan yang selalu menghasilkan nilai baru adalah persis yang dibutuhkan `useState`. Kalau kamu membawa `DaftarTugas` ini ke React, yang perlu ditambahkan hanya satu baris `setDaftar(daftar.tambah(...))`, dan seluruh logikanya tetap bisa diuji tanpa merender apa pun.',
+      ),
       divider,
       h2('Rangkuman'),
       ul(

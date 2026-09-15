@@ -28,7 +28,7 @@ export const lessons: LessonDraft[] = [
   written(
     'nodejs-runtime',
     'Node.js: runtime, event loop, npm',
-    10,
+    17,
     'Menjalankan JavaScript di luar browser, dan model konkurensinya.',
     [
       p(
@@ -223,6 +223,196 @@ export const lessons: LessonDraft[] = [
       p(
         'Kegagalan itu justru yang kamu inginkan di CI dan produksi, karena ia mengubah masalah senyap menjadi masalah yang terlihat. Tanpa `npm ci`, server bisa memasang versi yang belum pernah diuji siapa pun, dan bug yang muncul hanya di produksi jadi hampir mustahil direproduksi di laptopmu. Aturan praktisnya: `npm install` saat menambah atau memperbarui paket, `npm ci` di setiap tempat yang seharusnya menjalankan hal yang sudah teruji.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Kalimat "Node itu satu utas tapi tidak memblokir" sering diulang tanpa pernah dilihat akibatnya. Berikut ukurannya pada server Node 26.5.0 sungguhan, dengan satu endpoint yang mengerjakan hashing sandi secara **sinkron** dan satu endpoint yang tidak mengerjakan apa-apa.',
+      ),
+      code(
+        'text',
+        `
+        Sendirian:
+          GET /ringan   ->  15,9 ms
+          GET /berat    ->  70,4 ms      (scryptSync, N = 2^15)
+
+        1 berat + 5 ringan DIKIRIM BERSAMAAN:
+          /berat        ->  73,7 ms
+          /ringan ke-1  ->  73,9 ms   <- ikut menunggu
+          /ringan ke-2  ->  74,1 ms   <- ikut menunggu
+          /ringan ke-3  ->  74,3 ms   <- ikut menunggu
+          /ringan ke-4  ->  74,5 ms   <- ikut menunggu
+          /ringan ke-5  ->  74,6 ms   <- ikut menunggu
+        `,
+        { caption: 'Dijalankan sungguhan dengan Node 26.5.0 dan fetch bawaannya.' },
+      ),
+      p(
+        'Lima permintaan yang seharusnya selesai dalam belasan milidetik masing-masing mengambil tujuh puluh empat milidetik, dan tidak satu pun di antaranya melakukan pekerjaan berat. Mereka hanya **antre**, sebab satu-satunya utas yang bisa melayani mereka sedang sibuk menghitung hash. Inilah arti sebenarnya dari satu utas, dan inilah kegagalan yang paling mahal di Node.',
+      ),
+      p(
+        'Sekarang endpoint yang sama, hanya diganti ke versi asinkron yang melempar pekerjaannya ke thread pool.',
+      ),
+      code(
+        'text',
+        `
+        Versi ASINKRON (scrypt dengan callback), 1 berat + 5 ringan bersamaan:
+
+          /berat        ->  73,8 ms      <- tetap sama beratnya
+          /ringan ke-1  ->   6,1 ms
+          /ringan ke-2  ->   6,6 ms
+          /ringan ke-3  ->   7,0 ms
+          /ringan ke-4  ->   7,2 ms
+          /ringan ke-5  ->   7,5 ms
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Satu kata kunci berbeda, sepuluh kali lipat bedanya bagi pengguna lain.',
+        },
+      ),
+      p(
+        'Pekerjaan beratnya sama-sama butuh tujuh puluh tiga milidetik, dan itu tidak bisa dihindari. Yang berubah adalah **siapa yang ikut menunggunya**. Pada versi sinkron, seluruh aplikasi berhenti. Pada versi asinkron, perhitungannya dikerjakan di thread pool libuv sementara utas utama tetap bebas menerima dan menjawab permintaan lain.',
+      ),
+      p(
+        'Karena itu pertanyaan yang harus diajukan pada setiap pemanggilan di dalam handler bukan "apakah ini cepat" melainkan **"apakah ini menahan utasnya"**. Daftar berikut adalah yang paling sering menahan tanpa disadari.',
+      ),
+      table(
+        ['Yang menahan utas', 'Gantinya', 'Cara mengenalinya'],
+        [
+          ['`fs.readFileSync`', '`fs.promises.readFile`', 'Akhiran `Sync` pada nama fungsinya'],
+          [
+            '`crypto.scryptSync`, `pbkdf2Sync`',
+            'Versi callback atau promise-nya',
+            'Sama, akhiran `Sync`',
+          ],
+          [
+            '`JSON.parse` pada teks sangat besar',
+            'Batasi ukuran badan permintaan',
+            'Tidak terlihat dari namanya — yang menentukan ukurannya',
+          ],
+          [
+            'Perulangan atas puluhan ribu baris',
+            'Pindahkan ke database, atau pecah bertahap',
+            'Tidak terlihat dari namanya',
+          ],
+          [
+            'Regex yang bisa meledak',
+            'Batasi panjang masukan, sederhanakan polanya',
+            'Pola bertingkat seperti `(a+)+`',
+          ],
+        ],
+      ),
+      p(
+        'Tiga baris terakhir layak diperhatikan karena tidak punya penanda `Sync` yang bisa dicari. Sebuah `JSON.parse` atas badan permintaan sepuluh megabyte menahan seluruh server selama penguraiannya, dan itulah alasan batas ukuran badan permintaan bukan sekadar urusan memori melainkan urusan ketersediaan.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan pertama yang pasti kamu temui bukan error kode melainkan error lingkungan, dan bentuknya selalu sama.',
+      ),
+      code(
+        'text',
+        `
+        EADDRINUSE: listen EADDRINUSE: address already in use 127.0.0.1:3995
+        `,
+        { caption: 'Dijalankan sungguhan dengan Node 26.5.0.' },
+      ),
+      p(
+        'Hampir selalu ini berarti servermu sendiri dari percobaan sebelumnya belum benar-benar mati, biasanya karena dihentikan dengan cara yang tidak menutup socket-nya. `lsof -i :3000` memperlihatkan siapa yang memegangnya, lalu `kill` menghentikannya. Perbaikan yang lebih baik adalah menutup server dengan benar saat proses diminta berhenti, dan itu dibahas di sub-bab setup.',
+      ),
+      p(
+        'Kegagalan kedua jauh lebih berbahaya karena ia mematikan **seluruh proses**, bukan satu permintaan.',
+      ),
+      code(
+        'text',
+        `
+        Handler async yang melempar dan tidak ditangkap siapa pun:
+
+          const server = http.createServer(async (req, res) => {
+            if (req.url === '/gagal-async') throw new Error('Gagal mengambil data pesanan');
+            res.end('ok');
+          });
+
+        TANPA penangan unhandledRejection:
+
+          Error: Gagal mengambil data pesanan
+              at Server.<anonymous> (.../lempar2.mjs:3:41)
+              at Server.emit (node:events:509:20)
+              at parserOnIncoming (node:_http_server:1383:12)
+              at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)
+
+          Node.js v26.5.0
+          (proses keluar dengan kode 1)
+        `,
+        {
+          caption: 'Dijalankan sungguhan. Seluruh permintaan lain yang sedang berjalan ikut putus.',
+        },
+      ),
+      p(
+        'Perhatikan bahwa yang mati bukan satu permintaan melainkan prosesnya. Di sebuah server yang sedang melayani lima puluh pengguna, satu error yang tidak tertangkap pada satu permintaan memutus kelima puluh sambungan sekaligus. Ini perbedaan besar dari bahasa yang menjalankan tiap permintaan di utasnya sendiri, dan ia konsekuensi langsung dari model satu utas.',
+      ),
+      p('Yang lebih menjebak adalah bentuknya ketika penangan pengaman sudah dipasang.'),
+      code(
+        'text',
+        `
+        DENGAN process.on('unhandledRejection', ...):
+
+          === permintaan normal ===
+            /ok           -> status 200
+          === handler-nya melempar ===
+            [unhandledRejection tertangkap] Gagal mengambil data pesanan
+            /gagal-async  -> TimeoutError setelah 1205 ms, tanpa respons apa pun
+          === server masih hidup sesudahnya? ===
+            /ok           -> status 200
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Prosesnya selamat, tapi kliennya menggantung sampai kehabisan waktu.',
+        },
+      ),
+      p(
+        'Server-nya selamat, dan itu bagus. Tapi klien yang memanggil `/gagal-async` **tidak menerima apa pun**, bukan 500, bukan pesan error, melainkan sambungan yang menggantung sampai batas waktunya habis. Bagi pengguna, halaman yang menggantung selama tiga puluh detik jauh lebih buruk daripada pesan gagal yang muncul seketika. Karena itu menangkap `unhandledRejection` adalah jaring pengaman terakhir, bukan penanganan error, dan penanganan yang sebenarnya harus menjawab permintaannya.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Sebagian besar kesalahan di tahap ini berasal dari membawa cara berpikir bahasa lain, yang setiap permintaannya berjalan di utas sendiri.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai fungsi berakhiran `Sync` di dalam handler',
+            'Kodenya lebih pendek dan mudah dibaca',
+            'Diukur, satu permintaan berat membuat lima permintaan ringan menunggu 74 ms. Pakai versi asinkronnya',
+          ],
+          [
+            'Menyimpan data pengguna di variabel modul',
+            'Prosesnya kan cuma satu',
+            'Di produksi biasanya ada beberapa proses, dan permintaan berikutnya bisa mendarat di proses yang berbeda',
+          ],
+          [
+            'Mengira `async` membuat kode berjalan paralel',
+            'Namanya asinkron',
+            '`async` hanya memungkinkan menunggu tanpa menahan. Perhitungan di dalamnya tetap di utas yang sama',
+          ],
+          [
+            'Membiarkan handler async melempar tanpa ditangkap',
+            'Errornya akan muncul di log',
+            'Diuji sungguhan, prosesnya mati dan seluruh sambungan lain ikut putus',
+          ],
+          [
+            'Mengandalkan `unhandledRejection` sebagai penanganan error',
+            'Errornya sudah ditangkap',
+            'Diuji sungguhan, kliennya menggantung tanpa respons apa pun. Itu jaring pengaman, bukan penanganan',
+          ],
+          [
+            'Tidak membatasi ukuran badan permintaan',
+            'Penggunanya tidak akan mengirim sebesar itu',
+            'Satu badan sepuluh megabyte menahan seluruh server selama diurai. Batas ukuran adalah urusan ketersediaan',
+          ],
+        ],
+      ),
+      p(
+        'Baris ketiga pantas ditegaskan karena kesalahpahaman ini bertahan lama. Menambahkan `async` pada sebuah fungsi tidak memindahkannya ke utas lain dan tidak membuatnya lebih cepat. Yang diberikannya adalah kemampuan **berhenti sejenak** di titik `await` sehingga utasnya bisa mengerjakan hal lain sambil menunggu jawaban dari luar, misalnya database atau jaringan. Perulangan sejuta iterasi di dalam fungsi `async` tetap menahan utasnya persis seperti tanpa `async`.',
+      ),
       references(
         {
           label: 'The Node.js Event Loop',
@@ -255,7 +445,7 @@ export const lessons: LessonDraft[] = [
   written(
     'modul-node',
     'Modul: CommonJS vs ESM',
-    9,
+    17,
     'Dua sistem modul yang hidup berdampingan, dan cara memilih.',
     [
       p(
@@ -420,6 +610,166 @@ export const lessons: LessonDraft[] = [
       p(
         'Ini berguna untuk inisialisasi yang harus selesai sebelum modul dipakai — koneksi database, pembacaan kunci, atau validasi konfigurasi.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Hampir setiap pemrogram Node menghabiskan satu sore penuh melawan kesalahan modul, dan hampir selalu penyebabnya satu, yaitu **dua sistem modul yang hidup berdampingan**. Lima error berikut dijalankan sungguhan, dan mengenali bentuknya menghemat sore itu.',
+      ),
+      code(
+        'text',
+        `
+        1. Memakai require di dalam berkas ESM
+
+           ReferenceError: require is not defined in ES module scope,
+           you can use import instead
+
+        2. Memakai import di dalam berkas CommonJS
+
+           SyntaxError: Cannot use import statement outside a module
+
+        3. Impor tanpa menuliskan ekstensi berkasnya
+
+           Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/.../util'
+           imported from /.../tanpa-ekstensi.mjs
+
+        4. await di tingkat atas berkas CommonJS
+
+           SyntaxError: await is only valid in async functions and
+           the top level bodies of modules
+
+        5. Memakai __dirname di dalam ESM
+
+           ReferenceError: __dirname is not defined in ES module scope
+        `,
+        { caption: 'Kelimanya dijalankan sungguhan dengan Node 26.5.0.' },
+      ),
+      p(
+        'Pesan nomor satu bahkan menyebutkan perbaikannya, dan Node juga mencetak keterangan tambahan yang sangat berguna ketika berkasnya berekstensi `.js`.',
+      ),
+      code(
+        'text',
+        `
+        This file is being treated as an ES module because it has a '.js' file
+        extension and /home/.../package.json contains "type": "module".
+        To treat it as a CommonJS script, rename it to use the '.cjs' file extension.
+        `,
+        {
+          caption: 'Dijalankan sungguhan. Keterangan ini menyebutkan tepat aturan yang menentukan.',
+        },
+      ),
+      p(
+        'Aturan yang disebutkannya itu yang perlu dipegang, dan ia hanya punya tiga cabang. Berkas `.mjs` **selalu** ESM. Berkas `.cjs` **selalu** CommonJS. Berkas `.js` mengikuti `"type"` di `package.json` terdekat, yaitu ESM bila bernilai `"module"` dan CommonJS bila tidak ada atau bernilai `"commonjs"`.',
+      ),
+      table(
+        ['Yang hilang di ESM', 'Penggantinya', 'Catatan'],
+        [
+          ['`require`', '`import`', 'Atau `createRequire` bila benar-benar terpaksa'],
+          ['`module.exports`', '`export`', 'Bisa banyak `export`, atau satu `export default`'],
+          ['`__dirname`', '`import.meta.dirname`', 'Tersedia sejak Node 20.11'],
+          ['`__filename`', '`import.meta.filename`', 'Sama'],
+          [
+            'Impor tanpa ekstensi',
+            'Tulis `.js` secara lengkap',
+            'Termasuk saat sumbernya TypeScript',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir yang paling membingungkan pada project TypeScript, sebab yang ditulis adalah `./util.js` padahal berkasnya bernama `util.ts`. Itu benar dan disengaja, karena yang diimpor adalah hasil kompilasinya, bukan sumbernya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Selisih kedua sistem modul bukan hanya sintaks. Salah satunya bisa melakukan hal yang tidak bisa dilakukan yang lain, dan itu terlihat pada dua tempat.',
+      ),
+      code(
+        'text',
+        `
+        Yang HANYA bisa di ESM:
+
+          // konfigurasi.mjs — await di tingkat atas berkas
+          const rahasia = await ambilDariVault();
+          export const kunci = rahasia.jwt;
+
+          Di CommonJS, ini menghasilkan:
+            SyntaxError: await is only valid in async functions and
+            the top level bodies of modules
+        `,
+        { caption: 'Dijalankan sungguhan.' },
+      ),
+      p(
+        'Kemampuan `await` di tingkat atas itu berguna tepat untuk kasus konfigurasi seperti di atas, yaitu nilai yang harus tersedia sebelum modul lain memakainya. Di CommonJS, satu-satunya jalan adalah mengekspor sebuah fungsi yang harus dipanggil dan ditunggu oleh setiap pemakainya.',
+      ),
+      p(
+        'Sebaliknya, ada satu hal yang bisa dilakukan CommonJS dan tidak bisa ESM secara langsung, yaitu memuat modul berdasarkan nama yang baru diketahui saat program berjalan. Di ESM, `import()` dinamis mengembalikan promise, jadi bentuknya berbeda.',
+      ),
+      code(
+        'ts',
+        `
+        // CommonJS: pemuatan bersyarat, sinkron.
+        const adapter = require('./adapter/' + process.env.DB_DRIVER);
+
+        // ESM: bentuk yang setara, dan hasilnya promise.
+        const adapter = await import('./adapter/' + process.env.DB_DRIVER + '.js');
+
+        // Perhatikan dua hal:
+        //   - hasilnya adalah namespace modul, jadi default-nya di .default
+        //   - jalur yang dirangkai dari input LUAR adalah lubang keamanan.
+        //     Sama seperti nama kolom di ORDER BY, ini butuh daftar yang diizinkan:
+        const ADAPTER = { postgres: './adapter/postgres.js', mysql: './adapter/mysql.js' };
+        const jalur = ADAPTER[process.env.DB_DRIVER ?? ''] ?? ADAPTER.postgres;
+        const adapter = await import(jalur);
+        `,
+        {
+          caption:
+            'Pola daftar yang diizinkan ini sama persis dengan yang dipakai untuk ORDER BY di bab database.',
+        },
+      ),
+      p(
+        'Satu hal lagi yang membedakan keduanya sudah diukur di bab Fondasi dan layak diingat di sini, yaitu perilaku ketergantungan melingkar. Lingkaran yang **gagal** di CommonJS dengan `TypeError: ambilPesanan is not a function` justru **berhasil** di ESM, sebab ESM memakai live binding sehingga deklarasi fungsinya sudah terjangkau lebih awal. Jadi berpindah ke ESM bisa menyembunyikan masalah struktur yang sebenarnya masih ada.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan modul punya sifat yang membuatnya melelahkan, yaitu pesan errornya benar tetapi menunjuk gejala, sedangkan penyebabnya ada di berkas lain, yaitu `package.json`.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyalin potongan kode dari artikel tanpa melihat sistem modulnya',
+            'Kodenya kan Node juga',
+            'Diuji sungguhan, `require` di ESM dan `import` di CJS sama-sama gagal. Periksa `"type"` di `package.json` dulu',
+          ],
+          [
+            'Mencampur `require` dan `import` dalam satu berkas',
+            'Keduanya cara mengimpor',
+            'Satu berkas hanya boleh satu sistem. Kalau perlu campur, pisahkan berkasnya',
+          ],
+          [
+            'Menulis impor tanpa ekstensi di ESM',
+            'Di CommonJS dan TypeScript boleh',
+            'Diuji sungguhan, hasilnya `ERR_MODULE_NOT_FOUND`. ESM mewajibkan jalur lengkap',
+          ],
+          [
+            'Memakai `__dirname` di ESM',
+            'Selalu ada di Node',
+            'Diuji sungguhan, `ReferenceError`. Pakai `import.meta.dirname`',
+          ],
+          [
+            'Menambahkan `"type": "module"` di tengah project berjalan',
+            'Supaya bisa pakai `import`',
+            'Seluruh berkas `.js` yang ada langsung berubah arti, dan yang memakai `require` semuanya rusak sekaligus',
+          ],
+          [
+            'Mengimpor tanpa prefiks `node:` untuk modul bawaan',
+            'Selama ini berhasil',
+            'Rentan tertukar dengan paket npm bernama sama. `node:fs` menyatakan maksudnya tanpa keraguan',
+          ],
+        ],
+      ),
+      p(
+        "Baris terakhir bukan sekadar gaya penulisan melainkan lapisan keamanan yang murah. Tanpa prefiks, `import fs from 'fs'` akan mengambil modul bawaan **kecuali** ada paket bernama `fs` di `node_modules`, dan paket seperti itu memang pernah beredar sebagai serangan rantai pasok. Dengan `node:fs`, tidak ada satu pun paket yang bisa menyamar jadi modul bawaan, sebab prefiks itu dipesan khusus oleh Node.",
+      ),
       references(
         {
           label: 'Modules: ECMAScript modules',
@@ -452,7 +802,7 @@ export const lessons: LessonDraft[] = [
   written(
     'http-tanpa-framework',
     'HTTP Server tanpa Framework',
-    10,
+    18,
     'Melihat apa yang sebenarnya dikerjakan Express, dengan membuatnya sendiri.',
     [
       p(
@@ -616,6 +966,194 @@ export const lessons: LessonDraft[] = [
         'Apa yang perlu kamu bawa dari sub-bab ini',
         'Express bukan server — ia adalah **satu fungsi handler** yang dioper ke `http.createServer`. Semua yang ia lakukan bisa kamu tulis sendiri. Mengetahui itu membuatmu bisa membaca pesan errornya, memahami kenapa urutan middleware penting, dan tidak takut membuka kodenya saat ada yang aneh.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Menulis server tanpa framework sekali saja mengubah cara membaca kode Express selamanya, sebab setiap baris Express menjadi jawaban atas pekerjaan yang barusan kamu kerjakan sendiri. Bagian yang paling banyak mengajarkan bukan routing melainkan **membaca badan permintaan**, sebab di situlah seluruh keadaan tak nyaman berkumpul.',
+      ),
+      code(
+        'ts',
+        `
+        import http from 'node:http';
+
+        const BATAS = 1024; // sengaja kecil supaya batasnya terlihat saat diuji
+
+        const server = http.createServer((req, res) => {
+          const potongan = [];
+          let ukuran = 0;
+          let ditolak = false;
+
+          // Badan permintaan tiba POTONGAN DEMI POTONGAN, bukan sekaligus.
+          req.on('data', (c) => {
+            if (ditolak) return;
+            ukuran += c.length;
+
+            // Batas diperiksa SAAT MENGALIR, bukan sesudah semuanya terkumpul —
+            // kalau diperiksa di akhir, memorinya sudah terlanjur habis.
+            if (ukuran > BATAS) {
+              ditolak = true;
+              res.writeHead(413, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Badan permintaan terlalu besar', batasByte: BATAS }));
+              req.destroy();
+              return;
+            }
+            potongan.push(c);
+          });
+
+          req.on('end', () => {
+            if (ditolak) return;
+            const mentah = Buffer.concat(potongan).toString();
+            const tipe = (req.headers['content-type'] ?? '').split(';')[0].trim();
+
+            if (tipe !== 'application/json') {
+              res.writeHead(415, { 'Content-Type': 'application/json' });
+              return res.end(JSON.stringify({ error: 'Content-Type harus application/json', diterima: tipe || '(kosong)' }));
+            }
+            try {
+              const isi = JSON.parse(mentah);
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ diterima: isi, byte: ukuran }));
+            } catch (e) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Badan bukan JSON yang sah', pesan: e.message }));
+            }
+          });
+        });
+        `,
+        {
+          caption:
+            'Server ini benar-benar dijalankan dengan Node 26.5.0, dan hasil keenam pengujiannya ada di bawah.',
+        },
+      ),
+      p(
+        "Perhatikan `req.on('data', ...)` yang menerima potongan satu per satu. Badan permintaan adalah **aliran**, bukan nilai tunggal, dan itu sengaja. Sebuah unggahan dua gigabyte tidak akan pernah muat di memori sekaligus, jadi Node menyerahkannya sedikit demi sedikit dan kamu yang memutuskan apa yang dilakukan terhadap tiap potongan.",
+      ),
+      p(
+        'Konsekuensi paling penting dari bentuk aliran itu ada pada pemeriksaan batas ukuran. Memeriksanya setelah `end` sudah terlambat, sebab pada saat itu seluruh datanya sudah ditampung. Memeriksanya di dalam `data` berarti sambungannya diputus sebelum penyerang sempat menghabiskan memori server.',
+      ),
+      code(
+        'text',
+        `
+        Enam keadaan yang benar-benar diuji terhadap server di atas:
+
+          JSON sah                 200  {"diterima":{"judul":"Belanja"},"byte":19}
+          JSON rusak               400  {"error":"Badan bukan JSON yang sah",
+                                         "pesan":"Expected property name or '}' in JSON at position 1"}
+          tanpa Content-Type       415  {"error":"Content-Type harus application/json",
+                                         "diterima":"text/plain"}
+          Content-Type salah       415  {"error":"Content-Type harus application/json",
+                                         "diterima":"text/plain"}
+          badan kosong             400  {"error":"Badan bukan JSON yang sah",
+                                         "pesan":"Unexpected end of JSON input"}
+          badan 2 KB (batas 1 KB)  413  {"error":"Badan permintaan terlalu besar","batasByte":1024}
+        `,
+        { caption: 'Dijalankan sungguhan dengan Node 26.5.0 dan fetch bawaannya.' },
+      ),
+      p(
+        'Baris ketiga memuat temuan kecil yang berguna. Permintaan "tanpa Content-Type" ternyata tetap punya `Content-Type`, yaitu `text/plain`, sebab `fetch` mengisinya sendiri ketika badannya berupa string. Jadi "tidak mengirim header" tidak selalu berarti header itu benar-benar tidak ada, dan menguji dengan alat yang berbeda bisa memberi hasil berbeda.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Server tanpa framework punya sekelompok kesalahan yang seluruhnya hilang begitu Express dipakai, dan justru karena itu berguna melihatnya sekali. Yang paling sering adalah mengirim respons dua kali.',
+      ),
+      code(
+        'text',
+        `
+        res.writeHead(400, ...); res.end('...');
+        // lalu di baris lain, tanpa return:
+        res.writeHead(200, ...); res.end('...');
+
+        Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client
+        `,
+        {
+          caption:
+            'Bentuk error ini muncul karena header HTTP hanya bisa dikirim sekali per respons.',
+        },
+      ),
+      p(
+        'Penyebabnya hampir selalu sebuah `return` yang lupa ditulis. Perhatikan pada kode di atas setiap cabang kegagalan ditulis `return res.end(...)` atau diikuti `return`, dan itu bukan gaya penulisan melainkan syarat. Tanpa `return`, alur kode terus berjalan ke cabang berikutnya dan mencoba menjawab permintaan yang sudah dijawab.',
+      ),
+      p(
+        'Kegagalan kedua lebih halus dan tidak pernah menghasilkan error sama sekali, yaitu **permintaan yang tidak pernah dijawab**.',
+      ),
+      code(
+        'ts',
+        `
+        const server = http.createServer((req, res) => {
+          if (req.url === '/catatan') {
+            res.end('daftar catatan');
+          }
+          // Tidak ada cabang lain. Permintaan ke alamat lain TIDAK PERNAH dijawab.
+        });
+
+        // Yang dilihat klien: sambungan menggantung sampai batas waktunya habis.
+        // Yang dilihat log server: tidak ada apa-apa, sebab tidak ada yang gagal.
+        `,
+        { caption: 'Gejalanya sama persis dengan yang diukur pada handler async yang melempar.' },
+      ),
+      p(
+        'Ini sebabnya setiap server harus punya cabang terakhir yang menjawab `404`, dan Express menyediakannya lewat rute penampung. Aturan yang layak dipegang, **setiap jalur kode di dalam handler harus berakhir pada tepat satu respons**, tidak nol dan tidak dua.',
+      ),
+      p('Kegagalan ketiga muncul pada aliran, dan ia jenis yang hanya terlihat di produksi.'),
+      code(
+        'ts',
+        `
+        req.on('data', (c) => potongan.push(c));
+        req.on('end', () => { /* ... */ });
+        // Tidak ada req.on('error', ...)
+
+        // Ketika klien memutus sambungan di tengah unggahan — jaringan seluler
+        // terputus, tab ditutup, aplikasi dimatikan — peristiwa 'error' terpancar.
+        // Tanpa penangan, ia menjadi uncaught exception dan MEMATIKAN PROSES,
+        // persis seperti yang diukur di sub-bab runtime.
+        `,
+        {
+          caption: 'Sambungan yang putus di tengah adalah kejadian normal, bukan kejadian langka.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Menulis server sendiri memperlihatkan berapa banyak keputusan yang biasanya diambilkan framework, dan tiap keputusan yang terlewat menjadi bug.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menampung seluruh badan lalu memeriksa ukurannya',
+            'Pemeriksaannya kan tetap ada',
+            'Memorinya sudah terlanjur terpakai. Periksa di dalam peristiwa `data`, saat masih mengalir',
+          ],
+          [
+            'Lupa `return` setelah mengirim respons',
+            'Sudah dipanggil `res.end`',
+            '`res.end` tidak menghentikan fungsi. Cabang berikutnya ikut berjalan dan menghasilkan `ERR_HTTP_HEADERS_SENT`',
+          ],
+          [
+            'Tidak menyediakan cabang penampung',
+            'Semua alamat sudah ditangani',
+            'Satu alamat yang terlewat membuat kliennya menggantung tanpa jawaban dan tanpa jejak di log',
+          ],
+          [
+            "Tidak memasang `req.on('error')`",
+            'Errornya kan di klien',
+            'Sambungan yang putus di tengah unggahan memancarkan error di server. Tanpa penangan, prosesnya mati',
+          ],
+          [
+            'Mempercayai `Content-Type` dari klien',
+            'Kliennya yang tahu isinya apa',
+            'Header itu dikirim klien dan bisa berisi apa saja. Ia penyaring, bukan jaminan isi',
+          ],
+          [
+            'Memakai `req.url` langsung sebagai jalur berkas',
+            'Itu kan alamat yang diminta',
+            'Jalan langsung menuju path traversal. Alamat dari pengguna tidak pernah boleh jadi jalur berkas',
+          ],
+        ],
+      ),
+      p(
+        "Baris terakhir menghubungkan kembali ke pengukuran di bab Fondasi, yaitu `new URL('https://a.id/berkas/../../etc/passwd').pathname` menghasilkan `/etc/passwd` setelah dinormalisasi. Normalisasi itu merapikan bentuknya dan tidak menghalangi apa pun, jadi menggabungkan hasilnya ke jalur folder tetap membuka isi berkas yang seharusnya tidak terjangkau. Layani berkas statis lewat pustaka yang memang dirancang untuk itu, atau lewat daftar nama yang diizinkan.",
+      ),
       references(
         {
           label: 'HTTP — http.createServer()',
@@ -648,7 +1186,7 @@ export const lessons: LessonDraft[] = [
   written(
     'express-setup',
     'Express 5: instalasi, `app`, `listen`',
-    9,
+    15,
     'Menyiapkan aplikasi Express yang benar sejak awal.',
     [
       terms(
@@ -840,6 +1378,181 @@ export const lessons: LessonDraft[] = [
       p(
         'Tanpa ini, setiap deploy memutus permintaan yang sedang diproses — termasuk yang sedang menulis ke database. Ini kecil untuk ditulis dan mahal kalau tidak ada.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Keputusan setup yang paling menentukan bukan versi Express melainkan **memisahkan `app` dari `listen`**, dan alasannya baru terasa ketika test pertama ditulis. Selama keduanya masih satu berkas, setiap test harus menyalakan server sungguhan di sebuah port, dan port itu bisa bentrok dengan test lain yang berjalan bersamaan.',
+      ),
+      code(
+        'ts',
+        `
+        // app.ts — hanya menyusun aplikasi. TIDAK memanggil listen.
+        import express from 'express';
+        import { rutePesanan } from './rute/pesanan.js';
+
+        export function buatApp() {
+          const app = express();
+          app.use(express.json({ limit: '100kb' }));
+          app.use('/v1/pesanan', rutePesanan);
+          return app;
+        }
+
+        // server.ts — satu-satunya berkas yang menyalakan server.
+        import { buatApp } from './app.js';
+        import { env } from './config/env.js';
+
+        const server = buatApp().listen(env.PORT, () => {
+          console.log(JSON.stringify({ level: 'info', pesan: 'siap', port: env.PORT }));
+        });
+
+        // test/pesanan.test.ts — memakai app TANPA port sama sekali.
+        // import request from 'supertest';
+        // const res = await request(buatApp()).get('/v1/pesanan');
+        `,
+        {
+          caption:
+            'Pemisahan ini yang membuat test tidak pernah berebut port dan tidak perlu menunggu server siap.',
+        },
+      ),
+      callout(
+        'warning',
+        'Contoh Express di sub-bab ini TIDAK dijalankan',
+        'Express tidak terpasang di project ini, dan aturan project melarang menambah dependency tanpa persetujuan lebih dulu (`core.md`, Dependency Version Gate). Seluruh potongan Express disusun mengikuti dokumentasi resminya. Yang **dijalankan sungguhan** adalah mekanisme di bawahnya memakai `node:http` bawaan Node 26.5.0, dan setiap pengukuran di bab ini berasal dari sana.',
+      ),
+      p(
+        'Keputusan kedua yang sering ditunda adalah mematikan server dengan benar. Tanpa itu, setiap deploy memutus permintaan yang sedang berjalan di tengah jalan.',
+      ),
+      code(
+        'ts',
+        `
+        const server = buatApp().listen(env.PORT);
+
+        async function matikanDenganRapi(sinyal: string) {
+          console.log(JSON.stringify({ level: 'info', pesan: 'menerima ' + sinyal }));
+
+          // 1. Berhenti menerima sambungan BARU, tapi selesaikan yang sedang berjalan.
+          server.close(async () => {
+            // 2. Baru setelah semuanya selesai, tutup sumber daya lain.
+            await db.end();
+            process.exit(0);
+          });
+
+          // 3. Batas kesabaran. Tanpa ini, satu sambungan yang menggantung
+          //    menahan proses selamanya dan orkestrator akan membunuhnya paksa.
+          setTimeout(() => {
+            console.log(JSON.stringify({ level: 'error', pesan: 'paksa keluar setelah 10 detik' }));
+            process.exit(1);
+          }, 10_000).unref();
+        }
+
+        process.on('SIGTERM', () => matikanDenganRapi('SIGTERM'));
+        process.on('SIGINT', () => matikanDenganRapi('SIGINT'));
+        `,
+        {
+          caption:
+            'SIGTERM adalah sinyal yang dikirim Docker, Kubernetes, dan hampir semua platform saat men-deploy.',
+        },
+      ),
+      p(
+        'Panggilan `.unref()` di baris terakhir itu kecil dan menentukan. Tanpanya, timer sepuluh detik itu sendiri menahan proses tetap hidup meski seluruh pekerjaan sudah selesai, sehingga setiap deploy selalu memakan sepuluh detik penuh.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Dua kegagalan setup akan kamu temui di hari pertama, dan keduanya dijalankan sungguhan dengan `node:http`.',
+      ),
+      code(
+        'text',
+        `
+        EADDRINUSE: listen EADDRINUSE: address already in use 127.0.0.1:3995
+        `,
+        { caption: 'Dijalankan sungguhan dengan Node 26.5.0.' },
+      ),
+      p(
+        'Ini gejala langsung dari tidak adanya penutupan yang rapi. Proses sebelumnya dihentikan dengan cara yang tidak menutup socket-nya, dan sistem operasi masih menahan port itu. Setelah pola `SIGTERM` di atas dipasang, error ini nyaris hilang dari keseharian.',
+      ),
+      code(
+        'text',
+        `
+        Error: Cannot find module 'express'
+        Require stack:
+        - /app/src/server.js
+        `,
+        {
+          caption:
+            'Bentuk error ini muncul ketika paketnya belum terpasang, atau terpasang di tempat lain.',
+        },
+      ),
+      p(
+        'Pada project nyata, penyebab yang paling sering bukan lupa memasang melainkan **`node_modules` yang tidak ikut ke dalam image**, atau paket yang tercatat di `devDependencies` padahal dibutuhkan saat berjalan. Produksi biasanya memasang dengan `npm ci --omit=dev`, sehingga apa pun yang ada di `devDependencies` tidak ikut terpasang.',
+      ),
+      p(
+        'Kegagalan ketiga tidak menghasilkan error dan baru terasa setelah aplikasinya berada di belakang proxy.',
+      ),
+      code(
+        'ts',
+        `
+        // Tanpa baris ini, req.ip berisi alamat PROXY, bukan alamat pengguna,
+        // dan req.protocol selalu 'http' meski penggunanya mengakses lewat https.
+        app.set('trust proxy', 1);
+
+        // Akibat yang nyata bila terlewat:
+        //   - rate limiting per IP membaca satu IP yang sama untuk SEMUA pengguna,
+        //     jadi satu penyerang bisa memblokir seluruh pengguna lain
+        //   - log mencatat alamat proxy, sehingga penelusuran jadi mustahil
+        //   - pengalihan ke https berputar tanpa henti
+        //
+        // Angka 1 berarti "percayai satu lapis proxy di depan".
+        // JANGAN menulis true, sebab itu mempercayai seluruh rantai header
+        // X-Forwarded-For yang bisa dipalsukan klien.
+        `,
+        {
+          caption:
+            'Ini pengaturan yang paling sering terlewat saat aplikasi pindah dari komputer sendiri ke produksi.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Setup terasa seperti pekerjaan sekali jadi, dan justru keputusan yang diambil di sini yang paling sulit diubah belakangan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memanggil `listen` di berkas yang sama dengan `app`',
+            'Lebih sedikit berkas',
+            'Setiap test harus menyalakan server sungguhan dan berebut port. Pisahkan sejak awal',
+          ],
+          [
+            'Tidak menangani `SIGTERM`',
+            'Prosesnya berhenti juga',
+            'Setiap deploy memutus permintaan yang sedang berjalan di tengah. Pengguna melihat kegagalan acak saat rilis',
+          ],
+          [
+            'Memasang `express.json()` tanpa `limit`',
+            'Bawaannya sudah ada',
+            'Bawaannya 100kb, dan itu memang ada. Yang berbahaya adalah tidak tahu berapa dan tidak menyesuaikannya',
+          ],
+          [
+            'Menaruh paket yang dipakai saat berjalan di `devDependencies`',
+            'Di komputer sendiri jalan',
+            'Produksi memasang dengan `--omit=dev`, dan paketnya tidak ikut. Muncul sebagai `Cannot find module`',
+          ],
+          [
+            'Melupakan `trust proxy` di belakang reverse proxy',
+            'Tidak ada error apa pun',
+            'Rate limiting membaca satu IP untuk semua pengguna, dan log mencatat alamat proxy',
+          ],
+          [
+            "Menulis `app.set('trust proxy', true)`",
+            'Lebih sederhana',
+            'Mempercayai seluruh rantai `X-Forwarded-For` yang bisa dipalsukan klien. Sebut jumlah lapisnya',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua pantas ditegaskan karena akibatnya baru terlihat di produksi dan bentuknya menyesatkan. Pengguna melaporkan kegagalan yang muncul acak beberapa menit sekali, dan penelusurannya mengarah ke kode aplikasi. Padahal yang terjadi adalah setiap rilis memutus permintaan yang sedang dilayani, dan frekuensinya persis mengikuti frekuensi deploy.',
+      ),
       references(
         {
           label: 'Express — Installing & Hello World',
@@ -872,7 +1585,7 @@ export const lessons: LessonDraft[] = [
   written(
     'routing-express',
     'Routing & Route Parameter',
-    10,
+    15,
     'Memetakan URL ke fungsi yang menanganinya.',
     [
       terms(
@@ -1073,6 +1786,178 @@ export const lessons: LessonDraft[] = [
       p(
         'Tanpa penampung ini, Express punya penanganan 404 bawaan yang mengembalikan **HTML** berisi "Cannot GET /apa-saja". Untuk sebuah API itu jawaban yang salah bentuk: klien yang mengharapkan JSON akan gagal mem-parse-nya, dan pesan error yang muncul di sisi klien menjadi menyesatkan. Dengan blok ini, permintaan ke alamat yang keliru mendapat bentuk error yang **sama** dengan seluruh error lain di API-mu, lengkap dengan kode yang bisa diperiksa program.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Routing terlihat sebagai bagian paling sederhana sampai sebuah aplikasi punya tiga puluh rute, dan pada titik itu satu sifat yang tadinya tak terasa menjadi penentu, yaitu **rute dicocokkan berurutan dari atas ke bawah, dan yang pertama cocok yang menang**.',
+      ),
+      code(
+        'ts',
+        `
+        // Urutan yang SALAH. Rute kedua tidak akan pernah tercapai.
+        app.get('/pesanan/:id', ambilPesanan);
+        app.get('/pesanan/terbaru', ambilTerbaru);
+
+        // GET /pesanan/terbaru mencocoki rute PERTAMA, dengan id = "terbaru".
+        // Yang terjadi kemudian bergantung pada kode ambilPesanan:
+        //   - kalau ia memanggil Number("terbaru") -> NaN -> query aneh
+        //   - kalau ia meneruskannya ke SQL bertipe integer:
+        //       ERROR: invalid input syntax for type integer: "terbaru"
+        //   - kalau ia sekadar mencari dan tidak ketemu -> 404 yang membingungkan
+
+        // Urutan yang BENAR: yang lebih khusus lebih dulu.
+        app.get('/pesanan/terbaru', ambilTerbaru);
+        app.get('/pesanan/:id', ambilPesanan);
+        `,
+        {
+          caption:
+            'Pesan error PostgreSQL di komentar itu benar-benar dihasilkan, diuji di bab database sebelumnya.',
+        },
+      ),
+      p(
+        'Aturan yang bisa dipegang, **rute statis sebelum rute berparameter**, dan di antara sesama rute berparameter, yang polanya lebih sempit lebih dulu. Ini bukan selera melainkan konsekuensi langsung dari pencocokan berurutan.',
+      ),
+      p(
+        'Keputusan kedua adalah memecah rute mengikuti sumber daya, dan manfaatnya bukan kerapian melainkan bahwa awalan alamatnya tertulis di satu tempat.',
+      ),
+      code(
+        'ts',
+        `
+        // rute/pesanan.ts — tidak tahu di alamat mana ia akan dipasang.
+        import { Router } from 'express';
+        export const rutePesanan = Router();
+
+        rutePesanan.get('/', daftarPesanan);
+        rutePesanan.post('/', buatPesanan);
+        rutePesanan.get('/:id', ambilPesanan);
+        rutePesanan.patch('/:id', ubahPesanan);
+
+        // app.ts — di sinilah awalannya diputuskan, satu kali.
+        app.use('/v1/pesanan', rutePesanan);
+
+        // Memindahkan seluruh sumber daya ke /v2 berarti mengubah SATU baris,
+        // bukan dua puluh baris di dalam berkas rutenya.
+        `,
+        {
+          caption:
+            'Router tidak memuat awalannya sendiri, dan itu yang membuatnya bisa dipindahkan.',
+        },
+      ),
+      p(
+        'Rute penampung di paling bawah adalah bagian yang paling sering dilupakan, dan akibatnya sudah diukur pada sub-bab sebelumnya, yaitu permintaan yang tidak pernah dijawab sehingga kliennya menggantung sampai kehabisan waktu.',
+      ),
+      code(
+        'ts',
+        `
+        // Dipasang PALING BAWAH, setelah seluruh rute lain.
+        app.use((req, res) => {
+          res.status(404).json({
+            error: 'Alamat tidak ditemukan',
+            method: req.method,
+            path: req.originalUrl,
+          });
+        });
+
+        // Menyertakan method dan path di badan respons menghemat banyak waktu
+        // penelusuran, sebab 404 dari salah alamat dan 404 dari data yang
+        // memang tidak ada terlihat sama persis di sisi klien.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Express 5 mengubah sintaks pola rute, dan perubahan itu menghasilkan error saat boot yang membingungkan bila sumber polanya adalah tutorial Express 4.',
+      ),
+      code(
+        'text',
+        `
+        app.get('*', penampung);      // sintaks Express 4
+
+        TypeError: Missing parameter name at index 1: *
+        `,
+        { caption: 'Bentuk error ini muncul saat aplikasi menyala, bukan saat rute itu diakses.' },
+      ),
+      p(
+        "Di Express 5, bintang harus diberi nama, yaitu `'/*sisa'`, atau lebih baik diganti dengan `app.use(...)` tanpa pola sama sekali seperti pada contoh penampung di atas. Yang membuat error ini menjebak adalah ia muncul saat boot, sehingga terlihat seperti kerusakan pemasangan alih-alih kesalahan satu baris rute.",
+      ),
+      p(
+        'Kegagalan kedua tidak menghasilkan error dan merupakan lubang keamanan, yaitu **route parameter yang dipercaya apa adanya**.',
+      ),
+      code(
+        'ts',
+        `
+        // Terlihat tidak berbahaya, dan ini IDOR.
+        app.get('/v1/pesanan/:id', async (req, res) => {
+          const pesanan = await db.pesanan.cari(req.params.id);
+          if (!pesanan) return res.status(404).json({ error: 'Tidak ditemukan' });
+          res.json(pesanan);
+        });
+
+        // Siapa pun yang sudah masuk bisa membaca pesanan siapa pun
+        // hanya dengan mengganti angka di alamat.
+
+        // Yang benar: setiap query dibatasi ke pemiliknya, DI LAPISAN DATA.
+        app.get('/v1/pesanan/:id', async (req, res) => {
+          const id = Number(req.params.id);
+          if (!Number.isInteger(id) || id < 1) {
+            return res.status(400).json({ error: 'Id tidak valid' });
+          }
+          // pelangganId berasal dari sesi/token, BUKAN dari permintaan.
+          const pesanan = await db.pesanan.cariMilik(id, req.pengguna.id);
+          if (!pesanan) return res.status(404).json({ error: 'Tidak ditemukan' });
+          res.json(pesanan);
+        });
+        `,
+        {
+          caption:
+            'Menjawab 404 alih-alih 403 disengaja: 403 membocorkan bahwa pesanan bernomor itu memang ada.',
+        },
+      ),
+      p(
+        'Dua hal terjadi di versi kedua. Parameter diubah tipenya dan diperiksa sebelum menyentuh database, sehingga `"terbaru"` atau `"1 OR 1=1"` ditolak sebagai `400` alih-alih diteruskan. Dan yang lebih penting, pembatasan kepemilikan terjadi **di dalam query**, bukan dengan membandingkan setelah datanya diambil. Menyembunyikan tombol di antarmuka bukan kontrol akses, dan begitu juga memeriksa sesudah data terlanjur dibaca.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Routing mengumpulkan kesalahan yang akibatnya terentang dari membingungkan sampai berbahaya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menaruh `/:id` di atas rute statis',
+            'Urutannya terasa tidak penting',
+            '`/pesanan/terbaru` tertangkap `/pesanan/:id` dengan id `"terbaru"`. Rute statis harus lebih dulu',
+          ],
+          [
+            'Memakai route parameter langsung tanpa diperiksa',
+            'Isinya kan dari URL sendiri',
+            'Isinya sepenuhnya dikendalikan pemanggil. Ubah tipe dan periksa sebelum menyentuh database',
+          ],
+          [
+            'Mengambil data berdasarkan id tanpa membatasi pemiliknya',
+            'Penggunanya kan sudah masuk',
+            'Itu IDOR. Siapa pun bisa membaca data orang lain dengan mengganti angka di alamat',
+          ],
+          [
+            'Menulis awalan alamat di dalam berkas rutenya',
+            'Lebih jelas terbaca',
+            'Memindahkan sumber daya jadi mengubah puluhan baris. Awalan diputuskan di tempat `app.use`',
+          ],
+          [
+            "Memakai `app.get('*', ...)` dari tutorial lama",
+            'Begitu cara membuat penampung',
+            'Express 5 menolaknya saat boot dengan `Missing parameter name`. Pakai `app.use` tanpa pola',
+          ],
+          [
+            'Tidak menyediakan penampung 404',
+            'Semua rute sudah ditulis',
+            'Satu alamat salah ketik membuat kliennya menggantung tanpa jawaban dan tanpa jejak',
+          ],
+        ],
+      ),
+      p(
+        'Baris ketiga adalah satu-satunya di tabel ini yang berupa kerentanan, dan ia yang paling sering lolos justru karena fiturnya bekerja sempurna. Halaman menampilkan data yang benar, testnya lulus, dan tidak ada yang memeriksa apa yang terjadi kalau angka di alamat diganti. Cara mengujinya satu baris, yaitu masuk sebagai pengguna A lalu buka alamat milik pengguna B. Kalau datanya muncul, kerentanannya ada.',
+      ),
       references(
         {
           label: 'Express — Basic routing',
@@ -1105,7 +1990,7 @@ export const lessons: LessonDraft[] = [
   written(
     'middleware',
     'Middleware: konsep, urutan, `next()`',
-    12,
+    20,
     'Fungsi yang berjalan di antara permintaan dan handlernya.',
     [
       p(
@@ -1340,6 +2225,200 @@ export const lessons: LessonDraft[] = [
           ['`compression`', 'Kompresi gzip pada respons'],
         ],
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Middleware sering dijelaskan sebagai "fungsi yang berjalan sebelum handler", dan penjelasan itu benar tapi menyembunyikan bagian yang penting. Berikut mekanismenya ditulis ulang dengan `node:http` polos, lalu benar-benar dijalankan, supaya terlihat apa yang sesungguhnya dikerjakan Express.',
+      ),
+      code(
+        'ts',
+        `
+        function buatApp() {
+          const lapisan = [];
+          const app = (req, res) => {
+            let i = 0;
+            const next = (err) => {
+              const l = lapisan[i++];
+              if (!l) {
+                if (err) { res.writeHead(500); return res.end('Error: ' + err.message); }
+                res.writeHead(404); return res.end('Tidak ditemukan');
+              }
+              const adalahPenangananError = l.fn.length === 4;
+
+              // Dua baris berikut adalah aturan Express yang paling sering
+              // disalahpahami, dan keduanya berbasis JUMLAH ARGUMEN fungsinya.
+              if (err && !adalahPenangananError) return next(err);
+              if (!err && adalahPenangananError) return next();
+
+              try {
+                return adalahPenangananError ? l.fn(err, req, res, next) : l.fn(req, res, next);
+              } catch (e) {
+                return next(e);
+              }
+            };
+            next();
+          };
+          app.use = (fn) => (lapisan.push({ fn }), app);
+          return app;
+        }
+        `,
+        { caption: 'Ditulis dan dijalankan sungguhan dengan node:http pada Node 26.5.0.' },
+      ),
+      p(
+        'Baris `const adalahPenangananError = l.fn.length === 4` adalah jawaban atas pertanyaan yang selalu muncul, yaitu bagaimana Express tahu sebuah fungsi adalah penangan error. Jawabannya, ia menghitung **jumlah parameter yang dideklarasikan**. Fungsi berargumen empat dianggap penangan error, dan fungsi berargumen tiga dianggap middleware biasa. Tidak ada penanda lain, dan tidak ada konfigurasi.',
+      ),
+      p(
+        'Konsekuensinya keras dan sering menjebak. Sebuah penangan error yang ditulis `(err, req, res)` tanpa `next` punya tiga parameter, jadi Express memperlakukannya sebagai middleware biasa dan **tidak pernah memanggilnya saat ada error**. Parameter `next` yang tidak dipakai itu tetap harus ditulis.',
+      ),
+      code(
+        'text',
+        `
+        Rantai yang diuji:
+          A: log masuk
+          B: autentikasi
+          C: rute  (menjawab, atau memanggil next(error))
+          D: middleware biasa setelah rute
+          E: penangan error, 4 argumen
+
+        GET /ok     -> 200 ok
+            A: log masuk
+            B: autentikasi
+            C: rute
+            (D dan E tidak berjalan)
+
+        GET /gagal  -> 500 gagal: Sengaja gagal di rute
+            A: log masuk
+            B: autentikasi
+            C: rute
+            E: penangan error (4 argumen)
+            (D DILEWATI)
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Perhatikan D dilewati pada kedua kasus, dengan alasan yang berbeda.',
+        },
+      ),
+      p(
+        'Dua alasan berbeda itu layak dipisahkan. Pada `/ok`, D tidak berjalan karena C sudah menjawab permintaannya dan tidak memanggil `next()`. Pada `/gagal`, D dilewati karena begitu ada error, seluruh middleware biasa diloncati sampai ditemukan yang berargumen empat. Jadi ada dua cara sebuah middleware bisa tidak berjalan, dan membedakannya menentukan letak kesalahan saat menelusuri.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan middleware yang paling sering tidak menghasilkan error apa pun, yaitu **lupa memanggil `next()`**.',
+      ),
+      code(
+        'ts',
+        `
+        // Middleware autentikasi yang lupa melanjutkan rantai.
+        app.use((req, res, next) => {
+          const token = req.header('authorization');
+          if (!token) return res.status(401).json({ error: 'Perlu autentikasi' });
+          req.pengguna = verifikasi(token);
+          // next() tidak dipanggil.
+        });
+
+        // Yang terjadi: permintaan yang tokennya SAH menggantung selamanya.
+        // Yang tokennya tidak ada justru berjalan benar, sebab cabang itu menjawab.
+        //
+        // Gejala di produksi: "kadang halamannya loading terus", dan yang
+        // mengalaminya justru pengguna yang sudah masuk.
+        `,
+        {
+          caption:
+            'Gejalanya identik dengan yang diukur di sub-bab runtime, yaitu klien menunggu sampai kehabisan waktu.',
+        },
+      ),
+      p(
+        'Bentuk yang lebih halus dari kesalahan yang sama adalah memanggil `next()` **dan** mengirim respons di jalur yang sama.',
+      ),
+      code(
+        'text',
+        `
+        app.use((req, res, next) => {
+          if (!izin(req)) res.status(403).json({ error: 'Tidak berhak' });
+          next();   // <- tetap dipanggil, tanpa return di baris atasnya
+        });
+
+        Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client
+        `,
+        {
+          caption:
+            'Respons sudah terkirim, lalu rantai melanjutkan dan handler berikutnya mencoba menjawab lagi.',
+        },
+      ),
+      p(
+        'Perbaikannya satu kata, yaitu `return` di depan `res.status(...)`. Kebiasaan menulis `return res.status(...).json(...)` pada setiap cabang kegagalan menutup seluruh kelas bug ini, dan itu sebabnya bentuk tersebut muncul di hampir semua contoh di bab ini.',
+      ),
+      p(
+        'Kegagalan ketiga menyangkut urutan pemasangan, dan akibatnya adalah middleware yang seolah-olah tidak berfungsi.',
+      ),
+      code(
+        'ts',
+        `
+        // SALAH: rute dipasang sebelum pengurai badan permintaan.
+        app.use('/v1/pesanan', rutePesanan);   // <- di sini req.body masih undefined
+        app.use(express.json());
+
+        // Gejalanya: req.body undefined di seluruh rute pesanan, dan
+        // "TypeError: Cannot read properties of undefined (reading 'judul')".
+
+        // BENAR: yang berlaku untuk semua dipasang lebih dulu.
+        app.use(express.json({ limit: '100kb' }));
+        app.use(pencatatPermintaan);
+        app.use('/v1/pesanan', rutePesanan);
+        app.use(penampung404);
+        app.use(penangananError);   // <- SELALU paling akhir
+        `,
+        {
+          caption:
+            'Urutan pemasangan adalah urutan eksekusi, dan tidak ada mekanisme lain yang mengaturnya.',
+        },
+      ),
+      p(
+        'Baris terakhir pantas ditegaskan. Penangan error dipasang paling akhir bukan karena kerapian melainkan karena rantainya dijalankan berurutan. Penangan error yang dipasang sebelum rute tidak akan pernah menerima error dari rute itu, sebab pada saat error terjadi, posisinya di dalam rantai sudah terlewati.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Middleware adalah tempat bug yang gejalanya paling tidak berhubungan dengan penyebabnya, sebab yang salah biasanya urutan, bukan isinya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Lupa memanggil `next()`',
+            'Middleware-nya sudah selesai bekerja',
+            'Permintaannya menggantung sampai kehabisan waktu, dan tidak ada satu pun error di log',
+          ],
+          [
+            'Mengirim respons tanpa `return` lalu tetap memanggil `next()`',
+            'Sudah dijawab di cabang itu',
+            '`res.json` tidak menghentikan fungsi. Hasilnya `ERR_HTTP_HEADERS_SENT` di handler berikutnya',
+          ],
+          [
+            'Menulis penangan error dengan tiga argumen',
+            '`next` tidak dipakai',
+            'Diuji sungguhan, Express mengenalinya dari jumlah argumen. Tiga argumen = middleware biasa, tidak pernah menerima error',
+          ],
+          [
+            'Memasang penangan error sebelum rute',
+            'Supaya siap lebih dulu',
+            'Rantai berjalan berurutan, jadi posisinya sudah terlewati saat error terjadi. Pasang paling akhir',
+          ],
+          [
+            'Memasang `express.json()` setelah rute',
+            'Urutannya terasa bebas',
+            '`req.body` bernilai undefined di rute itu, dan gejalanya muncul sebagai `Cannot read properties of undefined`',
+          ],
+          [
+            'Menitipkan data dengan menambah properti sembarang ke `req`',
+            'Praktis dan berhasil',
+            'Bisa bentrok dengan properti bawaan atau pustaka lain. Pakai satu properti milikmu sendiri, misalnya `req.konteks`',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir punya alasan yang jarang disebut. Objek `req` milik Node, dan Express serta setiap pustaka pihak ketiga menambahkan properti ke sana. Menulis `req.user` terlihat wajar sampai sebuah pustaka autentikasi lain memakai nama yang sama dengan bentuk isi yang berbeda, dan bug yang dihasilkannya muncul jauh dari tempat penyebabnya. Menaruh seluruh titipanmu di bawah satu properti, misalnya `req.konteks.pengguna`, menghapus kemungkinan itu sepenuhnya.',
+      ),
       references(
         {
           label: 'Using middleware',
@@ -1372,7 +2451,7 @@ export const lessons: LessonDraft[] = [
   written(
     'body-query',
     'Membaca Body & Query',
-    9,
+    15,
     'Mengambil data yang dikirim klien, dengan aman.',
     [
       terms(
@@ -1552,6 +2631,174 @@ export const lessons: LessonDraft[] = [
       p(
         'Semua di sub-bab ini hanya **membaca dan mengubah tipe**. Ia belum memvalidasi bahwa isinya masuk akal. Validasi sungguhan dengan skema dibahas di sub-bab 3.13 — dan itulah yang menjadi penjaga sebenarnya.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Endpoint pencarian produk adalah tempat ketiga sumber data bertemu sekaligus, yaitu path param untuk identitas, query string untuk penyaringan, dan body untuk data yang dikirim. Kesalahan menanganinya jarang menghasilkan error dan hampir selalu menghasilkan perilaku yang salah.',
+      ),
+      code(
+        'ts',
+        `
+        // GET /v1/kategori/42/produk?halaman=2&urut=harga&tag=baju&tag=celana
+        app.get('/v1/kategori/:kategoriId/produk', async (req, res) => {
+          // req.params.kategoriId  -> "42"             string
+          // req.query.halaman      -> "2"              string
+          // req.query.tag          -> ["baju","celana"] ARRAY, karena kunci berulang
+          // req.body               -> undefined         GET tidak berbadan
+        });
+        `,
+        {
+          caption:
+            'Perhatikan req.query.tag berubah bentuk tergantung berapa kali kuncinya dikirim.',
+        },
+      ),
+      p(
+        'Baris ketiga itu sumber bug yang paling sering di endpoint penyaringan. Ketika pengguna memilih satu tag, `req.query.tag` berisi string. Ketika memilih dua, ia berisi array. Kode yang menulis `req.query.tag.toLowerCase()` berjalan sempurna pada satu tag lalu gagal dengan `TypeError` pada dua tag, dan bug itu tidak pernah muncul saat diuji dengan satu pilihan.',
+      ),
+      p(
+        'Bentuknya bahkan bisa lebih dari dua. Express punya pengaturan `query parser`, dan pada mode yang diperluas, sintaks bertingkat seperti `?filter[harga][gte]=1000` diurai menjadi objek bersarang. Nilai bawaannya berbeda antara Express 4 dan Express 5, jadi periksa sendiri dengan mencetak `req.query` pada versi yang benar-benar kamu pakai alih-alih mengandalkan ingatan.',
+      ),
+      code(
+        'text',
+        `
+        Yang perlu dipegang tanpa bergantung pada versi:
+
+          tipe nilai di req.query bukan string, melainkan
+            string | string[] | objek bersarang
+
+          dan yang MENENTUKAN bentuknya adalah pemanggil, bukan kodemu.
+
+        Karena itu setiap nilai dari query harus melewati skema validasi
+        sebelum dipakai, bukan sekadar diubah tipenya di tempat pemakaian.
+        `,
+      ),
+      p(
+        'Kesalahan yang sepasang dengan itu sudah diukur di bab Fondasi dan berlaku persis sama di sini, yaitu nilai query **selalu** bertipe teks. `req.query.halaman - 1` berhasil karena operator minus memaksa jadi angka, sedangkan `req.query.halaman + 1` menghasilkan penggabungan teks `"21"`. Satu berhasil dan satu rusak, jadi bugnya bertahan lama.',
+      ),
+      code(
+        'ts',
+        `
+        // Satu tempat untuk seluruh konversi dan pemeriksaan, memakai zod 4.4.3
+        // yang benar-benar terpasang di project ini.
+        import { z } from 'zod';
+
+        const Kueri = z.object({
+          halaman: z.coerce.number().int().min(1).default(1),
+          limit: z.coerce.number().int().min(1).max(100).default(20),
+          // Terima satu maupun banyak, lalu SERAGAMKAN jadi array.
+          tag: z.union([z.string(), z.array(z.string())]).optional()
+               .transform((v) => (v === undefined ? [] : Array.isArray(v) ? v : [v])),
+        });
+
+        app.get('/v1/produk', (req, res) => {
+          const hasil = Kueri.safeParse(req.query);
+          if (!hasil.success) {
+            return res.status(400).json({ error: 'Parameter tidak valid', detail: hasil.error.issues });
+          }
+          const { halaman, limit, tag } = hasil.data;
+          // Di bawah baris ini, halaman dan limit sudah ANGKA dan tag SELALU array.
+        });
+        `,
+        {
+          caption:
+            'Bagian transform-nya yang menghapus percabangan string-atau-array dari seluruh kode di bawahnya.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Endpoint yang menerima badan permintaan punya lima keadaan gagal yang seluruhnya harus dijawab, dan berikut hasilnya diukur sungguhan pada server `node:http` yang menangani kelimanya.',
+      ),
+      code(
+        'text',
+        `
+          JSON sah                 200  {"diterima":{"judul":"Belanja"},"byte":19}
+          JSON rusak               400  {"error":"Badan bukan JSON yang sah",
+                                         "pesan":"Expected property name or '}' in JSON at position 1"}
+          tanpa Content-Type       415  {"error":"Content-Type harus application/json",
+                                         "diterima":"text/plain"}
+          Content-Type salah       415  {"error":"Content-Type harus application/json",
+                                         "diterima":"text/plain"}
+          badan kosong             400  {"error":"Badan bukan JSON yang sah",
+                                         "pesan":"Unexpected end of JSON input"}
+          badan 2 KB (batas 1 KB)  413  {"error":"Badan permintaan terlalu besar","batasByte":1024}
+        `,
+        { caption: 'Dijalankan sungguhan dengan Node 26.5.0 dan fetch bawaannya.' },
+      ),
+      p(
+        'Baris "tanpa Content-Type" memuat temuan yang berguna, yaitu ternyata headernya tetap ada dan berisi `text/plain`, sebab `fetch` mengisinya sendiri ketika badannya string. Jadi pengujian "tanpa header" dengan alat yang berbeda bisa memberi hasil yang berbeda, dan itu alasan menguji juga dengan `curl` yang mengirim persis apa yang ditulis.',
+      ),
+      p(
+        'Di Express, empat dari lima keadaan itu ditangani `express.json()`, dan kegagalannya muncul sebagai error yang dilempar ke rantai. Karena itu ia harus ditangkap di penangan error terpusat, bukan dibiarkan.',
+      ),
+      code(
+        'ts',
+        `
+        // Penangan error yang menerjemahkan kegagalan express.json()
+        // menjadi respons yang bisa dipahami klien.
+        app.use((err, req, res, next) => {
+          // Badan bukan JSON yang sah.
+          if (err instanceof SyntaxError && 'body' in err) {
+            return res.status(400).json({ error: 'Badan permintaan bukan JSON yang sah' });
+          }
+          // Melebihi limit yang disetel di express.json({ limit: ... }).
+          if (err.type === 'entity.too.large') {
+            return res.status(413).json({ error: 'Badan permintaan terlalu besar' });
+          }
+          next(err);
+        });
+
+        // Tanpa penerjemahan ini, JSON yang rusak dari klien muncul sebagai
+        // 500 di log dan membunyikan pemantauan, padahal itu kesalahan pemanggil
+        // dan seharusnya 400 yang tidak perlu dibangunkan siapa pun.
+        `,
+        {
+          caption:
+            'Membedakan 4xx dari 5xx di sini menentukan mana yang membangunkan orang tengah malam.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Tiga sumber data ini terlihat sederhana, dan hampir semua kesalahannya berupa asumsi tentang tipe yang tidak pernah diperiksa.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `req.query.halaman` langsung sebagai angka',
+            'Isinya memang angka',
+            'Ia selalu string. `"2" - 1` berhasil tapi `"2" + 1` menghasilkan `"21"`, jadi bugnya bertahan lama',
+          ],
+          [
+            'Mengira `req.query.tag` selalu string',
+            'Saat diuji memang string',
+            'Kunci yang dikirim dua kali menghasilkan array. Seragamkan di skema, jangan bercabang di tiap pemakaian',
+          ],
+          [
+            'Memakai `req.body` tanpa `express.json()`',
+            'Datanya kan dikirim',
+            '`req.body` bernilai undefined, dan gejalanya `Cannot read properties of undefined`',
+          ],
+          [
+            'Menyebar `req.body` langsung ke `create` atau `update`',
+            'Field-nya sudah sesuai',
+            'Itu mass assignment. Klien bisa menyisipkan `peran: "admin"`. Ambil hanya field yang memang diterima',
+          ],
+          [
+            'Membiarkan JSON rusak muncul sebagai 500',
+            'Errornya memang terjadi',
+            'Itu kesalahan pemanggil, bukan kesalahan server. Terjemahkan jadi 400 supaya pemantauan tidak berbunyi',
+          ],
+          [
+            'Mempercayai `Content-Type` sebagai jaminan isi',
+            'Kliennya yang tahu',
+            'Header itu dikirim klien dan bisa berisi apa saja. Ia penyaring awal, bukan bukti',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat adalah satu-satunya di tabel ini yang berupa kerentanan, dan bentuknya sangat mudah ditulis tanpa sadar. Sebuah `db.pengguna.update({ id, ...req.body })` menerima field apa pun yang dikirim klien, termasuk yang tidak pernah muncul di formulir mana pun. Perlindungannya bukan menyaring field berbahaya satu per satu, melainkan kebalikannya, yaitu menyusun objek baru yang hanya berisi field yang memang diterima endpoint itu. Skema validasi mengerjakan ini dengan sendirinya, sebab `z.object()` membuang kunci yang tidak dideklarasikan.',
+      ),
       references(
         {
           label: 'Request — req.params, req.query, req.body',
@@ -1584,7 +2831,7 @@ export const lessons: LessonDraft[] = [
   written(
     'struktur-folder',
     'Struktur Folder: router → controller → service → repository',
-    12,
+    18,
     'Menyusun project supaya tidak berubah jadi satu berkas raksasa.',
     [
       p(
@@ -1799,6 +3046,189 @@ export const lessons: LessonDraft[] = [
       p(
         'Untuk API dengan tiga endpoint yang tidak akan tumbuh, empat lapisan hanya menambah berkas. Mulailah dari `routes/` + `controllers/`, lalu tarik keluar `services/` saat ada logika yang dipakai lebih dari satu controller, dan `repositories/` saat query mulai berulang. **Tambahkan lapisan sebagai jawaban atas masalah nyata**, bukan sebagai persiapan.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Struktur folder terasa seperti urusan selera sampai sebuah aturan bisnis perlu diuji. Berikut satu handler yang isinya benar sepenuhnya dan tetap bermasalah, sebab aturan di dalamnya tidak bisa dijangkau test tanpa menyalakan separuh aplikasi.',
+      ),
+      code(
+        'ts',
+        `
+        app.post('/v1/pesanan', async (req, res) => {
+          const { itemId, jumlah } = req.body;
+
+          const item = await db.query('SELECT * FROM produk WHERE id = $1', [itemId]);
+          if (!item) return res.status(404).json({ error: 'Produk tidak ada' });
+          if (item.stok < jumlah) return res.status(409).json({ error: 'Stok kurang' });
+
+          const diskon = jumlah >= 12 ? 0.1 : jumlah >= 6 ? 0.05 : 0;
+          const total = Math.round(item.harga * jumlah * (1 - diskon));
+
+          await db.query('INSERT INTO pesanan (produk_id, jumlah, total) VALUES ($1,$2,$3)',
+            [itemId, jumlah, total]);
+          res.status(201).json({ total, diskon });
+        });
+        `,
+        {
+          caption:
+            'Untuk menguji satu aturan diskon, dibutuhkan server HTTP dan database yang hidup.',
+        },
+      ),
+      p(
+        'Yang ingin diuji sebenarnya cuma satu kalimat, yaitu "beli enam dapat lima persen, beli dua belas dapat sepuluh persen". Untuk mengujinya sekarang, dibutuhkan server yang menyala, database berisi data, permintaan HTTP sungguhan, dan pembacaan status code untuk menyimpulkan apakah hitungannya benar. Empat hal yang tidak ada hubungannya dengan aturan diskon.',
+      ),
+      p(
+        'Pemisahannya tidak dimulai dari membuat folder melainkan dari memindahkan **satu hal** ke tempat yang tidak bergantung pada apa pun.',
+      ),
+      code(
+        'ts',
+        `
+        // domain/diskon.ts — fungsi murni. Tanpa HTTP, tanpa database, tanpa async.
+        export function hitungDiskon(jumlah: number): number {
+          if (jumlah >= 12) return 0.1;
+          if (jumlah >= 6) return 0.05;
+          return 0;
+        }
+        export function hitungTotal(harga: number, jumlah: number): number {
+          return Math.round(harga * jumlah * (1 - hitungDiskon(jumlah)));
+        }
+
+        // Testnya tidak butuh apa pun. Dua nilai yang paling penting ada DI BATAS,
+        // sebab di situlah kesalahan >= melawan > bersembunyi:
+        //   hitungDiskon(5)  -> 0
+        //   hitungDiskon(6)  -> 0.05
+        //   hitungDiskon(11) -> 0.05
+        //   hitungDiskon(12) -> 0.1
+        `,
+        {
+          caption:
+            'Nilai lapisan bukan kerapian, melainkan aturan bisnis yang bisa diuji tanpa dunia luar.',
+        },
+      ),
+      p(
+        'Setelah itu, sisanya mengikuti sendiri. Handler HTTP menjadi tipis dan hanya mengurus terjemahan antara permintaan dan jawaban, service mengurus aturan dan urutan langkah, dan repository mengurus query. Batasnya bisa diringkas jadi satu aturan, yaitu **ketergantungan hanya mengalir satu arah**.',
+      ),
+      code(
+        'text',
+        `
+        controller  ->  service  ->  repository  ->  database
+           (HTTP)      (aturan)      (query)
+
+        Yang TIDAK boleh, dan masing-masing punya gejalanya sendiri:
+
+          service mengimpor controller   -> service jadi terikat HTTP
+          repository mengimpor service   -> lingkaran ketergantungan
+          controller memanggil database  -> aturan bisnis kembali tidak teruji
+          service memanggil res.json     -> service tidak bisa dipakai job latar
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Pelanggaran arah ketergantungan tidak selalu berupa masalah estetika. Pada CommonJS, ia menghasilkan error saat pemuatan yang menghentikan seluruh aplikasi sebelum satu permintaan pun dilayani.',
+      ),
+      code(
+        'text',
+        `
+        service.cjs  ->  require('./repo.cjs')
+        repo.cjs     ->  require('./service.cjs')
+
+        TypeError: ambilPesanan is not a function
+            at Object.<anonymous> (.../service.cjs:4:16)
+            at Module._compile (node:internal/modules/cjs/loader:1934:14)
+            at Module.load (node:internal/modules/cjs/loader:1656:32)
+            at Module.require (node:internal/modules/cjs/loader:1679:12)
+            at Object.<anonymous> (.../repo.cjs:2:25)
+                                        ^^^^^^^^^^^^
+                                        jejaknya menunjuk kembali ke repo
+        `,
+        { caption: 'Dijalankan sungguhan dengan Node 26.5.0.' },
+      ),
+      p(
+        'Mekanismenya, ketika `repo` mulai dimuat ia meminta `service`, lalu `service` meminta `repo` yang **masih separuh dimuat** sehingga menerima objek ekspor yang belum berisi apa pun. Karena `service` memanggilnya di tingkat modul, ia memanggil `undefined`.',
+      ),
+      p(
+        'Bentuk yang jauh lebih sering bertahan di repo adalah versi yang hanya memberi peringatan.',
+      ),
+      code(
+        'text',
+        `
+        Versi yang pemanggilannya ada di dalam fungsi:
+
+          2000
+          (node:478812) Warning: Accessing non-existent property 'hitungTotal'
+                                 of module exports inside circular dependency
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Hasilnya benar, testnya lulus, dan yang tersisa satu baris peringatan.',
+        },
+      ),
+      p(
+        'Peringatan itu bercampur dengan keluaran lain lalu tidak terbaca siapa pun, dan lingkarannya menetap. Ia menjadi masalah pada hari seseorang memindahkan satu pemanggilan ke tingkat modul, dan pada hari itu penyebabnya terlihat seperti perubahan yang tidak berhubungan.',
+      ),
+      p(
+        'Yang perlu disebut jujur, project ESM **tidak** menunjukkan gejala apa pun untuk lingkaran yang sama.',
+      ),
+      code(
+        'text',
+        `
+        Lingkaran yang sama persis, ditulis dengan import/export:
+
+          { total: 2000 }
+
+        Tanpa error, tanpa peringatan.
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. ESM memakai live binding, jadi deklarasi fungsi sudah terjangkau lebih awal.',
+        },
+      ),
+      p(
+        'Jadi pada project modern yang memakai ESM, tidak ada satu pun sinyal dari Node yang akan memberitahumu bahwa arah ketergantungan sudah rusak. Yang menahannya hanya keputusan arsitektur dan, kalau mau lebih pasti, alat pemeriksa lingkaran yang dijalankan di CI.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan struktur punya sifat khas, yaitu tidak terasa mahal saat dilakukan dan sangat mahal saat harus dibongkar.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis query database langsung di handler rute',
+            'Paling singkat dan terlihat jelas',
+            'Aturan bisnisnya hanya bisa diuji lewat HTTP dan database sungguhan',
+          ],
+          [
+            'Memanggil service dari repository',
+            'Fungsinya sudah ada di sana',
+            'Diuji sungguhan, di CommonJS menghasilkan `TypeError` saat pemuatan. Di ESM ia diam dan tetap salah',
+          ],
+          [
+            'Mengabaikan peringatan circular dependency',
+            'Aplikasinya tetap berjalan',
+            'Ia berjalan sampai satu pemanggilan dipindah ke tingkat modul, lalu mati mendadak',
+          ],
+          [
+            'Meneruskan `res` ke dalam service',
+            'Lebih sedikit kode perantara',
+            'Service jadi terikat HTTP dan tidak bisa dipakai perintah CLI maupun job latar',
+          ],
+          [
+            'Membuat folder untuk setiap konsep sejak hari pertama',
+            'Terlihat profesional',
+            'Lapisan tanpa isi hanya menambah tempat yang harus dibuka. Tambah saat ada pemakai kedua',
+          ],
+          [
+            'Menamai folder berdasarkan jenis teknis saja',
+            'Itu pola yang umum',
+            'Untuk aplikasi besar, mencari satu fitur berarti membuka lima folder. Pertimbangkan mengelompokkan per fitur',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima memberi ukuran yang bisa dipakai untuk memutuskan. Sebuah lapisan layak ada ketika menghapusnya membuat kerumitannya **menyebar ke pemanggil**, dan tidak layak ketika menghapusnya membuat kerumitannya **hilang**. Sebuah service yang isinya hanya meneruskan panggilan ke repository tanpa menambahkan aturan apa pun termasuk kategori kedua, dan menghapusnya menyederhanakan tanpa kehilangan apa pun.',
+      ),
       references(
         {
           label: 'express.Router()',
@@ -1831,7 +3261,7 @@ export const lessons: LessonDraft[] = [
   written(
     'respons-status',
     'Respons & Status Code yang Benar',
-    10,
+    17,
     'Menjawab dengan kode dan bentuk yang bisa diandalkan klien.',
     [
       terms(
@@ -2018,6 +3448,184 @@ export const lessons: LessonDraft[] = [
       p(
         '`X-Request-Id` melengkapi pola `req.id` yang sudah beberapa kali muncul di bab ini. Dengan mengirimnya kembali ke klien, id yang sama hidup di tiga tempat: log servermu, jawaban yang diterima pengguna, dan laporan yang ia kirim kepadamu. Saat ada yang mengeluh "tadi gagal", kamu tidak perlu menebak permintaan mana di antara ribuan — cukup cari id-nya. Awalan `X-` menandai header buatan sendiri di luar standar HTTP.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Bentuk respons adalah kontrak yang paling sulit diubah setelah ada klien yang memakainya, dan status code adalah bagian dari kontrak itu yang dibaca oleh hal-hal yang tidak pernah membaca badan respons. Berikut lima keadaan yang diuji sungguhan pada satu endpoint pembuatan catatan.',
+      ),
+      code(
+        'text',
+        `
+          JSON sah                 200  {"diterima":{"judul":"Belanja"},"byte":19}
+          JSON rusak               400  {"error":"Badan bukan JSON yang sah", ...}
+          Content-Type salah       415  {"error":"Content-Type harus application/json", ...}
+          badan kosong             400  {"error":"Badan bukan JSON yang sah", ...}
+          badan melebihi batas     413  {"error":"Badan permintaan terlalu besar","batasByte":1024}
+        `,
+        { caption: 'Dijalankan sungguhan dengan Node 26.5.0.' },
+      ),
+      p(
+        'Perhatikan bahwa kelimanya memakai status yang berbeda-beda, dan tiap angka menyampaikan sesuatu yang tidak bisa disampaikan badan respons. `415` memberitahu klien bahwa formatnya yang salah, bukan isinya, sehingga mengirim ulang data yang sama dengan header yang benar akan berhasil. `413` memberitahu bahwa datanya terlalu besar, sehingga memecahnya jadi beberapa permintaan adalah jalan keluar. Keduanya mustahil disimpulkan dari `400` saja.',
+      ),
+      p(
+        'Perbedaan yang paling sering diabaikan adalah antara `400` dan `422`, dan keduanya benar-benar berbeda.',
+      ),
+      code(
+        'text',
+        `
+        400 Bad Request         badannya TIDAK BISA DIURAI sama sekali
+                                -> server belum tahu apa pun tentang isinya
+                                -> klien hanya bisa menampilkan pesan umum
+
+        422 Unprocessable       badannya JSON yang sah, isinya melanggar aturan
+                                -> server tahu persis field mana yang salah
+                                -> klien bisa menempelkan pesan di sebelah kolomnya
+
+        Diukur sungguhan:
+          -d '{judul: "Belanja"}'   ->  400  {"error":"Badan permintaan bukan JSON yang sah"}
+          -d '{"judul":"   "}'      ->  422  {"error":"Validasi gagal",
+                                              "detail":[{"field":"judul","pesan":"wajib diisi"}]}
+        `,
+        { caption: 'Dijalankan sungguhan dengan curl 8.5.0 terhadap server Node.' },
+      ),
+      p(
+        'Bentuk `detail` yang berisi daftar per field itu yang menentukan kualitas formulir di sisi klien. Dengan itu, pesan kesalahan bisa muncul tepat di bawah kolom yang bermasalah. Tanpanya, satu-satunya yang bisa ditampilkan adalah satu pesan umum di atas formulir, dan pengguna harus menebak kolom mana yang salah.',
+      ),
+      p(
+        'Satu bentuk respons yang sama untuk seluruh API lebih berharga daripada bentuk yang paling elegan, sebab klien menulis satu penanganan untuk semuanya.',
+      ),
+      code(
+        'ts',
+        `
+        // Kegagalan — satu bentuk untuk seluruh endpoint.
+        {
+          "error": "Validasi gagal",              // pesan ringkas, aman ditampilkan
+          "kode": "VALIDASI_GAGAL",               // kode tetap, aman dicocokkan klien
+          "detail": [                             // ada hanya untuk 422
+            { "field": "judul", "pesan": "wajib diisi" }
+          ],
+          "requestId": "9546c1ef-e2d1-4d18-9f01"  // untuk menemukan barisnya di log
+        }
+
+        // Keberhasilan — datanya di akar, tanpa pembungkus yang tidak perlu.
+        { "id": 2, "judul": "Belanja", "selesai": false }
+
+        // Untuk daftar, sertakan keterangan paginasinya:
+        { "data": [ ... ], "berikutnya": "eyJpZCI6MTIzfQ" }
+        `,
+        {
+          caption:
+            'Kolom kode itu yang dipakai klien; pesan boleh berubah kapan saja tanpa memutus siapa pun.',
+        },
+      ),
+      p(
+        'Kolom `kode` layak ditegaskan. Klien tidak boleh mencocokkan teks pesan, sebab pesan akan berubah saat diperbaiki bahasanya atau diterjemahkan. Kode yang tetap memberi klien sesuatu yang aman dijadikan patokan, dan memberimu kebebasan memperbaiki kalimatnya kapan pun.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kesalahan status code yang paling merusak tidak menghasilkan error sama sekali, yaitu menjawab `200` untuk sesuatu yang gagal.',
+      ),
+      code(
+        'ts',
+        `
+        // Bentuk yang terlihat rapi dan merusak seluruh lapisan di atasnya.
+        res.status(200).json({ sukses: false, pesan: 'Stok tidak cukup' });
+
+        // Yang membacanya dan menyimpulkan SEHAT:
+        //   - cache peramban dan CDN, yang menyimpan jawaban ini sebagai hasil sah
+        //   - load balancer dan health check
+        //   - pustaka percobaan ulang, yang tidak akan mencoba lagi
+        //   - sistem pemantauan, yang melaporkan tingkat error nol
+        //   - fetch di sisi klien, yang r.ok-nya bernilai true
+        //
+        // Grafik kesalahan tetap datar meski penggunanya tidak bisa memesan apa pun.
+        `,
+        {
+          caption:
+            'Diukur di bab Fondasi: fetch tidak melempar untuk 4xx maupun 5xx, dan r.ok mengikuti status code.',
+        },
+      ),
+      p(
+        'Kesalahan berikutnya adalah kebalikannya, yaitu menjawab `500` untuk hal yang bukan kesalahan server.',
+      ),
+      code(
+        'text',
+        `
+        4xx = pemanggilnya salah     -> TIDAK membangunkan siapa pun
+        5xx = kita yang salah        -> harus membangunkan seseorang
+
+        JSON rusak dari klien yang dijawab 500 berarti setiap klien yang salah
+        ketik akan membunyikan pemantauan produksi. Setelah beberapa minggu,
+        tidak ada lagi yang memperhatikan bunyi itu — termasuk saat ia nyata.
+        `,
+      ),
+      p('Kelompok ketiga adalah kebocoran lewat respons, dan yang ini berakibat keamanan.'),
+      code(
+        'ts',
+        `
+        // JANGAN. Semuanya pernah ditemukan di API produksi sungguhan.
+        res.status(500).json({ error: err.message, stack: err.stack });
+        res.json(penggunaDariDatabase);                    // memuat sandi_hash
+        res.status(401).json({ error: 'Sandi salah' });     // membenarkan emailnya ada
+        res.status(403).json({ error: 'Bukan pesanan Anda' }); // membenarkan pesanan itu ada
+
+        // Yang benar:
+        res.status(500).json({ error: 'Terjadi kesalahan', requestId: req.konteks.requestId });
+        res.json({ id: p.id, email: p.email, nama: p.nama });  // daftar field yang DIPILIH
+        res.status(401).json({ error: 'Email atau sandi salah' });
+        res.status(404).json({ error: 'Tidak ditemukan' });
+        `,
+        {
+          caption:
+            'Baris ketiga dan keempat adalah kebocoran yang paling sering dianggap membantu pengguna.',
+        },
+      ),
+      p(
+        'Dua baris terakhir memerlukan penjelasan karena terasa kurang ramah. Pesan "Sandi salah" memberitahu penyerang bahwa email itu terdaftar, sehingga ia bisa menyusun daftar akun yang ada sebelum mulai menebak sandi. Pesan "Bukan pesanan Anda" memberitahu bahwa pesanan bernomor itu memang ada. Untuk sumber daya yang keberadaannya sendiri bersifat rahasia, `404` menutup kebocoran itu tanpa mengurangi apa pun bagi pemilik yang sah.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Status code terasa seperti detail yang bisa dirapikan nanti, padahal ia bagian kontrak yang paling banyak dibaca mesin.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menjawab `200` dengan `{ sukses: false }`',
+            'Kliennya kan membaca badan respons',
+            'Cache, CDN, pemantauan, dan `r.ok` semuanya menyimpulkan sehat. Kegagalannya jadi tak terlihat',
+          ],
+          [
+            'Memakai `400` untuk semua masukan bermasalah',
+            'Semuanya kan salah masukan',
+            'Kehilangan beda antara badan yang tidak bisa diurai dan isi yang melanggar aturan. Yang kedua `422`',
+          ],
+          [
+            'Menjawab `500` untuk JSON rusak dari klien',
+            'Errornya memang terjadi',
+            'Pemantauan berbunyi untuk kesalahan pemanggil. Setelah beberapa minggu, bunyinya diabaikan',
+          ],
+          [
+            'Mengembalikan objek database apa adanya',
+            'Field-nya memang itu',
+            'Kolom seperti `sandi_hash` ikut terkirim. Pilih field yang keluar secara eksplisit',
+          ],
+          [
+            'Menyertakan pesan error asli di respons `500`',
+            'Supaya mudah ditelusuri',
+            'Membocorkan nama tabel, jalur berkas, dan potongan query. Kirim `requestId`, simpan detailnya di log',
+          ],
+          [
+            'Memakai pesan berbeda untuk email salah dan sandi salah',
+            'Lebih membantu pengguna',
+            'Memberitahu penyerang email mana yang terdaftar. Pakai satu pesan untuk keduanya',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat layak dijadikan kebiasaan permanen, dan bentuknya sederhana. Jangan pernah menulis `res.json(baris)` untuk baris yang datang dari database. Tulis objek baru yang menyebutkan setiap field yang boleh keluar. Cara ini membuat penambahan kolom baru di database, misalnya `token_reset` atau `catatan_internal`, tidak pernah bisa bocor ke respons secara tidak sengaja, sebab kolom baru tidak otomatis ikut.',
+      ),
       references(
         {
           label: 'HTTP response status codes',
@@ -2050,7 +3658,7 @@ export const lessons: LessonDraft[] = [
   written(
     'error-terpusat',
     'Error Handling Terpusat',
-    12,
+    21,
     'Satu tempat yang menerjemahkan setiap kegagalan menjadi respons.',
     [
       p(
@@ -2272,6 +3880,220 @@ export const lessons: LessonDraft[] = [
       p(
         'Melanjutkan proses setelah `uncaughtException` berbahaya: state di dalamnya bisa sudah rusak, dan kerusakannya menyebar diam-diam. Lebih aman keluar dan menyala ulang bersih.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Penanganan error terpusat menjawab satu masalah yang tumbuh diam-diam, yaitu setiap handler mengulang blok `try/catch` yang isinya sama, dan setiap pengulangan itu punya peluang ditulis sedikit berbeda. Setelah tiga puluh endpoint, ada tiga puluh bentuk respons kegagalan yang tidak seragam.',
+      ),
+      p(
+        'Jalan keluarnya bukan menambah `try/catch` yang lebih baik melainkan memindahkan keputusan status code ke satu tempat, dan itu butuh service **melempar error yang punya arti**, bukan mengembalikan `null`.',
+      ),
+      code(
+        'ts',
+        `
+        // domain/error.ts — kelas error milik aplikasi, bukan milik HTTP.
+        export class ErrorAplikasi extends Error {
+          constructor(
+            pesan: string,
+            readonly kode: string,
+            readonly status: number,
+            readonly detail?: unknown,
+          ) {
+            super(pesan);
+            this.name = new.target.name;
+          }
+        }
+
+        export class TidakDitemukan extends ErrorAplikasi {
+          constructor(apa: string) { super(apa + ' tidak ditemukan', 'TIDAK_DITEMUKAN', 404); }
+        }
+        export class ValidasiGagal extends ErrorAplikasi {
+          constructor(detail: unknown) { super('Validasi gagal', 'VALIDASI_GAGAL', 422, detail); }
+        }
+        export class StokKurang extends ErrorAplikasi {
+          constructor(produkId: number) {
+            super('Stok tidak mencukupi', 'STOK_KURANG', 409, { produkId });
+          }
+        }
+        `,
+        { caption: 'Angka status ada di kelas errornya, bukan tersebar di tiga puluh handler.' },
+      ),
+      p(
+        'Perhatikan bahwa service yang melemparnya tidak pernah menyentuh `res` dan tidak tahu apa pun tentang HTTP. Itu yang membuatnya tetap bisa dipakai dari perintah CLI, job latar, maupun test tanpa server.',
+      ),
+      code(
+        'ts',
+        `
+        // service/pesanan.ts — tidak ada req, tidak ada res, tidak ada status code.
+        export async function buatPesanan(pelangganId: number, produkId: number, jumlah: number) {
+          const produk = await repoProduk.cari(produkId);
+          if (!produk) throw new TidakDitemukan('Produk');
+          if (produk.stok < jumlah) throw new StokKurang(produkId);
+          return repoPesanan.buat({ pelangganId, produkId, jumlah });
+        }
+
+        // controller/pesanan.ts — tipis, dan TIDAK punya try/catch sama sekali.
+        rutePesanan.post('/', async (req, res) => {
+          const data = SkemaBuatPesanan.parse(req.body);
+          const pesanan = await buatPesanan(req.konteks.pengguna.id, data.produkId, data.jumlah);
+          res.status(201).location('/v1/pesanan/' + pesanan.id).json(pesanan);
+        });
+        `,
+        {
+          caption:
+            'Ketiadaan try/catch di controller itu disengaja, dan Express 5 yang memungkinkannya.',
+        },
+      ),
+      p(
+        'Ketiadaan `try/catch` di baris terakhir adalah perubahan besar dari Express 4. Di Express 4, error yang dilempar dari fungsi `async` **tidak** sampai ke penangan error dan permintaannya menggantung, sehingga setiap handler async harus dibungkus. Express 5 menangkap promise yang ditolak dan meneruskannya ke rantai error dengan sendirinya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Bentuk kegagalan yang diselesaikan Express 5 itu bisa dilihat langsung, sebab ia sama persis dengan perilaku `node:http` polos yang diukur di sub-bab runtime.',
+      ),
+      code(
+        'text',
+        `
+        Handler async yang melempar, TANPA ada yang menangkapnya:
+
+          === permintaan normal ===
+            /ok           -> status 200
+          === handler-nya melempar ===
+            [unhandledRejection tertangkap] Gagal mengambil data pesanan
+            /gagal-async  -> TimeoutError setelah 1205 ms, tanpa respons apa pun
+          === server masih hidup sesudahnya? ===
+            /ok           -> status 200
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan dengan Node 26.5.0. Inilah yang terjadi di Express 4 tanpa pembungkus.',
+        },
+      ),
+      p(
+        'Kliennya tidak menerima `500` melainkan **tidak menerima apa pun**, dan menunggu sampai batas waktunya habis. Bagi pengguna, halaman yang berputar tiga puluh detik lalu gagal jauh lebih buruk daripada pesan gagal yang muncul seketika.',
+      ),
+      p('Tanpa penangan `unhandledRejection`, akibatnya lebih keras lagi.'),
+      code(
+        'text',
+        `
+          Error: Gagal mengambil data pesanan
+              at Server.<anonymous> (.../lempar2.mjs:3:41)
+              at Server.emit (node:events:509:20)
+              at parserOnIncoming (node:_http_server:1383:12)
+              at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)
+
+          Node.js v26.5.0
+          (proses keluar dengan kode 1)
+        `,
+        {
+          caption: 'Dijalankan sungguhan. Seluruh permintaan lain yang sedang berjalan ikut putus.',
+        },
+      ),
+      p(
+        'Penangan error terpusatnya sendiri punya beberapa kewajiban yang mudah terlewat, dan tiap barisnya menjawab satu kegagalan nyata.',
+      ),
+      code(
+        'ts',
+        `
+        // Dipasang PALING AKHIR. Empat argumen, dan next WAJIB ditulis
+        // meski tidak dipakai — Express mengenalinya dari jumlah argumen.
+        app.use((err, req, res, next) => {
+          const requestId = req.konteks?.requestId;
+
+          // 1. Respons sudah terkirim sebagian? Serahkan ke penangan bawaan Express,
+          //    yang akan memutus sambungannya. Mencoba menjawab lagi menghasilkan
+          //    ERR_HTTP_HEADERS_SENT dan menutupi error aslinya.
+          if (res.headersSent) return next(err);
+
+          // 2. Error yang KITA rancang: statusnya sudah ada di errornya.
+          if (err instanceof ErrorAplikasi) {
+            logger.warn({ requestId, kode: err.kode, pesan: err.message });
+            return res.status(err.status).json({
+              error: err.message, kode: err.kode, detail: err.detail, requestId,
+            });
+          }
+
+          // 3. Kegagalan express.json(): itu salah pemanggil, bukan salah server.
+          if (err instanceof SyntaxError && 'body' in err) {
+            return res.status(400).json({ error: 'Badan bukan JSON yang sah', requestId });
+          }
+
+          // 4. Sisanya benar-benar tak terduga. Catat LENGKAP di server,
+          //    kirim SEDIKIT ke klien.
+          logger.error({ requestId, pesan: err.message, stack: err.stack });
+          return res.status(500).json({ error: 'Terjadi kesalahan di server', requestId });
+        });
+        `,
+        {
+          caption:
+            'Pemeriksaan res.headersSent di baris pertama itu yang mencegah error asli tertutup error kedua.',
+        },
+      ),
+      p(
+        'Ada satu kelas kegagalan yang **tidak** bisa dijangkau penangan ini, yaitu error yang terjadi di luar siklus permintaan, misalnya di dalam `setInterval`, di dalam job latar, atau pada peristiwa aliran. Untuk itu jaring pengaman tingkat proses tetap diperlukan.',
+      ),
+      code(
+        'ts',
+        `
+        process.on('unhandledRejection', (alasan) => {
+          logger.error({ pesan: 'unhandledRejection', alasan: String(alasan) });
+        });
+
+        process.on('uncaughtException', (err) => {
+          logger.error({ pesan: 'uncaughtException', stack: err.stack });
+          // Setelah uncaughtException, keadaan proses TIDAK bisa dipercaya lagi.
+          // Yang benar adalah berhenti dengan rapi, bukan melanjutkan seolah tidak terjadi apa-apa.
+          matikanDenganRapi('uncaughtException');
+        });
+        `,
+        {
+          caption:
+            'Melanjutkan setelah uncaughtException adalah cara paling umum mendapat data rusak yang tidak bisa dijelaskan.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Penanganan error adalah tempat di mana kode yang terlihat paling hati-hati justru sering menyembunyikan masalah.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membungkus setiap handler dengan `try/catch`',
+            'Itu cara menangani error',
+            'Tiga puluh bentuk respons yang tidak seragam. Lempar error bermakna, tangani di satu tempat',
+          ],
+          [
+            'Menulis penangan error dengan tiga argumen',
+            '`next` tidak dipakai',
+            'Diuji sungguhan, Express mengenalinya dari jumlah argumen. Tiga argumen tidak pernah menerima error',
+          ],
+          [
+            'Mengembalikan `null` dari service saat data tidak ada',
+            'Lebih sederhana daripada melempar',
+            'Setiap pemanggil harus mengingat memeriksanya, dan satu yang lupa menghasilkan `Cannot read properties of null`',
+          ],
+          [
+            'Menyertakan `err.stack` di respons',
+            'Supaya mudah ditelusuri',
+            'Membocorkan jalur berkas dan struktur internal. Catat di server, kirim `requestId` ke klien',
+          ],
+          [
+            'Menelan error dengan `catch {}` kosong',
+            'Supaya tidak mengganggu',
+            'Mengubah kegagalan yang keras menjadi kerusakan data yang senyap. Ini yang paling mahal di seluruh tabel',
+          ],
+          [
+            'Melanjutkan proses setelah `uncaughtException`',
+            'Supaya server tidak mati',
+            'Keadaan proses sudah tidak bisa dipercaya. Berhenti dengan rapi, lalu biarkan orkestrator menyalakannya lagi',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima pantas menutup sub-bab ini karena akibatnya paling sulit diperbaiki. Sebuah `catch {}` kosong tidak menghilangkan kegagalan melainkan menghilangkan **kabarnya**. Pekerjaan yang gagal tetap gagal, datanya tetap tidak tersimpan, dan yang hilang hanyalah satu-satunya kesempatan untuk mengetahuinya. Bug yang lahir dari situ ditemukan berminggu-minggu kemudian sebagai data yang tidak konsisten, dan pada saat itu tidak ada satu pun jejak yang menunjuk ke tempat asalnya.',
+      ),
       references(
         {
           label: 'Express — Error handling',
@@ -2304,7 +4126,7 @@ export const lessons: LessonDraft[] = [
   written(
     'config-validasi',
     'Environment Variable & Konfigurasi yang Divalidasi',
-    10,
+    15,
     'Membaca konfigurasi sekali, memvalidasinya, dan fail loudly kalau salah.',
     [
       p(
@@ -2520,6 +4342,182 @@ export const lessons: LessonDraft[] = [
         'Checklist rahasia',
         '`.env` masuk `.gitignore`, dan hanya `.env.example` yang di-commit dengan nilai **kosong**. Tidak ada rahasia yang di-`console.log`. Dan rahasia yang **pernah** ter-commit dianggap bocor, jadi rotasi nilainya alih-alih sekadar menghapus riwayatnya.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Konfigurasi adalah penyebab kegagalan deploy yang lebih sering daripada kode, dan sebabnya satu sifat yang mudah dilupakan, yaitu **seluruh isi `process.env` adalah string**. Tidak ada angka, tidak ada boolean, dan tidak ada nilai kosong yang berarti kosong.',
+      ),
+      code(
+        'text',
+        `
+        PORT=3000  DEBUG=false  MAX_UPLOAD=   (dikosongkan)
+
+          typeof process.env.PORT   = string
+          PORT + 1                  = "30001"   <- penggabungan teks
+          Number(PORT) + 1          = 3001
+
+          DEBUG                     = "false"
+          if (DEBUG) berjalan?      = YA        <- string berisi, jadi truthy
+
+          Number(MAX_UPLOAD)        = 0         <- Number("") bernilai 0, bukan NaN
+          Number(TIDAK_ADA)         = NaN
+        `,
+        { caption: 'Dijalankan sungguhan dengan Node 26.5.0.' },
+      ),
+      p(
+        'Baris `if (DEBUG) berjalan? = YA` adalah bug yang paling sering lolos ke produksi. Seseorang menyetel `DEBUG=false` dengan maksud mematikannya, dan yang tiba di kode adalah string `"false"` sepanjang lima karakter yang bernilai benar. Akibatnya log rinci menyala di produksi, dan log rinci sering memuat isi permintaan lengkap dengan datanya.',
+      ),
+      p(
+        'Jawabannya satu tempat masuk yang memvalidasi **dan** mengubah tipe sekaligus, dijalankan saat boot. Project ini memasang `zod 4.4.3`, jadi contoh berikut dijalankan sungguhan.',
+      ),
+      code(
+        'ts',
+        `
+        // config/env.ts — dibaca SATU KALI, saat proses menyala.
+        import { z } from 'zod';
+
+        const Skema = z.object({
+          NODE_ENV: z.enum(['development', 'test', 'production']),
+          PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+          DATABASE_URL: z.string().url(),
+          JWT_SECRET: z.string().min(32),
+          DEBUG: z.enum(['true', 'false']).transform((v) => v === 'true').default('false'),
+        });
+
+        // .parse melempar bila ada yang salah, dan itu memang yang diinginkan.
+        export const env = Skema.parse(process.env);
+        `,
+        {
+          caption:
+            'z.coerce mengubah string jadi angka; transform mengubah "true"/"false" jadi boolean sungguhan.',
+        },
+      ),
+      code(
+        'text',
+        `
+        Hasil untuk nilai yang benar:
+
+          {"NODE_ENV":"production","PORT":8080,
+           "DATABASE_URL":"postgres://user:sandi@db:5432/toko",
+           "JWT_SECRET":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","DEBUG":true}
+
+          typeof PORT  = number
+          typeof DEBUG = boolean
+        `,
+        { caption: 'Dijalankan sungguhan dengan zod 4.4.3 yang terpasang di project ini.' },
+      ),
+      p(
+        'Dua baris terakhir yang membuat seluruh pekerjaannya sepadan. Setelah titik ini, tidak ada lagi tempat di dalam aplikasi yang perlu menulis `Number(process.env.PORT)`, dan tidak ada lagi yang bisa salah membaca `"false"` sebagai benar.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Keuntungan terbesar validasi terpusat baru terlihat ketika konfigurasinya salah. Berikut keluaran sungguhan untuk environment yang kacau.',
+      ),
+      code(
+        'text',
+        `
+        [
+          { "code": "invalid_value", "path": ["NODE_ENV"],
+            "message": "Invalid option: expected one of \\"development\\"|\\"test\\"|\\"production\\"" },
+          { "code": "invalid_type", "received": "NaN", "path": ["PORT"],
+            "message": "Invalid input: expected number, received NaN" },
+          { "code": "invalid_type", "path": ["DATABASE_URL"],
+            "message": "Invalid input: expected string, received undefined" },
+          { "code": "too_small", "minimum": 32, "path": ["JWT_SECRET"],
+            "message": "Too small: expected string to have >=32 characters" }
+        ]
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan dengan zod 4.4.3. Empat masalah dilaporkan sekaligus, bukan satu per satu.',
+        },
+      ),
+      p(
+        'Kata "sekaligus" itu keuntungan yang mudah diremehkan. Tanpa validasi terpusat, empat masalah ini muncul berurutan dalam empat siklus deploy terpisah, masing-masing memakan waktu tunggu build dan masing-masing terlihat sebagai bug baru.',
+      ),
+      p('Bandingkan dengan bentuk kegagalan ketika konfigurasi dibaca tersebar.'),
+      code(
+        'text',
+        `
+          [09:14:02] Server siap di port NaN
+          [09:14:02] Terhubung ke database
+          ... tiga jam berlalu, semuanya tampak normal ...
+          [12:41:55] TypeError: Cannot read properties of undefined (reading 'sign')
+              at buatToken (/app/src/auth/token.js:12:29)
+
+        Servernya menyala dengan port NaN dan tidak ada yang menyadari.
+        JWT_SECRET yang hilang baru terasa pada login PERTAMA, jam berapa pun itu.
+        `,
+      ),
+      p(
+        'Inilah arti gagal cepat. Proses yang menolak menyala karena satu variabel hilang jauh lebih murah daripada proses yang menyala, dinyatakan sehat oleh pemeriksa kesehatan, menerima lalu lintas, lalu gagal pada permintaan pertama yang menyentuh bagian itu. Yang kedua terlihat seperti bug aplikasi, dan penelusurannya dimulai dari tempat yang salah.',
+      ),
+      p('Satu jebakan `z.coerce` perlu diketahui, dan ia diukur sungguhan.'),
+      code(
+        'text',
+        `
+        z.coerce.number() memakai Number() di baliknya, jadi:
+
+          Number("")    = 0   ->  z.coerce.number().parse("")   = 0
+          Number(null)  = 0   ->  z.coerce.number().parse(null) = 0
+
+        Artinya variabel yang DIDEKLARASIKAN TAPI DIKOSONGKAN tidak menghasilkan
+        NaN yang mencurigakan, melainkan angka nol yang terlihat sah.
+        Batas unggahan nol byte, jumlah percobaan ulang nol, dan batas waktu nol
+        semuanya lolos pemeriksaan sederhana lalu berperilaku aneh.
+
+        Perbaikannya: beri batas bawah yang masuk akal, misalnya .min(1).
+        `,
+        { caption: 'Dijalankan sungguhan dengan zod 4.4.3.' },
+      ),
+      callout(
+        'danger',
+        'Rahasia yang pernah masuk git dianggap sudah bocor',
+        'Menghapus berkas `.env` dari commit terakhir tidak menghapusnya dari riwayat, dan riwayat itu ada di setiap salinan repo yang pernah diambil siapa pun. Satu-satunya perbaikan yang sungguhan adalah **mengganti rahasianya**, bukan membersihkan riwayatnya. Karena itu `.env` masuk `.gitignore` sejak commit pertama, dan yang ikut ke repo hanya `.env.example` berisi nama variabel dengan nilai kosong.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Konfigurasi terasa seperti pekerjaan administratif, dan justru karena itu sering dikerjakan tanpa keputusan sadar.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `process.env.DEBUG` sebagai boolean',
+            'Isinya kan `false`',
+            'Diuji sungguhan, `"false"` adalah string berisi sehingga truthy. Log rinci menyala di produksi',
+          ],
+          [
+            'Mengubah tipe di tempat pemakaian',
+            'Diubah saat dibutuhkan saja',
+            'Diuji sungguhan, `Number("")` bernilai 0 dan lolos pemeriksaan sederhana. Ubah sekali di titik boot',
+          ],
+          [
+            'Membaca `process.env` tersebar di banyak berkas',
+            'Praktis, tinggal panggil',
+            'Tidak ada satu tempat pun yang tahu variabel apa saja yang dibutuhkan aplikasi ini',
+          ],
+          [
+            'Memberi nilai bawaan untuk rahasia',
+            'Supaya jalan di komputer sendiri',
+            'Nilai bawaan itu ikut ke produksi saat variabelnya lupa dipasang. Rahasia tidak pernah punya bawaan',
+          ],
+          [
+            'Memakai `z.coerce.number()` tanpa batas bawah',
+            'Sudah diubah jadi angka',
+            'Diuji sungguhan, nilai kosong menjadi 0 yang terlihat sah. Tambahkan `.min(1)`',
+          ],
+          [
+            'Membiarkan aplikasi menyala meski konfigurasinya kurang',
+            'Yang lain kan masih bisa jalan',
+            'Kegagalannya pindah ke permintaan pengguna pertama, dan terlihat seperti bug aplikasi',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat punya batas yang layak diperjelas. Nilai bawaan sangat berguna untuk hal yang tidak berbahaya bila salah, misalnya `PORT` dan tingkat log. Ia berbahaya untuk hal yang menentukan keamanan, misalnya kunci penandatanganan token, kata sandi database, dan daftar asal yang diizinkan. Aturannya, kalau sebuah nilai bawaan bisa membuat sistem tetap berjalan **dengan tingkat keamanan lebih rendah**, jangan beri bawaan. Biarkan ia menolak menyala.',
+      ),
       references(
         {
           label: 'node --env-file',
@@ -2552,7 +4550,7 @@ export const lessons: LessonDraft[] = [
   written(
     'logging',
     'Logging dengan `pino`',
-    10,
+    17,
     'Mencatat yang berguna, tanpa mencatat yang berbahaya.',
     [
       p(
@@ -2775,6 +4773,198 @@ export const lessons: LessonDraft[] = [
         'Log adalah tempat kebocoran data yang sering terlupa',
         'Log biasanya diakses lebih banyak orang daripada database, disimpan bertahun-tahun, dan sering dikirim ke layanan pihak ketiga. Email, nomor telepon, dan alamat yang masuk ke sana menyebar jauh lebih luas daripada yang kamu kira.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Laporan bug yang paling sering diterima berbunyi seperti ini, "kadang gagal simpan", tanpa jam, tanpa langkah, dan tanpa pesan. Yang memisahkan penelusuran satu jam dari penelusuran tiga hari bukan kepintaran melainkan apakah satu permintaan bisa dilacak dari klien sampai log server.',
+      ),
+      code(
+        'text',
+        `
+        {"level":"info","waktu":"2026-09-07T08:36:34.988Z","requestId":"9546c1ef-...","method":"GET","path":"/catatan","status":200,"durasiMs":4.39}
+        {"level":"warn","waktu":"2026-09-07T08:36:34.998Z","requestId":"f070e263-...","method":"POST","path":"/catatan","status":400,"durasiMs":0.88}
+        {"level":"warn","waktu":"2026-09-07T08:36:35.004Z","requestId":"a55084a3-...","method":"POST","path":"/catatan","status":422,"durasiMs":0.27}
+        {"level":"warn","waktu":"2026-09-07T08:36:35.010Z","requestId":"f5977bbc-...","method":"GET","path":"/rahasia","status":401,"durasiMs":0.18}
+        {"level":"error","waktu":"2026-09-07T08:36:35.016Z","requestId":"8aaf7722-...","method":"GET","path":"/rusak","status":500,"durasiMs":0.22}
+        {"level":"info","waktu":"2026-09-07T08:36:35.023Z","requestId":"jejak-manual-123","method":"GET","path":"/catatan","status":200,"durasiMs":0.92}
+        `,
+        { caption: 'Dijalankan sungguhan dengan Node 26.5.0 dan curl 8.5.0.' },
+      ),
+      p(
+        'Tiga keputusan membuat baris-baris itu berguna. Formatnya JSON satu baris per permintaan, sehingga bisa disaring dengan perintah biasa maupun dikirim ke sistem pencarian log tanpa penguraian khusus. Nilai `level` ditentukan dari status code, sehingga `4xx` menjadi `warn` yang berarti "pengguna salah" dan `5xx` menjadi `error` yang berarti "kita salah". Dan setiap baris membawa `requestId`.',
+      ),
+      p(
+        'Baris terakhir memperlihatkan gunanya, sebab `requestId`-nya bukan acak melainkan `jejak-manual-123` yang dikirim klien.',
+      ),
+      code(
+        'text',
+        `
+        Yang dijalankan:
+
+          curl -D- -o /dev/null -H 'X-Request-Id: jejak-manual-123' \\
+               http://127.0.0.1:3998/catatan
+
+        Header respons:
+          X-Request-Id: jejak-manual-123
+
+        Log server:
+          {"level":"info", ... ,"requestId":"jejak-manual-123", ... }
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Satu nilai yang sama menghubungkan klien, respons, dan log.',
+        },
+      ),
+      p(
+        'Pengembalian id lewat header respons adalah bagian yang paling sering dilupakan, dan tanpanya pengguna yang melaporkan bug tidak punya apa pun untuk disebutkan. Dengan itu, laporan "kadang gagal simpan" berubah menjadi satu id yang langsung menemukan barisnya.',
+      ),
+      code(
+        'ts',
+        `
+        import { randomUUID } from 'node:crypto';
+
+        app.use((req, res, next) => {
+          // Terima id dari klien supaya satu permintaan yang melewati beberapa
+          // layanan tetap punya satu jejak. Buat baru bila ini pintu pertamanya.
+          const requestId = req.header('x-request-id') ?? randomUUID();
+          res.setHeader('X-Request-Id', requestId);
+          req.konteks = { requestId };
+
+          const mulai = process.hrtime.bigint();
+
+          // Dicatat pada 'finish', supaya status dan durasinya sudah pasti.
+          res.on('finish', () => {
+            const durasiMs = Number(process.hrtime.bigint() - mulai) / 1e6;
+            console.log(JSON.stringify({
+              level: res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'info',
+              waktu: new Date().toISOString(),
+              requestId,
+              method: req.method,
+              path: req.originalUrl,
+              status: res.statusCode,
+              durasiMs: Math.round(durasiMs * 100) / 100,
+            }));
+          });
+          next();
+        });
+        `,
+        {
+          caption:
+            'Peristiwa finish dipilih karena ia terpancar setelah respons benar-benar terkirim.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Log yang salah rancang tidak menghasilkan error, melainkan membuat penelusuran menjadi mustahil tepat pada saat paling dibutuhkan. Empat bentuk berikut yang paling sering.',
+      ),
+      code(
+        'text',
+        `
+        BENTUK 1 — teks bebas
+          console.log('Pesanan gagal untuk user ' + id + ' karena ' + alasan);
+
+          Tidak bisa disaring per status, tidak bisa dicari per pengguna,
+          tidak punya waktu, dan tidak punya id permintaan.
+
+        BENTUK 2 — objek dicetak apa adanya
+          console.log('data:', data);
+
+          Menghasilkan keluaran multi-baris. Satu peristiwa jadi beberapa baris,
+          dan sistem pengumpul log memperlakukannya sebagai beberapa peristiwa
+          yang tidak berhubungan.
+
+        BENTUK 3 — mencatat seluruh badan permintaan
+          console.log(JSON.stringify(req.body));
+
+          Kata sandi, token, nomor kartu, dan data pribadi ikut tersimpan
+          di sistem log yang biasanya bisa dibaca lebih banyak orang
+          daripada yang bisa membaca database.
+
+        BENTUK 4 — menulis log ke berkas di dalam container
+          fs.appendFileSync('/app/log/app.log', baris);
+
+          Berkasnya hilang saat container diganti, memblokir utas karena Sync,
+          dan tidak terbaca oleh sistem pengumpul log. Tulis ke stdout.
+        `,
+      ),
+      p(
+        'Bentuk ketiga yang paling sulit diperbaiki setelah terjadi. Log biasanya dikirim ke sistem terpusat, disimpan berbulan-bulan, dan diakses lebih banyak orang daripada database. Satu kata sandi yang tercatat di sana berarti satu kata sandi yang tersebar ke seluruh riwayat log, dan menghapusnya jauh lebih sulit daripada menghapus satu baris di database.',
+      ),
+      code(
+        'ts',
+        `
+        // Penyensoran dilakukan di satu tempat, bukan diingat di tiap pemanggilan.
+        const RAHASIA = new Set([
+          'password', 'sandi', 'token', 'authorization',
+          'secret', 'apiKey', 'kartu', 'cvv',
+        ]);
+
+        function sensor(nilai: unknown): unknown {
+          if (Array.isArray(nilai)) return nilai.map(sensor);
+          if (nilai && typeof nilai === 'object') {
+            return Object.fromEntries(
+              Object.entries(nilai).map(([k, v]) =>
+                RAHASIA.has(k.toLowerCase()) ? [k, '[disensor]'] : [k, sensor(v)],
+              ),
+            );
+          }
+          return nilai;
+        }
+
+        // Dipakai sekali, di middleware pencatat — bukan di tiap handler.
+        logger.info({ requestId, body: sensor(req.body) });
+        `,
+        {
+          caption:
+            'Daftar nama field ini perlu ditinjau berkala, sebab field baru bermunculan seiring fitur bertambah.',
+        },
+      ),
+      p(
+        'Perlu disebut jujur bahwa penyensoran berbasis daftar nama tidak pernah sempurna, sebab selalu ada field baru yang belum masuk daftar. Karena itu ia lapisan kedua. Lapisan pertamanya adalah **tidak mencatat badan permintaan sama sekali** kecuali memang dibutuhkan, dan mencatat hanya field yang sudah kamu putuskan aman.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Logging terasa seperti hal yang bisa dirapikan nanti, dan yang terjadi tanpanya adalah penelusuran bug dengan cara menebak.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `console.log` dengan teks bebas',
+            'Cepat dan cukup terbaca',
+            'Tidak bisa disaring, tidak bisa dicari, dan tidak punya waktu maupun id. Cetak satu baris JSON',
+          ],
+          [
+            'Mencatat seluruh badan permintaan',
+            'Supaya jelas apa yang dikirim',
+            'Kata sandi dan data pribadi ikut tersimpan berbulan-bulan di sistem yang lebih terbuka daripada database',
+          ],
+          [
+            'Tidak mengembalikan id permintaan ke klien',
+            'Sudah dicatat di log',
+            'Pengguna yang melaporkan bug tidak punya apa pun untuk disebutkan. Kirim lewat header respons',
+          ],
+          [
+            'Menulis log ke berkas di dalam container',
+            'Lebih rapi daripada stdout',
+            'Berkasnya hilang saat container diganti, dan pengumpul log tidak membacanya. Tulis ke stdout',
+          ],
+          [
+            'Memakai level `error` untuk kesalahan pengguna',
+            'Ada kata gagal',
+            '`4xx` adalah `warn`. Memakai `error` membuat pemantauan berbunyi untuk hal yang tidak perlu diperbaiki',
+          ],
+          [
+            'Mencatat di awal handler, bukan di akhir',
+            'Supaya pasti tercatat',
+            'Status dan durasinya belum ada pada saat itu. Catat pada peristiwa `finish`',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima menentukan apakah pemantauanmu masih berguna setelah beberapa bulan. Ketika kesalahan pemanggil dicatat sebagai `error`, grafik kesalahan penuh oleh hal yang memang seharusnya terjadi, yaitu pengguna salah mengisi formulir. Setelah beberapa minggu, tidak ada lagi yang memperhatikan grafik itu, termasuk pada hari sebuah kegagalan sungguhan muncul di sana.',
+      ),
       references(
         {
           label: 'Logging Cheat Sheet',
@@ -2807,7 +4997,7 @@ export const lessons: LessonDraft[] = [
   written(
     'validasi-zod',
     'Validasi Input dengan Zod',
-    12,
+    20,
     'Penjaga sebenarnya antara klien dan logikamu.',
     [
       p(
@@ -3038,6 +5228,238 @@ export const lessons: LessonDraft[] = [
         'Kaitannya dengan sub-bab 2.11',
         'Validasi **bukan** pengganti prepared statement. Keduanya lapisan berbeda: validasi menolak bentuk yang salah, parameterisasi memastikan nilai tidak pernah bisa menjadi perintah. API yang memvalidasi tapi merangkai SQL dengan string tetap rentan sepenuhnya.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Endpoint pembuatan pesanan adalah tempat validasi paling banyak dibutuhkan, sebab badannya bersarang, memuat array, dan punya aturan yang melibatkan lebih dari satu field. Berikut skema nyata untuk kasus itu, dijalankan sungguhan dengan `zod 4.4.3` yang terpasang di project ini.',
+      ),
+      code(
+        'ts',
+        `
+        import { z } from 'zod';
+
+        const Alamat = z.object({
+          jalan: z.string().min(1),
+          kota: z.string().min(1),
+          kodePos: z.string().regex(/^\\d{5}$/, 'Kode pos harus 5 digit'),
+        });
+
+        const Item = z.object({
+          produkId: z.number().int().positive(),
+          jumlah: z.number().int().min(1).max(99),
+        });
+
+        export const BuatPesanan = z
+          .object({
+            email: z.email(),
+            alamat: Alamat,
+            item: z.array(Item).min(1, 'Minimal satu item'),
+            kupon: z.string().optional(),
+            setuju: z.literal(true, { message: 'Syarat dan ketentuan wajib disetujui' }),
+          })
+          // Aturan yang melibatkan BEBERAPA field sekaligus tidak bisa ditempel
+          // ke satu field. Untuk itu ada refine, dan path menentukan
+          // di sebelah kolom mana pesannya akan muncul di antarmuka.
+          .refine((d) => !d.kupon || d.item.length >= 2, {
+            message: 'Kupon hanya berlaku untuk minimal dua item',
+            path: ['kupon'],
+          });
+        `,
+        { caption: 'Skema ini benar-benar dijalankan; hasil untuk masukan buruk ada di bawah.' },
+      ),
+      p(
+        'Yang membuat skema seperti ini berharga bukan penolakannya melainkan **ketepatan letak kesalahannya**. Berikut hasil untuk satu badan permintaan yang salah di tujuh tempat sekaligus.',
+      ),
+      code(
+        'text',
+        `
+        Masukan:
+          { email: 'bukan-email',
+            alamat: { jalan: '', kota: 'Bandung', kodePos: '40A12' },
+            item: [{ produkId: 0, jumlah: 0 }, { produkId: 5, jumlah: 200 }],
+            kupon: 'HEMAT10', setuju: false }
+
+        Issues yang dihasilkan:
+
+          ["email"]              invalid_format     Invalid email address
+          ["alamat","jalan"]     too_small          Too small: expected string to have >=1 characters
+          ["alamat","kodePos"]   invalid_format     Kode pos harus 5 digit
+          ["item",0,"produkId"]  too_small          Too small: expected number to be >0
+          ["item",0,"jumlah"]    too_small          Too small: expected number to be >=1
+          ["item",1,"jumlah"]    too_big            Too big: expected number to be <=99
+          ["setuju"]             invalid_value      Syarat dan ketentuan wajib disetujui
+        `,
+        { caption: 'Dijalankan sungguhan dengan zod 4.4.3.' },
+      ),
+      p(
+        'Perhatikan `["item",0,"jumlah"]` dan `["item",1,"jumlah"]`. Path-nya memuat **indeks array**, sehingga antarmuka bisa menyorot item pertama dan item kedua secara terpisah. Ini yang membedakan validasi berskema dari rangkaian `if` yang ditulis tangan, sebab rangkaian `if` biasanya berhenti pada kesalahan pertama dan tidak tahu di indeks mana ia terjadi.',
+      ),
+      p('Mengubahnya menjadi bentuk yang siap dipakai klien hanya butuh beberapa baris.'),
+      code(
+        'ts',
+        `
+        function keBentukKlien(error: z.ZodError) {
+          const perField: Record<string, string[]> = {};
+          for (const i of error.issues) {
+            const kunci = i.path.join('.') || '_';
+            (perField[kunci] ??= []).push(i.message);
+          }
+          return perField;
+        }
+
+        // Hasilnya, diukur sungguhan:
+        // {
+        //   "email":           ["Invalid email address"],
+        //   "alamat.jalan":    ["Too small: expected string to have >=1 characters"],
+        //   "alamat.kodePos":  ["Kode pos harus 5 digit"],
+        //   "item.0.produkId": ["Too small: expected number to be >0"],
+        //   "item.0.jumlah":   ["Too small: expected number to be >=1"],
+        //   "item.1.jumlah":   ["Too big: expected number to be <=99"],
+        //   "setuju":          ["Syarat dan ketentuan wajib disetujui"]
+        // }
+        `,
+        {
+          caption:
+            'Kunci bertitik ini cocok dengan penamaan field di sebagian besar pustaka formulir.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Validasi berskema punya satu perilaku bawaan yang menutup kerentanan tanpa diminta, dan mengetahuinya menjelaskan kenapa `req.body` tidak boleh dipakai langsung.',
+      ),
+      code(
+        'text',
+        `
+        const Ketat = z.object({ nama: z.string() });
+
+        Ketat.parse({ nama: 'Rina', peran: 'admin' })
+          -> {"nama":"Rina"}            <- kunci "peran" DIBUANG diam-diam
+
+        const SangatKetat = z.object({ nama: z.string() }).strict();
+
+        SangatKetat.safeParse({ nama: 'Rina', peran: 'admin' })
+          -> gagal: Unrecognized key: "peran"
+        `,
+        { caption: 'Dijalankan sungguhan dengan zod 4.4.3.' },
+      ),
+      p(
+        'Perilaku bawaan itu tepat perlindungan terhadap **mass assignment**. Selama kamu memakai `hasil.data` dan bukan `req.body`, field yang tidak dideklarasikan tidak akan pernah sampai ke database, termasuk `peran`, `saldo`, atau `terverifikasi` yang disisipkan penyerang. Karena itu ada satu aturan yang tidak boleh ditawar, yaitu **pakai hasil parsing, jangan pernah kembali ke `req.body`**.',
+      ),
+      code(
+        'ts',
+        `
+        // BENAR
+        const data = BuatPesanan.parse(req.body);
+        await buatPesanan(data);          // hanya field yang dideklarasikan
+
+        // SALAH, dan menghapus seluruh manfaat di atas
+        BuatPesanan.parse(req.body);      // hasilnya dibuang
+        await buatPesanan(req.body);      // <- field asing kembali masuk
+        `,
+      ),
+      p(
+        'Jebakan kedua ada pada `z.coerce`, dan ia sudah diukur di sub-bab konfigurasi. Bentuknya berbahaya di sini karena masukannya datang dari luar.',
+      ),
+      code(
+        'text',
+        `
+        z.coerce.number() memakai Number() di baliknya:
+
+          Number("")   = 0   ->  z.coerce.number().parse("")   = 0
+          Number(null) = 0   ->  z.coerce.number().parse(null) = 0
+
+        Jadi ?limit= yang kosong menjadi limit 0, bukan ditolak.
+
+        Diukur pada skema query yang benar:
+          {}                       -> {"halaman":1,"limit":20}
+          {halaman:"3",limit:"50"} -> {"halaman":3,"limit":50}
+          {limit:"5000"}           -> Too big: expected number to be <=100
+          {halaman:"abc"}          -> Invalid input: expected number, received NaN
+
+        Yang menyelamatkan baris pertama adalah .min(1) dan .default(),
+        bukan coerce-nya.
+        `,
+        { caption: 'Dijalankan sungguhan dengan zod 4.4.3.' },
+      ),
+      p(
+        'Batas `.max(100)` pada `limit` itu bukan kerewelan melainkan kontrol ketersediaan. Tanpanya, satu permintaan dengan `?limit=1000000` memaksa server membaca sejuta baris dari database lalu menyusunnya jadi JSON, dan itu menahan utasnya persis seperti yang diukur pada sub-bab runtime.',
+      ),
+      p(
+        'Menempatkan validasinya sebagai middleware membuat setiap rute memakainya dengan satu baris.',
+      ),
+      code(
+        'ts',
+        `
+        import type { ZodType } from 'zod';
+
+        export const validasi =
+          (bagian: 'body' | 'query' | 'params', skema: ZodType) =>
+          (req, res, next) => {
+            const hasil = skema.safeParse(req[bagian]);
+            if (!hasil.success) {
+              return res.status(422).json({
+                error: 'Validasi gagal',
+                kode: 'VALIDASI_GAGAL',
+                detail: keBentukKlien(hasil.error),
+                requestId: req.konteks?.requestId,
+              });
+            }
+            // Simpan hasil parsing di tempat SENDIRI. Di Express 5, req.query
+            // bersifat hanya-baca, jadi menimpanya tidak bisa diandalkan.
+            req.konteks = { ...req.konteks, [bagian]: hasil.data };
+            next();
+          };
+
+        rutePesanan.post('/', validasi('body', BuatPesanan), buatPesananHandler);
+        `,
+        {
+          caption:
+            'Menyimpan hasil di req.konteks menghindari perbedaan perilaku req.query antar-versi Express.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Validasi adalah tempat di mana melakukan setengah pekerjaan sering lebih berbahaya daripada tidak melakukannya sama sekali, sebab ia memberi rasa aman yang tidak berdasar.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memvalidasi lalu tetap memakai `req.body`',
+            'Sudah divalidasi',
+            'Field asing yang dibuang zod kembali masuk. Seluruh perlindungan mass assignment hilang',
+          ],
+          [
+            'Mengandalkan validasi di sisi klien',
+            'Formulirnya sudah memeriksa',
+            'Klien bisa dilewati sepenuhnya dengan `curl`. Validasi klien adalah pengalaman pengguna, bukan kontrol',
+          ],
+          [
+            'Memakai `z.coerce.number()` tanpa batas',
+            'Sudah jadi angka',
+            'Diuji sungguhan, nilai kosong menjadi 0. Tambahkan `.min(1)` dan `.max(...)`',
+          ],
+          [
+            'Tidak membatasi `limit` pada endpoint daftar',
+            'Penggunanya tidak akan minta sebanyak itu',
+            '`?limit=1000000` memaksa membaca sejuta baris dan menahan utasnya. Batas adalah kontrol ketersediaan',
+          ],
+          [
+            'Menulis validasi sebagai rangkaian `if` di handler',
+            'Tidak perlu pustaka tambahan',
+            'Berhenti di kesalahan pertama, tidak tahu indeks array, dan tersebar di setiap handler',
+          ],
+          [
+            'Menjawab `400` untuk isi yang melanggar aturan',
+            'Sama-sama masukan salah',
+            '`400` berarti badannya tidak bisa diurai. Isi yang sah tapi melanggar aturan adalah `422`',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua pantas ditegaskan meski terdengar jelas, sebab pelanggarannya hampir selalu tidak disengaja. Yang terjadi biasanya bukan keputusan sadar untuk melewatkan validasi server, melainkan asumsi bahwa formulir di klien sudah memastikan bentuk datanya. Padahal setiap endpoint bisa dipanggil langsung tanpa melewati halaman mana pun, dan penyerang memang tidak pernah memakai formulirmu.',
+      ),
       references(
         {
           label: 'Zod — Basics',
@@ -3070,7 +5492,7 @@ export const lessons: LessonDraft[] = [
   written(
     'praktik-crud-express',
     'Praktik: REST API CRUD "catatan"',
-    14,
+    18,
     'Menyatukan seluruh bab menjadi satu API yang benar-benar berjalan.',
     [
       p(
@@ -3430,6 +5852,180 @@ export const lessons: LessonDraft[] = [
         'Server menutup dengan rapi saat menerima SIGTERM',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'CRUD yang benar-benar siap dipakai berbeda dari CRUD latihan pada hal-hal yang tidak terlihat di jalur sukses. Lima di antaranya sudah diukur sepanjang bab ini, dan berikut bagaimana kelimanya bertemu dalam satu sumber daya.',
+      ),
+      code(
+        'ts',
+        `
+        // rute/catatan.ts
+        import { Router } from 'express';
+        import { z } from 'zod';
+
+        export const ruteCatatan = Router();
+
+        const BuatCatatan = z.object({
+          judul: z.string().trim().min(1, 'Judul wajib diisi').max(200),
+          isi: z.string().trim().max(10_000).default(''),
+          selesai: z.boolean().default(false),
+        });
+
+        // PATCH memakai .partial() supaya field yang tidak dikirim TIDAK berubah.
+        // Ini mencegah kehilangan data yang diukur di bab database pada PUT.
+        const UbahCatatan = BuatCatatan.partial().refine(
+          (d) => Object.keys(d).length > 0,
+          { message: 'Tidak ada field yang diubah' },
+        );
+
+        const Kueri = z.object({
+          limit: z.coerce.number().int().min(1).max(100).default(20),
+          setelah: z.coerce.number().int().positive().optional(),   // keyset, bukan offset
+        });
+
+        // 1. DAFTAR — paginasi keyset, bukan OFFSET.
+        ruteCatatan.get('/', validasi('query', Kueri), async (req, res) => {
+          const { limit, setelah } = req.konteks.query;
+          const baris = await repo.daftar(req.konteks.pengguna.id, limit, setelah);
+          res.json({
+            data: baris,
+            berikutnya: baris.length === limit ? baris[baris.length - 1].id : null,
+          });
+        });
+
+        // 2. BUAT — 201 beserta Location.
+        ruteCatatan.post('/', validasi('body', BuatCatatan), async (req, res) => {
+          const catatan = await repo.buat(req.konteks.pengguna.id, req.konteks.body);
+          res.status(201).location('/v1/catatan/' + catatan.id).json(catatan);
+        });
+
+        // 3. AMBIL SATU — dibatasi pemiliknya DI DALAM query.
+        ruteCatatan.get('/:id', async (req, res) => {
+          const id = Number(req.params.id);
+          if (!Number.isInteger(id) || id < 1) throw new ValidasiGagal({ id: ['Tidak valid'] });
+          const catatan = await repo.cariMilik(id, req.konteks.pengguna.id);
+          if (!catatan) throw new TidakDitemukan('Catatan');
+          res.json(catatan);
+        });
+
+        // 4. UBAH SEBAGIAN — PATCH, bukan PUT.
+        ruteCatatan.patch('/:id', validasi('body', UbahCatatan), async (req, res) => {
+          const id = Number(req.params.id);
+          const catatan = await repo.ubahMilik(id, req.konteks.pengguna.id, req.konteks.body);
+          if (!catatan) throw new TidakDitemukan('Catatan');
+          res.json(catatan);
+        });
+
+        // 5. HAPUS — idempoten: 204 pada percobaan kedua juga.
+        ruteCatatan.delete('/:id', async (req, res) => {
+          await repo.hapusMilik(Number(req.params.id), req.konteks.pengguna.id);
+          res.status(204).end();
+        });
+        `,
+        {
+          caption:
+            'Tidak ada satu pun try/catch: seluruh error dilempar dan ditangani di satu tempat.',
+        },
+      ),
+      p(
+        'Lima keputusan di dalamnya masing-masing menjawab sesuatu yang sudah diukur. Paginasi memakai keyset karena `OFFSET 250000` terbukti membaca 250.020 baris untuk memberi dua puluh. `PATCH` dipakai alih-alih `PUT` karena `PUT` terbukti mengosongkan field yang tidak dikirim. `DELETE` menjawab `204` dua kali karena idempotensi terbukti menjadi syarat agar percobaan ulang aman. Kepemilikan dibatasi di dalam query karena membandingkannya setelah data diambil bukan kontrol akses. Dan tidak ada `try/catch` karena Express 5 meneruskan penolakan promise ke penangan terpusat.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Bagian yang memisahkan CRUD siap pakai dari CRUD latihan adalah **jalur yang tidak nyaman**, dan keenamnya sudah diukur sungguhan pada server `node:http` di bab ini.',
+      ),
+      code(
+        'text',
+        `
+          JSON sah                 200  {"diterima":{"judul":"Belanja"},"byte":19}
+          JSON rusak               400  {"error":"Badan bukan JSON yang sah", ...}
+          tanpa Content-Type       415  {"error":"Content-Type harus application/json", ...}
+          Content-Type salah       415  {"error":"Content-Type harus application/json", ...}
+          badan kosong             400  {"error":"Badan bukan JSON yang sah", ...}
+          badan melebihi batas     413  {"error":"Badan permintaan terlalu besar","batasByte":1024}
+        `,
+        { caption: 'Dijalankan sungguhan dengan Node 26.5.0.' },
+      ),
+      p(
+        'Keenamnya bisa diuji dalam satu berkas perintah, dan berkas itu lebih berharga daripada koleksi Postman mana pun karena bisa dijalankan siapa pun tanpa memasang apa-apa.',
+      ),
+      code(
+        'text',
+        `
+        #!/bin/bash
+        # uji-crud.sh — jalankan sebelum menyatakan endpoint selesai.
+        A=http://localhost:3000/v1/catatan
+        H="Content-Type: application/json"
+        T="Authorization: Bearer $TOKEN"
+
+        p() { printf '%-34s %s\\n' "$1" "$(curl -s -o /dev/null -w '%{http_code}' "\${@:2}")"; }
+
+        p "buat, valid           (201)" -X POST  "$A" -H "$H" -H "$T" -d '{"judul":"Belanja"}'
+        p "buat, judul kosong    (422)" -X POST  "$A" -H "$H" -H "$T" -d '{"judul":"   "}'
+        p "buat, JSON rusak      (400)" -X POST  "$A" -H "$H" -H "$T" -d '{judul:"x"}'
+        p "buat, tanpa token     (401)" -X POST  "$A" -H "$H"        -d '{"judul":"x"}'
+        p "buat, field asing     (201)" -X POST  "$A" -H "$H" -H "$T" -d '{"judul":"x","peran":"admin"}'
+        p "ambil, id bukan angka (400)" -X GET   "$A/abc" -H "$T"
+        p "ambil, milik orang    (404)" -X GET   "$A/999999" -H "$T"
+        p "hapus pertama         (204)" -X DELETE "$A/1" -H "$T"
+        p "hapus kedua           (204)" -X DELETE "$A/1" -H "$T"
+        p "limit berlebihan      (422)" -X GET   "$A?limit=1000000" -H "$T"
+        `,
+        {
+          caption:
+            'Baris "field asing" memang 201 — yang harus diperiksa adalah responsnya TIDAK memuat peran.',
+        },
+      ),
+      p(
+        'Baris kelima itu yang paling sering salah dibaca. Mengirim field asing memang **boleh berhasil**, sebab zod membuangnya diam-diam. Yang membuktikan perlindungannya bekerja bukan status codenya melainkan isi responsnya, yaitu tidak ada `peran` di sana dan tidak ada `peran` yang tersimpan.',
+      ),
+      p(
+        'Dua baris terakhir menguji hal yang paling sering terlewat. `DELETE` kedua harus tetap `204`, sebab keadaan yang diminta pengguna sudah tercapai. Dan `?limit=1000000` harus ditolak, sebab tanpa batas ia menahan seluruh server.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'CRUD adalah pekerjaan yang paling sering dinyatakan selesai terlalu cepat, sebab jalur suksesnya memang cepat selesai.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyatakan selesai setelah jalur sukses berjalan',
+            'Fiturnya sudah bekerja',
+            'Jalur 400, 401, 404, 413, 422, dan 500 adalah yang paling sering rusak di produksi',
+          ],
+          [
+            'Memakai `PUT` untuk formulir edit sebagian',
+            'Namanya update',
+            'Diukur di bab database, field yang tidak dikirim kembali ke nilai bawaan. Datanya hilang tanpa error',
+          ],
+          [
+            'Paginasi dengan `OFFSET`',
+            'Itu cara yang biasa',
+            'Diukur, `OFFSET 250000` membaca 250.020 baris untuk memberi 20. Pakai keyset',
+          ],
+          [
+            'Mengambil data hanya berdasarkan id di alamat',
+            'Penggunanya sudah masuk',
+            'Itu IDOR. Batasi ke pemiliknya di dalam query, bukan dengan membandingkan sesudahnya',
+          ],
+          [
+            'Menjawab `404` untuk `DELETE` kedua',
+            'Datanya kan sudah tidak ada',
+            'Merusak idempotensi. Percobaan ulang otomatis jadi terlihat gagal padahal berhasil',
+          ],
+          [
+            'Tidak membatasi `limit`',
+            'Klien kita yang menentukan',
+            'Endpoint mana pun bisa dipanggil langsung. `?limit=1000000` menahan seluruh server',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama pantas menjadi penutup bab ini. Sebuah endpoint dinyatakan selesai bukan ketika ia mengembalikan data yang benar, melainkan ketika setiap jalur kegagalannya sudah dijalankan sekali dan menghasilkan status serta pesan yang memang dirancang. Berkas `uji-crud.sh` di atas menutup seluruhnya dalam beberapa detik, dan ia tetap berguna berbulan-bulan kemudian ketika seseorang mengubah sesuatu dan ingin tahu apakah ada yang rusak.',
+      ),
       references(
         {
           label: 'Production Best Practices: Security',

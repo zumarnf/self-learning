@@ -2,6 +2,7 @@ import {
   callout,
   checklist,
   code,
+  compare,
   divider,
   h2,
   ol,
@@ -24,7 +25,7 @@ export const lessons: LessonDraft[] = [
   written(
     'apa-itu-dom',
     'Apa itu DOM & Pohon Node',
-    9,
+    22,
     'HTML sebagai struktur pohon yang bisa dibaca dan diubah dari kode.',
     [
       p(
@@ -161,6 +162,235 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Kamu memasang skrip pelacak sederhana di halaman produk, yang tugasnya mencatat berapa lama pengguna melihat gambar utama. Kodenya satu baris, yaitu ambil elemen gambarnya lalu pasang pengamat. Di komputermu semuanya bekerja. Begitu dipasang di halaman sungguhan, console penuh error dan pelacaknya tidak pernah jalan.',
+      ),
+      p(
+        'Penyebabnya bukan kode pelacaknya melainkan **kapan** ia dijalankan. Pohon DOM dibangun peramban dari atas ke bawah sambil membaca HTML, dan skrip yang berjalan sebelum sebuah elemen dibaca tidak akan menemukan elemen itu.',
+      ),
+      code(
+        'html',
+        `
+        <!doctype html>
+        <html lang="id">
+          <head>
+            <!-- Skrip ini berjalan SEBELUM body dibaca. -->
+            <script src="/pelacak.js"></script>
+          </head>
+          <body>
+            <img id="gambar-utama" src="/kaos.webp" alt="Kaos polos abu" />
+          </body>
+        </html>
+        `,
+        { filename: 'index.html — susunan yang membuat pelacak gagal' },
+      ),
+      code(
+        'js',
+        `
+        // pelacak.js
+        const gambar = document.getElementById('gambar-utama');
+        gambar.addEventListener('load', catatTampil);
+
+        // TypeError: Cannot read properties of null (reading 'addEventListener')
+        `,
+        { filename: 'pelacak.js' },
+      ),
+      p(
+        'Saat baris pertama dijalankan, peramban baru membaca sampai bagian `head`. Elemen `img` di dalam `body` belum ada di pohon DOM, jadi `getElementById` mengembalikan `null`. Ini bukan masalah waktu jaringan atau ukuran berkas, melainkan urutan pembacaan HTML yang berlaku selalu, bahkan pada halaman yang sangat kecil.',
+      ),
+      code(
+        'html',
+        `
+        <head>
+          <!-- defer: berkasnya diunduh sekarang, dijalankan setelah HTML selesai dibaca -->
+          <script src="/pelacak.js" defer></script>
+        </head>
+        `,
+        { filename: 'Perbaikan pertama, dan yang paling sering dipakai' },
+      ),
+      code(
+        'html',
+        `
+        <body>
+          <img id="gambar-utama" src="/kaos.webp" alt="Kaos polos abu" />
+
+          <!-- Alternatif: taruh di akhir body, tanpa atribut apa pun. -->
+          <script src="/pelacak.js"></script>
+        </body>
+        `,
+        { filename: 'Perbaikan kedua, cukup dengan memindahkan letaknya' },
+      ),
+      p(
+        'Atribut `defer` memisahkan dua hal yang tanpanya menyatu, yaitu **kapan berkasnya diunduh** dan **kapan isinya dijalankan**. Dengan `defer`, unduhan berjalan bersamaan dengan pembacaan HTML sehingga tidak ada waktu terbuang, sedangkan eksekusinya ditunda sampai seluruh HTML selesai dibaca. Ini menggabungkan keunggulan menaruh skrip di `head` dan di akhir `body` sekaligus.',
+      ),
+      p(
+        'Perlu diingat `defer` hanya berlaku untuk skrip eksternal, jadi ia tidak berpengaruh pada blok `<script>` yang isinya ditulis langsung di HTML. Untuk skrip inline, satu-satunya pilihan adalah menaruhnya di akhir `body`, atau membungkus isinya di dalam penangan `DOMContentLoaded`. Skrip bertipe module berperilaku seperti `defer` secara bawaan, sehingga `type="module"` yang sudah dibahas di Bab 1 sekaligus menyelesaikan masalah ini.',
+      ),
+      code(
+        'js',
+        `
+        // Kalau kamu tidak bisa mengubah letak tag skripnya, tunggu peristiwanya.
+        document.addEventListener('DOMContentLoaded', () => {
+          const gambar = document.getElementById('gambar-utama');
+          gambar.addEventListener('load', catatTampil);
+        });
+
+        // Bedanya dengan window 'load':
+        // DOMContentLoaded -> HTML selesai dibaca, gambar mungkin belum selesai diunduh
+        // load             -> gambar, stylesheet, dan iframe juga sudah selesai
+        `,
+        { caption: 'Dua peristiwa yang sering tertukar, dengan arti yang berbeda.' },
+      ),
+      p(
+        'Perbedaan `DOMContentLoaded` dan `load` menentukan pilihan pada kasus nyata. Kalau kamu hanya butuh elemennya **ada**, `DOMContentLoaded` cukup dan ia terjadi jauh lebih awal. Kalau kamu butuh ukuran sungguhan sebuah gambar, kamu harus menunggu `load`, sebab sebelum gambarnya terunduh peramban belum tahu dimensinya. Memakai `load` untuk hal yang tidak membutuhkannya membuat interaksi terasa lambat tanpa alasan.',
+      ),
+      callout(
+        'tip',
+        'Cara cepat memastikan pohon DOM sudah siap',
+        'Ketik `document.readyState` di console. Nilainya `loading` berarti HTML masih dibaca, `interactive` berarti HTML selesai tapi gambar belum, dan `complete` berarti semuanya selesai. Kalau skripmu berjalan saat nilainya masih `loading`, itulah penyebab elemen yang tidak ditemukan.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut semuanya berakar pada satu hal, yaitu pohon DOM yang belum atau sudah tidak berisi yang kamu cari. Ketiga pesan pertama diambil dari Chromium sungguhan.',
+      ),
+      code(
+        'text',
+        `
+        document.querySelector('#tidakAda').addEventListener('click', () => {});
+                                            ^
+
+        TypeError: Cannot read properties of null (reading 'addEventListener')
+        `,
+        { caption: 'Elemennya tidak ditemukan, dan `null` diperlakukan seperti elemen.' },
+      ),
+      p(
+        'Ini error DOM yang paling sering muncul di seluruh karier seorang frontend. Bacalah sebagai berikut, yaitu `querySelector` mengembalikan `null` dan `null` tidak punya `addEventListener`. Tiga penyebabnya berurutan dari yang paling sering, yaitu skripnya berjalan terlalu awal, pemilihnya salah ketik, dan elemennya memang belum dibuat karena datanya belum sampai.',
+      ),
+      p(
+        'Cara membedakan ketiganya cepat. Buka console setelah halaman selesai dimuat lalu ketik pemilih yang sama. Kalau di sana ia menemukan elemennya, berarti masalahnya waktu. Kalau di sana pun `null`, berarti pemilihnya yang salah atau elemennya memang tidak ada.',
+      ),
+      code(
+        'text',
+        `
+        document.querySelector('#1abc');
+                 ^
+
+        SyntaxError: Failed to execute 'querySelector' on 'Document':
+        '#1abc' is not a valid selector.
+        `,
+        { caption: 'Pemilih CSS yang tidak sah, bukan sekadar tidak ditemukan.' },
+      ),
+      p(
+        "Perhatikan ini `SyntaxError` dan bukan `null`, dan perbedaannya berguna. Pemilih yang **sah tapi tidak cocok** menghasilkan `null`, sedangkan pemilih yang **tidak sah** melempar. Aturan CSS melarang id yang diawali angka, jadi `#1abc` bukan pemilih yang bisa diurai. Kalau id di HTML memang diawali angka, pakai `document.getElementById('1abc')` yang tidak memakai sintaks CSS, atau lebih baik ganti idnya.",
+      ),
+      code(
+        'text',
+        `
+        document.getElementById('nihil').textContent = 'x';
+                                         ^
+
+        TypeError: Cannot set properties of null (setting 'textContent')
+        `,
+        { caption: 'Versi menulis dari error yang sama.' },
+      ),
+      p(
+        "Perbedaannya dengan pesan pertama hanya kata `set` dan `read`, dan itu menandakan apakah kamu sedang membaca atau menulis. Yang perlu diperhatikan, `getElementById` menerima **id tanpa tanda pagar**, berbeda dari `querySelector` yang menerima pemilih CSS lengkap. Menulis `getElementById('#nihil')` dengan pagar adalah kesalahan yang sering terjadi, dan hasilnya selalu `null` tanpa peringatan.",
+      ),
+      code(
+        'text',
+        `
+        // Skrip di head, tanpa defer, pada halaman yang datanya dimuat dari API.
+        const baris = document.querySelectorAll('.baris-produk');
+        console.log(baris.length);
+
+        0
+        `,
+        { caption: 'Tidak ada error, dan hasilnya kosong.' },
+      ),
+      p(
+        'Ini bentuk yang paling menyesatkan, sebab `querySelectorAll` tidak pernah mengembalikan `null` melainkan daftar kosong. Tidak ada error, dan loop di bawahnya berjalan nol kali tanpa satu pun tanda. Kalau kamu punya loop atas hasil `querySelectorAll` yang seakan tidak melakukan apa-apa, cetak `.length`-nya lebih dulu sebelum menduga logikanya yang salah.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            "`Cannot read properties of null (reading 'addEventListener')`",
+            'Elemen tidak ditemukan, biasanya karena skrip berjalan terlalu awal',
+            'Tambahkan `defer`, pindahkan ke akhir `body`, atau pakai `type="module"`',
+          ],
+          [
+            '`is not a valid selector`',
+            'Sintaks pemilih CSS tidak sah, misalnya id diawali angka',
+            'Perbaiki pemilihnya, atau pakai `getElementById` untuk id yang bermasalah',
+          ],
+          [
+            '`Cannot set properties of null`',
+            'Sama seperti di atas, hanya saja sedang menulis',
+            'Periksa keberadaan elemennya lebih dulu sebelum menulis',
+          ],
+          [
+            '`querySelectorAll` menghasilkan panjang nol',
+            'Elemennya belum dibuat, atau kelasnya berbeda',
+            'Cetak `.length`, dan periksa apakah elemennya dibuat setelah data sampai',
+          ],
+          [
+            'Ukuran elemen terbaca nol',
+            'Diukur sebelum gambar atau font selesai dimuat',
+            'Tunggu peristiwa `load`, bukan `DOMContentLoaded`',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Pemahaman keliru yang paling sering tentang DOM adalah menganggapnya sama dengan berkas HTML yang kamu tulis. DOM adalah **pohon hidup di memori** yang dibangun dari HTML itu, dan keduanya bisa berbeda jauh.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Mengira isi tab Elements di DevTools adalah berkas HTML-nya',
+            'Isinya memang terlihat seperti HTML',
+            'Tab Elements menampilkan DOM saat ini, termasuk seluruh perubahan yang dibuat JavaScript. Untuk melihat HTML aslinya, pakai View Source atau tab Network',
+          ],
+          [
+            'Menaruh tag skrip di `head` tanpa `defer`',
+            'Skrip biasanya memang ditaruh di atas',
+            'Skrip itu berjalan sebelum `body` dibaca, sehingga seluruh elemen halaman belum ada. Ia juga menghentikan pembacaan HTML sampai berkasnya selesai diunduh',
+          ],
+          [
+            'Memakai `window.onload` untuk semua penyiapan',
+            'Ia paling aman karena menunggu semuanya',
+            'Ia menunggu seluruh gambar dan iframe, sehingga tombol bisa tidak berfungsi selama beberapa detik. Pakai `DOMContentLoaded` kecuali kamu benar-benar butuh ukuran gambar',
+          ],
+          [
+            'Menyimpan hasil `querySelector` di variabel modul lalu memakainya nanti',
+            'Elemennya kan sudah ditemukan',
+            'Kalau elemen itu diganti atau digambar ulang, variabelnya menunjuk elemen lama yang sudah tidak ada di halaman. Ambil ulang saat dibutuhkan, atau pegang induknya yang stabil',
+          ],
+          [
+            'Mengubah HTML lalu heran perubahannya hilang setelah muat ulang',
+            'Perubahannya jelas terlihat di layar',
+            'DOM hanya hidup di memori tab itu. Untuk menyimpan, kirim ke server atau simpan di penyimpanan peramban',
+          ],
+          [
+            'Mengira setiap spasi dan baris baru di HTML tidak masuk ke DOM',
+            'Ia kan hanya format penulisan',
+            'Spasi antar-tag menjadi node teks di DOM, sehingga `wadah.childNodes[0]` sering berupa teks kosong bukan elemen. Pakai `children` yang hanya berisi elemen',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir menjadi sumber bug yang membingungkan saat kamu mulai menelusuri pohon secara manual. Perbedaannya perlu dihafal, yaitu `childNodes` berisi **semua** node termasuk teks dan komentar, sedangkan `children` hanya berisi elemen. Hal yang sama berlaku untuk pasangannya, yaitu `firstChild` melawan `firstElementChild`, dan `nextSibling` melawan `nextElementSibling`. Untuk hampir semua keperluan, versi yang menyebut kata Element adalah yang kamu maksud.',
+      ),
+      callout(
+        'info',
+        'DOM bukan bagian dari bahasa JavaScript',
+        'DOM adalah API yang disediakan peramban dan didefinisikan oleh WHATWG, bukan oleh spesifikasi bahasa JavaScript. Itulah kenapa `document` tidak ada di Node.js, seperti sudah dibahas di Bab 1. Bahasa lain yang berjalan di peramban akan memakai DOM yang sama persis, sebab ia milik peramban bukan milik JavaScript.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'DOM adalah pohon objek hasil parsing HTML — bukan teks HTML itu sendiri.',
@@ -206,7 +436,7 @@ export const lessons: LessonDraft[] = [
   written(
     'seleksi-elemen',
     'Menyeleksi Elemen',
-    10,
+    19,
     'Menemukan elemen yang ingin kamu ubah — dan menghindari jebakan koleksi hidup.',
     [
       terms(
@@ -355,6 +585,221 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Tabel pesanan di panel admin punya tombol Batalkan di tiap barisnya, filter status di atasnya, dan tombol Muat Lagi di bawahnya yang menambah dua puluh baris tanpa memuat ulang halaman. Kamu menulis kode yang mengambil semua tombol Batalkan lalu memasang penangan klik. Semuanya bekerja untuk dua puluh baris pertama, dan tombol pada baris yang ditambahkan kemudian tidak melakukan apa-apa.',
+      ),
+      p(
+        'Bug ini punya dua penyebab yang sering tertukar, dan sub-bab ini menjelaskan yang pertama. Penyebab kedua, yaitu penangan yang hanya dipasang sekali, dibahas di Sub-bab 4.8. Yang pertama adalah perbedaan antara daftar yang ikut berubah dan daftar yang membeku.',
+      ),
+      code(
+        'js',
+        `
+        const wadah = document.getElementById('daftar-pesanan');
+
+        // getElementsByClassName menghasilkan koleksi HIDUP.
+        const hidup = wadah.getElementsByClassName('baris');
+
+        // querySelectorAll menghasilkan daftar STATIS.
+        const statis = wadah.querySelectorAll('.baris');
+
+        // Tambahkan satu baris baru.
+        const baru = document.createElement('p');
+        baru.className = 'baris';
+        wadah.appendChild(baru);
+
+        console.log(hidup.length);    // 3  <- ikut bertambah sendiri
+        console.log(statis.length);   // 2  <- tetap seperti saat diambil
+        `,
+        { caption: 'Diukur sungguhan di Chromium, bukan diperkirakan.' },
+      ),
+      p(
+        'Selisih 3 melawan 2 itu adalah seluruh perbedaannya. `getElementsByClassName` dan `getElementsByTagName` mengembalikan `HTMLCollection` yang terhubung ke dokumen, sehingga isinya selalu mencerminkan keadaan sekarang. `querySelectorAll` mengembalikan `NodeList` statis, yaitu potret pada saat pemanggilan. Keduanya benar untuk keperluan yang berbeda, dan memakai yang salah menghasilkan bug yang tidak berbunyi.',
+      ),
+      code(
+        'js',
+        `
+        // Koleksi hidup + loop maju = elemen terlewat.
+        const hidup = wadah.getElementsByClassName('baris');
+        for (let i = 0; i < hidup.length; i += 1) {
+          hidup[i].remove();          // menghapus MENGUBAH panjang koleksinya
+        }
+        console.log(hidup.length);    // bukan 0, melainkan sekitar separuhnya
+
+        // Perbaikan: bekukan dulu menjadi array.
+        for (const el of [...wadah.getElementsByClassName('baris')]) {
+          el.remove();
+        }
+        `,
+        { caption: 'Menghapus sambil menelusuri koleksi hidup selalu melewatkan elemen.' },
+      ),
+      p(
+        'Alasannya bisa ditelusuri langkah demi langkah. Pada `i` bernilai 0, elemen pertama dihapus dan seluruh sisanya bergeser satu posisi ke kiri sekaligus `length` berkurang satu. Pada putaran berikutnya `i` menjadi 1, sehingga yang tadinya berada di posisi 1 dan sekarang di posisi 0 tidak pernah tersentuh. Setengah elemen terlewat, dan tidak ada satu pun error.',
+      ),
+      code(
+        'js',
+        `
+        // Pemilihan yang tahan terhadap perubahan tampilan.
+        const wadah = document.getElementById('daftar-pesanan');
+
+        // BURUK: terikat pada struktur dan kelas gaya
+        wadah.querySelectorAll('div > div > button.bg-red-500');
+
+        // BAIK: terikat pada MAKSUD, lewat atribut data
+        wadah.querySelectorAll('[data-aksi="batalkan"]');
+
+        // Cari yang terdekat ke atas, berguna di dalam penangan klik.
+        const baris = tombol.closest('[data-pesanan-id]');
+        const id = baris?.dataset.pesananId;
+        `,
+        { filename: 'src/admin/pesanan.js' },
+      ),
+      p(
+        'Pemilih pertama akan rusak begitu ada yang mengganti warna tombol dari merah menjadi jingga, atau menambah satu pembungkus `div` untuk keperluan tata letak. Keduanya perubahan tampilan murni yang seharusnya tidak menyentuh logika sama sekali. Pemilih kedua terikat pada atribut yang kamu buat khusus untuk itu, sehingga ia hanya berubah kalau maksudnya memang berubah.',
+      ),
+      p(
+        'Method `closest` menelusuri **ke atas** dari elemen yang diberikan sampai menemukan yang cocok, termasuk elemen itu sendiri. Ia adalah pasangan alami dari pemilihan berbasis atribut data, sebab di dalam penangan klik kamu memegang tombolnya dan yang kamu butuhkan adalah barisnya. Tanpa `closest`, orang biasanya menulis `tombol.parentElement.parentElement`, dan rantai itu rusak setiap kali ada satu pembungkus ditambahkan.',
+      ),
+      callout(
+        'tip',
+        'Satu awalan atribut untuk hal yang dipakai JavaScript',
+        'Banyak tim memakai awalan seperti `data-js-` atau `data-testid` untuk menandai elemen yang disentuh kode, terpisah dari kelas yang dipakai gaya. Dengan begitu siapa pun yang mengubah tampilan tahu bahwa kelas boleh diganti bebas, sedangkan atribut bertanda itu tidak boleh disentuh tanpa memeriksa pemakainya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan pemilihan terbagi dua, yaitu yang melempar dan yang menghasilkan kekosongan tanpa suara. Yang kedua jauh lebih sering dan lebih lama ditelusuri.',
+      ),
+      code(
+        'text',
+        `
+        document.querySelectorAll('.baris').classList.add('aktif');
+                                            ^
+
+        TypeError: Cannot read properties of undefined (reading 'add')
+        `,
+        { caption: 'Method elemen dipanggil pada daftar elemen.' },
+      ),
+      p(
+        '`querySelectorAll` mengembalikan daftar, dan daftar tidak punya `classList`. Kesalahan ini sangat sering terjadi karena bentuk tunggal dan jamaknya hanya berbeda tiga huruf. Perhatikan pesannya menyebut `undefined` dan bukan `null`, dan itu petunjuknya, sebab `daftar.classList` memang tidak ada sehingga hasilnya `undefined`. Perbaikannya menelusuri daftarnya dengan `forEach` atau `for...of`, atau memakai `querySelector` tunggal kalau memang hanya satu yang dimaksud.',
+      ),
+      code(
+        'text',
+        `
+        document.querySelector('#1abc');
+
+        SyntaxError: Failed to execute 'querySelector' on 'Document':
+        '#1abc' is not a valid selector.
+        `,
+        { caption: 'Pemilih tidak sah menurut aturan CSS.' },
+      ),
+      p(
+        'Selain id yang diawali angka, penyebab lain yang sering adalah nilai atribut yang mengandung tanda kutip atau spasi tanpa dibungkus, misalnya `[data-nama=Sari Dewi]`. Bungkus nilainya dengan tanda kutip menjadi `[data-nama="Sari Dewi"]`. Untuk nilai yang datang dari data dan bisa berisi apa saja, pakai `CSS.escape(nilai)` supaya karakter khususnya tidak merusak pemilihnya.',
+      ),
+      code(
+        'text',
+        `
+        const el = document.querySelector('.tombol-simpan');
+        el.disabled = true;
+
+        // Halaman punya TIGA tombol simpan, dan hanya yang pertama yang mati.
+        `,
+        { caption: 'Tidak ada error, dan hanya satu dari tiga elemen yang terkena.' },
+      ),
+      p(
+        '`querySelector` mengembalikan **yang pertama cocok** dan berhenti di situ. Kalau kamu bermaksud mengenai semuanya, yang dibutuhkan `querySelectorAll` dengan loop. Gejalanya khas, yaitu fiturnya bekerja untuk elemen pertama dan diam untuk sisanya, dan itu sering disalahartikan sebagai masalah pada elemen kedua dan ketiga.',
+      ),
+      code(
+        'text',
+        `
+        const baris = wadah.querySelectorAll('.baris');
+        muatLagi();                      // menambah 20 baris ke wadah
+        console.log(baris.length);       // tetap 20, bukan 40
+        `,
+        { caption: 'Daftar statis tidak ikut bertambah setelah DOM berubah.' },
+      ),
+      p(
+        'Ini kebalikan dari jebakan koleksi hidup, dan keduanya sama-sama tidak melempar apa pun. Daftar statis adalah potret, jadi elemen yang lahir setelah pemanggilan tidak akan pernah masuk. Kalau kamu menyimpan hasil `querySelectorAll` lalu memakainya setelah DOM berubah, ambil ulang. Untuk daftar yang isinya sering berubah, pendekatan yang lebih baik adalah tidak menyimpan daftarnya sama sekali dan memakai delegasi peristiwa dari Sub-bab 4.8.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            "`Cannot read properties of undefined (reading 'add')`",
+            'Method elemen dipanggil pada hasil `querySelectorAll`',
+            'Telusuri daftarnya, atau pakai `querySelector` tunggal',
+          ],
+          [
+            '`is not a valid selector`',
+            'Sintaks pemilih tidak sah',
+            'Bungkus nilai atribut dengan kutip, dan pakai `CSS.escape` untuk nilai dinamis',
+          ],
+          [
+            'Hanya elemen pertama yang terpengaruh',
+            '`querySelector` berhenti pada yang pertama cocok',
+            'Ganti ke `querySelectorAll` lalu telusuri',
+          ],
+          [
+            'Elemen baru tidak ikut terpengaruh',
+            'Daftar statis diambil sebelum elemennya ada',
+            'Ambil ulang, atau pakai delegasi peristiwa',
+          ],
+          [
+            'Separuh elemen terlewat saat dihapus dalam loop',
+            'Koleksi hidup berubah panjang saat ditelusuri',
+            'Bekukan dulu menjadi array dengan tiga titik',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Pemilihan elemen terlihat sebagai bagian paling sederhana dari DOM, dan justru di situlah keputusan yang menentukan seberapa mudah kode itu dirawat setahun kemudian.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memilih elemen lewat kelas yang dipakai untuk gaya',
+            'Kelasnya sudah ada, jadi tidak perlu menambah apa-apa',
+            'Mengganti gaya menjadi mengubah perilaku. Orang yang mengganti warna tombol tidak punya cara tahu ada kode yang bergantung padanya',
+          ],
+          [
+            'Memakai rantai `parentElement.parentElement`',
+            'Strukturnya kan sudah pasti',
+            'Satu pembungkus tambahan untuk tata letak langsung merusaknya. Pakai `closest` dengan atribut yang menyatakan maksud',
+          ],
+          [
+            'Memanggil `querySelector` berulang kali di dalam loop',
+            'Tiap baris kan perlu dicari elemennya',
+            'Tiap pemanggilan menelusuri dokumen dari awal. Cari sekali di luar loop, atau cari dari dalam barisnya bukan dari `document`',
+          ],
+          [
+            'Memakai `getElementsByClassName` karena namanya lebih jelas',
+            'Namanya menyebut persis yang dicari',
+            'Ia menghasilkan koleksi hidup yang berubah saat DOM berubah, dan itu jarang yang kamu maksud. `querySelectorAll` lebih mudah diprediksi',
+          ],
+          [
+            'Mencari dari `document` padahal sudah punya wadahnya',
+            'Sama saja hasilnya',
+            'Mencari dari `document` bisa menemukan elemen dari bagian halaman lain yang kebetulan kelasnya sama. Batasi pencarian ke wadah yang relevan',
+          ],
+          [
+            'Menyalin pemilih panjang dari menu Copy selector di DevTools',
+            'DevTools yang membuatnya, jadi pasti benar',
+            'Pemilih itu terikat pada posisi persis dan berisi rantai `nth-child` yang rusak begitu urutannya berubah. Pakai sebagai titik awal, lalu sederhanakan',
+          ],
+        ],
+      ),
+      p(
+        'Baris ketiga punya dampak yang bisa diukur pada tabel besar. Memanggil `document.querySelector` di dalam loop untuk seribu baris berarti seribu penelusuran dokumen penuh. Bentuk yang benar adalah mencari wadahnya sekali, lalu untuk tiap baris mencari dari dalam barisnya sendiri dengan `baris.querySelector(...)`. Cakupan pencariannya menjadi jauh lebih kecil, dan maksudnya juga lebih jelas terbaca.',
+      ),
+      callout(
+        'warning',
+        'Elemen berid otomatis menjadi variabel global, dan itu bukan fitur yang layak dipakai',
+        'Peramban membuat variabel global untuk tiap elemen yang punya `id`, sehingga `<div id="wadah">` bisa diakses langsung sebagai `wadah` tanpa `getElementById`. Jangan memakainya. Ia bisa bentrok dengan variabelmu sendiri, tidak terlihat oleh pembaca kode, dan hilang begitu elemennya dibuat dari JavaScript. Tulis pengambilannya secara eksplisit.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         '`querySelector` untuk satu, `querySelectorAll` untuk banyak — keduanya menerima selector CSS.',
@@ -401,7 +846,7 @@ export const lessons: LessonDraft[] = [
   written(
     'mengubah-konten',
     '`textContent` vs `innerHTML` vs `innerText`',
-    12,
+    24,
     'Tiga cara mengisi konten — dan satu di antaranya adalah celah keamanan.',
     [
       terms(
@@ -557,6 +1002,224 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman detail produk menampilkan ulasan pembeli. Isinya diketik pembeli sendiri, jadi bisa berisi apa saja. Kamu menampilkannya dengan `innerHTML` supaya baris barunya bisa diubah menjadi tag, dan itu bekerja rapi. Beberapa minggu kemudian ada pembeli yang mengirim ulasan berisi tag gambar dengan alamat yang sengaja dibuat salah, dan sejak itu setiap pengunjung halaman produk itu menjalankan kode milik orang tersebut.',
+      ),
+      p('Ini bukan skenario karangan. Berikut buktinya, dijalankan di Chromium sungguhan.'),
+      code(
+        'js',
+        `
+        const kotak = document.createElement('div');
+        kotak.innerHTML = '<img src=x onerror="console.log(\\'XSS JALAN\\')">';
+        document.body.appendChild(kotak);
+
+        // Keluaran console: XSS JALAN
+        `,
+        {
+          caption:
+            'Tag `script` memang tidak dijalankan oleh `innerHTML`, tapi `onerror` dijalankan.',
+        },
+      ),
+      p(
+        'Banyak orang mengira `innerHTML` aman karena tag `<script>` di dalamnya tidak dijalankan, dan itu memang benar. Yang tidak dijalankan hanya tag `script`, sedangkan **atribut penangan peristiwa tetap aktif**. Alamat gambar `x` sengaja dibuat tidak ada supaya gagal dimuat, dan kegagalan itulah yang memicu `onerror`. Tidak ada satu pun tag `script` di sana, dan kodenya tetap berjalan.',
+      ),
+      code(
+        'js',
+        `
+        // BAHAYA: teks dari pengguna diperlakukan sebagai HTML
+        kotak.innerHTML = \`<p>\${ulasan.isi}</p>\`;
+
+        // AMAN: teks tetap menjadi teks, apa pun isinya
+        const paragraf = document.createElement('p');
+        paragraf.textContent = ulasan.isi;
+        kotak.append(paragraf);
+        `,
+        { caption: 'Perbedaan satu properti yang menentukan.' },
+      ),
+      p(
+        '`textContent` tidak pernah mengurai isinya sebagai HTML. Kalau pembeli mengetik `<img src=x onerror=...>`, yang muncul di layar adalah teks itu apa adanya beserta tanda kurung sudutnya, dan tidak ada satu pun yang dijalankan. Inilah alasan aturan project ini menyebut pemakaian `innerHTML` dengan data pengguna sebagai cacat, bukan sebagai pilihan gaya.',
+      ),
+      code(
+        'js',
+        `
+        // Kasus nyata yang lebih lengkap: satu kartu ulasan.
+        function buatKartuUlasan(ulasan) {
+          const kartu = document.createElement('article');
+          kartu.className = 'kartu-ulasan';
+          kartu.dataset.ulasanId = ulasan.id;
+
+          const nama = document.createElement('strong');
+          nama.textContent = ulasan.nama;              // dari pengguna, pakai textContent
+
+          const bintang = document.createElement('span');
+          bintang.setAttribute('aria-label', \`\${ulasan.nilai} dari 5 bintang\`);
+          bintang.textContent = '★'.repeat(ulasan.nilai) + '☆'.repeat(5 - ulasan.nilai);
+
+          const isi = document.createElement('p');
+          isi.textContent = ulasan.isi;                // dari pengguna, pakai textContent
+
+          const waktu = document.createElement('time');
+          waktu.dateTime = ulasan.padaIso;             // kita yang mengendalikan, aman
+          waktu.textContent = new Intl.DateTimeFormat('id-ID', { dateStyle: 'long' })
+            .format(new Date(ulasan.padaIso));
+
+          kartu.append(nama, bintang, isi, waktu);     // append menerima banyak sekaligus
+          return kartu;
+        }
+        `,
+        { filename: 'src/ulasan/kartu.js' },
+      ),
+      p(
+        'Fungsi ini memisahkan dua jenis nilai dengan tegas. Nama dan isi ulasan datang dari pengguna, jadi keduanya masuk lewat `textContent`. Sebaliknya `dateTime` dan `aria-label` dibentuk dari data yang kamu kendalikan, sehingga aman ditulis sebagai atribut. Kebiasaan memisahkan keduanya sejak awal jauh lebih murah daripada menyisir ulang seluruh berkas nanti.',
+      ),
+      p(
+        'Method `append` di baris terakhir berbeda dari `appendChild` dalam dua hal yang keduanya berguna. Ia menerima **beberapa** node sekaligus dalam satu panggilan, dan ia juga menerima teks biasa yang otomatis diubah menjadi node teks yang aman. `appendChild` hanya menerima satu node dan menolak teks. Untuk kode baru, `append` hampir selalu pilihan yang lebih enak.',
+      ),
+      callout(
+        'danger',
+        'Kalau HTML memang harus dirender, bersihkan dulu dengan pustaka yang teruji',
+        'Sebagian kasus memang menuntut HTML sungguhan, misalnya isi artikel dari editor teks kaya. Untuk itu, jangan menulis penyaring sendiri. Daftar tag berbahaya jauh lebih panjang daripada dugaan, dan penyerang punya banyak cara memutarnya. Pakai pustaka pembersih yang sudah teruji, dan jalankan pembersihannya di server bukan hanya di peramban.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Bagian ini punya sifat khas, yaitu kegagalan yang paling berbahaya justru tidak menghasilkan error sama sekali. Dua pesan pertama diambil dari Chromium sungguhan, dan dua sisanya adalah gejala senyap.',
+      ),
+      code(
+        'text',
+        `
+        document.getElementById('nihil').textContent = 'x';
+                                         ^
+
+        TypeError: Cannot set properties of null (setting 'textContent')
+        `,
+        { caption: 'Menulis ke elemen yang tidak ditemukan.' },
+      ),
+      p(
+        'Sudah dibahas di Sub-bab 4.1 dan muncul lagi di sini karena bentuk menulisnya paling sering ditemui di sub-bab ini. Yang perlu ditambahkan, kalau elemennya memang boleh tidak ada, tulis penjaganya secara eksplisit dengan `if (el)` atau `el?.` alih-alih membiarkannya melempar. Yang harus dihindari adalah memasang `?.` di mana-mana tanpa memikirkan apakah ketiadaan elemen itu memang wajar.',
+      ),
+      code(
+        'text',
+        `
+        const kotak = document.createElement('div');
+        kotak.innerHTML = '<img src=x onerror="console.log(\\'XSS JALAN\\')">';
+        document.body.appendChild(kotak);
+
+        XSS JALAN
+        `,
+        { caption: 'Tidak ada error. Kode milik orang lain berjalan di halamanmu.' },
+      ),
+      p(
+        'Inilah kegagalan paling mahal dari seluruh sub-bab ini, dan tidak ada satu pun tanda di console selain keluaran dari penyerangnya sendiri. Kode yang berjalan lewat celah ini punya akses penuh ke halaman, termasuk membaca isi formulir, membaca penyimpanan peramban, dan mengirim apa pun ke server milik penyerang. Karena tidak ada error, satu-satunya cara menemukannya adalah tinjauan kode dan alat pemindai.',
+      ),
+      code(
+        'text',
+        `
+        el.innerHTML = '';
+        for (const item of daftar) {
+          el.innerHTML += \`<li>\${item.judul}</li>\`;
+        }
+
+        // Bekerja, tapi seluruh isi el dibongkar dan dibangun ulang tiap putaran.
+        `,
+        { caption: 'Tidak ada error, dan seluruh penangan peristiwa di dalamnya hilang.' },
+      ),
+      p(
+        'Bentuk `innerHTML +=` membaca seluruh isi menjadi teks, menggabungnya, lalu mengurai ulang semuanya dari nol. Akibat pertamanya lambat, dan akibat kedua yang lebih merusak adalah **seluruh elemen di dalamnya dibuat ulang**. Penangan peristiwa yang dipasang ke elemen lama hilang, fokus keyboard hilang, dan isi kotak input yang sedang diketik pengguna ikut lenyap. Kumpulkan dulu ke array lalu pasang sekali, atau lebih baik pakai `append` dengan node sungguhan.',
+      ),
+      code(
+        'text',
+        `
+        el.textContent = '<b>tebal</b>';
+
+        // Yang muncul di layar: <b>tebal</b>
+        // Bukan teks tebal.
+        `,
+        { caption: 'Kebalikannya, HTML yang memang dimaksudkan justru tampil sebagai teks.' },
+      ),
+      p(
+        'Ini kebingungan arah sebaliknya, dan biasanya muncul setelah seseorang mengganti seluruh `innerHTML` menjadi `textContent` untuk alasan keamanan. Kalau sepotong HTML memang kamu tulis sendiri dan tidak berasal dari pengguna, `innerHTML` sah dipakai. Aturannya bukan jangan pernah pakai `innerHTML`, melainkan jangan pernah memasukkan data pengguna ke dalamnya.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            "`Cannot set properties of null (setting 'textContent')`",
+            'Elemennya tidak ditemukan',
+            'Periksa keberadaannya, atau perbaiki waktu dan pemilihnya',
+          ],
+          [
+            'Kode asing berjalan tanpa satu pun error',
+            'Data pengguna masuk lewat `innerHTML`',
+            'Pakai `textContent`, atau bersihkan dengan pustaka teruji bila HTML memang perlu',
+          ],
+          [
+            'Penangan peristiwa hilang setelah daftar diperbarui',
+            '`innerHTML` membangun ulang seluruh isi',
+            'Bangun node dengan `createElement` dan `append`, atau pakai delegasi peristiwa',
+          ],
+          [
+            'Tag muncul sebagai teks di layar',
+            '`textContent` dipakai untuk HTML yang memang dimaksudkan',
+            'Pakai `innerHTML` untuk markup yang kamu tulis sendiri',
+          ],
+          [
+            'Daftar panjang terasa lambat saat diperbarui',
+            '`innerHTML +=` di dalam loop',
+            'Kumpulkan dulu, lalu pasang sekali',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Mengubah isi elemen terlihat sebagai operasi paling sederhana di DOM, dan ia sekaligus tempat celah keamanan paling umum di frontend lahir.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `innerHTML` untuk semua pengisian isi',
+            'Ia paling fleksibel dan paling pendek',
+            'Begitu ada satu nilai dari pengguna yang masuk, halamanmu bisa menjalankan kode orang lain. Pakai `textContent` sebagai bawaan',
+          ],
+          [
+            'Mengira `innerHTML` aman karena tag `script` tidak jalan',
+            'Itu memang benar',
+            'Atribut seperti `onerror` dan `onload` tetap dijalankan, dan itu sudah cukup untuk seluruh serangan',
+          ],
+          [
+            'Menyaring sendiri dengan menghapus kata `script`',
+            'Itu kan yang berbahaya',
+            'Daftar cara memutar penyaring sederhana sangat panjang, termasuk atribut peristiwa, `javascript:` pada href, dan SVG. Penyaring buatan sendiri hampir selalu bocor',
+          ],
+          [
+            'Memakai `innerText` karena namanya mirip `textContent`',
+            'Keduanya sama-sama soal teks',
+            '`innerText` memperhitungkan gaya dan tata letak, sehingga ia memicu perhitungan layout dan tidak menampilkan teks yang tersembunyi. Untuk mengisi teks, `textContent` lebih cepat dan lebih dapat diprediksi',
+          ],
+          [
+            "Mengosongkan elemen dengan `el.innerHTML = ''`",
+            'Cara paling pendek',
+            'Untuk elemen dengan banyak anak, `el.replaceChildren()` lebih jelas maksudnya dan tidak melewati pengurai HTML sama sekali',
+          ],
+          [
+            'Menggabung teks dan HTML dalam satu template literal',
+            'Sekali tulis langsung jadi',
+            'Setiap nilai yang disisipkan harus diperiksa satu per satu asalnya. Bangun node terpisah, dan biarkan pemisahan itu terlihat di kodenya',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat layak diingat karena perbedaannya punya biaya yang bisa diukur. `innerText` harus tahu bagaimana teks itu **ditampilkan**, sehingga membacanya memaksa peramban menghitung ulang tata letak. Di dalam loop, itu persis pola yang membuat halaman melambat drastis seperti dibahas di Sub-bab 4.11. Kecuali kamu memang butuh teks sebagaimana terlihat pengguna, pakai `textContent`.',
+      ),
+      callout(
+        'tip',
+        'Aturan satu kalimat yang menutup hampir seluruh sub-bab ini',
+        'Kalau nilainya berasal dari luar kodemu, entah dari pengguna, dari server, atau dari alamat halaman, ia masuk lewat `textContent`. Kalau markupnya kamu tulis sendiri sebagai teks tetap tanpa sisipan apa pun, `innerHTML` boleh. Ragu berarti pakai `textContent`.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         '`textContent` adalah default. Pakai yang lain hanya kalau ada alasan jelas.',
@@ -603,7 +1266,7 @@ export const lessons: LessonDraft[] = [
   written(
     'atribut-property-dataset',
     'Atribut, Property & `dataset`',
-    10,
+    19,
     'Dua dunia yang mirip tapi tidak sama — dan kenapa nilai input sering tidak sesuai dugaan.',
     [
       p(
@@ -750,6 +1413,215 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Tabel produk di panel admin punya tombol Tandai Habis di tiap baris. Saat diklik, tombolnya harus mati sementara permintaan berjalan, dan barisnya harus menyimpan harga aslinya supaya bisa dikembalikan kalau pengguna membatalkan. Kamu menulisnya dengan `setAttribute` untuk semuanya, dan hasilnya tombol yang terlihat mati tapi masih bisa diklik, serta harga asli yang kadang terbaca sebagai teks kadang sebagai angka.',
+      ),
+      p(
+        'Dua bug itu berasal dari satu kesalahpahaman, yaitu mengira atribut di HTML dan properti di objek DOM adalah hal yang sama. Keduanya berhubungan, dan hubungannya tidak selalu dua arah.',
+      ),
+      code(
+        'js',
+        `
+        const tombol = baris.querySelector('[data-aksi="habis"]');
+
+        // Atribut: nilainya SELALU teks.
+        tombol.setAttribute('disabled', 'false');
+        console.log(tombol.disabled);        // true  <- keberadaan atributnya yang dihitung
+
+        // Properti: tipenya sesuai maksudnya.
+        tombol.disabled = false;
+        console.log(tombol.hasAttribute('disabled'));   // false
+        `,
+        { caption: 'Untuk atribut boolean, yang menentukan keberadaannya bukan nilainya.' },
+      ),
+      p(
+        "Inilah penyebab tombol yang terlihat mati tapi masih bisa diklik, atau sebaliknya. Atribut boolean seperti `disabled`, `checked`, `readonly`, dan `required` dianggap aktif kalau atributnya **ada**, tidak peduli isinya apa. Menulis `setAttribute('disabled', 'false')` justru mematikan tombolnya, sebab teks `false` tetap berarti atributnya ada. Untuk atribut boolean, selalu pakai propertinya, yaitu `tombol.disabled = false`.",
+      ),
+      code(
+        'js',
+        `
+        const kotak = document.querySelector('#nama');
+
+        kotak.value;                      // apa yang diketik pengguna SEKARANG
+        kotak.getAttribute('value');      // nilai awal dari HTML, tidak ikut berubah
+        kotak.defaultValue;               // sama dengan atributnya
+
+        // Setelah pengguna mengetik 'Budi' di kotak yang HTML-nya value="Sari":
+        // kotak.value                 -> 'Budi'
+        // kotak.getAttribute('value') -> 'Sari'
+        `,
+        { caption: 'Untuk input, atribut adalah nilai awal dan properti adalah nilai sekarang.' },
+      ),
+      p(
+        'Perbedaan ini menjelaskan bug yang sangat sering pada formulir, yaitu tombol Reset yang tidak mengembalikan apa pun atau justru mengembalikan nilai yang salah. Atribut `value` adalah **nilai awal**, sedangkan properti `value` adalah **keadaan sekarang**. Untuk membaca apa yang diketik pengguna, selalu properti. Untuk mengubah nilai awal yang dipakai tombol Reset, barulah atributnya.',
+      ),
+      code(
+        'js',
+        `
+        // Menyimpan data milik aplikasi di elemen, lewat atribut data-.
+        baris.dataset.produkId = '7';
+        baris.dataset.hargaAsli = '89000';
+
+        // Penamaan berubah otomatis antara camelCase dan tanda hubung.
+        baris.dataset.hargaAsli;                    // '89000'
+        baris.getAttribute('data-harga-asli');      // '89000'  <- diverifikasi di Chromium
+
+        // NILAINYA SELALU TEKS. Ubah sendiri saat dibaca.
+        const harga = Number(baris.dataset.hargaAsli);
+        if (Number.isNaN(harga)) throw new TypeError('harga-asli bukan angka');
+        `,
+        { filename: 'src/admin/baris-produk.js' },
+      ),
+      p(
+        "Perubahan nama otomatis itu mengikuti aturan tetap, yaitu `hargaAsli` di JavaScript menjadi `harga-asli` di HTML. Aturannya sama seperti properti CSS di JavaScript, dan sekali dipahami ia tidak pernah menjadi masalah lagi. Yang tetap menjadi masalah adalah tipenya, sebab **seluruh** nilai atribut adalah teks. Angka 89000 yang kamu simpan kembali sebagai teks `'89000'`, dan menjumlahkannya dengan `+` akan menggabungkan teks seperti dibahas di Bab 1.",
+      ),
+      p(
+        'Batas pemakaian yang sehat untuk atribut data adalah menyimpan **pengenal**, bukan menyimpan data. Menyimpan `data-produk-id` sangat masuk akal, sebab ia pendek, tidak sensitif, dan memang menghubungkan elemen ke datanya. Menyimpan seluruh object produk sebagai JSON di dalam atribut adalah tanda bahwa kamu memakai DOM sebagai basis data, dan itu selalu berakhir buruk.',
+      ),
+      callout(
+        'warning',
+        'Apa pun yang kamu taruh di atribut bisa dibaca dan diubah pengguna',
+        'Atribut `data-` terlihat di tab Elements dan bisa disunting siapa pun lewat DevTools. Jangan pernah menaruh harga yang dipakai server untuk menagih, peran pengguna, atau tanda bahwa sesuatu sudah dibayar. Nilai dari atribut adalah masukan dari luar, dan server wajib memeriksanya ulang.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Sebagian besar kegagalan di sub-bab ini tidak melempar apa pun, dan itu yang membuatnya lama ditelusuri. Tiga yang pertama diverifikasi langsung di Chromium.',
+      ),
+      code(
+        'text',
+        `
+        tombol.setAttribute('disabled', 'false');
+        console.log(tombol.disabled);
+
+        true
+        `,
+        { caption: 'Tidak ada error, dan hasilnya kebalikan dari yang dimaksud.' },
+      ),
+      p(
+        "Kalau kamu bermaksud mengaktifkan tombol dan justru mematikannya, inilah penyebabnya. Untuk benar-benar menghapus atribut boolean, pakai `removeAttribute('disabled')` atau setel propertinya menjadi `false`. Aturan praktisnya, jangan pernah memakai `setAttribute` untuk atribut boolean sama sekali, sebab tidak ada nilai teks yang bisa berarti mati.",
+      ),
+      code(
+        'text',
+        `
+        const e = document.querySelector('.baris');
+        e.style.width = 100;
+        console.log(JSON.stringify(e.style.width));
+
+        ""
+        `,
+        { caption: 'Angka tanpa satuan diabaikan diam-diam.' },
+      ),
+      p(
+        "Properti gaya menerima **teks CSS**, dan `100` tanpa satuan bukan nilai CSS yang sah untuk lebar. Peramban tidak melempar apa pun melainkan mengabaikannya, sehingga hasilnya teks kosong. Gejalanya berupa elemen yang tidak berubah ukuran tanpa satu pun tanda di console. Selalu sertakan satuannya, yaitu `e.style.width = '100px'`. Pengecualiannya hanya properti yang memang tanpa satuan seperti `opacity`, `zIndex`, dan `lineHeight`.",
+      ),
+      code(
+        'text',
+        `
+        const e = document.querySelector('.baris');
+        e.dataset.hargaAsli = '1';
+        console.log(e.getAttribute('data-harga-asli'));
+
+        1
+        `,
+        { caption: 'Perubahan nama otomatis bekerja, dan tipenya tetap teks.' },
+      ),
+      p(
+        "Ini bukan error melainkan bukti perilakunya, dan ditampilkan karena separuh kebingungan seputar `dataset` selesai begitu seseorang melihat keluarannya sekali. Yang perlu diingat dari keluaran ini adalah tanda kutipnya tidak ada di console karena `getAttribute` memang mengembalikan teks `'1'`, dan console menampilkan teks tanpa kutip pada penggabungan. Perlakukan hasilnya sebagai teks selalu.",
+      ),
+      code(
+        'text',
+        `
+        document.getElementById('f').submit();
+                                     ^
+
+        TypeError: document.getElementById(...).submit is not a function
+        `,
+        { caption: 'Ada input bernama `submit` di dalam formulirnya.' },
+      ),
+      p(
+        'Ini jebakan lama DOM yang masih hidup sampai sekarang. Elemen formulir bisa diakses lewat namanya sebagai properti formulir, sehingga `<input name="submit">` menimpa method `form.submit`. Hal yang sama terjadi untuk `name="action"`, `name="method"`, dan `name="id"`. Hindari nama-nama itu untuk kolom formulir, dan kalau tidak bisa dihindari, panggil methodnya lewat prototipenya.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            "Tombol tetap mati padahal disetel `'false'`",
+            'Atribut boolean dinilai dari keberadaannya',
+            'Pakai propertinya, atau `removeAttribute`',
+          ],
+          [
+            'Gaya tidak berubah tanpa satu pun error',
+            'Nilai gaya diberikan tanpa satuan',
+            "Sertakan satuannya, misalnya `'100px'`",
+          ],
+          [
+            'Angka dari `dataset` menjadi teks saat dijumlahkan',
+            'Seluruh nilai atribut bertipe teks',
+            'Ubah dengan `Number()` lalu periksa dengan `Number.isNaN`',
+          ],
+          [
+            '`form.submit is not a function`',
+            'Ada kolom bernama `submit` yang menimpa methodnya',
+            'Ganti nama kolomnya, atau panggil lewat prototipe formulir',
+          ],
+          [
+            'Nilai input tidak berubah walau atributnya diubah',
+            'Atribut adalah nilai awal, bukan nilai sekarang',
+            'Setel propertinya, yaitu `input.value`',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Atribut dan properti mudah dipakai bergantian sampai kamu bertemu kasus yang membedakannya. Enam baris di bawah adalah kasus-kasus itu.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `setAttribute` untuk semuanya',
+            'Satu cara untuk semua kasus terasa konsisten',
+            'Untuk atribut boolean hasilnya kebalikan, dan untuk nilai input ia hanya mengubah nilai awal. Pakai properti sebagai bawaan, dan `setAttribute` hanya untuk atribut yang tidak punya properti',
+          ],
+          [
+            "Membaca `input.getAttribute('value')` untuk mengambil ketikan pengguna",
+            'Namanya jelas menyebut value',
+            'Itu nilai awal dari HTML, bukan yang sedang diketik. Pakai `input.value`',
+          ],
+          [
+            'Menyimpan object sebagai JSON di dalam atribut data',
+            'Datanya jadi menempel di elemennya',
+            'Ukurannya membengkak di HTML, harus diurai tiap dibaca, dan bisa disunting siapa pun. Simpan idnya saja, lalu cari datanya di penyimpanan aplikasi',
+          ],
+          [
+            'Menyimpan keadaan aplikasi hanya di DOM',
+            'DOM kan sudah menampilkan keadaannya',
+            'Kamu jadi harus membaca layar untuk tahu keadaan program, dan keduanya bisa menyimpang. Simpan keadaan di JavaScript, dan biarkan DOM menjadi hasil tampilannya',
+          ],
+          [
+            'Memakai atribut khusus buatan sendiri seperti `produk-id`',
+            'Ia bekerja dan terlihat rapi',
+            'Atribut yang bukan standar dan tanpa awalan `data-` membuat HTML tidak sah, dan tidak muncul di `dataset`. Selalu pakai awalan `data-`',
+          ],
+          [
+            "Mengubah `class` lewat `setAttribute('class', ...)`",
+            'Sama saja hasilnya',
+            'Ia menimpa seluruh kelas yang sudah ada, termasuk yang dipasang bagian lain. Pakai `classList.add` dan `classList.remove`',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat adalah keputusan arsitektur yang menentukan seberapa jauh kodemu bisa tumbuh. Saat DOM dijadikan tempat menyimpan keadaan, setiap pertanyaan tentang keadaan aplikasi harus dijawab dengan membaca elemen, dan setiap perubahan harus menjaga dua tempat tetap cocok. Pola yang dipakai seluruh kerangka kerja modern adalah kebalikannya, yaitu keadaan hidup di JavaScript dan DOM adalah hasil penggambarannya. Materi Bab 6 dan seterusnya dibangun di atas pilihan itu.',
+      ),
+      callout(
+        'tip',
+        'Aturan tiga baris untuk memilih antara atribut dan properti',
+        'Untuk atribut boolean, selalu properti. Untuk nilai input yang sedang diketik, selalu properti. Untuk atribut yang tidak punya padanan properti, misalnya `aria-label`, `colspan`, dan seluruh `data-`, pakai `setAttribute` atau `dataset`. Di luar ketiganya, keduanya sama saja dan properti biasanya lebih pendek.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Atribut = keadaan awal di HTML; property = keadaan sekarang di objek DOM.',
@@ -796,7 +1668,7 @@ export const lessons: LessonDraft[] = [
   written(
     'class-dan-style',
     'Class & Style: `classList`, CSS variable',
-    10,
+    20,
     'Mengubah tampilan tanpa menaburkan style inline ke seluruh kode.',
     [
       terms(
@@ -939,6 +1811,217 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Tombol Simpan pada formulir profil punya empat keadaan, yaitu normal, sedang menyimpan, berhasil, dan gagal. Kamu mengaturnya dengan mengubah gaya langsung lewat `style`, dan kodenya cepat menjadi dua puluh baris penugasan warna. Ketika desainer mengubah warna merek, kamu harus menyisir seluruh berkas JavaScript. Lalu tema gelap ditambahkan, dan seluruhnya harus ditulis dua kali.',
+      ),
+      p(
+        'Yang keliru bukan cara menulisnya melainkan pembagian tugasnya. Warna, ukuran, dan bentuk adalah urusan CSS. Tugas JavaScript cukup menyatakan **keadaan apa yang sedang berlaku**, dan CSS yang memutuskan seperti apa keadaan itu terlihat.',
+      ),
+      code(
+        'css',
+        `
+        /* Seluruh keputusan visual ada di sini, satu tempat. */
+        .tombol-simpan { background: var(--warna-merek); color: white; }
+        .tombol-simpan[data-keadaan='menyimpan'] { opacity: 0.6; cursor: progress; }
+        .tombol-simpan[data-keadaan='berhasil'] { background: var(--warna-sukses); }
+        .tombol-simpan[data-keadaan='gagal'] { background: var(--warna-bahaya); }
+
+        @media (prefers-reduced-motion: no-preference) {
+          .tombol-simpan { transition: background 200ms ease; }
+        }
+        `,
+        { filename: 'src/gaya/tombol.css' },
+      ),
+      code(
+        'js',
+        `
+        // JavaScript hanya menyatakan keadaan. Satu baris per perubahan.
+        function setKeadaan(tombol, keadaan) {
+          tombol.dataset.keadaan = keadaan;
+          tombol.disabled = keadaan === 'menyimpan';
+          tombol.setAttribute('aria-busy', String(keadaan === 'menyimpan'));
+        }
+
+        async function simpan(tombol, data) {
+          setKeadaan(tombol, 'menyimpan');
+          try {
+            await kirim(data);
+            setKeadaan(tombol, 'berhasil');
+          } catch (galat) {
+            setKeadaan(tombol, 'gagal');
+            throw galat;
+          }
+        }
+        `,
+        { filename: 'src/tombol-simpan.js' },
+      ),
+      p(
+        'Fungsi `setKeadaan` menggantikan dua puluh baris penugasan gaya dengan tiga baris. Yang berubah bukan hanya jumlah barisnya melainkan siapa yang berwenang. Desainer bisa mengubah seluruh tampilan keempat keadaan tanpa menyentuh JavaScript, dan menambah tema gelap cukup dengan menambah blok CSS. Kalau warnanya ditulis di JavaScript, keduanya mustahil.',
+      ),
+      p(
+        'Baris `aria-busy` sama pentingnya dengan warnanya, dan ia sering dilupakan. Pengguna pembaca layar tidak melihat perubahan warna, jadi tanpa atribut itu ia tidak punya cara tahu tombolnya sedang bekerja. Ini bagian dari aturan baseline aksesibilitas project ini, yaitu jangan pernah menyampaikan keadaan hanya lewat warna.',
+      ),
+      code(
+        'js',
+        `
+        // classList: empat method yang menutup hampir semua kebutuhan.
+        el.classList.add('aktif', 'terpilih');       // boleh beberapa sekaligus
+        el.classList.remove('tersembunyi');
+        el.classList.toggle('terbuka');              // balik keadaannya
+        el.classList.toggle('gelap', temaGelap);     // paksa sesuai nilai boolean
+        el.classList.contains('aktif');              // true atau false
+
+        // classList.replace untuk mengganti satu kelas dengan yang lain
+        el.classList.replace('ukuran-kecil', 'ukuran-besar');
+        `,
+        { caption: 'Bentuk dua argumen pada `toggle` menghilangkan kebutuhan `if`.' },
+      ),
+      p(
+        "Bentuk `toggle('gelap', temaGelap)` dengan argumen kedua adalah yang paling sering berguna dan paling jarang diketahui. Ia menambahkan kelas kalau argumen keduanya bernilai benar dan menghapusnya kalau salah, sehingga menggantikan blok `if` empat baris. Perhatikan bedanya dengan bentuk satu argumen yang selalu membalik, dan memakai bentuk satu argumen untuk menyinkronkan keadaan adalah sumber bug saat fungsinya terpanggil dua kali.",
+      ),
+      callout(
+        'warning',
+        'Membaca gaya yang sedang berlaku tidak sama dengan membaca `el.style`',
+        '`el.style.width` hanya berisi gaya yang ditulis langsung pada atribut `style` elemen itu, dan hampir selalu kosong untuk gaya yang datang dari berkas CSS. Untuk membaca nilai yang benar-benar berlaku, pakai `getComputedStyle(el).width`. Perlu diingat pemanggilan itu memaksa peramban menghitung tata letak, jadi jangan dipakai di dalam loop, seperti dibahas di Sub-bab 4.11.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Dua pesan pertama diverifikasi di Chromium sungguhan, dan dua sisanya adalah kegagalan senyap yang lebih sering ditemui.',
+      ),
+      code(
+        'text',
+        `
+        el.classList.add('a b');
+                     ^
+
+        InvalidCharacterError: Failed to execute 'add' on 'DOMTokenList':
+        The token provided ('a b') contains HTML space characters,
+        which are not valid in tokens.
+        `,
+        { caption: 'Beberapa kelas diberikan sebagai satu teks berspasi.' },
+      ),
+      p(
+        "Nama kelas tidak boleh mengandung spasi, sebab spasi adalah pemisah antar-kelas. Yang kamu maksud hampir pasti dua kelas, dan bentuk yang benar adalah `classList.add('a', 'b')` dengan dua argumen terpisah. Kalau daftar kelasnya datang dari variabel berupa teks, sebarkan dulu dengan `classList.add(...teks.split(' '))`.",
+      ),
+      code(
+        'text',
+        `
+        document.querySelectorAll('.baris').classList.add('x');
+                                            ^
+
+        TypeError: Cannot read properties of undefined (reading 'add')
+        `,
+        { caption: '`classList` dipanggil pada daftar elemen.' },
+      ),
+      p(
+        "Sudah muncul di Sub-bab 4.2 dan diulang di sini karena bentuk inilah yang paling sering memunculkannya. Daftar tidak punya `classList`, jadi hasilnya `undefined`. Telusuri daftarnya, misalnya `document.querySelectorAll('.baris').forEach((el) => el.classList.add('x'))`.",
+      ),
+      code(
+        'text',
+        `
+        el.style.width = 100;
+        console.log(JSON.stringify(el.style.width));
+
+        ""
+        `,
+        { caption: 'Angka tanpa satuan diabaikan tanpa satu pun peringatan.' },
+      ),
+      p(
+        'Sudah dibahas di Sub-bab 4.4 dan diulang karena inilah tempatnya paling sering terjadi. Yang perlu ditambahkan, kesalahan ini sangat sering muncul saat nilainya berasal dari perhitungan, misalnya `el.style.top = posisi + jarak` yang menghasilkan angka. Bungkus dengan template literal menjadi `` `${posisi + jarak}px` `` supaya satuannya tidak pernah lupa.',
+      ),
+      code(
+        'text',
+        `
+        el.setAttribute('class', 'aktif');
+
+        // Seluruh kelas lain hilang: kartu, kartu-produk, terpilih.
+        `,
+        { caption: 'Tidak ada error, dan seluruh kelas sebelumnya terhapus.' },
+      ),
+      p(
+        "`setAttribute('class', ...)` menimpa seluruh isi atribut kelas, termasuk kelas yang dipasang bagian lain aplikasi atau oleh kerangka kerja. Gejalanya berupa tampilan yang tiba-tiba kehilangan seluruh gayanya, dan penyebabnya biasanya sulit ditemukan karena baris yang menimpanya bisa jauh dari tempat gejalanya terlihat. Pakai `classList` yang hanya menyentuh kelas yang kamu sebut.",
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`InvalidCharacterError` pada `classList.add`',
+            'Nama kelas mengandung spasi',
+            'Berikan sebagai beberapa argumen, atau sebarkan hasil `split`',
+          ],
+          [
+            "`Cannot read properties of undefined (reading 'add')`",
+            '`classList` dipanggil pada daftar elemen',
+            'Telusuri daftarnya lebih dulu',
+          ],
+          [
+            'Gaya tidak berubah tanpa error',
+            'Nilai diberikan tanpa satuan',
+            'Sertakan satuannya lewat template literal',
+          ],
+          [
+            'Seluruh gaya elemen hilang',
+            "`setAttribute('class', ...)` menimpa semuanya",
+            'Pakai `classList.add` dan `classList.remove`',
+          ],
+          [
+            '`el.style.warna` selalu kosong padahal CSS-nya jelas ada',
+            '`el.style` hanya membaca gaya inline',
+            'Pakai `getComputedStyle(el)`, dan hindari memanggilnya di dalam loop',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Mengatur tampilan dari JavaScript mudah dilakukan dan mudah dilakukan berlebihan. Sebagian besar baris di bawah adalah tentang mengembalikan keputusan visual ke tempatnya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis warna dan ukuran langsung lewat `el.style`',
+            'Langsung terlihat hasilnya tanpa berpindah berkas',
+            'Nilai visual tersebar ke seluruh JavaScript, tema gelap jadi mustahil, dan gaya inline mengalahkan seluruh aturan CSS sehingga sulit ditimpa',
+          ],
+          [
+            "Menyembunyikan elemen dengan `el.style.display = 'none'`",
+            'Cara paling langsung',
+            'Mengembalikannya butuh mengingat nilai `display` aslinya, apakah `block`, `flex`, atau `grid`. Pakai kelas, atau atribut `hidden`',
+          ],
+          [
+            'Memakai `classList.toggle` satu argumen untuk menyinkronkan keadaan',
+            'Ia memang menyalakan dan mematikan',
+            'Kalau fungsinya terpanggil dua kali untuk keadaan yang sama, hasilnya terbalik. Pakai bentuk dua argumen yang memaksa sesuai nilainya',
+          ],
+          [
+            'Membaca `getComputedStyle` di dalam loop untuk tiap elemen',
+            'Perlu tahu ukuran tiap elemen',
+            'Tiap pemanggilan memaksa perhitungan tata letak. Untuk seribu elemen ini penyebab pembekuan, seperti diukur di Sub-bab 4.11',
+          ],
+          [
+            'Menyampaikan keadaan hanya lewat warna',
+            'Warnanya jelas berbeda',
+            'Pengguna yang kesulitan membedakan warna dan pengguna pembaca layar tidak mendapat informasinya. Sertakan teks, ikon, atau atribut ARIA',
+          ],
+          [
+            'Menambahkan transisi ke semua hal tanpa syarat',
+            'Terlihat lebih halus',
+            'Sebagian pengguna menyetel sistemnya untuk mengurangi gerakan karena alasan kesehatan. Bungkus dengan `@media (prefers-reduced-motion: no-preference)`',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua punya jalan keluar yang lebih baik daripada yang biasa dipakai. Atribut `hidden` adalah cara standar HTML untuk menyembunyikan elemen, dan dari JavaScript ia disetel dengan `el.hidden = true`. Keunggulannya, mengembalikannya cukup `el.hidden = false` tanpa perlu mengingat nilai `display` aslinya, dan pembaca layar juga mengabaikan elemen tersembunyi itu dengan benar.',
+      ),
+      callout(
+        'tip',
+        'Pembagian tugas yang membuat kode UI tetap terkelola',
+        'CSS memutuskan **seperti apa** sebuah keadaan terlihat. JavaScript memutuskan **keadaan mana** yang sedang berlaku. Kalau kamu menemukan nilai warna atau ukuran di dalam berkas JavaScript, hampir selalu ada satu kelas atau satu atribut data yang seharusnya menggantikannya.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         '`classList.toggle(nama, kondisi)` menggantikan if/else tampilan.',
@@ -985,7 +2068,7 @@ export const lessons: LessonDraft[] = [
   written(
     'membuat-menghapus-node',
     'Membuat, Menyisipkan & Menghapus Node',
-    12,
+    23,
     'Membangun elemen dari kode dengan aman dan efisien.',
     [
       terms(
@@ -1167,6 +2250,231 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman hasil pencarian menampilkan dua puluh kartu produk, dan tombol Muat Lagi menambah dua puluh lagi. Setiap kartu berisi gambar, judul, harga, dan tombol keranjang. Kamu membangunnya dengan menggabungkan teks HTML lalu memasangnya lewat `innerHTML`, dan tiga masalah muncul berurutan, yaitu kotak pencarian kehilangan fokus tiap kali dimuat, gambar berkedip, dan judul produk yang mengandung tanda kurung sudut merusak tata letak.',
+      ),
+      p(
+        'Ketiganya selesai dengan satu perubahan pendekatan, yaitu membangun elemen sungguhan alih-alih menyusun teks. Yang paling menolong adalah `template`, yaitu elemen HTML yang isinya tidak dirender tapi bisa disalin berkali-kali.',
+      ),
+      code(
+        'html',
+        `
+        <!-- Isi template tidak ditampilkan, dan gambarnya tidak diunduh. -->
+        <template id="tpl-kartu">
+          <article class="kartu" data-produk-id>
+            <img alt="" loading="lazy" width="240" height="240" />
+            <h3 class="judul"></h3>
+            <p class="harga"></p>
+            <button type="button" data-aksi="keranjang">Tambah ke keranjang</button>
+          </article>
+        </template>
+        `,
+        { filename: 'index.html' },
+      ),
+      code(
+        'js',
+        `
+        const tpl = document.getElementById('tpl-kartu');
+
+        function buatKartu(produk) {
+          // Salin isi template. true berarti termasuk seluruh anaknya.
+          const kartu = tpl.content.firstElementChild.cloneNode(true);
+
+          kartu.dataset.produkId = produk.id;
+
+          const gambar = kartu.querySelector('img');
+          gambar.src = produk.gambar;
+          gambar.alt = produk.nama;              // dari data, tapi masuk sebagai atribut aman
+
+          kartu.querySelector('.judul').textContent = produk.nama;
+          kartu.querySelector('.harga').textContent = formatRupiah(produk.hargaSen);
+
+          return kartu;
+        }
+
+        function tambahKartu(daftar) {
+          const frag = document.createDocumentFragment();
+          for (const produk of daftar) frag.append(buatKartu(produk));
+
+          // Satu operasi DOM untuk dua puluh kartu.
+          document.getElementById('hasil').append(frag);
+        }
+        `,
+        { filename: 'src/hasil-pencarian.js' },
+      ),
+      p(
+        'Struktur kartunya ditulis sekali di HTML, tempat ia paling enak dibaca dan bisa diperiksa validitasnya. JavaScript hanya menyalin lalu mengisi bagian yang berubah. Judul produk masuk lewat `textContent`, sehingga tanda kurung sudut di dalamnya tampil sebagai teks biasa dan tidak merusak apa pun. Ini penyelesaian masalah ketiga tanpa satu baris penyaring pun.',
+      ),
+      p(
+        'Masalah pertama, yaitu fokus yang hilang, selesai karena kartu **baru** ditambahkan tanpa menyentuh yang lama. Kotak pencarian dan seluruh kartu sebelumnya adalah elemen yang sama persis seperti sebelumnya, jadi fokus, posisi gulir, dan penangan peristiwa semuanya bertahan. Bandingkan dengan `innerHTML +=` yang membangun ulang seluruh isi wadah.',
+      ),
+      p(
+        '`DocumentFragment` adalah wadah sementara yang tidak pernah masuk ke halaman. Kedua puluh kartu dirakit di dalamnya, lalu satu panggilan `append` memindahkan seluruh isinya sekaligus. Perlu dicatat jujur, pada peramban modern keuntungan kecepatannya kecil, sebab peramban sudah menunda perhitungan tata letak sampai akhir tugas. Pengukuran di Sub-bab 4.11 menunjukkan dua ribu penambahan satu per satu hanya butuh sekitar satu milidetik. Yang benar-benar mahal bukan menambah node, melainkan **membaca** tata letak di antara penambahan.',
+      ),
+      code(
+        'js',
+        `
+        // Menghapus dengan aman, dan mengosongkan wadah.
+        kartu.remove();                       // hapus dirinya sendiri, tanpa perlu induk
+
+        wadah.replaceChildren();              // kosongkan, lebih jelas dari innerHTML = ''
+        wadah.replaceChildren(...kartuBaru);  // ganti seluruh isi sekaligus
+
+        // Memindahkan node, bukan menyalinnya.
+        wadahLain.append(kartu);              // kartu PINDAH, hilang dari tempat lamanya
+        wadahLain.append(kartu.cloneNode(true)); // ini baru menyalin
+        `,
+        { caption: 'Empat operasi yang menutup hampir seluruh kebutuhan sehari-hari.' },
+      ),
+      p(
+        'Baris terakhir memuat perilaku yang sering mengejutkan, yaitu sebuah node hanya bisa berada di satu tempat. Memberikan node yang sudah ada di halaman ke `append` akan **memindahkannya**, bukan menyalinnya. Kadang itu persis yang kamu inginkan, misalnya memindahkan baris antar-kolom papan tugas. Kadang itu bug, misalnya saat kamu bermaksud menampilkan elemen yang sama di dua tempat.',
+      ),
+      callout(
+        'tip',
+        '`remove` dan `replaceChildren` menggantikan pola lama yang lebih panjang',
+        'Sebelum keduanya ada, orang menulis `el.parentNode.removeChild(el)` dan loop `while (el.firstChild) el.removeChild(el.firstChild)`. Keduanya masih bekerja dan masih banyak ditemui di kode lama, tapi untuk kode baru `remove` dan `replaceChildren` lebih pendek dan lebih sulit disalahtulis.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Dua pesan pertama diverifikasi di Chromium sungguhan, dan keduanya adalah aturan struktur pohon yang dijaga peramban.',
+      ),
+      code(
+        'text',
+        `
+        document.body.removeChild(document.querySelector('.baris'));
+                      ^
+
+        NotFoundError: Failed to execute 'removeChild' on 'Node':
+        The node to be removed is not a child of this node.
+        `,
+        { caption: 'Node yang dihapus bukan anak langsung dari induk yang disebut.' },
+      ),
+      p(
+        '`removeChild` menuntut hubungan induk dan anak **langsung**, bukan sekadar berada di dalamnya. Elemen `.baris` berada di dalam `#wadah` yang berada di dalam `body`, sehingga ia cucu bukan anak. Inilah alasan `el.remove()` jauh lebih enak dipakai, sebab ia tidak perlu tahu siapa induknya dan tidak bisa salah menebaknya.',
+      ),
+      code(
+        'text',
+        `
+        document.querySelector('.baris').appendChild(document.getElementById('wadah'));
+                                         ^
+
+        HierarchyRequestError: Failed to execute 'appendChild' on 'Node':
+        The new child element contains the parent.
+        `,
+        { caption: 'Sebuah induk dicoba dimasukkan ke dalam anaknya sendiri.' },
+      ),
+      p(
+        'Pohon DOM tidak boleh melingkar, jadi peramban menolak operasi yang akan membuat sebuah node menjadi keturunan dari dirinya sendiri. Kesalahan ini biasanya muncul saat memindahkan elemen dengan pemilih yang salah, misalnya bermaksud memindahkan kartu ke wadah lain tapi keliru mengambil wadah asalnya. Pesannya cukup jelas, dan yang perlu diperiksa adalah kedua sisi pemanggilannya.',
+      ),
+      code(
+        'text',
+        `
+        const kartu = document.querySelector('.kartu');
+        kolomKiri.append(kartu);
+        kolomKanan.append(kartu);
+
+        // Kartu hanya ada di kolom kanan. Tidak ada error.
+        `,
+        { caption: 'Node yang sama ditambahkan ke dua tempat.' },
+      ),
+      p(
+        'Karena satu node hanya bisa berada di satu tempat, penambahan kedua memindahkannya dan penambahan pertama seolah tidak pernah terjadi. Tidak ada error karena tidak ada aturan yang dilanggar. Kalau kamu memang ingin dua salinan, gunakan `cloneNode(true)` untuk yang kedua, dan ingat salinannya tidak membawa penangan peristiwa yang dipasang lewat `addEventListener`.',
+      ),
+      code(
+        'text',
+        `
+        const tpl = document.getElementById('tpl-kartu');
+        const kartu = tpl.querySelector('.kartu');
+        console.log(kartu);
+
+        null
+        `,
+        { caption: 'Isi `template` tidak berada di pohon dokumen biasa.' },
+      ),
+      p(
+        "Isi elemen `template` disimpan di pohon terpisah yang bisa diakses lewat properti `content`, dan pencarian biasa dari elemen templatenya tidak menemukan apa-apa. Bentuk yang benar adalah `tpl.content.querySelector('.kartu')`. Pemisahan ini justru berguna, sebab ia yang membuat gambar di dalam template tidak ikut diunduh dan skrip di dalamnya tidak dijalankan sampai disalin.",
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`NotFoundError` pada `removeChild`',
+            'Node itu bukan anak langsung dari induk yang disebut',
+            'Pakai `el.remove()`',
+          ],
+          [
+            '`HierarchyRequestError`',
+            'Induk dicoba dimasukkan ke dalam keturunannya',
+            'Periksa kedua sisi pemanggilannya',
+          ],
+          [
+            'Elemen hilang dari tempat lamanya',
+            'Menambahkan node yang sudah ada berarti memindahkannya',
+            'Pakai `cloneNode(true)` kalau memang ingin menyalin',
+          ],
+          [
+            'Pencarian di dalam `template` menghasilkan `null`',
+            'Isinya berada di `tpl.content`, bukan di templatenya',
+            'Cari lewat `tpl.content.querySelector(...)`',
+          ],
+          [
+            'Penangan peristiwa hilang pada salinan',
+            '`cloneNode` tidak menyalin penangan dari `addEventListener`',
+            'Pasang ulang, atau pakai delegasi peristiwa di induknya',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Membangun dan menghapus node adalah tempat perbedaan antara kode yang cepat dan kode yang lambat paling terasa, sekaligus tempat kebocoran memori paling sering lahir.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membangun daftar dengan `innerHTML +=` di dalam loop',
+            'Paling pendek dan langsung terlihat',
+            'Seluruh isi wadah dibongkar dan dibangun ulang tiap putaran, sehingga fokus hilang, penangan peristiwa hilang, dan data pengguna yang sedang diketik ikut lenyap',
+          ],
+          [
+            'Menyalin elemen dengan `cloneNode` lalu heran tombolnya mati',
+            'Salinannya kan sama persis',
+            '`cloneNode` menyalin struktur dan atribut, bukan penangan dari `addEventListener`. Pakai delegasi peristiwa di induk yang stabil',
+          ],
+          [
+            'Menghapus elemen tanpa melepas penangan dan timer di dalamnya',
+            'Elemennya sudah hilang dari layar',
+            'Timer dan penangan yang masih memegang rujukan ke elemen itu menahannya di memori. Di aplikasi satu halaman, ini menumpuk sampai tab menjadi berat',
+          ],
+          [
+            'Menyusun HTML sebagai teks lalu memasangnya dengan `innerHTML`',
+            'Lebih cepat ditulis daripada membuat node satu per satu',
+            'Setiap nilai yang disisipkan harus diperiksa asalnya. Pakai `template` supaya strukturnya tetap di HTML dan hanya isinya yang diisi',
+          ],
+          [
+            'Membuat elemen di dalam loop lalu langsung memasangnya, khawatir soal kecepatan',
+            'Katanya menambah node satu per satu itu lambat',
+            'Pada peramban modern itu sudah cepat, yaitu sekitar satu milidetik untuk dua ribu node. Yang mahal adalah membaca tata letak di antaranya, bukan menambahnya',
+          ],
+          [
+            'Memakai `insertAdjacentHTML` untuk data pengguna',
+            'Namanya berbeda dari `innerHTML`, jadi terasa lebih aman',
+            'Ia mengurai HTML dengan cara yang sama, jadi risikonya identik. Yang berbeda hanya posisinya, bukan keamanannya',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima layak diluruskan karena nasihat menghindari penambahan satu per satu sudah beredar sangat lama dan sebagian sudah tidak berlaku. Pengukuran di Chromium sungguhan menunjukkan dua ribu `appendChild` berurutan memakan sekitar satu milidetik, dan versi `DocumentFragment` justru dua milidetik. Alasan memakai fragment tetap ada, yaitu maksudnya lebih jelas dan ia menghindari keadaan setengah jadi yang sempat terlihat, tapi kecepatan bukan lagi alasannya.',
+      ),
+      callout(
+        'info',
+        'Elemen yang dihapus tidak langsung hilang dari memori',
+        'Selama masih ada variabel, penangan peristiwa, atau timer yang memegang rujukan ke sebuah elemen, elemen itu tetap tinggal di memori meski sudah dilepas dari halaman. Ini disebut node terlepas, dan tab Memory di DevTools bisa menghitungnya. Cara paling andal menghindarinya adalah melepas seluruh penangan lewat satu `AbortController`, seperti dibahas di Bab 3.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         '`append`, `prepend`, `before`, `after`, `remove` — API modern, menerima beberapa argumen.',
@@ -1213,7 +2521,7 @@ export const lessons: LessonDraft[] = [
   written(
     'event-dasar',
     'Event: `addEventListener` & objek Event',
-    12,
+    24,
     'Bereaksi terhadap tindakan pengguna — dan membersihkannya kembali.',
     [
       terms(
@@ -1398,6 +2706,222 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Formulir langganan buletin punya satu kotak email dan satu tombol kirim. Kamu memasang penangan klik pada tombolnya, memanggil server, lalu menampilkan pesan berhasil. Tiga laporan masuk berurutan. Halaman berkedip lalu pesannya hilang. Pengguna yang menekan Enter di kotak email tidak mendapat apa-apa. Dan sebagian pengguna berhasil mendaftar dua kali.',
+      ),
+      p(
+        'Ketiganya berasal dari pilihan peristiwa yang salah. Yang dipasang penangan seharusnya bukan tombolnya melainkan formulirnya, dan peristiwanya bukan `click` melainkan `submit`.',
+      ),
+      code(
+        'js',
+        `
+        // Versi yang menimbulkan ketiga masalah.
+        tombol.addEventListener('click', async () => {
+          const email = kotak.value;
+          await daftar(email);
+          tampilkanBerhasil();
+        });
+        `,
+        { filename: 'Sebelum' },
+      ),
+      p(
+        'Halaman berkedip karena tombol di dalam `form` bertipe `submit` secara bawaan, sehingga peramban mengirim formulir dan memuat ulang halaman. Pesan berhasil sempat muncul lalu hilang bersama halamannya. Pengguna yang menekan Enter tidak mendapat apa-apa karena Enter memicu `submit` pada formulir, bukan `click` pada tombol. Dan pendaftaran ganda terjadi karena tidak ada yang mencegah klik kedua selama permintaan pertama berjalan.',
+      ),
+      code(
+        'js',
+        `
+        const form = document.getElementById('form-buletin');
+        const kotak = form.elements.email;
+        const tombol = form.elements.kirim;
+
+        form.addEventListener('submit', async (peristiwa) => {
+          peristiwa.preventDefault();          // hentikan pengiriman bawaan peramban
+
+          if (tombol.disabled) return;         // penjaga kedua, kalau-kalau lolos
+          tombol.disabled = true;
+          form.setAttribute('aria-busy', 'true');
+
+          try {
+            await daftar(kotak.value);
+            tampilkanBerhasil();
+            form.reset();
+          } catch (galat) {
+            tampilkanGagal(galat.message);
+          } finally {
+            tombol.disabled = false;
+            form.removeAttribute('aria-busy');
+          }
+        });
+        `,
+        { filename: 'src/buletin.js' },
+      ),
+      p(
+        'Memasang penangan pada `submit` menyelesaikan dua masalah sekaligus tanpa kode tambahan. Peristiwa `submit` dipicu oleh klik tombol **maupun** oleh Enter di dalam kolom teks, sehingga kedua cara pengguna berinteraksi ikut tertangani. Ini juga sesuai dengan aturan frontend project ini yang menganjurkan elemen bawaan, sebab perilaku keyboard dan bantuan teknologi asistif sudah tersedia tanpa dibangun ulang.',
+      ),
+      p(
+        '`peristiwa.preventDefault()` membatalkan perilaku bawaan peramban, yaitu mengirim formulir ke alamat di atribut `action` lalu memuat halaman baru. Perhatikan ia dipanggil di **baris pertama**, bukan setelah `await`. Kalau ia dipanggil setelah `await`, peramban sudah terlanjur memulai pengirimannya, sebab peluang membatalkan hanya ada selama penangan berjalan secara sinkron.',
+      ),
+      p(
+        'Blok `finally` mengembalikan tombol ke keadaan aktif apa pun hasilnya. Tanpa itu, satu kegagalan meninggalkan tombol mati selamanya dan pengguna harus memuat ulang halaman. Ini pola yang sama dengan yang dibahas di Bab 3, dan ia berlaku untuk setiap tombol yang dimatikan selama menunggu.',
+      ),
+      code(
+        'js',
+        `
+        // Tiga opsi addEventListener yang paling sering berguna.
+        el.addEventListener('click', tangani, { once: true });    // lepas setelah sekali jalan
+        el.addEventListener('scroll', tangani, { passive: true }); // janji tidak preventDefault
+        el.addEventListener('click', tangani, { signal });         // lepas lewat AbortController
+        `,
+        { caption: 'Argumen ketiga menerima object opsi, bukan hanya boolean.' },
+      ),
+      p(
+        'Opsi `once` menggantikan pola melepas penangan dari dalam dirinya sendiri, dan itu berguna untuk hal seperti tombol Mulai yang hanya boleh sekali. Opsi `passive` berlaku untuk peristiwa gulir dan sentuhan, dan ia memberi tahu peramban bahwa penangan ini tidak akan membatalkan gulirannya, sehingga peramban boleh menggulir tanpa menunggu penanganmu selesai. Tanpa itu, gulir bisa terasa tersendat pada perangkat sentuh.',
+      ),
+      callout(
+        'tip',
+        'Nilai kembalian `addEventListener` tidak ada, jadi simpan rujukan fungsinya',
+        'Untuk melepas penangan nanti, kamu perlu memberikan fungsi yang **sama persis** ke `removeEventListener`. Fungsi panah yang ditulis langsung di pemanggilan tidak bisa dilepas, sebab kamu tidak memegang rujukannya. Cara paling mudah menghindari seluruh masalah ini adalah memakai opsi `signal` dari `AbortController`, seperti dibahas di Bab 3.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan peristiwa jarang berupa pesan error, dan lebih sering berupa penangan yang tidak jalan atau jalan terlalu sering.',
+      ),
+      code(
+        'text',
+        `
+        tombol.addEventListener('click', tangani());
+                                                ^^
+
+        // Tidak ada error. Fungsi 'tangani' berjalan SEKARANG,
+        // dan hasilnya yang dipasang sebagai penangan.
+        `,
+        { caption: 'Tanda kurung ikut ditulis, sehingga fungsinya dipanggil terlalu awal.' },
+      ),
+      p(
+        'Ini kesalahan satu karakter yang menghasilkan dua gejala sekaligus. Isi `tangani` berjalan satu kali saat halaman dimuat, dan sesudahnya kliknya tidak melakukan apa-apa karena yang terpasang adalah nilai kembaliannya yang biasanya `undefined`. Kalau kamu perlu memberikan argumen, bungkus dengan fungsi panah menjadi `() => tangani(id)`, bukan menulis `tangani(id)` langsung.',
+      ),
+      code(
+        'text',
+        `
+        form.addEventListener('submit', async (e) => {
+          await periksa();
+          e.preventDefault();      // terlambat
+        });
+
+        // Halaman tetap memuat ulang.
+        `,
+        { caption: '`preventDefault` dipanggil setelah `await`.' },
+      ),
+      p(
+        'Peluang membatalkan perilaku bawaan hanya ada selama penangan berjalan secara sinkron. Begitu `await` menyerahkan giliran, peramban menyimpulkan penanganmu selesai dan melanjutkan pengiriman formulir. Tidak ada error dan tidak ada peringatan. Panggil `preventDefault` sebagai baris pertama, lalu kerjakan sisanya.',
+      ),
+      code(
+        'text',
+        `
+        // Fungsi pemasang dipanggil dua kali karena komponen digambar ulang.
+        pasang();
+        pasang();
+
+        // Satu klik menghasilkan dua pemanggilan, dan pesanan terkirim dua kali.
+        `,
+        { caption: 'Penangan yang sama terpasang berkali-kali.' },
+      ),
+      p(
+        '`addEventListener` menumpuk, jadi memanggilnya dua kali dengan fungsi yang berbeda rujukannya akan memasang dua penangan. Gejalanya khas, yaitu satu klik menghasilkan dua kali efek, lalu tiga, lalu empat setelah beberapa kali navigasi. Ada tiga jalan keluarnya, yaitu memakai opsi `once`, melepas penangan lama sebelum memasang yang baru, atau memakai delegasi di induk yang tidak pernah digambar ulang.',
+      ),
+      code(
+        'text',
+        `
+        tombol.removeEventListener('click', () => tangani());
+
+        // Tidak ada error, dan tidak ada yang terlepas.
+        `,
+        { caption: 'Fungsi yang diberikan bukan rujukan yang sama dengan yang dipasang.' },
+      ),
+      p(
+        '`removeEventListener` membandingkan rujukan fungsi, bukan isinya. Fungsi panah yang baru saja kamu tulis adalah object yang berbeda dari yang dipasang dulu, walaupun isinya identik. Karena ia tidak melempar apa pun, kesalahan ini sangat mudah lolos dan gejalanya berupa penangan yang menumpuk seperti pada kasus di atas.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Penangan berjalan sekali saat halaman dimuat lalu tidak pernah lagi',
+            'Tanda kurung ikut ditulis saat memasang',
+            'Berikan nama fungsinya tanpa kurung, atau bungkus dengan fungsi panah',
+          ],
+          [
+            'Halaman tetap memuat ulang saat formulir dikirim',
+            '`preventDefault` dipanggil setelah `await`',
+            'Panggil sebagai baris pertama penangan',
+          ],
+          [
+            'Satu klik menghasilkan efek berkali-kali',
+            'Penangan terpasang berulang',
+            'Pakai `once`, lepas yang lama, atau pakai delegasi di induk',
+          ],
+          [
+            '`removeEventListener` tidak melepas apa pun',
+            'Rujukan fungsinya berbeda',
+            'Simpan rujukannya, atau pakai opsi `signal` dari `AbortController`',
+          ],
+          [
+            'Enter di kotak teks tidak melakukan apa-apa',
+            'Penangan dipasang pada `click` tombol, bukan `submit` formulir',
+            'Pindahkan ke peristiwa `submit` pada elemen `form`',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Peristiwa adalah tempat pertama kode frontend bertemu dengan pengguna sungguhan, dan sebagian besar kesalahan di bawah baru terlihat setelah ada orang lain yang memakainya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memasang penangan pada tombol, bukan pada formulirnya',
+            'Yang diklik memang tombolnya',
+            'Pengguna yang menekan Enter di kotak teks terlewat sepenuhnya, dan itu cara yang sangat umum mengirim formulir',
+          ],
+          [
+            'Memakai atribut `onclick` di HTML',
+            'Paling cepat ditulis',
+            'Hanya bisa satu penangan per elemen, sulit dilepas, dan bentrok dengan aturan keamanan konten yang melarang skrip inline',
+          ],
+          [
+            'Memakai `event.preventDefault()` untuk semua peristiwa berjaga-jaga',
+            'Supaya tidak ada perilaku aneh',
+            'Ia mematikan perilaku bawaan yang mungkin justru dibutuhkan, misalnya menyalin teks atau membuka tautan di tab baru',
+          ],
+          [
+            'Memakai `event.stopPropagation()` untuk memperbaiki penangan yang bentrok',
+            'Setelah itu masalahnya hilang',
+            'Ia mematikan penangan lain yang sah, termasuk yang menutup menu saat mengklik di luar. Perbaiki syaratnya, jangan hentikan alirannya',
+          ],
+          [
+            'Memakai `keypress` untuk menangkap tombol keyboard',
+            'Namanya paling langsung',
+            '`keypress` sudah usang dan tidak menangkap seluruh tombol. Pakai `keydown`, dan periksa lewat `event.key` bukan `event.keyCode`',
+          ],
+          [
+            'Menambahkan penangan `mousedown` sebagai pengganti `click`',
+            'Ia terasa lebih responsif',
+            '`click` juga dipicu keyboard lewat Enter dan spasi pada tombol, sedangkan `mousedown` tidak. Pengguna keyboard kehilangan seluruh fungsinya',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir adalah kesalahan aksesibilitas yang paling sering tanpa disadari. Peristiwa `click` pada elemen `button` bukan hanya tentang tetikus, sebab peramban juga memicunya saat pengguna menekan Enter atau spasi pada tombol yang sedang mendapat fokus. Mengganti `click` dengan `mousedown` atau memasang penangan pada `div` alih-alih `button` sama-sama memutus jalur itu, dan pengguna yang tidak memakai tetikus tidak punya cara memakai fiturmu.',
+      ),
+      callout(
+        'warning',
+        'Penangan yang menumpuk adalah penyebab pengiriman ganda yang paling sering',
+        'Kalau sebuah fungsi pemasang penangan bisa dipanggil lebih dari sekali, cepat atau lambat ia akan dipanggil lebih dari sekali. Anggap itu pasti terjadi, lalu pilih salah satu dari tiga jalan keluarnya sejak awal. Yang paling tahan adalah delegasi di induk yang stabil, dan itu topik sub-bab berikutnya.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Fungsi anonim tidak bisa dilepas; simpan referensinya atau pakai `signal`.',
@@ -1444,7 +2968,7 @@ export const lessons: LessonDraft[] = [
   written(
     'bubbling-delegation',
     'Bubbling, Capturing & Event Delegation',
-    13,
+    24,
     'Satu listener untuk seratus elemen — termasuk yang belum ada.',
     [
       terms(
@@ -1658,6 +3182,224 @@ daftar.addEventListener('click', (e) => {
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Kembali ke tabel pesanan dari Sub-bab 4.2. Tombol Batalkan pada dua puluh baris pertama bekerja, dan tombol pada baris yang ditambahkan tombol Muat Lagi tidak melakukan apa-apa. Kamu sudah memperbaiki bagian daftar statisnya, dan bugnya tetap ada. Penyebab keduanya inilah yang diselesaikan delegasi, yaitu penangan hanya dipasang pada elemen yang **sudah ada** saat kode itu berjalan.',
+      ),
+      code(
+        'js',
+        `
+        // Cara lama: satu penangan per tombol, dipasang sekali.
+        for (const tombol of wadah.querySelectorAll('[data-aksi="batalkan"]')) {
+          tombol.addEventListener('click', batalkan);
+        }
+
+        // Baris baru dari 'Muat Lagi' tidak pernah lewat loop ini,
+        // jadi tombolnya tidak punya penangan sama sekali.
+        `,
+        { filename: 'Sebelum' },
+      ),
+      code(
+        'js',
+        `
+        // Delegasi: SATU penangan di wadah yang tidak pernah diganti.
+        const wadah = document.getElementById('daftar-pesanan');
+
+        wadah.addEventListener('click', async (peristiwa) => {
+          // Cari elemen bertanda terdekat, mulai dari yang benar-benar diklik.
+          const tombol = peristiwa.target.closest('[data-aksi]');
+          if (!tombol || !wadah.contains(tombol)) return;
+
+          const baris = tombol.closest('[data-pesanan-id]');
+          const id = baris?.dataset.pesananId;
+          if (!id) return;
+
+          switch (tombol.dataset.aksi) {
+            case 'batalkan':
+              await batalkan(id, baris);
+              break;
+            case 'cetak':
+              cetak(id);
+              break;
+            default:
+              break;
+          }
+        });
+        `,
+        { filename: 'src/admin/tabel-pesanan.js' },
+      ),
+      p(
+        'Satu penangan menggantikan dua puluh, dan yang lebih penting ia tetap bekerja untuk baris yang belum ada saat kode ini berjalan. Alasannya mekanis, yaitu klik pada tombol merambat naik melewati barisnya, melewati wadahnya, sampai ke `document`. Penangan di wadah menerima klik itu tanpa peduli kapan tombolnya dibuat.',
+      ),
+      p(
+        "Baris `peristiwa.target.closest('[data-aksi]')` menyelesaikan masalah yang muncul begitu tombolnya punya isi. Kalau tombol berisi ikon SVG dan teks, `peristiwa.target` bisa berupa SVG itu bukan tombolnya. `closest` menelusuri ke atas dari yang benar-benar diklik sampai menemukan yang bertanda, sehingga klik di ikon maupun di teks sama-sama tertangani.",
+      ),
+      p(
+        'Pemeriksaan `wadah.contains(tombol)` terlihat berlebihan dan ia menutup satu kasus nyata. Kalau wadahnya berisi elemen yang dipindahkan ke tempat lain, misalnya dialog yang dipasang di `body`, `closest` bisa menemukan elemen bertanda yang sebenarnya sudah berada di luar wadah ini. Pemeriksaan itu memastikan penangan hanya menanggapi apa yang memang di bawah tanggung jawabnya.',
+      ),
+      code(
+        'js',
+        `
+        // Perbedaan target dan currentTarget, yang menentukan cara membaca peristiwa.
+        wadah.addEventListener('click', (e) => {
+          e.target;         // elemen yang BENAR-BENAR diklik, bisa ikon di dalam tombol
+          e.currentTarget;  // elemen tempat penangan ini dipasang, selalu 'wadah'
+          e.eventPhase;     // 3 saat naik (bubbling), 1 saat turun (capturing)
+        });
+
+        // Fase turun dipakai untuk menangkap SEBELUM penangan di dalamnya.
+        document.addEventListener('click', catatSemuaKlik, { capture: true });
+        `,
+        { caption: '`currentTarget` hanya benar selama penangan berjalan sinkron.' },
+      ),
+      p(
+        'Perbedaan keduanya sering menjadi sumber bug halus. `e.currentTarget` menjadi `null` setelah penangan selesai, sehingga membacanya sesudah `await` menghasilkan `null`. Kalau kamu membutuhkannya di bagian asinkron, simpan dulu ke variabel di baris pertama penangan. `e.target` tidak punya masalah itu dan tetap menunjuk elemen yang sama.',
+      ),
+      callout(
+        'info',
+        'Tidak semua peristiwa merambat naik',
+        'Peristiwa `focus`, `blur`, `mouseenter`, dan `mouseleave` tidak merambat, sehingga delegasi tidak bekerja untuk keempatnya. Padanan yang merambat tersedia, yaitu `focusin` dan `focusout` untuk fokus, serta `mouseover` dan `mouseout` untuk tetikus. Kalau delegasimu tidak pernah terpanggil, periksa dulu apakah peristiwanya memang merambat.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Delegasi jarang melempar error. Yang muncul adalah penangan yang menanggapi terlalu banyak atau terlalu sedikit.',
+      ),
+      code(
+        'text',
+        `
+        wadah.addEventListener('click', (e) => {
+          hapus(e.target.dataset.id);
+        });
+
+        TypeError: Cannot read properties of undefined (reading 'id')
+        `,
+        { caption: '`e.target` adalah ikon di dalam tombol, bukan tombolnya.' },
+      ),
+      p(
+        'Tombol yang berisi ikon SVG dan teks punya beberapa elemen di dalamnya, dan yang diklik bisa salah satunya. Elemen itu tidak punya atribut data yang kamu cari, sehingga `dataset.id` bernilai `undefined`. Ini penyebab bug yang khas, yaitu tombolnya bekerja kalau diklik di tepinya dan gagal kalau diklik tepat di ikonnya. Selalu mulai dengan `e.target.closest(...)`.',
+      ),
+      code(
+        'text',
+        `
+        // Klik di mana pun di dalam wadah, termasuk di area kosong,
+        // memanggil batalkan dengan id undefined.
+        wadah.addEventListener('click', (e) => batalkan(e.target.dataset.pesananId));
+
+        Error: Pesanan undefined tidak ditemukan
+        `,
+        { caption: 'Tidak ada penjaga, sehingga klik di luar tombol pun ikut diproses.' },
+      ),
+      p(
+        'Penangan delegasi menerima **seluruh** klik di dalam wadahnya, termasuk klik di jarak antar-baris, di teks judul kolom, dan di area kosong. Tanpa penjaga berupa `if (!tombol) return`, setiap klik itu ikut memicu aksinya. Penjaga keluar lebih awal adalah bagian wajib dari pola delegasi, bukan penyempurnaan.',
+      ),
+      code(
+        'text',
+        `
+        wadah.addEventListener('click', tangani);
+        tombolDalam.addEventListener('click', (e) => e.stopPropagation());
+
+        // Penangan delegasi tidak pernah terpanggil untuk tombol itu.
+        `,
+        { caption: '`stopPropagation` di elemen dalam memutus perambatan.' },
+      ),
+      p(
+        'Ini penyebab yang sangat sulit ditelusuri, sebab kode yang bermasalah berada di berkas yang berbeda dari kode yang gejalanya terlihat. Sering kali `stopPropagation` itu ditambahkan orang lain untuk memperbaiki masalah lain, misalnya menu yang menutup terlalu cepat. Kalau delegasimu tidak terpanggil untuk sebagian elemen saja, cari `stopPropagation` di antara wadah dan elemen itu.',
+      ),
+      code(
+        'text',
+        `
+        wadah.addEventListener('click', async (e) => {
+          await simpan();
+          console.log(e.currentTarget);
+        });
+
+        null
+        `,
+        { caption: '`currentTarget` menjadi `null` setelah penangan selesai berjalan.' },
+      ),
+      p(
+        'Peramban mengosongkan `currentTarget` begitu penanganan peristiwa selesai, dan `await` membuat sisa fungsi berjalan setelah itu. Kalau kamu butuh nilainya di bagian asinkron, simpan di baris pertama dengan `const wadahIni = e.currentTarget`. Perilaku yang sama berlaku untuk beberapa properti peristiwa lain, jadi kebiasaan menyalin yang dibutuhkan di awal penangan layak dijadikan aturan.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`Cannot read properties of undefined` pada `e.target.dataset`',
+            'Yang diklik elemen di dalam tombol',
+            "Pakai `e.target.closest('[data-aksi]')`",
+          ],
+          [
+            'Klik di area kosong ikut memicu aksi',
+            'Tidak ada penjaga keluar lebih awal',
+            'Tulis `if (!tombol) return` setelah `closest`',
+          ],
+          [
+            'Delegasi tidak terpanggil untuk sebagian elemen',
+            'Ada `stopPropagation` di antara wadah dan elemen itu',
+            'Cari dan hapus, atau perbaiki syarat penangan yang memasangnya',
+          ],
+          [
+            '`e.currentTarget` bernilai `null`',
+            'Dibaca setelah `await`',
+            'Salin ke variabel di baris pertama penangan',
+          ],
+          [
+            'Delegasi tidak bekerja sama sekali untuk `focus` atau `mouseenter`',
+            'Keempat peristiwa itu tidak merambat',
+            'Pakai `focusin`, `focusout`, `mouseover`, atau `mouseout`',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Delegasi adalah pola yang sangat berguna dan sangat mudah dipakai terlalu luas. Beberapa baris di bawah adalah batas yang perlu dijaga.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memasang seluruh delegasi di `document`',
+            'Satu tempat untuk semuanya',
+            'Setiap klik di halaman melewati seluruh penangan itu, dan pemeriksaannya bertumpuk. Pasang di wadah terdekat yang stabil',
+          ],
+          [
+            'Memakai `e.target` langsung tanpa `closest`',
+            'Untuk tombol tanpa isi memang bekerja',
+            'Begitu tombolnya diberi ikon, targetnya berubah. Kebiasaan memakai `closest` menutup seluruh kelas bug ini',
+          ],
+          [
+            'Memakai `stopPropagation` untuk mencegah delegasi ikut terpanggil',
+            'Masalahnya langsung hilang',
+            'Ia juga memutus penangan lain yang sah, termasuk yang menutup dropdown. Perbaiki syarat di delegasinya',
+          ],
+          [
+            'Menyimpan data yang dibutuhkan aksi di variabel penutup, bukan di elemennya',
+            'Lebih mudah dijangkau',
+            'Delegasi tidak tahu baris mana yang diklik, jadi datanya harus bisa dibaca dari elemennya. Simpan idnya di atribut data',
+          ],
+          [
+            'Memakai delegasi untuk elemen yang jumlahnya tetap dan sedikit',
+            'Polanya kan lebih baik',
+            'Untuk satu tombol yang tidak pernah diganti, penangan langsung lebih pendek dan lebih jelas. Delegasi berguna untuk daftar yang berubah',
+          ],
+          [
+            'Menaruh seluruh cabang aksi dalam satu penangan raksasa',
+            'Semua di satu tempat',
+            'Blok `switch` berisi dua puluh cabang menjadi sulit dibaca dan sulit diuji. Petakan aksi ke fungsi lewat object, seperti pola di Bab 2',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama punya biaya yang bisa diukur pada halaman ramai. Penangan di `document` menerima setiap klik di seluruh halaman, dan kalau ada sepuluh delegasi terpasang di sana, setiap klik menjalankan sepuluh pemeriksaan `closest`. Memasangnya di wadah terdekat yang tidak pernah diganti memberi seluruh keuntungan delegasi tanpa biaya itu, dan sekaligus membatasi jangkauan agar tidak menanggapi klik dari bagian halaman yang tidak berhubungan.',
+      ),
+      callout(
+        'tip',
+        'Ganti `switch` panjang dengan tabel aksi',
+        'Bentuk `const aksi = { batalkan: (id) => ..., cetak: (id) => ... }` lalu `aksi[tombol.dataset.aksi]?.(id)` menggantikan seluruh blok `switch`. Menambah aksi baru berarti menambah satu baris di object, dan tiap aksi bisa diuji sendiri tanpa peristiwa apa pun. Ini penerapan langsung pola dari Sub-bab 2.1.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Event turun (capturing), sampai (target), lalu naik (bubbling). Default: bubbling.',
@@ -1704,7 +3446,7 @@ daftar.addEventListener('click', (e) => {
   written(
     'form-input',
     'Form & Input: `FormData`, validasi',
-    13,
+    25,
     'Mengambil dan memvalidasi masukan pengguna — dan kenapa validasi klien bukan pengaman.',
     [
       terms(
@@ -1906,6 +3648,229 @@ daftar.addEventListener('click', (e) => {
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Formulir alamat pengiriman punya delapan kolom, yaitu nama penerima, telepon, provinsi, kota, kode pos, alamat lengkap, catatan kurir, dan centang jadikan alamat utama. Kamu membacanya satu per satu dengan `getElementById` lalu `.value`, dan berkasnya menjadi dua puluh baris pembacaan sebelum satu baris logika pun ditulis. Lalu muncul dua bug, yaitu centang yang tidak dicentang terkirim sebagai teks kosong, dan kode pos yang hilang nol di depannya.',
+      ),
+      p(
+        'Keduanya selesai dengan memakai `FormData`, yaitu API bawaan yang membaca seluruh formulir sekaligus dengan aturan yang sama dengan yang dipakai peramban saat mengirim formulir biasa.',
+      ),
+      code(
+        'js',
+        `
+        const form = document.getElementById('form-alamat');
+
+        form.addEventListener('submit', (peristiwa) => {
+          peristiwa.preventDefault();
+
+          // Satu baris menggantikan dua puluh pembacaan.
+          const data = Object.fromEntries(new FormData(form));
+
+          console.log(data);
+          // { nama: 'Sari', setuju: 'on', kota: 'bdg' }   <- diverifikasi di Chromium
+        });
+        `,
+        { filename: 'src/alamat.js' },
+      ),
+      p(
+        "Keluaran di atas memuat pelajaran yang paling penting dari sub-bab ini. Centang yang **dicentang** muncul sebagai teks `'on'`, dan centang yang **tidak dicentang** tidak muncul sama sekali. Bukan `false`, bukan teks kosong, melainkan kuncinya benar-benar tidak ada. Itu perilaku standar HTML, bukan keanehan `FormData`, dan ia sama persis dengan yang dikirim formulir biasa ke server.",
+      ),
+      code(
+        'js',
+        `
+        // Membaca dengan tipe yang benar, bukan mentah.
+        function bacaFormAlamat(form) {
+          const fd = new FormData(form);
+
+          return {
+            nama: String(fd.get('nama') ?? '').trim(),
+            telepon: String(fd.get('telepon') ?? '').replace(/[^0-9+]/g, ''),
+            provinsi: fd.get('provinsi') ?? '',
+            kota: fd.get('kota') ?? '',
+            // Kode pos TETAP teks. '40115' bukan angka, sebab nol di depan bisa hilang.
+            kodePos: String(fd.get('kodePos') ?? '').trim(),
+            alamat: String(fd.get('alamat') ?? '').trim(),
+            catatan: String(fd.get('catatan') ?? '').trim(),
+            // Centang: keberadaannya yang menentukan.
+            jadikanUtama: fd.has('jadikanUtama'),
+            // Beberapa nilai dengan nama yang sama, misalnya centang ganda.
+            layanan: fd.getAll('layanan'),
+          };
+        }
+        `,
+        { filename: 'src/alamat/baca.js' },
+      ),
+      p(
+        'Baris `kodePos` sengaja tidak diubah menjadi angka, dan itu keputusan yang sering keliru diambil. Kode pos Bandung `40115` memang terlihat seperti angka, tapi kode pos yang diawali nol seperti `01234` akan kehilangan nolnya begitu diubah menjadi `Number`. Aturan umumnya, sesuatu bertipe angka hanya kalau kamu akan **menghitung** dengannya. Nomor telepon, nomor rekening, dan kode pos semuanya adalah teks yang kebetulan berisi digit.',
+      ),
+      p(
+        "`fd.has('jadikanUtama')` adalah cara yang benar membaca centang, sebab ia menanyakan keberadaan bukan nilai. Bandingkan dengan `fd.get('jadikanUtama') === 'on'` yang bekerja tapi bergantung pada nilai bawaan yang bisa diubah lewat atribut `value`. `has` benar untuk kedua kasus. Sementara `getAll` dipakai saat beberapa kolom berbagi satu nama, misalnya sekelompok centang layanan pengiriman.",
+      ),
+      code(
+        'js',
+        `
+        // Validasi bawaan peramban, sebelum menulis satu baris validasi sendiri.
+        const kotak = form.elements.telepon;
+
+        kotak.setCustomValidity('');                 // bersihkan pesan lama dulu
+        if (!/^[0-9+]{9,15}$/.test(kotak.value)) {
+          kotak.setCustomValidity('Telepon 9 sampai 15 digit, boleh diawali tanda tambah');
+        }
+
+        if (!form.checkValidity()) {
+          form.reportValidity();                     // tampilkan pesan bawaan peramban
+          return;
+        }
+        `,
+        { caption: 'Pesan validasi muncul di tempat yang sudah dikenal pengguna.' },
+      ),
+      p(
+        'Atribut HTML seperti `required`, `minlength`, `pattern`, dan `type="email"` sudah menyediakan validasi tanpa satu baris JavaScript, lengkap dengan pesan berbahasa Indonesia yang mengikuti bahasa peramban. `setCustomValidity` menambahkan aturan yang tidak bisa dinyatakan atribut. Memanggilnya dengan teks kosong lebih dulu itu wajib, sebab pesan kustom yang tidak dibersihkan membuat kolomnya dianggap tidak sah selamanya.',
+      ),
+      callout(
+        'danger',
+        'Validasi di peramban adalah kenyamanan, bukan keamanan',
+        'Seluruh atribut dan pemeriksaan di halaman bisa dilewati siapa pun yang mengirim permintaan langsung ke server. Aturan project ini menyebutnya tegas, yaitu validasi klien hanya untuk pengalaman pengguna dan server wajib memeriksa ulang semuanya. Jangan pernah memakai `pattern` sebagai satu-satunya penjaga bentuk data.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Formulir menghasilkan sedikit error dan banyak nilai yang salah diam-diam. Pesan pertama diverifikasi di Chromium sungguhan.',
+      ),
+      code(
+        'text',
+        `
+        document.getElementById('f').submit();
+                                     ^
+
+        TypeError: document.getElementById(...).submit is not a function
+        `,
+        { caption: 'Ada kolom bernama `submit` di dalam formulirnya.' },
+      ),
+      p(
+        'Elemen formulir bisa diakses lewat namanya sebagai properti, dan `<input name="submit">` menimpa method `form.submit`. Hal yang sama terjadi untuk nama `action`, `method`, `id`, `length`, dan `reset`. Hindari nama-nama itu untuk kolom. Kalau sebuah API pihak ketiga memaksa memakainya, panggil methodnya lewat prototipe dengan `HTMLFormElement.prototype.submit.call(form)`.',
+      ),
+      code(
+        'text',
+        `
+        const fd = new FormData(form);
+        console.log([...fd.entries()]);
+
+        [["nama","Sari"],["setuju","on"],["kota","bdg"]]
+        `,
+        { caption: 'Kolom yang tidak punya atribut `name` tidak pernah muncul.' },
+      ),
+      p(
+        '`FormData` hanya mengumpulkan kolom yang punya atribut `name`, dan atribut `id` tidak menggantikannya. Ini penyebab bug yang sangat sering, yaitu kolom yang jelas terlihat di halaman dan jelas diisi pengguna ternyata tidak pernah sampai ke server. Tidak ada error dan tidak ada peringatan. Kalau sebuah nilai hilang, hal pertama yang diperiksa adalah apakah kolomnya punya `name`.',
+      ),
+      code(
+        'text',
+        `
+        const jumlah = form.elements.jumlah.value;
+        const total = jumlah * harga;
+
+        // jumlah bernilai '2', bukan 2.
+        // Untungnya * memaksa menjadi angka. Tapi + tidak.
+        const salah = jumlah + 1;    // '21'
+        `,
+        { caption: 'Seluruh nilai dari formulir bertipe teks.' },
+      ),
+      p(
+        'Ini pengingat dari Bab 1 yang muncul kembali di tempat paling sering terjadi. Bahkan `<input type="number">` mengembalikan teks lewat `.value`. Ada properti `.valueAsNumber` yang mengembalikan angka sungguhan atau `NaN`, dan itu pilihan yang lebih baik untuk kolom angka. Untuk kolom tanggal, ada `.valueAsDate` yang mengembalikan object `Date`.',
+      ),
+      code(
+        'text',
+        `
+        kotak.setCustomValidity('Terlalu pendek');
+        // pengguna memperbaiki isinya
+        form.checkValidity();
+
+        false
+        `,
+        { caption: 'Pesan kustom yang tidak dibersihkan membuat kolomnya tidak sah selamanya.' },
+      ),
+      p(
+        'Pesan kustom bertahan sampai kamu menggantinya dengan teks kosong. Karena itu urutan yang benar selalu bersihkan dulu lalu periksa lagi, bukan hanya menetapkan saat gagal. Gejalanya khas, yaitu tombol kirim tetap tidak berfungsi walaupun seluruh kolom sudah terlihat benar, dan pesan lama masih muncul saat tombol ditekan.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`form.submit is not a function`',
+            'Ada kolom bernama `submit` yang menimpa methodnya',
+            'Ganti nama kolomnya, atau panggil lewat prototipe',
+          ],
+          [
+            'Nilai kolom tidak muncul di `FormData`',
+            'Kolomnya tidak punya atribut `name`',
+            'Tambahkan `name`, sebab `id` tidak menggantikannya',
+          ],
+          [
+            'Centang yang tidak dicentang tidak ada kuncinya',
+            'Itu perilaku standar HTML',
+            'Pakai `fd.has(nama)` untuk membaca centang',
+          ],
+          [
+            'Angka dari formulir digabung sebagai teks',
+            'Seluruh nilai formulir bertipe teks',
+            'Pakai `.valueAsNumber`, atau ubah dengan `Number` lalu periksa `Number.isNaN`',
+          ],
+          [
+            'Formulir tetap dianggap tidak sah setelah diperbaiki',
+            'Pesan kustom tidak pernah dibersihkan',
+            "Panggil `setCustomValidity('')` sebelum memeriksa ulang",
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Formulir adalah tempat data pengguna masuk ke sistemmu, dan hampir semua kesalahan di bawah berakhir sebagai data yang salah tersimpan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membaca tiap kolom satu per satu dengan `getElementById`',
+            'Jelas terlihat kolom mana yang dibaca',
+            'Dua puluh baris untuk hal yang bisa satu baris, dan setiap kolom baru menuntut satu baris lagi. `FormData` membacanya sekaligus dengan aturan yang sama seperti peramban',
+          ],
+          [
+            'Menyimpan nomor telepon dan kode pos sebagai angka',
+            'Isinya kan digit semua',
+            'Nol di depan hilang, dan nomor yang panjang bisa kehilangan ketepatan. Simpan sebagai teks, sebab kamu tidak akan menghitung dengannya',
+          ],
+          [
+            'Mengganti pesan validasi bawaan dengan pesan sendiri di semua tempat',
+            'Supaya seragam dengan desain',
+            'Pesan bawaan sudah diterjemahkan mengikuti bahasa peramban dan sudah dibacakan pembaca layar dengan benar. Ganti hanya kalau memang butuh aturan yang tidak bisa dinyatakan atribut',
+          ],
+          [
+            'Menampilkan satu pesan galat umum di atas formulir',
+            'Cukup memberi tahu ada yang salah',
+            'Pengguna harus mencari sendiri kolom mana yang bermasalah. Tampilkan pesan di sebelah kolomnya, dan hubungkan dengan `aria-describedby`',
+          ],
+          [
+            'Mengosongkan formulir setelah pengiriman gagal',
+            'Supaya pengguna mengisi ulang dengan benar',
+            'Kehilangan data yang sudah diketik adalah kegagalan pengalaman pengguna yang paling menyakitkan sekaligus paling mudah dihindari. Pertahankan isinya',
+          ],
+          [
+            'Tidak menonaktifkan tombol kirim selama permintaan berjalan',
+            'Pengguna toh menunggu',
+            'Pada jaringan lambat pengguna akan menekan lagi, dan pesanannya terkirim dua kali. Matikan tombolnya, dan tetap sediakan kunci idempoten di server',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima adalah yang paling sering dikeluhkan pengguna sungguhan, dan ia sepenuhnya bisa dihindari. Kalau pengiriman gagal, biarkan seluruh isi formulir apa adanya lalu tampilkan pesan yang menyebutkan apa yang perlu diperbaiki. Untuk formulir panjang, pertimbangkan menyimpan isinya ke penyimpanan peramban sambil diketik, sehingga tab yang tertutup tidak berarti pekerjaan hilang.',
+      ),
+      callout(
+        'tip',
+        'Manfaatkan atribut sebelum menulis validasi sendiri',
+        'Atribut `required`, `type="email"`, `minlength`, `maxlength`, `min`, `max`, `step`, `pattern`, dan `inputmode` menutup sebagian besar kebutuhan tanpa satu baris JavaScript. Atribut `autocomplete` juga sering dilupakan, padahal ia yang membuat peramban dan pengelola kata sandi bisa mengisi otomatis. Menulis semuanya di HTML membuat formulirnya tetap berguna bahkan sebelum JavaScript selesai dimuat.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Pasang `submit` pada `<form>`, bukan pada tombolnya.',
@@ -1952,7 +3917,7 @@ daftar.addEventListener('click', (e) => {
   written(
     'traversal-dom',
     'Menelusuri DOM',
-    9,
+    20,
     'Bergerak dari satu elemen ke tetangganya, induknya, atau anaknya.',
     [
       terms(
@@ -2072,6 +4037,222 @@ daftar.addEventListener('click', (e) => {
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Komponen tabel yang bisa diurutkan punya baris kepala dengan tombol di tiap kolom. Saat sebuah kolom diklik, kamu perlu tahu kolom keberapa itu supaya bisa mengurutkan berdasarkan kolom yang benar. Kamu menulis `tombol.parentElement.parentElement` untuk naik ke barisnya, dan itu bekerja. Dua minggu kemudian desainer membungkus tiap kolom dengan satu `div` untuk keperluan tata letak, dan seluruh pengurutan rusak.',
+      ),
+      p(
+        'Penelusuran pohon adalah bagian DOM yang paling mudah dipakai dengan cara yang rapuh. Perbandingan di bawah menunjukkan bentuk yang tahan perubahan.',
+      ),
+      code(
+        'js',
+        `
+        // RAPUH: terikat pada jumlah tingkat yang persis.
+        const baris = tombol.parentElement.parentElement;
+        const indeks = [...baris.children].indexOf(tombol.parentElement);
+
+        // TAHAN: naik sampai menemukan yang bertanda, berapa pun tingkatnya.
+        const sel = tombol.closest('th');
+        const baris2 = tombol.closest('tr');
+        const indeks2 = sel.cellIndex;          // properti bawaan untuk sel tabel
+        `,
+        { caption: 'Satu pembungkus tambahan merusak yang kiri dan tidak menyentuh yang kanan.' },
+      ),
+      p(
+        '`closest` menelusuri ke atas dan berhenti pada yang pertama cocok, termasuk elemen itu sendiri. Karena ia mencari berdasarkan pemilih dan bukan berdasarkan jumlah langkah, menambah atau menghapus pembungkus tidak berpengaruh sama sekali. Ini alasan `closest` menjadi satu-satunya cara naik yang layak dipakai di kode baru.',
+      ),
+      code(
+        'js',
+        `
+        // Kasus nyata kedua: menu yang menutup saat diklik di luar.
+        document.addEventListener('click', (peristiwa) => {
+          for (const menu of document.querySelectorAll('[data-menu][open]')) {
+            const pemicu = document.querySelector(\`[data-menu-untuk="\${menu.id}"]\`);
+
+            // contains menjawab: apakah yang diklik berada DI DALAM menu atau pemicunya?
+            const diDalam = menu.contains(peristiwa.target)
+              || pemicu?.contains(peristiwa.target);
+
+            if (!diDalam) menu.removeAttribute('open');
+          }
+        });
+        `,
+        { filename: 'src/menu.js' },
+      ),
+      p(
+        '`contains` menjawab pertanyaan apakah sebuah node berada di dalam node lain, pada kedalaman berapa pun, dan ia juga bernilai benar untuk node itu sendiri. Ini pasangan alami dari `closest`, yaitu satu menelusuri ke atas dan satu memeriksa hubungan. Pola menutup saat klik di luar ini muncul di hampir setiap aplikasi, dan menulisnya dengan perbandingan `===` pada elemen tertentu akan gagal begitu pengguna mengklik ikon di dalam menu.',
+      ),
+      code(
+        'js',
+        `
+        // Perbedaan yang wajib dihafal, sebab keduanya terlihat mirip.
+        wadah.childNodes;             // SEMUA node: elemen, teks, komentar
+        wadah.children;               // hanya elemen
+
+        wadah.firstChild;             // sering berupa node teks berisi spasi
+        wadah.firstElementChild;      // elemen pertama sungguhan
+
+        el.nextSibling;               // sering berupa node teks
+        el.nextElementSibling;        // elemen berikutnya sungguhan
+
+        // HTML yang ditulis rapi selalu punya spasi di antara tag:
+        // <div>
+        //   <p>satu</p>
+        // </div>
+        // wadah.childNodes.length -> 3, bukan 1
+        `,
+        { caption: 'Spasi dan baris baru di HTML menjadi node teks di DOM.' },
+      ),
+      p(
+        'Ini penyebab bug yang membingungkan saat orang pertama kali menelusuri pohon secara manual. HTML yang ditulis dengan indentasi rapi menghasilkan node teks di antara tiap tag, sehingga `firstChild` hampir selalu berupa teks kosong bukan elemen yang kamu maksud. Aturan praktisnya, versi yang menyebut kata `Element` adalah yang kamu butuhkan hampir selalu.',
+      ),
+      p(
+        'Perlu ditambahkan, sebagian besar penelusuran manual bisa dihindari sama sekali. Kalau kamu menemukan diri menulis rantai `nextElementSibling` sepanjang tiga langkah, biasanya ada pemilih yang menyatakan maksud yang sama secara langsung, misalnya `[data-peran="isi"]`. Penelusuran manual paling tepat dipakai untuk hubungan yang memang struktural, seperti sel di dalam baris tabel.',
+      ),
+      callout(
+        'tip',
+        'Tabel punya properti penelusuran sendiri yang lebih jelas',
+        'Elemen tabel menyediakan `rows`, `cells`, `rowIndex`, dan `cellIndex` yang menghitung dengan benar termasuk saat ada `thead` dan `tbody`. Memakainya jauh lebih terbaca daripada menghitung sendiri dengan `indexOf` pada `children`, dan lebih tahan terhadap perubahan struktur.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Penelusuran pohon jarang melempar. Yang muncul adalah `null` yang merambat, dan node teks yang tidak terduga.',
+      ),
+      code(
+        'text',
+        `
+        const baris = tombol.parentElement.parentElement.parentElement;
+        baris.dataset.id;
+             ^
+
+        TypeError: Cannot read properties of null (reading 'dataset')
+        `,
+        { caption: 'Naik lebih banyak daripada tingkat yang tersedia.' },
+      ),
+      p(
+        'Setiap `parentElement` bisa menghasilkan `null` begitu sampai di atas `html`, dan rantai yang terlalu panjang akan melewatinya. Yang menyesatkan, pesan errornya menyebut `dataset` sehingga orang mencari masalah pada atribut data padahal masalahnya pada rantai naiknya. Ganti seluruh rantai dengan satu `closest`, dan tambahkan penjaga karena `closest` juga bisa mengembalikan `null`.',
+      ),
+      code(
+        'text',
+        `
+        const pertama = wadah.firstChild;
+        pertama.classList.add('aktif');
+                ^
+
+        TypeError: pertama.classList is undefined
+        `,
+        { caption: '`firstChild` berupa node teks, bukan elemen.' },
+      ),
+      p(
+        'Node teks tidak punya `classList`, tidak punya `dataset`, dan tidak punya `querySelector`. Bug ini punya sifat yang khas, yaitu ia muncul dan hilang tergantung bagaimana HTML-nya ditulis. HTML yang seluruh tagnya berdempetan tanpa spasi tidak menghasilkan node teks, sehingga kodenya bekerja. Begitu ada yang merapikan indentasinya, kodenya rusak. Pakai `firstElementChild`.',
+      ),
+      code(
+        'text',
+        `
+        const sel = tombol.closest('.kolom');
+        console.log(sel.dataset.kunci);
+                    ^
+
+        TypeError: Cannot read properties of null (reading 'dataset')
+        `,
+        { caption: '`closest` tidak menemukan apa pun sampai ke akar.' },
+      ),
+      p(
+        '`closest` mengembalikan `null` kalau tidak ada leluhur yang cocok, dan itu perilaku yang benar. Kalau kamu memakainya di dalam penangan delegasi, hasil `null` justru sering terjadi, misalnya saat pengguna mengklik area kosong. Selalu tulis penjaga `if (!sel) return` setelahnya, dan itu sudah menjadi bagian dari pola delegasi di Sub-bab 4.8.',
+      ),
+      code(
+        'text',
+        `
+        console.log(wadah.childNodes.length);   // 3
+        console.log(wadah.children.length);     // 1
+
+        // HTML-nya hanya berisi satu paragraf.
+        `,
+        { caption: 'Dua node teks berisi spasi ikut terhitung.' },
+      ),
+      p(
+        'Selisih dua itu berasal dari spasi dan baris baru sebelum dan sesudah paragrafnya. Kalau kamu menghitung jumlah anak untuk keperluan apa pun, misalnya menentukan apakah daftar kosong, pakai `children.length`. Memakai `childNodes.length` menghasilkan daftar yang tidak pernah terlihat kosong walaupun tidak ada satu pun elemen di dalamnya.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`Cannot read properties of null` setelah rantai `parentElement`',
+            'Naik melewati akar pohon',
+            'Ganti dengan satu `closest`, lalu beri penjaga',
+          ],
+          [
+            '`classList is undefined` pada `firstChild`',
+            'Yang didapat node teks berisi spasi',
+            'Pakai `firstElementChild`',
+          ],
+          [
+            '`closest` mengembalikan `null`',
+            'Tidak ada leluhur yang cocok, sering karena klik di area kosong',
+            'Tulis `if (!el) return` setelahnya',
+          ],
+          [
+            'Jumlah anak lebih banyak daripada yang terlihat',
+            'Node teks dari indentasi ikut terhitung',
+            'Pakai `children` bukan `childNodes`',
+          ],
+          [
+            'Kode bekerja lalu rusak setelah HTML dirapikan',
+            'Kode bergantung pada ketiadaan node teks',
+            'Pakai versi yang menyebut `Element` pada seluruh penelusuran',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Penelusuran pohon adalah tempat kode frontend paling mudah menjadi rapuh terhadap perubahan tampilan, dan hampir seluruh baris di bawah adalah tentang mengurangi ketergantungan pada struktur.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Merangkai `parentElement` beberapa kali',
+            'Strukturnya sudah pasti dan tidak akan berubah',
+            'Struktur berubah setiap kali ada penyesuaian tata letak. Pakai `closest` dengan pemilih yang menyatakan maksud',
+          ],
+          [
+            'Memakai `childNodes` untuk menelusuri anak',
+            'Namanya paling langsung',
+            'Node teks dari indentasi ikut masuk. Pakai `children`',
+          ],
+          [
+            'Memakai `nth-child` di pemilih untuk menunjuk kolom tertentu',
+            'Posisinya memang tetap',
+            'Menambah satu kolom menggeser semuanya. Tandai kolomnya dengan atribut data',
+          ],
+          [
+            'Menelusuri seluruh pohon dengan rekursi untuk mencari sesuatu',
+            'Cara paling langsung dipikirkan',
+            '`querySelectorAll` melakukannya jauh lebih cepat dan dalam satu baris. Rekursi manual hanya perlu untuk kasus yang tidak bisa dinyatakan sebagai pemilih',
+          ],
+          [
+            'Membaca `parentNode` alih-alih `parentElement`',
+            'Keduanya terdengar sama',
+            '`parentNode` dari elemen `html` adalah `document`, bukan `null`, sehingga pemeriksaan berhenti bisa keliru. `parentElement` lebih dapat diprediksi',
+          ],
+          [
+            'Mencari elemen dari `document` padahal sudah berada di dalam sebuah baris',
+            'Hasilnya kan sama',
+            'Bisa menemukan elemen dari baris lain yang kelasnya sama. Cari dari elemen barisnya, bukan dari dokumen',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama layak dijadikan aturan pribadi tanpa pengecualian. Setiap kali kamu menulis `parentElement` lebih dari satu kali berturut-turut, ganti dengan `closest` dan sebuah atribut data. Perubahannya memakan waktu sepuluh detik, dan ia menghilangkan seluruh kelas bug yang muncul setiap kali ada orang lain menyentuh tata letak.',
+      ),
+      callout(
+        'info',
+        'Kalau penelusurannya rumit, biasanya strukturnya yang perlu diperbaiki',
+        'Kode yang butuh naik tiga tingkat lalu turun dua tingkat untuk menemukan sesuatu adalah tanda bahwa hubungan antar-elemennya tidak dinyatakan di HTML. Menambahkan satu atribut data yang menyatakan hubungan itu hampir selalu lebih murah daripada mempertahankan penelusuran yang rumit.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Pakai versi `*Element*` — ia mengabaikan text node dari indentasi.',
@@ -2117,7 +4298,7 @@ daftar.addEventListener('click', (e) => {
   written(
     'performa-dom',
     'Performa: reflow, repaint, batching',
-    13,
+    23,
     'Kenapa manipulasi DOM bisa membuat halaman terasa berat — dan cara mengukurnya.',
     [
       terms(
@@ -2270,6 +4451,228 @@ daftar.addEventListener('click', (e) => {
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Panel admin punya tabel dua ribu baris dengan tombol Samakan Lebar Kolom. Saat ditekan, tab membeku selama beberapa detik, kipas laptop menyala, dan Chrome sempat menawarkan menutup halaman. Kodenya sederhana, yaitu telusuri seluruh baris, baca lebarnya, lalu setel lebar barunya. Tidak ada jaringan, tidak ada perhitungan berat, dan hanya dua ribu elemen.',
+      ),
+      p(
+        'Angka di bawah diukur sungguhan di Chromium pada dua ribu elemen, dan selisihnya jauh lebih besar daripada yang biasanya diduga.',
+      ),
+      compare(
+        {
+          title: 'Baca dan tulis selang-seling',
+          lang: 'js',
+          code: `
+          for (const el of anak) {
+            const w = el.offsetWidth;        // BACA -> paksa hitung tata letak
+            el.style.width = (w + 1) + 'px'; // TULIS -> batalkan hasil perhitungan
+          }
+
+          // Terukur: 2147 ms
+          `,
+          notes: ['Dua ribu kali hitung ulang tata letak, satu per elemen'],
+        },
+        {
+          title: 'Baca semua dulu, lalu tulis semua',
+          lang: 'js',
+          code: `
+          const lebar = [];
+          for (const el of anak) lebar.push(el.offsetWidth);   // BACA semua
+
+          for (let i = 0; i < anak.length; i++) {              // TULIS semua
+            anak[i].style.width = (lebar[i] + 1) + 'px';
+          }
+
+          // Terukur: 4 ms
+          `,
+          notes: ['Satu kali hitung tata letak untuk seluruh pembacaan'],
+        },
+      ),
+      p(
+        'Selisih 2147 melawan 4 milidetik itu lebih dari lima ratus kali lipat, dan kedua kolom menghasilkan tampilan yang sama persis. Yang berbeda hanya urutan operasinya. Ini pola yang disebut layout thrashing, dan ia salah satu penyebab pembekuan halaman yang paling sering sekaligus paling mudah diperbaiki.',
+      ),
+      p(
+        'Mekanismenya bisa dijelaskan langkah demi langkah. Peramban menunda perhitungan tata letak sampai benar-benar dibutuhkan, sehingga menulis gaya berkali-kali hanya memicu satu perhitungan di akhir. Tapi membaca properti seperti `offsetWidth` **membutuhkan** hasil perhitungan itu sekarang juga, sehingga peramban terpaksa menghitung. Kalau kamu menulis lalu membaca lalu menulis lagi, tiap pembacaan memaksa perhitungan ulang atas tulisan sebelumnya.',
+      ),
+      code(
+        'text',
+        `
+        Properti yang MEMAKSA perhitungan tata letak saat dibaca:
+
+        offsetTop  offsetLeft  offsetWidth  offsetHeight  offsetParent
+        clientTop  clientLeft  clientWidth  clientHeight
+        scrollTop  scrollLeft  scrollWidth  scrollHeight
+        getBoundingClientRect()   getComputedStyle()   focus()
+        `,
+        { caption: 'Membaca salah satu dari ini setelah menulis gaya memicu perhitungan ulang.' },
+      ),
+      p(
+        'Daftar ini layak dikenali, bukan dihafal. Cirinya satu, yaitu semuanya menjawab pertanyaan tentang **posisi atau ukuran nyata** sebuah elemen di layar. Peramban tidak bisa menjawabnya tanpa menghitung tata letak lebih dulu. Perhatikan `getComputedStyle` juga termasuk, dan itu sering mengejutkan karena namanya terdengar seperti sekadar membaca gaya.',
+      ),
+      code(
+        'js',
+        `
+        // Pengukuran lain dari mesin yang sama, dua ribu elemen:
+        // appendChild satu per satu      -> 1 ms
+        // DocumentFragment sekali pasang -> 2 ms
+
+        // Menambah node BUKAN operasi mahal di peramban modern.
+        for (let i = 0; i < 2000; i += 1) {
+          const d = document.createElement('div');
+          d.textContent = i;
+          wadah.appendChild(d);          // aman, selama tidak ada pembacaan di antaranya
+        }
+        `,
+        { caption: 'Nasihat lama tentang `DocumentFragment` sudah tidak berlaku untuk kecepatan.' },
+      ),
+      p(
+        'Angka ini penting untuk diketahui karena banyak nasihat lama menyebut penambahan node satu per satu sebagai penyebab kelambatan. Pengukuran di Chromium menunjukkan dua ribu penambahan hanya butuh sekitar satu milidetik, dan versi `DocumentFragment` justru dua milidetik. Peramban modern sudah menunda perhitungan tata letak sampai akhir tugas. Yang benar-benar mahal adalah **membaca**, bukan menulis.',
+      ),
+      p(
+        'Alasan memakai `DocumentFragment` tetap ada, dan alasannya bukan kecepatan. Ia membuat maksudnya lebih jelas, dan ia menghindari keadaan setengah jadi yang sempat terlihat kalau ada kode lain yang kebetulan membaca tata letak di tengah loop. Menyebutnya sebagai pengoptimalan kecepatan sudah tidak jujur untuk peramban hari ini.',
+      ),
+      callout(
+        'tip',
+        'Urutan yang menyelesaikan hampir seluruh masalah tata letak',
+        'Kelompokkan pekerjaanmu menjadi dua tahap. Tahap pertama membaca seluruh yang perlu dibaca dan menyimpannya ke array. Tahap kedua menulis semuanya. Selama tidak ada satu pun pembacaan di antara penulisan, peramban hanya menghitung tata letak sekali. Untuk kasus yang lebih rumit, `requestAnimationFrame` bisa dipakai untuk memisahkan kedua tahap ke bingkai yang berbeda.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Masalah performa hampir tidak pernah melempar error. Yang muncul adalah peringatan peramban dan gejala yang harus kamu kenali sendiri.',
+      ),
+      code(
+        'text',
+        `
+        [Violation] 'click' handler took 2153ms
+        [Violation] Forced reflow while executing JavaScript took 2140ms
+        `,
+        { caption: 'Peringatan Chrome yang menyebut jenis dan durasinya.' },
+      ),
+      p(
+        'Baris kedua adalah petunjuk yang paling berharga di seluruh sub-bab ini. Kata `Forced reflow` berarti persis yang dibahas di atas, yaitu ada pembacaan yang memaksa perhitungan tata letak di tengah penulisan. Kalau kamu melihat pesan ini, kamu tidak perlu menebak sama sekali, sebab penyebabnya sudah disebut. Yang perlu dicari adalah pembacaan properti dari daftar di atas yang berada di dalam loop.',
+      ),
+      code(
+        'text',
+        `
+        (Halaman berhenti merespons selama beberapa detik.)
+
+        Chrome: "Halaman ini tidak merespons" — Tunggu / Keluar
+        `,
+        { caption: 'Utas utama tertahan terlalu lama.' },
+      ),
+      p(
+        'Dialog ini sudah dibahas di Bab 3 untuk perhitungan berat, dan di sini penyebabnya berbeda. Cara membedakan keduanya cepat, yaitu rekam di tab Performance lalu lihat warna baloknya. Perhitungan JavaScript murni muncul sebagai balok kuning bernama fungsimu. Layout thrashing muncul sebagai deretan balok ungu bertuliskan Layout yang berulang ratusan kali, dan pola berulang itu sangat khas.',
+      ),
+      code(
+        'text',
+        `
+        el.style.width = '100px';
+        console.log(el.offsetWidth);     // 100
+        el.style.width = '200px';
+        console.log(el.offsetWidth);     // 200
+
+        // Benar hasilnya, dan memicu dua kali perhitungan tata letak.
+        `,
+        { caption: 'Tidak ada error, dan hasilnya benar. Biayanya yang tersembunyi.' },
+      ),
+      p(
+        'Ini bentuk paling kecil dari masalah yang sama, dan ia tidak terasa sama sekali untuk dua elemen. Yang perlu diwaspadai adalah bentuk ini di dalam fungsi yang dipanggil untuk tiap baris tabel. Fungsi yang terlihat murah karena hanya berisi empat baris menjadi sangat mahal begitu dipanggil dua ribu kali, dan biayanya tidak terlihat dari membaca fungsinya sendiri.',
+      ),
+      code(
+        'text',
+        `
+        window.addEventListener('scroll', () => {
+          const atas = elemen.getBoundingClientRect().top;
+          bar.style.transform = \`translateY(\${atas}px)\`;
+        });
+
+        // Gulir terasa tersendat, terutama di ponsel.
+        `,
+        { caption: 'Pembacaan tata letak di dalam penangan gulir.' },
+      ),
+      p(
+        'Peristiwa gulir dipicu sangat sering, bisa puluhan kali per detik, dan tiap pemanggilan di sini memaksa perhitungan tata letak. Ada dua perbaikan yang berpasangan. Pertama, tambahkan opsi `{ passive: true }` supaya peramban tidak perlu menunggu penanganmu sebelum menggulir. Kedua, pindahkan penulisannya ke dalam `requestAnimationFrame` supaya ia terjadi sekali per bingkai, bukan sekali per peristiwa gulir.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`[Violation] Forced reflow ... took ...ms`',
+            'Pembacaan tata letak di tengah penulisan',
+            'Pisahkan menjadi tahap baca semua lalu tulis semua',
+          ],
+          [
+            '"Halaman ini tidak merespons"',
+            'Utas utama tertahan, bisa perhitungan berat atau layout thrashing',
+            'Rekam di tab Performance, lalu cari balok Layout yang berulang',
+          ],
+          [
+            'Gulir terasa tersendat di ponsel',
+            'Penangan gulir membaca tata letak tiap pemanggilan',
+            'Tambahkan `{ passive: true }` dan bungkus penulisan dengan `requestAnimationFrame`',
+          ],
+          [
+            'Fungsi kecil menjadi sangat lambat saat dipanggil banyak kali',
+            'Ada pembacaan tata letak di dalamnya',
+            'Angkat pembacaannya keluar dari loop',
+          ],
+          [
+            'Halaman berkedip saat daftar diperbarui',
+            'Elemen dibongkar dan dibangun ulang seluruhnya',
+            'Perbarui hanya yang berubah, jangan menulis ulang seluruh wadah',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Performa DOM penuh dengan nasihat lama yang sudah tidak berlaku, dan sebagian baris di bawah adalah tentang melepaskan nasihat itu.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membaca `offsetWidth` di dalam loop yang juga menulis gaya',
+            'Tiap elemen kan perlu diukur sendiri',
+            'Tiap pembacaan memaksa perhitungan ulang tata letak. Terukur 2147 milidetik untuk dua ribu elemen, melawan 4 milidetik kalau dipisah',
+          ],
+          [
+            'Memakai `DocumentFragment` sebagai pengoptimalan kecepatan',
+            'Nasihatnya beredar luas',
+            'Untuk peramban modern selisihnya tidak berarti, bahkan bisa sedikit lebih lambat. Pakai untuk kejelasan maksud, bukan untuk kecepatan',
+          ],
+          [
+            'Mengoptimalkan sebelum mengukur',
+            'Lebih cepat pasti lebih baik',
+            'Sebagian besar tebakan tentang bagian mana yang lambat ternyata salah. Rekam di tab Performance lebih dulu, lalu perbaiki yang memang muncul di sana',
+          ],
+          [
+            'Memasang penangan gulir tanpa `passive`',
+            'Penangannya kan ringan',
+            'Peramban tidak tahu apakah kamu akan memanggil `preventDefault`, jadi ia menunggu penanganmu sebelum menggulir. Guliran terasa tersendat walau penanganmu cepat',
+          ],
+          [
+            'Menganimasikan `width`, `height`, `top`, atau `left`',
+            'Itu properti yang mengatur posisi',
+            'Keempatnya memicu perhitungan tata letak tiap bingkai. Pakai `transform` dan `opacity` yang bisa ditangani utas komposisi tanpa menghitung ulang',
+          ],
+          [
+            'Memakai `innerHTML` untuk memperbarui satu angka di dalam daftar besar',
+            'Satu baris dan langsung jadi',
+            'Seluruh isi wadah dibongkar dan dibangun ulang. Ubah `textContent` elemen yang bersangkutan saja',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima punya alasan yang layak dipahami, bukan dihafal. Properti `transform` dan `opacity` bisa diterapkan tanpa mengubah posisi elemen lain, sehingga peramban bisa menyerahkannya ke utas komposisi yang berjalan terpisah dari utas utama. Itulah kenapa animasi berbasis `transform` tetap mulus bahkan saat JavaScript sedang sibuk, sementara animasi berbasis `left` ikut tersendat.',
+      ),
+      callout(
+        'warning',
+        'Ukur di perangkat yang mirip milik pengguna, bukan di mesin pengembangan',
+        'Angka 2147 milidetik di atas diukur pada mesin pengembangan yang cepat. Di ponsel kelas menengah yang biasanya tiga sampai lima kali lebih lambat, angka yang sama menjadi enam sampai sepuluh detik. Tab Performance menyediakan pembatas CPU, dan memakainya membuat masalah performa terlihat sebelum pengguna menemukannya.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Reflow (layout) paling mahal; `transform` dan `opacity` hanya memicu composite.',
@@ -2316,7 +4719,7 @@ daftar.addEventListener('click', (e) => {
   written(
     'observer-api',
     'Observer API',
-    12,
+    22,
     'Bereaksi terhadap perubahan tanpa polling dan tanpa listener scroll.',
     [
       p(
@@ -2484,6 +4887,219 @@ daftar.addEventListener('click', (e) => {
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman katalog memuat produk secara bertahap saat pengguna menggulir ke bawah. Kamu memasang penangan gulir yang menghitung apakah elemen penanda sudah terlihat, dan hasilnya guliran terasa tersendat di ponsel serta permintaan kadang berangkat dua kali karena penanganya terpanggil puluhan kali per detik. Selain itu, gambar produk yang belum terlihat tetap ikut diunduh sejak awal sehingga halaman berat.',
+      ),
+      p(
+        'Kedua masalah punya satu jawaban yang sama, yaitu `IntersectionObserver`. Ia memberi tahu kapan sebuah elemen masuk atau keluar dari pandangan, tanpa satu pun pembacaan tata letak dari kodemu.',
+      ),
+      code(
+        'js',
+        `
+        const penanda = document.getElementById('penanda-muat-lagi');
+        let sedangMuat = false;
+
+        const pengamat = new IntersectionObserver(
+          async (entri) => {
+            const terlihat = entri.some((e) => e.isIntersecting);
+            if (!terlihat || sedangMuat) return;
+
+            sedangMuat = true;
+            try {
+              const adaLagi = await muatHalamanBerikut();
+              if (!adaLagi) pengamat.disconnect();     // berhenti mengamati, selesai
+            } finally {
+              sedangMuat = false;
+            }
+          },
+          {
+            // Mulai memuat 400px SEBELUM penandanya benar-benar terlihat.
+            rootMargin: '0px 0px 400px 0px',
+            threshold: 0,
+          },
+        );
+
+        pengamat.observe(penanda);
+        `,
+        { filename: 'src/katalog/muat-bertahap.js' },
+      ),
+      p(
+        'Perbedaan mendasar dari penangan gulir adalah siapa yang bekerja. Peramban sudah tahu posisi setiap elemen sebagai bagian dari pekerjaannya sendiri, sehingga memberi tahu kamu saat sesuatu masuk pandangan hampir tidak menambah biaya. Sebaliknya penangan gulir memaksa **kodemu** menghitung posisi puluhan kali per detik, dan tiap perhitungan itu memicu pembacaan tata letak seperti dibahas di Sub-bab 4.11.',
+      ),
+      p(
+        'Opsi `rootMargin` adalah bagian yang membuat pengalaman terasa mulus, dan ia sering dilewatkan. Dengan nilai 400 piksel di bawah, pemuatan dimulai saat penandanya masih empat ratus piksel di luar layar, sehingga data biasanya sudah tiba saat pengguna sampai ke sana. Tanpa itu, pengguna selalu melihat jeda kosong di ujung daftar.',
+      ),
+      p(
+        'Penjaga `sedangMuat` tetap diperlukan meskipun sudah memakai pengamat. Penyebabnya, satu peristiwa perpotongan bisa dipicu lagi sebelum permintaan pertama selesai, misalnya saat pengguna menggulir naik lalu turun lagi. Pola bendera sedang berjalan ini sama dengan yang dipakai untuk mencegah pengiriman formulir ganda di Sub-bab 4.7.',
+      ),
+      code(
+        'js',
+        `
+        // MutationObserver: bereaksi terhadap perubahan DOM yang bukan kamu yang buat.
+        const pengamatDom = new MutationObserver((rekaman) => {
+          console.log(rekaman.length, rekaman[0].type);
+          // Terukur di Chromium: 2 childList
+          // DUA perubahan digabung menjadi SATU pemanggilan.
+        });
+
+        pengamatDom.observe(wadah, { childList: true });
+
+        wadah.appendChild(document.createElement('span'));
+        wadah.appendChild(document.createElement('span'));
+        `,
+        { caption: 'Rekaman dikumpulkan lalu diserahkan sekaligus, bukan satu per perubahan.' },
+      ),
+      p(
+        'Keluaran itu memperlihatkan sifat penting `MutationObserver`, yaitu ia mengumpulkan perubahan lalu memanggil fungsimu sekali dengan seluruh rekamannya. Dua penambahan menghasilkan satu pemanggilan berisi dua rekaman. Ini mencegah fungsimu terpanggil ratusan kali saat ada perubahan besar, dan sekaligus berarti kamu harus selalu menelusuri arraynya bukan mengasumsikan satu rekaman.',
+      ),
+      p(
+        'Pemakaian `MutationObserver` yang sah cukup sempit, yaitu bereaksi terhadap perubahan yang dibuat kode di luar kendalimu, misalnya widget pihak ketiga atau editor teks kaya. Kalau kamu sendiri yang mengubah DOM-nya, kamu sudah tahu kapan perubahan itu terjadi dan tidak perlu mengamatinya. Memakainya untuk memantau perubahan yang kamu buat sendiri adalah tanda alur datanya perlu diperbaiki.',
+      ),
+      callout(
+        'tip',
+        'Tiga pengamat untuk tiga pertanyaan yang berbeda',
+        '`IntersectionObserver` menjawab apakah elemen terlihat, dan itu untuk pemuatan bertahap serta gambar malas. `ResizeObserver` menjawab apakah ukuran elemen berubah, dan itu untuk komponen yang harus menyesuaikan diri terhadap lebarnya sendiri bukan lebar layar. `MutationObserver` menjawab apakah isinya berubah, dan itu hanya untuk perubahan dari luar kendalimu.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Pengamat jarang melempar error. Yang sering terjadi adalah pengamat yang tidak pernah terpanggil, atau terpanggil terus tanpa henti.',
+      ),
+      code(
+        'text',
+        `
+        const pengamat = new IntersectionObserver(tangani);
+        pengamat.observe(document.querySelector('#penanda'));
+
+        TypeError: Failed to execute 'observe' on 'IntersectionObserver':
+        parameter 1 is not of type 'Element'.
+        `,
+        { caption: 'Elemen yang diamati tidak ditemukan, sehingga yang diberikan `null`.' },
+      ),
+      p(
+        'Ini bentuk lain dari error elemen tidak ditemukan yang sudah dibahas di Sub-bab 4.1, dengan pesan yang berbeda karena pemeriksaannya dilakukan API pengamat. Penyebabnya sama, yaitu pemilihnya salah atau skripnya berjalan sebelum elemennya ada. Perhatikan pesannya menyebut tipe yang diharapkan, dan itu petunjuk yang lebih jelas daripada `Cannot read properties of null`.',
+      ),
+      code(
+        'text',
+        `
+        // Pengamat dipasang, dan callback-nya tidak pernah terpanggil.
+        pengamat.observe(penanda);
+
+        // Penanda ada di dalam elemen bergaya display: none.
+        `,
+        { caption: 'Tidak ada error, dan tidak ada pemanggilan sama sekali.' },
+      ),
+      p(
+        'Elemen yang disembunyikan dengan `display: none` tidak punya kotak tata letak, sehingga ia tidak pernah dianggap berpotongan dengan apa pun. Penyebab lain yang sama seringnya adalah elemen yang tingginya nol karena tidak berisi apa-apa, misalnya `div` penanda kosong tanpa tinggi. Beri penanda itu tinggi minimal satu piksel, atau isi dengan sesuatu.',
+      ),
+      code(
+        'text',
+        `
+        const pengamat = new MutationObserver(() => {
+          wadah.appendChild(document.createElement('div'));
+        });
+        pengamat.observe(wadah, { childList: true });
+
+        (Tab membeku. Pengamat memicu dirinya sendiri tanpa henti.)
+        `,
+        { caption: 'Perubahan yang dibuat di dalam callback memicu callback itu lagi.' },
+      ),
+      p(
+        'Ini kesalahan khas `MutationObserver` dan ia membekukan tab tanpa pesan apa pun. Kalau callback-mu memang perlu mengubah DOM yang sedang diamati, ada dua jalan keluar. Hentikan pengamatan dengan `disconnect` sebelum mengubah lalu pasang lagi sesudahnya, atau tandai perubahanmu sendiri dengan atribut lalu abaikan rekaman yang bertanda itu.',
+      ),
+      code(
+        'text',
+        `
+        // Komponen ditutup, pengamat tidak pernah dihentikan.
+        // Setelah pengguna bolak-balik sepuluh kali:
+
+        (Sepuluh pengamat aktif, semuanya memegang elemen yang sudah dilepas.)
+        `,
+        { caption: 'Pengamat yang tidak dihentikan menahan elemennya di memori.' },
+      ),
+      p(
+        'Pengamat memegang rujukan ke elemen yang diamatinya, sehingga elemen yang sudah dilepas dari halaman tetap tidak bisa dibersihkan. Ini bentuk kebocoran memori yang paling sering di aplikasi satu halaman. Selalu panggil `disconnect` saat bagian yang memasangnya ditutup, dan di React itu berarti di dalam fungsi pembersih `useEffect`.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            "`parameter 1 is not of type 'Element'`",
+            'Elemen yang diamati tidak ditemukan',
+            'Periksa pemilih dan waktu pemasangannya',
+          ],
+          [
+            'Callback tidak pernah terpanggil',
+            'Elemennya `display: none` atau tingginya nol',
+            'Beri tinggi minimal, dan pastikan elemennya benar-benar dirender',
+          ],
+          [
+            'Tab membeku setelah memasang `MutationObserver`',
+            'Callback mengubah DOM yang sedang diamati',
+            'Hentikan pengamatan sebelum mengubah, atau tandai perubahanmu sendiri',
+          ],
+          [
+            'Memori terus naik setelah bolak-balik halaman',
+            'Pengamat tidak pernah dihentikan',
+            'Panggil `disconnect` saat komponennya ditutup',
+          ],
+          [
+            'Callback terpanggil sekali saat pemasangan',
+            'Itu perilaku bawaan, ia melaporkan keadaan awal',
+            'Periksa `isIntersecting` sebelum bertindak, jangan asumsikan pemanggilan berarti perubahan',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Pengamat adalah API yang menggantikan pola lama berbasis penangan gulir dan pemeriksaan berkala, dan sebagian besar kesalahan di bawah adalah sisa dari pola lama itu.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai penangan gulir untuk mendeteksi elemen yang terlihat',
+            'Itu cara yang paling sering ditemui di tutorial lama',
+            'Ia memaksa pembacaan tata letak puluhan kali per detik. `IntersectionObserver` mendapat informasi yang sama dari peramban tanpa biaya itu',
+          ],
+          [
+            'Memakai `setInterval` untuk memeriksa apakah sesuatu sudah berubah',
+            'Cara paling langsung dipikirkan',
+            'Ia berjalan terus walaupun tidak ada yang berubah, dan tetap berjalan setelah halamannya tidak terlihat. Pakai pengamat yang tepat',
+          ],
+          [
+            'Lupa memanggil `disconnect` saat komponen ditutup',
+            'Halamannya toh berpindah',
+            'Di aplikasi satu halaman tidak ada pemuatan ulang, jadi pengamatnya tetap hidup dan menahan elemennya di memori',
+          ],
+          [
+            'Memakai `MutationObserver` untuk memantau perubahan yang dibuat sendiri',
+            'Supaya semua reaksi terkumpul di satu tempat',
+            'Kamu sudah tahu kapan perubahan itu terjadi. Ini membuat alur datanya berputar dan sangat sulit ditelusuri',
+          ],
+          [
+            'Mengasumsikan callback berisi tepat satu rekaman',
+            'Satu perubahan kan satu pemanggilan',
+            'Rekaman dikumpulkan lalu diserahkan sekaligus. Selalu telusuri arraynya',
+          ],
+          [
+            'Mengabaikan `rootMargin` pada pemuatan bertahap',
+            'Yang penting elemennya terdeteksi',
+            'Pemuatan baru dimulai saat pengguna sudah sampai di ujung, sehingga selalu ada jeda kosong. Mulai lebih awal dengan margin',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua punya alasan tambahan yang sering dilupakan. `setInterval` terus berjalan bahkan saat tab berada di latar belakang, meski peramban memperlambatnya. Untuk perangkat bertenaga baterai itu berarti daya yang terbuang tanpa hasil apa pun. Pengamat hanya bekerja saat memang ada yang berubah, dan itu perbedaan yang nyata bagi pengguna ponsel.',
+      ),
+      callout(
+        'info',
+        'Gambar malas sudah tersedia tanpa JavaScript sama sekali',
+        'Atribut `loading="lazy"` pada `img` dan `iframe` sudah didukung seluruh peramban modern, dan ia menunda pengunduhan sampai elemennya mendekati pandangan. Untuk kasus itu, kamu tidak perlu `IntersectionObserver` sama sekali. Sisakan pengamat untuk hal yang memang tidak punya padanan bawaan, seperti pemuatan data bertahap.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         '`IntersectionObserver` untuk lazy load, infinite scroll, dan penanda bagian aktif.',
@@ -2530,7 +5146,7 @@ daftar.addEventListener('click', (e) => {
   written(
     'praktik-todo-dom',
     'Praktik: To-Do List versi DOM penuh',
-    16,
+    27,
     'Menyambungkan modul logika Bab 1 ke tampilan nyata — tanpa menyentuh logikanya sama sekali.',
     [
       p(
@@ -2825,6 +5441,286 @@ daftar.addEventListener('click', (e) => {
         'Seluruh aplikasi bisa dipakai hanya dengan keyboard',
       ),
 
+      divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Aplikasi todo yang baru kamu bangun bekerja untuk sepuluh tugas. Begitu dipakai sungguhan, tiga keluhan datang. Mencentang satu tugas membuat seluruh daftar berkedip dan kotak pencarian kehilangan fokus. Judul tugas yang mengandung tanda kurung sudut merusak tata letak. Dan pengguna keyboard tidak bisa menghapus tugas sama sekali karena tombol hapusnya berupa `div`.',
+      ),
+      p(
+        'Ketiganya berasal dari satu keputusan yang sama, yaitu menggambar ulang seluruh daftar dari teks HTML setiap kali ada perubahan. Bagian ini menunjukkan bentuk yang menutup ketiganya sekaligus, dengan menggabungkan seluruh materi bab.',
+      ),
+      code(
+        'html',
+        `
+        <form id="form-tugas">
+          <label for="judul-baru">Tugas baru</label>
+          <input id="judul-baru" name="judul" required maxlength="200" autocomplete="off" />
+          <button type="submit">Tambah</button>
+        </form>
+
+        <ul id="daftar" aria-live="polite"></ul>
+
+        <template id="tpl-tugas">
+          <li class="tugas" data-tugas-id>
+            <label>
+              <input type="checkbox" data-aksi="ubah-selesai" />
+              <span class="judul"></span>
+            </label>
+            <button type="button" data-aksi="hapus">Hapus</button>
+          </li>
+        </template>
+        `,
+        { filename: 'index.html' },
+      ),
+      code(
+        'js',
+        `
+        const daftarEl = document.getElementById('daftar');
+        const tpl = document.getElementById('tpl-tugas');
+
+        // Peta id ke elemen, supaya perubahan bisa diarahkan ke barisnya saja.
+        const elemenTugas = new Map();
+
+        function buatBaris(tugas) {
+          const li = tpl.content.firstElementChild.cloneNode(true);
+          li.dataset.tugasId = tugas.id;
+          li.querySelector('.judul').textContent = tugas.judul;      // dari pengguna
+          li.querySelector('[data-aksi="ubah-selesai"]').checked = tugas.selesai;
+          li.classList.toggle('selesai', tugas.selesai);
+          return li;
+        }
+
+        // Gambar ulang HANYA yang berubah, bukan seluruh daftar.
+        function sinkronkan(daftarTugas) {
+          const idSekarang = new Set(daftarTugas.map((t) => t.id));
+
+          // 1. Hapus baris yang tugasnya sudah tidak ada.
+          for (const [id, el] of elemenTugas) {
+            if (!idSekarang.has(id)) {
+              el.remove();
+              elemenTugas.delete(id);
+            }
+          }
+
+          // 2. Tambah yang baru, perbarui yang berubah.
+          const frag = document.createDocumentFragment();
+          for (const tugas of daftarTugas) {
+            const ada = elemenTugas.get(tugas.id);
+            if (!ada) {
+              const li = buatBaris(tugas);
+              elemenTugas.set(tugas.id, li);
+              frag.append(li);
+              continue;
+            }
+            const judulEl = ada.querySelector('.judul');
+            if (judulEl.textContent !== tugas.judul) judulEl.textContent = tugas.judul;
+            ada.querySelector('[data-aksi="ubah-selesai"]').checked = tugas.selesai;
+            ada.classList.toggle('selesai', tugas.selesai);
+          }
+          if (frag.childElementCount > 0) daftarEl.append(frag);
+        }
+        `,
+        { filename: 'src/todo/render.js' },
+      ),
+      p(
+        'Fungsi `sinkronkan` inilah jawaban atas keluhan pertama. Ia tidak pernah menyentuh baris yang tidak berubah, sehingga fokus keyboard, posisi gulir, dan animasi yang sedang berjalan semuanya bertahan. `Map` yang memetakan id ke elemennya adalah yang memungkinkan itu, sebab tanpa peta itu kamu harus mencari elemennya di DOM setiap kali dan tidak punya cara tahu mana yang sudah ada.',
+      ),
+      p(
+        'Pemeriksaan `if (judulEl.textContent !== tugas.judul)` sebelum menulis terlihat berlebihan dan ia punya alasan nyata. Menulis ke `textContent` selalu membatalkan pilihan teks yang sedang disorot pengguna, bahkan kalau nilainya sama persis. Memeriksa dulu membuat penulisan hanya terjadi saat memang perlu. Ini pola perbandingan sebelum menulis yang juga dipakai kerangka kerja modern di balik layar.',
+      ),
+      p(
+        'Keluhan kedua selesai di baris `textContent = tugas.judul`. Judul yang berisi tanda kurung sudut tampil sebagai teks apa adanya, dan tidak ada satu pun yang diurai sebagai HTML. Keluhan ketiga selesai di HTML-nya, yaitu tombol hapus memakai elemen `button` sungguhan sehingga Enter dan spasi bekerja tanpa satu baris kode tambahan.',
+      ),
+      code(
+        'js',
+        `
+        // Satu penangan untuk seluruh baris, termasuk yang belum ada.
+        daftarEl.addEventListener('click', (peristiwa) => {
+          const tombol = peristiwa.target.closest('[data-aksi]');
+          if (!tombol || !daftarEl.contains(tombol)) return;
+
+          const id = tombol.closest('[data-tugas-id]')?.dataset.tugasId;
+          if (!id) return;
+
+          if (tombol.dataset.aksi === 'hapus') {
+            toko.hapus(id);
+            sinkronkan(toko.isi());
+          }
+        });
+
+        // Centang memakai 'change', bukan 'click'.
+        daftarEl.addEventListener('change', (peristiwa) => {
+          const kotak = peristiwa.target.closest('[data-aksi="ubah-selesai"]');
+          if (!kotak) return;
+          const id = kotak.closest('[data-tugas-id]')?.dataset.tugasId;
+          if (id) toko.ubahSelesai(id, kotak.checked);
+        });
+
+        // Formulir memakai 'submit', supaya Enter ikut bekerja.
+        document.getElementById('form-tugas').addEventListener('submit', (peristiwa) => {
+          peristiwa.preventDefault();
+          const data = new FormData(peristiwa.currentTarget);
+          const judul = String(data.get('judul') ?? '').trim();
+          if (judul === '') return;
+          toko.tambah(judul);
+          peristiwa.currentTarget.reset();
+          sinkronkan(toko.isi());
+        });
+        `,
+        { filename: 'src/todo/peristiwa.js' },
+      ),
+      p(
+        'Tiga penangan ini dipasang sekali di elemen yang tidak pernah diganti, sehingga baris yang lahir kemudian ikut tertangani tanpa pemasangan ulang. Perhatikan centang memakai peristiwa `change` bukan `click`, dan itu bukan selera. `change` juga dipicu saat pengguna menekan spasi pada centang yang sedang mendapat fokus, sedangkan `click` pada centang punya urutan yang membingungkan terhadap nilai `checked`.',
+      ),
+      p(
+        'Atribut `aria-live="polite"` pada daftar membuat pembaca layar mengumumkan perubahan isinya tanpa memotong apa yang sedang dibaca. Tanpa itu, pengguna pembaca layar yang menghapus tugas tidak mendapat konfirmasi apa pun bahwa tindakannya berhasil. Ini termasuk baseline aksesibilitas project ini, dan biayanya satu atribut.',
+      ),
+      callout(
+        'tip',
+        'Inilah yang dikerjakan React di balik layar',
+        'Fungsi `sinkronkan` di atas adalah bentuk paling sederhana dari rekonsiliasi, yaitu membandingkan keadaan yang diinginkan dengan yang ada di layar lalu mengubah selisihnya saja. `Map` id ke elemen adalah padanan dari `key` di React. Menulisnya sekali dengan tangan membuat materi Bab 5 dan seterusnya terbaca sebagai penyingkat pekerjaan yang sudah kamu pahami, bukan sebagai sihir.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Aplikasi kecil yang menggabungkan banyak bagian punya kegagalan gabungan juga. Empat berikut adalah yang paling sering muncul saat pola ini dipasang pertama kali.',
+      ),
+      code(
+        'text',
+        `
+        const li = tpl.querySelector('.tugas');
+        li.dataset.tugasId = tugas.id;
+           ^
+
+        TypeError: Cannot read properties of null (reading 'dataset')
+        `,
+        { caption: 'Isi `template` dicari lewat elemen templatenya, bukan lewat `content`.' },
+      ),
+      p(
+        "Isi elemen `template` berada di pohon terpisah, sehingga `tpl.querySelector` tidak menemukan apa pun. Bentuk yang benar `tpl.content.firstElementChild` atau `tpl.content.querySelector('.tugas')`. Kesalahan ini muncul persis sekali per orang, dan setelah tahu penyebabnya tidak pernah terulang.",
+      ),
+      code(
+        'text',
+        `
+        // Menyalin template tanpa argumen true.
+        const li = tpl.content.firstElementChild.cloneNode();
+
+        li.querySelector('.judul').textContent = tugas.judul;
+           ^
+
+        TypeError: Cannot read properties of null (reading 'textContent')
+        `,
+        { caption: '`cloneNode()` tanpa argumen hanya menyalin elemen terluarnya.' },
+      ),
+      p(
+        '`cloneNode()` tanpa argumen menghasilkan elemen `li` kosong tanpa satu pun anak, sehingga pencarian `.judul` di dalamnya menghasilkan `null`. Argumen `true` berarti salin sampai ke seluruh keturunannya. Karena bentuk tanpa argumen jarang berguna, biasakan selalu menulis `cloneNode(true)` kecuali kamu memang sengaja hanya ingin cangkangnya.',
+      ),
+      code(
+        'text',
+        `
+        // Setelah menghapus tugas lalu menambah tugas baru sepuluh kali:
+        console.log(elemenTugas.size);   // 10
+        console.log(daftarEl.children.length);   // 3
+
+        // Tujuh elemen tertahan di memori tanpa ada di halaman.
+        `,
+        { caption: 'Peta tidak ikut dibersihkan saat elemennya dihapus.' },
+      ),
+      p(
+        'Kalau `el.remove()` dipanggil tanpa `elemenTugas.delete(id)`, petanya terus memegang rujukan ke elemen yang sudah tidak ada di halaman. Elemen itu tidak bisa dibersihkan pengumpul sampah, dan pada sesi panjang jumlahnya menumpuk. Ini disebut node terlepas, dan tab Memory di DevTools bisa menghitungnya. Setiap struktur yang memegang elemen wajib punya jalur pembersihan yang sepasang dengan jalur penambahannya.',
+      ),
+      code(
+        'text',
+        `
+        daftarEl.addEventListener('click', (e) => {
+          hapus(e.target.dataset.tugasId);
+        });
+
+        Error: Tugas undefined tidak ditemukan
+        `,
+        { caption: 'Klik mengenai teks di dalam tombol, bukan tombolnya.' },
+      ),
+      p(
+        'Sudah dibahas di Sub-bab 4.8 dan muncul lagi di sini karena aplikasi nyata hampir selalu punya elemen di dalam tombolnya. Selalu mulai dengan `e.target.closest(...)`, dan selalu beri penjaga keluar lebih awal. Dua baris itu menutup seluruh kelas bug delegasi, dan menuliskannya sudah layak menjadi kebiasaan otomatis.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            "`Cannot read properties of null (reading 'dataset')` pada template",
+            'Dicari lewat elemen `template`, bukan lewat `content`',
+            'Pakai `tpl.content.firstElementChild`',
+          ],
+          [
+            'Salinan template kosong tanpa anak',
+            '`cloneNode()` dipanggil tanpa `true`',
+            'Tulis `cloneNode(true)`',
+          ],
+          [
+            'Memori naik terus setelah banyak penghapusan',
+            'Peta masih memegang elemen yang sudah dilepas',
+            'Panggil `delete` pada peta setiap kali elemennya dihapus',
+          ],
+          [
+            'Aksi terpicu dengan id `undefined`',
+            '`e.target` bukan tombolnya',
+            'Pakai `closest`, lalu penjaga keluar lebih awal',
+          ],
+          [
+            'Fokus hilang tiap kali daftar diperbarui',
+            'Seluruh daftar digambar ulang',
+            'Perbarui hanya baris yang berubah',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Praktik penutup bab ini menggabungkan seluruh materi, jadi kesalahannya juga campuran. Yang dikumpulkan di bawah adalah yang muncul justru setelah aplikasinya sudah bekerja dan mulai dipakai orang lain.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menggambar ulang seluruh daftar dengan `innerHTML` tiap ada perubahan',
+            'Paling sederhana dan hasilnya selalu benar',
+            'Fokus keyboard hilang, posisi gulir melompat, teks yang sedang disorot batal, dan penangan peristiwa yang terpasang langsung ikut lenyap',
+          ],
+          [
+            'Memakai indeks array sebagai penanda baris',
+            'Indeksnya unik dan sudah tersedia',
+            'Indeks berubah begitu ada yang dihapus, sehingga baris yang salah ikut diperbarui. Simpan id sungguhan di atribut data',
+          ],
+          [
+            'Memakai `div` dengan penangan klik sebagai tombol',
+            'Tampilannya bisa diatur lebih bebas',
+            'Tidak bisa difokus keyboard, tidak dibacakan sebagai tombol, dan Enter tidak bekerja. Pakai `button` lalu atur gayanya',
+          ],
+          [
+            'Menyimpan keadaan aplikasi di dalam DOM',
+            'DOM sudah menampilkan keadaannya',
+            'Membaca keadaan berarti membaca layar, dan keduanya bisa menyimpang. Simpan di JavaScript, dan biarkan DOM menjadi hasilnya',
+          ],
+          [
+            'Menyimpan ke penyimpanan peramban pada tiap ketikan',
+            'Supaya tidak ada yang hilang',
+            'Menulis ke penyimpanan itu sinkron dan menahan tampilan. Tunda dengan debounce dari Bab 1',
+          ],
+          [
+            'Menguji hanya dengan tiga tugas berjudul pendek',
+            'Itu yang biasa dipakai',
+            'Daftar kosong, judul sangat panjang, judul berisi tanda kurung sudut, dan seratus tugas adalah empat kasus yang paling sering merusak tampilan. Ujilah keempatnya',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama layak ditegaskan sebagai penutup bab, sebab ia keputusan yang menentukan seluruh sisanya. Menggambar ulang semuanya memang selalu menghasilkan tampilan yang benar, dan itulah yang membuatnya menggoda. Yang hilang adalah segala hal yang tidak tersimpan di data, yaitu fokus, posisi gulir, pilihan teks, dan keadaan animasi. Kerangka kerja modern ada justru untuk memberi kemudahan menggambar ulang tanpa kehilangan itu semua, dan Bab 5 mulai membahasnya.',
+      ),
+      callout(
+        'info',
+        'Yang kamu bawa dari bab ini ke Bab 5',
+        'Empat hal yang akan langsung terpakai. Pertama, data pengguna masuk lewat `textContent` bukan `innerHTML`. Kedua, perbarui yang berubah saja, dan itu yang disebut `key` di React. Ketiga, pasang penangan di induk yang stabil. Keempat, pakai elemen bawaan seperti `button` dan `form` supaya perilaku keyboard tidak perlu dibangun ulang.',
+      ),
       divider,
       h2('Rangkuman'),
       ul(

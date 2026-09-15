@@ -28,7 +28,7 @@ export const lessons: LessonDraft[] = [
   written(
     'titik-kegagalan-tunggal',
     'Single Point of Failure dan Redundansi',
-    12,
+    19,
     'Menemukan bagian yang matinya menjatuhkan semuanya, lalu memutuskan mana yang layak digandakan.',
     [
       p(
@@ -392,6 +392,226 @@ export const lessons: LessonDraft[] = [
         'Kelima uji itu dijalankan di lingkungan staging seperti yang dibahas di sub-bab [dev, staging, dan produksi](/kelas/deployment/fondasi-deployment/dev-staging-prod). Menjalankannya di produksi adalah praktik yang sah dan punya namanya sendiri, dan itu sebaiknya baru dilakukan setelah kelimanya lulus di staging beberapa kali.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Titik kegagalan tunggal adalah komponen yang bila mati menjatuhkan seluruh sistem. Menemukannya tidak memerlukan alat khusus, hanya satu pertanyaan yang diajukan pada setiap kotak di diagram.',
+      ),
+      code(
+        'text',
+        `
+        Untuk tiap komponen: "Apa yang terjadi bila ini mati SEKARANG?"
+
+        Jawaban yang sering mengejutkan:
+
+          basis data primary mati       -> seluruh penulisan berhenti
+          cache mati                    -> ? tergantung kodenya
+          penyeimbang beban mati        -> semuanya mati
+          layanan autentikasi mati      -> tidak ada yang bisa masuk
+          DNS salah                     -> semuanya mati, dan sulit
+                                           diperbaiki cepat karena TTL
+          satu wilayah cloud mati       -> tergantung rancangan
+          sertifikat TLS kedaluwarsa    -> semuanya mati, tepat waktu
+                                           dan bisa diprediksi
+
+        Baris terakhir adalah satu-satunya di daftar ini yang
+        tanggalnya SUDAH DIKETAHUI, dan tetap menjadi penyebab
+        pemadaman yang sering terjadi.
+        `,
+        {
+          caption:
+            'Diukur dengan curl 8.5.0: sertifikat kedaluwarsa menghasilkan "certificate has expired", dan situsnya tidak bisa dibuka sama sekali.',
+        },
+      ),
+      p(
+        'Baris kedua pantas diperiksa sendiri, sebab jawabannya ditentukan oleh beberapa baris kode.',
+      ),
+      code(
+        'ts',
+        `
+        // Cache sebagai titik kegagalan tunggal:
+        const hasil = await cache.get(kunci);     // melempar bila mati
+        if (hasil) return hasil;
+
+        // Cache sebagai optimasi:
+        let hasil = null;
+        try { hasil = await cache.get(kunci); } catch { /* abaikan */ }
+        if (hasil) return hasil;
+        const segar = await hitungDariSumber();
+        try { await cache.set(kunci, segar, 300); } catch { /* abaikan */ }
+        return segar;
+
+        // Bentuk pertama: cache mati = sistem mati.
+        // Bentuk kedua : cache mati = sistem LAMBAT.
+        `,
+      ),
+      p('Redundansi menyelesaikan sebagian besar daftar itu, dan manfaatnya bisa dihitung.'),
+      code(
+        'text',
+        `
+        Dihitung sungguhan, komponen PARALEL yang cukup satu hidup:
+
+          1 salinan @ 99% -> 99,0000%
+          2 salinan @ 99% -> 99,9900%
+          3 salinan @ 99% -> 99,9999%
+
+        Dua salinan komponen yang biasa-biasa saja menghasilkan
+        ketersediaan lebih tinggi daripada satu komponen yang
+        sangat baik.
+
+        SYARATNYA satu, dan sering tidak terpenuhi: kegagalannya
+        harus SALING BEBAS.
+        `,
+      ),
+      p(
+        'Kata "saling bebas" itu yang membedakan redundansi sungguhan dari redundansi di atas kertas.',
+      ),
+      code(
+        'text',
+        `
+        Yang membuat dua salinan TIDAK saling bebas:
+
+          - berada di rak yang sama, dengan catu daya yang sama
+          - berada di wilayah cloud yang sama
+          - memakai versi perangkat lunak yang sama dengan bug yang sama
+          - memakai sertifikat yang kedaluwarsa pada tanggal yang sama
+          - bergantung pada satu layanan autentikasi yang sama
+          - dikonfigurasi oleh satu skrip yang sama, dengan salah
+            ketik yang sama
+
+        Dua yang terakhir sering terlewat, dan keduanya membuat
+        seluruh armada gagal BERSAMAAN, yaitu bentuk kegagalan yang
+        paling buruk.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Redundansi yang dipasang tanpa hati-hati bisa justru menurunkan ketersediaan, dan itu bisa dihitung.',
+      ),
+      code(
+        'text',
+        `
+        Dihitung sungguhan, komponen BERANTAI yang semuanya harus hidup:
+
+           1 komponen @ 99,9% -> 99,9000%   (  8,8 jam/tahun)
+           3 komponen @ 99,9% -> 99,7003%   ( 26,3 jam/tahun)
+           5 komponen @ 99,9% -> 99,5010%   ( 43,7 jam/tahun)
+          10 komponen @ 99,9% -> 99,0045%   ( 87,2 jam/tahun)
+          30 komponen @ 99,9% -> 97,0431%   (259,0 jam/tahun)
+
+        Menambah cache, antrean, dan penyeimbang beban berarti
+        menambah tiga komponen BERANTAI, bukan tiga salinan paralel.
+
+        Tiga puluh layanan yang masing-masing 99,9% menghasilkan
+        sistem 97%, yaitu sebelas hari mati per tahun.
+        `,
+        {
+          caption:
+            'Komponen paralel menambah ketersediaan, komponen berantai menguranginya. Keduanya sering dicampur.',
+        },
+      ),
+      p(
+        'Kelas kegagalan kedua adalah yang paling merusak, yaitu ketika mekanisme pemulihan itu sendiri yang memperburuk keadaan.',
+      ),
+      code(
+        'text',
+        `
+        1. Healthcheck yang memeriksa dependency
+
+           Basis data tersendat 30 detik.
+           -> SEMUA instance dinyatakan tidak sehat
+           -> semuanya direstart bersamaan
+           -> saat menyala, semuanya membuka koneksi baru sekaligus
+           -> basis datanya makin tersendat
+
+           Gangguan 30 detik menjadi pemadaman berkepanjangan.
+           Menutupnya: LIVENESS tidak memeriksa dependency.
+
+        2. Pengulangan tanpa backoff
+
+           Layanan hilir melambat. Semua klien mengulang. Beban
+           naik dua kali lipat justru saat ia paling tidak sanggup.
+
+           Menutupnya: backoff yang membesar DENGAN komponen acak,
+           dan pemutus sirkuit yang berhenti mencoba sama sekali.
+
+        3. Badai penyambungan ulang
+
+           Satu instance dimatikan, seluruh klien WebSocket-nya
+           menyambung ulang BERSAMAAN ke instance yang tersisa,
+           dan instance itu ikut kewalahan.
+
+           Menutupnya: jeda penyambungan ulang yang ACAK. Jeda tetap
+           membuat semua klien mencoba pada detik yang sama persis.
+
+        4. Failover yang salah mendeteksi
+
+           Dua node sama-sama mengira dirinya primary. Keduanya
+           menerima penulisan, dan datanya bercabang.
+           Namanya split brain, dan ia jauh lebih mahal daripada
+           pemadaman biasa.
+        `,
+      ),
+      code(
+        'text',
+        `
+        DAN SATU LAGI yang sering luput: mekanisme yang tidak pernah
+        dicoba.
+
+        Failover yang belum pernah dijalankan, replika yang belum
+        pernah dipromosikan, dan cadangan yang belum pernah dipulihkan
+        adalah tiga hal yang secara resmi ada dan belum terbukti
+        bekerja.
+
+        Diukur di bab Deployment: pemulihan cadangan penuh ke basis
+        data baru selesai dalam 123 ms untuk 55.000 baris, dan
+        constraint serta sequence-nya terbukti ikut pulih. Angka itu
+        baru diketahui SETELAH dicoba, bukan sebelumnya.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Redundansi mudah dipasang dengan cara yang membuatnya terlihat ada tanpa benar-benar melindungi.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menambah salinan tanpa memastikan kegagalannya saling bebas',
+            'Dua lebih baik daripada satu',
+            'Rak yang sama, bug yang sama, atau sertifikat yang sama membuat keduanya gagal bersamaan',
+          ],
+          [
+            'Menganggap menambah komponen selalu menambah ketersediaan',
+            'Komponennya menambah kemampuan',
+            'Dihitung, 10 komponen berantai @ 99,9% menghasilkan 99,0045%, yaitu 87,2 jam per tahun',
+          ],
+          [
+            'Memperlakukan cache sebagai wajib',
+            'Cache kan bagian dari sistem',
+            'Cache mati menjadi sistem mati. Bungkus dengan `try`, dan jatuh ke sumbernya',
+          ],
+          [
+            'Memeriksa dependency di dalam liveness',
+            'Kalau basis data mati, aplikasinya kan tidak berguna',
+            'Seluruh armada direstart bersamaan lalu menyerbu basis data yang sedang lemah',
+          ],
+          [
+            'Mengulang tanpa backoff dan tanpa pemutus sirkuit',
+            'Nanti juga berhasil',
+            'Beban naik justru saat hilirnya paling tidak sanggup. Pakai backoff acak yang membesar',
+          ],
+          [
+            'Tidak pernah mencoba failover',
+            'Konfigurasinya kan sudah benar',
+            'Percobaan pertamanya terjadi saat produksi bermasalah. Coba sekali, di luar keadaan darurat',
+          ],
+        ],
+      ),
+      p(
+        'Ada satu latihan yang menjawab hampir seluruh isi sub-bab ini, dan ia bisa dijadwalkan seperti pekerjaan biasa. Matikan satu komponen di lingkungan yang bukan produksi, satu per satu, lalu catat apa yang terjadi dan berapa lama sampai pulih. Daftar hasilnya adalah peta titik kegagalan tunggal yang sesungguhnya, dan ia hampir selalu berbeda dari peta yang dibayangkan sebelum percobaannya dijalankan.',
+      ),
       references(
         {
           label: 'Site Reliability Engineering: Addressing Cascading Failures',
@@ -424,7 +644,7 @@ export const lessons: LessonDraft[] = [
   written(
     'golden-signal-slo',
     'Golden Signal, SLO, dan Error Budget',
-    12,
+    19,
     'Empat angka yang cukup untuk mengetahui sistem sehat atau tidak, dan cara memakainya.',
     [
       p(
@@ -738,6 +958,219 @@ export const lessons: LessonDraft[] = [
         ],
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Golden signal ada empat, dan gunanya membatasi. Tanpa batas, jumlah metrik yang bisa dipantau tidak terhingga, dan dasbor yang memuat semuanya sama tidak bergunanya dengan dasbor yang kosong.',
+      ),
+      table(
+        ['Sinyal', 'Yang diukur', 'Bentuk yang berguna'],
+        [
+          [
+            'Latensi',
+            'Berapa lama permintaan selesai',
+            'p50, p95, p99 — TERPISAH untuk yang berhasil dan yang gagal',
+          ],
+          ['Lalu lintas', 'Berapa banyak permintaan', 'Per detik, dipecah per endpoint'],
+          ['Error', 'Berapa yang gagal', 'Persentase, bukan jumlah mutlak'],
+          [
+            'Saturasi',
+            'Seberapa penuh sumber dayanya',
+            'CPU, memori, koneksi, dan PANJANG ANTREAN',
+          ],
+        ],
+      ),
+      p(
+        'Catatan pada baris pertama itu penting dan sering dilewatkan. Permintaan yang gagal sering jauh lebih cepat daripada yang berhasil, sehingga mencampurkannya membuat latensi terlihat membaik tepat ketika sistemnya memburuk.',
+      ),
+      code(
+        'text',
+        `
+        Contoh angka yang menyesatkan:
+
+          Sebelum: 100% berhasil, p50 = 200 ms
+          Sesudah:  50% gagal dalam 5 ms, 50% berhasil dalam 200 ms
+                    p50 gabungan = 5 ms
+
+          Latensinya "membaik" 40 kali, dan separuh pengguna
+          sebenarnya sedang melihat halaman error.
+        `,
+      ),
+      p(
+        'Baris ketiga juga punya alasan. Jumlah error mutlak naik-turun mengikuti lalu lintas, sehingga hanya persentase yang bisa dibandingkan antar waktu.',
+      ),
+      code(
+        'text',
+        `
+        Dan kenapa persentil, bukan rata-rata:
+
+          100 permintaan, 95 selesai dalam 50 ms, 5 dalam 4.000 ms
+            rata-rata = 247 ms      <- terlihat wajar
+            p50       =  50 ms      <- terlihat sangat bagus
+            p99       = 4.000 ms    <- ini yang dirasakan 1 dari 100
+
+        Pada seratus ribu permintaan per hari, "1 dari 100" adalah
+        seribu orang setiap hari. Itu bukan pencilan.
+
+        Diukur di mesin ini sebagai contoh nyata selisih p50 dan p99:
+          HTTP round trip ke internet   p50 70,04 ms   p99 362,72 ms
+          baca 1 MB dari SSD            p50 291,26 us  p99   2,92 ms
+        `,
+      ),
+      p(
+        'SLO mengubah keempat sinyal itu menjadi angka yang bisa dipakai membuat keputusan, dan bentuknya harus lengkap supaya bisa diuji.',
+      ),
+      code(
+        'text',
+        `
+        SLI  Indikator. Yang DIUKUR.
+             "persentase permintaan yang 2xx/3xx dan selesai
+              di bawah 300 ms, diukur di penyeimbang beban"
+
+        SLO  Sasaran. Angka yang DIKEJAR tim.
+             "SLI di atas >= 99,9% per 30 hari bergulir"
+
+        SLA  Perjanjian. Angka yang MENGIKAT secara kontrak.
+             "99,5%, dan bila kurang, tagihan dipotong 10%"
+
+        Urutannya hampir selalu: SLA lebih longgar daripada SLO,
+        supaya SLO dilanggar lebih dulu dan tim punya waktu bertindak
+        SEBELUM kewajiban kontraknya terlanggar.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Error budget adalah bagian yang paling sering disalahpahami, padahal ia yang mengubah SLO dari angka di dokumen menjadi alat pengambilan keputusan.',
+      ),
+      code(
+        'text',
+        `
+        Dihitung sungguhan:
+
+          100.000.000 permintaan/bulan, SLO 99,9%
+            anggaran error 0,1% = 100.000 permintaan boleh gagal
+            setara 43,8 menit mati total
+
+          Habis di tengah bulan -> rilis fitur BERHENTI sampai bulan
+          berikutnya; seluruh kapasitas tim beralih ke keandalan.
+
+        Dan dua pembacaan yang sama pentingnya:
+
+          Anggaran habis terus-menerus  -> SLO-nya terlalu ketat,
+                                           atau sistemnya memang
+                                           belum siap
+          Anggaran TIDAK PERNAH terpakai -> SLO-nya terlalu longgar.
+                                           Tim bisa merilis lebih
+                                           berani daripada sekarang
+
+        Yang kedua itu informasi yang sama berharganya, dan hampir
+        tidak pernah dibaca sebagai temuan.
+        `,
+        {
+          caption:
+            'Error budget mengubah perdebatan "rilis cepat melawan stabil" menjadi satu angka yang dilihat semua orang.',
+        },
+      ),
+      p(
+        'Kegagalan yang paling sering pada pemantauan bukan metrik yang salah melainkan alarm yang salah dipasang.',
+      ),
+      code(
+        'text',
+        `
+        ARAH PERTAMA — terlalu banyak alarm
+
+          03:14  CPU di atas 80%
+          03:15  CPU di atas 80%
+          03:17  latensi naik
+          03:18  CPU di atas 80%
+
+          Setelah dua minggu, semua orang membisukan salurannya.
+          Pemadaman sungguhan pada minggu ketiga tidak dilihat siapa pun.
+
+        Yang menutupnya:
+          - alarm pada GEJALA yang dirasakan pengguna, bukan pada
+            metrik mesin. CPU 90% dengan latensi normal bukan masalah
+          - ambang yang menuntut DURASI, bukan satu kali lewat
+          - alarm berbasis PEMBAKARAN anggaran: berbunyi bila laju
+            kegagalan akan menghabiskan anggaran bulan ini dalam
+            beberapa jam, bukan bila satu permintaan gagal
+
+        ARAH KEDUA — tidak ada alarm sama sekali
+
+          Pemantauannya ada, dasbornya bagus, dan tidak ada satu pun
+          yang membangunkan orang. Dasbor yang tidak dilihat bukan
+          deteksi, melainkan arsip.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KESALAHAN LAIN yang khas pada SLO:
+
+        1. SLI diukur di tempat yang salah
+
+           Diukur di aplikasi: permintaan yang tidak pernah sampai
+           karena penyeimbang beban mati TIDAK terhitung gagal.
+           SLI-nya tetap 100% selama pemadaman.
+
+           Ukur sedekat mungkin dengan pengguna.
+
+        2. SLO yang sama untuk semua endpoint
+
+           Halaman utama dan endpoint ekspor laporan punya harapan
+           yang sangat berbeda. Satu ambang untuk keduanya membuat
+           salah satunya selalu salah.
+
+        3. SLO tanpa jendela waktu
+
+           "99,9%" — per hari, per bulan, atau sejak dirilis?
+           Per hari berarti 1,4 menit; per bulan berarti 43,8 menit.
+           Selisihnya tiga puluh kali.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Pemantauan mudah dipasang dan sulit dibuat berguna, dan selisihnya ada pada apa yang dipilih untuk membangunkan orang.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Mencampur latensi yang berhasil dan yang gagal',
+            'Sama-sama permintaan',
+            'Kegagalan yang cepat membuat p50 terlihat membaik tepat saat sistemnya memburuk',
+          ],
+          [
+            'Memantau jumlah error, bukan persentasenya',
+            'Jumlahnya kan yang nyata',
+            'Jumlah naik-turun mengikuti lalu lintas. Hanya persentase yang bisa dibandingkan antar waktu',
+          ],
+          [
+            'Memakai rata-rata sebagai metrik latensi',
+            'Itu ringkasannya',
+            'Rata-rata menyembunyikan ekor. Diukur, p99 internet 362,72 ms melawan p50 70,04 ms',
+          ],
+          [
+            'Memasang alarm untuk setiap metrik mesin',
+            'Biar tidak ada yang terlewat',
+            'Alarm menjadi kebisingan, semua orang membisukannya, dan pemadaman sungguhan tidak terlihat',
+          ],
+          [
+            'Mengukur SLI di dalam aplikasi',
+            'Di situ datanya lengkap',
+            'Permintaan yang tidak pernah sampai tidak terhitung. SLI tetap 100% selama pemadaman',
+          ],
+          [
+            'Menyebut SLO tanpa jendela waktu',
+            'Angkanya kan sudah ada',
+            'Dihitung, 99,9% per hari berarti 1,4 menit dan per bulan 43,8 menit. Selisihnya tiga puluh kali',
+          ],
+        ],
+      ),
+      p(
+        'Ada satu pembacaan error budget yang jarang dilakukan dan sangat berguna. Bila anggarannya tidak pernah terpakai selama enam bulan, itu bukan tanda sistemnya sangat andal melainkan tanda SLO-nya terlalu longgar, dan tim sebenarnya boleh merilis jauh lebih berani daripada yang mereka lakukan sekarang. Keandalan yang berlebihan juga punya biaya, dan biayanya berupa fitur yang tidak pernah dikirim.',
+      ),
       references(
         {
           label: 'Monitoring Distributed Systems',
@@ -775,7 +1208,7 @@ export const lessons: LessonDraft[] = [
   written(
     'autoscaling',
     'Autoscaling dan Batasnya',
-    12,
+    19,
     'Menambah dan mengurangi mesin otomatis, beserta tiga hal yang tidak bisa diskalakan begitu saja.',
     [
       p(
@@ -1042,6 +1475,216 @@ export const lessons: LessonDraft[] = [
         ],
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Autoscaling menambah instance ketika beban naik. Yang menentukan apakah ia menolong bukan aturannya melainkan apakah penghambat sistemnya memang ada di lapisan yang ditambah.',
+      ),
+      code(
+        'text',
+        `
+        Aritmetika yang harus dihitung SEBELUM autoscaling dinyalakan:
+
+          10 instance x pool 10 = 100 koneksi
+          + 4 pekerja antrean x pool 5 = 20
+          = 120 koneksi
+
+        Sementara paket basis datanya mengizinkan 60.
+
+        Yang terjadi saat autoscaling menaikkan instance dari 10
+        menjadi 20 pada jam puncak:
+          error: sorry, too many clients already
+          Error: Timeout acquiring a connection from the pool
+
+        Penghambatnya basis data. Menambah instance aplikasi
+        menambah TEKANAN padanya, bukan kapasitas.
+        `,
+        {
+          caption:
+            'Autoscaling yang menyerang lapisan yang salah memperburuk pemadaman, bukan mencegahnya.',
+        },
+      ),
+      p(
+        'Batas kedua bersifat waktu. Instance baru tidak langsung berguna, dan selisihnya bisa diukur.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan Docker 29.8.0, aplikasi yang
+        membutuhkan 3 detik untuk siap:
+
+          t+1s  health=starting  /healthz=000   <- belum menerima koneksi
+          t+2s  health=starting  /healthz=503
+          t+3s  health=starting  /healthz=503
+          t+4s  health=healthy   /healthz=200
+
+        Dan itu baru waktu warm-up aplikasinya. Waktu penuh dari
+        "keputusan menambah" sampai "melayani" mencakup juga:
+          menyediakan mesin atau container
+          menarik image
+          menyala dan menghubungkan dependency
+          dinyatakan sehat oleh penyeimbang beban
+
+        Bila lonjakan trafiknya berlangsung 90 detik dan rantai itu
+        memakan 120 detik, autoscaling tiba SETELAH lonjakannya
+        selesai — dan lalu menurunkan instance tepat saat ia akhirnya
+        siap.
+        `,
+      ),
+      p('Karena itu ada bentuk beban yang memang cocok untuk autoscaling dan ada yang tidak.'),
+      table(
+        ['Bentuk beban', 'Autoscaling menolong?', 'Yang lebih tepat'],
+        [
+          ['Naik perlahan sepanjang pagi', 'Ya', 'Aturan sederhana berbasis CPU sudah cukup'],
+          ['Pola harian yang berulang', 'Ya', 'Penjadwalan, bukan reaksi. Naikkan sebelum jamnya'],
+          [
+            'Lonjakan mendadak dalam detik',
+            'Tidak',
+            'Kapasitas cadangan yang memang sudah menyala',
+          ],
+          ['Beban antrean yang menumpuk', 'Ya', 'Skala berdasarkan PANJANG ANTREAN, bukan CPU'],
+          [
+            'Query basis data yang lambat',
+            'Tidak',
+            'Perbaiki query-nya. Menambah instance memperburuk',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat pantas ditegaskan. Untuk pekerja antrean, metrik yang benar bukan CPU melainkan panjang antrean, atau lebih baik lagi umur pesan tertua di dalamnya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan autoscaling punya beberapa bentuk yang khas, dan yang pertama berupa naik-turun yang tidak pernah berhenti.',
+      ),
+      code(
+        'text',
+        `
+        1. Berayun tanpa henti
+
+           instance 4 -> CPU turun -> kurangi jadi 3
+           -> CPU naik -> tambah jadi 4 -> CPU turun -> kurangi jadi 3
+           ... setiap beberapa menit, selamanya
+
+           Setiap siklus membayar waktu warm-up dan memutus koneksi
+           yang sedang berjalan.
+
+           Menutupnya:
+             ambang naik dan turun yang BERBEDA jauh
+               naik bila CPU > 70% selama 3 menit
+               turun bila CPU < 30% selama 15 menit
+             plus masa tenang sesudah tiap perubahan
+
+        2. Menurunkan instance saat masih ada permintaan berjalan
+
+           Instance dimatikan, permintaan yang sedang diproses
+           terputus. Diukur di bab Docker: tanpa penanganan SIGTERM,
+           container keluar dengan kode 137, yaitu dimatikan paksa.
+
+           Menutupnya: tandai tidak siap, beri jeda supaya penyeimbang
+           beban melihatnya, baru tutup server.
+
+        3. Naik terus tanpa batas
+
+           Bug yang membuat setiap permintaan memakan CPU penuh
+           menghasilkan autoscaling yang menambah instance tanpa
+           henti. Tagihannya baru terlihat di akhir bulan.
+
+           Batas atas BUKAN pengaman opsional. Ia wajib.
+        `,
+      ),
+      p(
+        'Kegagalan keempat adalah yang paling merusak, yaitu autoscaling yang bereaksi terhadap masalah yang bukan masalah kapasitas.',
+      ),
+      code(
+        'text',
+        `
+        Contoh nyata dari project ini, diukur sungguhan:
+
+          Gejala : build gagal, beberapa halaman melewati batas
+                   60 detik, termasuk yang tidak diubah
+          Dugaan : bebannya terlalu besar
+
+          Yang diukur:
+            rata-rata per halaman :  14 ms
+            halaman yang gagal    :  30 ms
+            satu halaman yang gagal tidak punya blok kode sama sekali
+            CPU 4, swap 0, memori tersisa ~1,1 GB
+            load average          : 12,84 pada mesin 4 CPU
+
+          Satu perubahan, satu variabel:
+            CIRCLE_NODE_TOTAL=2 npm run build -> EXIT=0, 15,9 detik
+
+        Yang menyelesaikannya adalah MENGURANGI jumlah pekerjaan
+        yang berjalan bersamaan, bukan menambahnya.
+
+        Autoscaling pada keadaan seperti itu menambah proses ke
+        mesin yang sudah berebut, dan membuatnya lebih buruk.
+        `,
+        {
+          caption:
+            'Pada pertentangan sumber daya, menambah paralelisme memperparah. Itu berlawanan dengan naluri.',
+        },
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KELIMA: instance baru menyerbu dependency.
+
+          20 instance baru menyala bersamaan
+          -> masing-masing membuka pool koneksi baru
+          -> basis data menerima ratusan koneksi baru dalam beberapa detik
+          -> basis data melambat
+          -> healthcheck gagal
+          -> instance direstart, dan menyerbu lagi
+
+        Menutupnya: batasi laju penambahan instance, dan buka koneksi
+        secara bertahap alih-alih memenuhi pool seketika saat boot.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Autoscaling terdengar seperti jawaban umum untuk beban, dan ia hanya menjawab satu bentuk beban tertentu.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyalakan autoscaling tanpa memeriksa penghambatnya',
+            'Beban naik, kapasitas ditambah',
+            'Dihitung, 20 instance x pool 10 melampaui batas 60 koneksi basis data. Tekanannya bertambah',
+          ],
+          [
+            'Memakai ambang naik dan turun yang sama',
+            'Konsisten',
+            'Instance naik-turun tanpa henti, dan tiap siklus membayar warm-up serta memutus koneksi',
+          ],
+          [
+            'Tidak memasang batas atas',
+            'Biar bisa menangani lonjakan sebesar apa pun',
+            'Satu bug yang memakan CPU membuatnya menambah tanpa henti. Tagihannya terlihat di akhir bulan',
+          ],
+          [
+            'Menskala pekerja antrean berdasarkan CPU',
+            'CPU kan metrik bebannya',
+            'Pekerja yang menunggu I/O punya CPU rendah meski antreannya menumpuk. Pakai panjang antrean',
+          ],
+          [
+            'Mengandalkan autoscaling untuk lonjakan mendadak',
+            'Itu kan gunanya',
+            'Diukur, warm-up saja 3 detik, dan rantai penuhnya jauh lebih lama. Ia tiba setelah lonjakannya lewat',
+          ],
+          [
+            'Menambah paralelisme saat masalahnya pertentangan',
+            'Lebih banyak pekerja kan lebih cepat',
+            'Diukur pada project ini, mengurangi worker dari 3 menjadi 2 yang menyelesaikannya',
+          ],
+        ],
+      ),
+      p(
+        'Sebelum menyalakan autoscaling, ada satu pengukuran yang lebih berharga daripada seluruh aturannya, yaitu mengetahui berapa lama waktu dari keputusan menambah sampai instance baru benar-benar melayani permintaan. Angka itu bisa diukur sekali, dan ia langsung memberi tahu bentuk lonjakan mana yang bisa ditangani autoscaling dan mana yang menuntut kapasitas cadangan yang memang sudah menyala.',
+      ),
       references(
         {
           label: 'Kubernetes: Horizontal Pod Autoscaling',
@@ -1074,7 +1717,7 @@ export const lessons: LessonDraft[] = [
   written(
     'pemulihan-bencana',
     'RPO, RTO, dan Redundansi Antar-Wilayah',
-    12,
+    19,
     'Dua angka yang menentukan strategi cadangan, dan pertanyaan apakah butuh wilayah kedua.',
     [
       p(
@@ -1346,6 +1989,219 @@ export const lessons: LessonDraft[] = [
         'Langkah keenam adalah yang paling sering hilang dari rencana pemulihan dan yang paling menentukan. Mengalihkan lalu lintas ke basis data yang ternyata dipulihkan ke titik yang salah berarti kamu baru saja menambahkan kehilangan data kedua di atas yang pertama.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'RPO dan RTO adalah dua angka yang menerjemahkan kalimat "kami tidak boleh kehilangan data" menjadi sesuatu yang bisa dirancang dan dibiayai.',
+      ),
+      code(
+        'text',
+        `
+          RPO  Recovery Point Objective
+               Berapa banyak data yang boleh HILANG.
+               Diukur dalam WAKTU: "paling banyak 5 menit terakhir".
+
+          RTO  Recovery Time Objective
+               Berapa lama boleh MATI sebelum pulih.
+               Diukur dalam WAKTU: "paling lama 1 jam".
+
+        Keduanya menentukan mekanisme yang berbeda:
+          RPO ditentukan oleh seberapa sering dan seberapa cepat
+              data disalin keluar
+          RTO ditentukan oleh seberapa cepat salinan itu bisa
+              dijalankan kembali
+        `,
+      ),
+      p(
+        'Selisih antara keduanya penting, sebab sistem bisa punya RPO sangat kecil dan RTO sangat besar sekaligus.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan PostgreSQL 16.15:
+
+        RPO, pada replikasi ASINKRON:
+          saat beban tulis besar, replika tertinggal sampai 11 MB WAL
+          -> bila primary mati saat itu, transaksi senilai 11 MB
+             yang SUDAH di-commit belum sampai ke replika
+
+        RTO, pemulihan dari cadangan:
+          pg_dump -F c (custom)                552 KB dalam  84 ms
+          pg_restore penuh ke basis data baru          123 ms
+          isi pulih: 5.000 pelanggan, 50.000 pesanan
+
+        Angka RTO itu untuk 55.000 baris. Untuk 10,3 TB, dihitung
+        dari estimasi penyimpanan di bab Fondasi, angkanya berjam-jam
+        — dan itulah RTO yang sesungguhnya.
+        `,
+        {
+          caption:
+            'RTO yang dihitung dari waktu pemulihan data kecil hampir selalu jauh lebih optimis daripada kenyataannya.',
+        },
+      ),
+      p(
+        'Mekanisme yang dipilih ditentukan langsung oleh kedua angka itu, dan biayanya naik tajam seiring keduanya mengecil.',
+      ),
+      table(
+        ['Mekanisme', 'RPO khas', 'RTO khas', 'Biayanya'],
+        [
+          ['Cadangan harian', '24 jam', 'Jam sampai hari', 'Paling murah'],
+          ['Cadangan + WAL berkelanjutan', 'Menit', 'Jam', 'Sedang'],
+          ['Replika asinkron', 'Detik sampai menit', 'Menit', 'Satu salinan penuh'],
+          ['Replika sinkron', 'Nol', 'Menit', 'Setiap tulis membayar round trip'],
+          ['Aktif-aktif lintas wilayah', 'Nol', 'Detik', 'Paling mahal, dan paling rumit'],
+        ],
+      ),
+      p('Baris keempat punya biaya yang bisa dihitung dari angka latensi yang sudah diukur.'),
+      code(
+        'text',
+        `
+        Diukur di mesin ini sebagai patokan:
+          round trip loopback     1,69 ms
+          round trip internet    70,04 ms
+
+        Replikasi SINKRON berarti setiap COMMIT menunggu konfirmasi
+        replika. Replika di wilayah lain berarti SETIAP penulisan
+        membayar puluhan milidetik.
+
+        Untuk transaksi keuangan, itu harga yang masuk akal.
+        Untuk jumlah suka, tidak.
+
+        Karena itu banyak sistem memakai sinkron ke SATU replika
+        terdekat dan asinkron ke sisanya.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan pemulihan bencana hampir selalu ditemukan pada saat pemulihannya dibutuhkan, dan itu adalah waktu terburuk untuk menemukannya.',
+      ),
+      code(
+        'text',
+        `
+        Cara sebuah cadangan menjadi tidak berguna tanpa diketahui:
+
+          - skrip cadangan gagal berminggu-minggu; yang dipantau
+            hanya bahwa job-nya TERJADWAL, bukan bahwa ia BERHASIL
+          - disk cadangan penuh; berkas terakhir terpotong di tengah
+          - kredensial cadangan dirotasi; skripnya tidak diperbarui
+          - cadangan disimpan di wilayah yang SAMA dengan primary
+          - ukurannya mengecil drastis, dan tidak ada yang memeriksanya
+
+        Yang menutup semuanya satu hal: pantau HASIL, bukan proses.
+          ukuran berkas terakhir, dibandingkan dengan sebelumnya
+          umur berkas terakhir
+          dan yang paling menentukan: pemulihan otomatis berkala ke
+          basis data uji, lalu hitung jumlah barisnya
+        `,
+      ),
+      p(
+        'Pada pemulihannya sendiri, ada jebakan yang perilakunya berbeda tergantung bentuk tabelnya, dan itu sudah diukur.',
+      ),
+      code(
+        'text',
+        `
+        pg_restore --data-only ke tabel yang MASIH BERISI:
+
+        TABEL DENGAN PRIMARY KEY:
+          pg_restore: error: duplicate key value violates unique
+                      constraint "pesanan_pkey"
+          pg_restore: warning: errors ignored on restore: 1
+          jumlah baris sesudahnya: 50000   <- TIDAK berlipat
+
+        TABEL TANPA PRIMARY KEY:
+          sebelum = 1000
+          sesudah = 2000                   <- BERLIPAT, tanpa satu
+                                              pun pesan error
+
+        Yang menyelamatkan pada kasus pertama bukan pg_restore
+        melainkan constraint-nya.
+
+        Dan perhatikan "errors ignored on restore": pg_restore secara
+        bawaan MELANJUTKAN meski sebagian gagal. Pemulihan yang
+        "selesai" bisa saja tidak lengkap.
+
+        Untuk pemulihan darurat, pakai --exit-on-error atau
+        --single-transaction.
+        `,
+        {
+          caption:
+            'Pemulihan setengah jadi yang dikira lengkap adalah keadaan yang paling sulit diperbaiki.',
+        },
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN LAIN pada redundansi antar wilayah:
+
+        1. Failover otomatis yang salah mendeteksi
+
+           Jaringan antar wilayah terputus sesaat. Wilayah kedua
+           mengira yang pertama mati dan mempromosikan dirinya.
+           Keduanya kini menerima penulisan.
+
+           Namanya split brain, dan datanya bercabang. Menggabungkan
+           kembali dua cabang penulisan jauh lebih mahal daripada
+           pemadaman yang lebih lama.
+
+        2. Failover berhasil, DNS-nya belum
+
+           Diukur di bab Fondasi: TTL rekaman A adalah 152 detik
+           pada satu contoh nyata. Sampai TTL habis, sebagian
+           pengunjung tetap diarahkan ke wilayah yang mati.
+
+           Karena itu TTL untuk rekaman yang dipakai failover harus
+           rendah SEJAK AWAL, bukan diturunkan saat kejadian.
+
+        3. Wilayah kedua tidak pernah diuji melayani
+
+           Ia menerima replikasi bertahun-tahun dan tidak pernah
+           melayani satu permintaan pun. Kapasitasnya, konfigurasinya,
+           dan sertifikatnya belum pernah terbukti.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Pemulihan bencana adalah pekerjaan yang nilainya nol sampai satu hari nilainya menjadi segalanya, dan itu membuatnya paling mudah ditunda.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyebut "tidak boleh kehilangan data" tanpa angka',
+            'Itu memang yang diinginkan',
+            'Tidak bisa dirancang. RPO nol menuntut replikasi sinkron, dan itu membayar round trip tiap tulis',
+          ],
+          [
+            'Menghitung RTO dari pemulihan data kecil',
+            'Perintahnya kan sama',
+            'Diukur, 55.000 baris pulih dalam 123 ms. Untuk 10,3 TB angkanya berjam-jam',
+          ],
+          [
+            'Memantau bahwa job cadangan terjadwal',
+            'Jadwalnya sudah dipasang',
+            'Job yang berjalan dan gagal tetap terlihat terjadwal. Pantau ukuran dan umur berkas hasilnya',
+          ],
+          [
+            'Menyimpan cadangan di wilayah yang sama',
+            'Lebih cepat dan lebih murah',
+            'Bencana wilayah menghapus keduanya sekaligus. Itulah satu-satunya kejadian yang ia seharusnya tangani',
+          ],
+          [
+            'Menganggap `pg_restore` yang selesai berarti lengkap',
+            'Tidak ada error di layar',
+            'Diuji, ia melanjutkan meski gagal dan hanya mencatat "errors ignored on restore"',
+          ],
+          [
+            'Tidak pernah menguji failover maupun pemulihan',
+            'Konfigurasinya sudah benar',
+            'Percobaan pertamanya terjadi saat bencana. Jadwalkan latihan, di luar keadaan darurat',
+          ],
+        ],
+      ),
+      p(
+        'Dua angka pantas ditulis di dokumen operasional dan diuji sekali setiap beberapa bulan, dan keduanya harus berupa hasil pengukuran, bukan target. Berapa lama pemulihan penuh benar-benar memakan waktu ketika dijalankan dengan volume data yang sesungguhnya, dan berapa banyak data yang benar-benar hilang ketika primary dimatikan mendadak. Jarak antara kedua angka itu dan angka yang tertulis di dokumen adalah ukuran sesungguhnya dari kesiapanmu.',
+      ),
       references(
         {
           label: 'PostgreSQL: Continuous Archiving and Point-in-Time Recovery',
@@ -1377,7 +2233,7 @@ export const lessons: LessonDraft[] = [
   written(
     'studi-kasus-pemendek-url',
     'Studi Kasus: Pemendek Alamat',
-    14,
+    21,
     'Proses empat langkah dijalankan penuh pada sistem yang kecil tetapi lengkap.',
     [
       p(
@@ -1744,6 +2600,234 @@ export const lessons: LessonDraft[] = [
         'Cache dipilih karena perbandingan 50 banding 1. Pembagian data dipilih karena 33 terabita. Kode 302 dipilih karena kebutuhan menghitung klik. Rentang per mesin dipilih karena 3,5 triliun kemungkinan membuat kerugian lompatan menjadi tidak berarti. Tidak satu pun keputusan itu diambil karena selera, dan itulah tanda desain yang bisa diperiksa orang lain.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Pemendek alamat terlihat sederhana, dan justru karena itu ia latihan yang baik. Hampir setiap keputusannya bisa dihitung, dan hasil hitungannya langsung menentukan rancangannya.',
+      ),
+      code(
+        'text',
+        `
+        Dihitung sungguhan, berapa panjang kode yang dibutuhkan:
+
+          5 karakter base62 ->        916.132.832 kemungkinan
+          6 karakter base62 ->     56.800.235.584
+          7 karakter base62 ->  3.521.614.606.208
+          8 karakter base62 -> 218.340.105.584.896
+
+        Dengan 100 juta tautan/hari, ruang 7 karakter habis dalam
+        96,5 tahun.
+
+        Tujuh karakter cukup. Delapan adalah pemborosan yang dibayar
+        setiap kali seseorang mengetik atau membaca alamatnya.
+        `,
+      ),
+      p(
+        'Keputusan berikutnya adalah bagaimana kodenya dibuat, dan di sinilah ada perhitungan yang sering mengejutkan.',
+      ),
+      code(
+        'text',
+        `
+        Dihitung, paradoks ulang tahun — kapan tabrakan acak mulai
+        mungkin:
+
+          6 karakter: peluang tabrakan 50% setelah ~280.610 kunci acak
+          7 karakter: peluang tabrakan 50% setelah ~2.209.524 kunci
+          8 karakter: peluang tabrakan 50% setelah ~17.397.806 kunci
+
+        Untuk 7 karakter, tabrakan menjadi kemungkinan besar setelah
+        hanya 2,2 juta tautan — bukan setelah 3,5 triliun.
+
+        Itulah kenapa kode ACAK menuntut pemeriksaan tabrakan pada
+        setiap penulisan, sementara ID BERURUTAN yang di-encode
+        menjadi base62 tidak pernah bertabrakan sama sekali.
+        `,
+        {
+          caption:
+            'Ruang kunci yang besar tidak berarti tabrakan jarang. Yang menentukan adalah akar kuadratnya.',
+        },
+      ),
+      code(
+        'ts',
+        `
+        // Base62 dari id berurutan: tidak pernah bertabrakan.
+        const ALFABET = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+        function keBase62(n: number): string {
+          if (n === 0) return '0';
+          let hasil = '';
+          while (n > 0) {
+            hasil = ALFABET[n % 62] + hasil;
+            n = Math.floor(n / 62);
+          }
+          return hasil;
+        }
+
+        // Kelemahannya: kodenya BISA DITEBAK berurutan, sehingga
+        // seluruh tautan yang pernah dibuat bisa disisir.
+        // Menutupnya TANPA kembali ke acak: acak urutannya dengan
+        // permutasi yang bisa dibalik (misalnya Feistel), sehingga
+        // id 1, 2, 3 menghasilkan kode yang tersebar dan tetap unik.
+        `,
+      ),
+      p(
+        'Estimasi penyimpanan dan bebannya juga bisa dihitung, dan keduanya langsung memutuskan bentuk sistemnya.',
+      ),
+      code(
+        'text',
+        `
+        Dihitung sungguhan:
+
+          per baris: 7 (kode) + 200 (url) + 8 (id) + 8 (waktu)
+                     + ~60 (overhead) = 283 byte
+
+           1 tahun @ 100 juta/hari ->  10,3 TB
+           5 tahun                 ->  51,6 TB
+          10 tahun                 -> 103,3 TB
+
+          tulis        100.000.000/hari -> rata 1.157 QPS, puncak ~3.472
+          baca (10:1)  1.000.000.000/hari -> rata 11.574 QPS, puncak ~34.722
+
+        Yang langsung diputuskan angka-angka itu:
+          34.722 QPS baca  -> satu basis data tidak cukup untuk baca;
+                              butuh cache, dan pemendek alamat adalah
+                              kasus IDEAL untuk cache sebab isinya
+                              tidak pernah berubah
+          10,3 TB di tahun pertama -> satu mesin masih mungkin
+          103,3 TB di tahun ke-10  -> tidak. Shard key harus diputuskan
+                              SEBELUM datanya sebesar itu
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Keputusan yang terlihat kecil pada sistem ini punya akibat yang besar, dan yang pertama menyangkut kode status pengalihan.',
+      ),
+      code(
+        'text',
+        `
+          301 Moved Permanently
+            Peramban MENYIMPAN pengalihannya. Kunjungan berikutnya
+            tidak pernah menyentuh servermu.
+            + beban baca turun drastis
+            - kamu KEHILANGAN data klik
+            - dan bila tautannya perlu diubah atau dihapus, peramban
+              yang sudah menyimpannya tidak akan pernah tahu
+
+          302 Found / 307 Temporary Redirect
+            Setiap kunjungan menyentuh servermu.
+            + data klik lengkap, tautan bisa diubah dan dicabut
+            - seluruh 34.722 QPS itu benar-benar sampai ke sistemmu
+
+        Pilihannya bukan teknis melainkan produk: apakah statistik
+        klik dan kemampuan mencabut tautan lebih penting daripada
+        beban baca.
+        `,
+        {
+          caption:
+            'Memakai 301 lalu menyadari perlu mencabut tautan adalah keputusan yang tidak bisa dibatalkan untuk pengunjung lama.',
+        },
+      ),
+      p(
+        'Kesalahan kedua menyangkut keamanan, dan pemendek alamat adalah salah satu fitur yang paling sering disalahgunakan.',
+      ),
+      code(
+        'text',
+        `
+        1. Pengalihan terbuka
+
+           Siapa pun bisa membuat tautan pendek di DOMAINMU yang
+           mengarah ke situs penipuan. Korban melihat domain yang
+           ia percaya.
+
+           Menutupnya: pemindaian URL berbahaya, daftar tolak, dan
+           halaman antara yang menampilkan tujuan sebenarnya untuk
+           tautan yang mencurigakan.
+
+        2. SSRF lewat pratinjau
+
+           Bila sistemmu mengambil judul halaman untuk pratinjau,
+           URL yang diberikan pengguna menjadi URL yang DIAMBIL
+           SERVERMU.
+
+           Diuji sungguhan di bab Keamanan: daftar tolak berbasis
+           teks ditembus oleh 2130706433, 0x7f000001, dan 0 —
+           ketiganya bentuk lain dari 127.0.0.1 — dan berhasil
+           mengambil kredensial dari layanan internal.
+
+           Menutupnya: resolve nama menjadi ALAMAT dulu, lalu tolak
+           seluruh rentang pribadi.
+
+        3. Penyisiran kode
+
+           Kode berurutan bisa ditebak satu per satu. Seluruh tautan
+           yang pernah dibuat, termasuk yang dikira pribadi, bisa
+           disisir.
+
+           Diukur di bab Keamanan: 200.000 percobaan id berurutan
+           memakan 52 ms tanpa jaringan.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KESALAHAN KETIGA: penghitung klik sebagai titik pertentangan.
+
+        Diukur sungguhan pada PostgreSQL 16.15:
+          2.000 UPDATE ke BARIS YANG SAMA  : 459 ms
+          2.000 UPDATE ke baris BERBEDA    :  29 ms
+
+        Satu tautan viral menerima jutaan klik. Memperbarui satu
+        baris penghitung pada setiap klik menjadikan baris itu
+        penghambat seluruh sistem.
+
+        Menutupnya: jangan hitung secara sinkron. Tulis peristiwa
+        kliknya ke antrean atau ke log, lalu agregasikan berkala.
+        Statistik klik adalah data yang boleh terlambat.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Sistem ini sering dianggap latihan yang mudah, dan sebagian besar kesalahannya terjadi pada keputusan yang dibuat dalam sepuluh detik pertama.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai kode acak tanpa pemeriksaan tabrakan',
+            'Ruangnya kan triliunan',
+            'Dihitung, peluang tabrakan 50% sudah tercapai setelah 2,2 juta kunci pada 7 karakter',
+          ],
+          [
+            'Memakai id berurutan tanpa pengacakan',
+            'Sederhana dan tidak pernah bertabrakan',
+            'Seluruh tautan bisa disisir. Diukur, 200.000 percobaan berurutan memakan 52 ms',
+          ],
+          [
+            'Memakai `301` untuk semua pengalihan',
+            'Lebih cepat dan lebih hemat',
+            'Peramban menyimpannya. Data klik hilang, dan tautan tidak bisa dicabut untuk pengunjung lama',
+          ],
+          [
+            'Memperbarui penghitung klik secara sinkron',
+            'Satu `UPDATE` saja',
+            'Diukur, 2.000 UPDATE ke baris yang sama 459 ms melawan 29 ms. Tautan viral menjadi penghambat',
+          ],
+          [
+            'Mengambil pratinjau dari URL pengguna tanpa penjagaan',
+            'Cuma membaca judulnya',
+            'Diuji, tiga bentuk penulisan 127.0.0.1 menembus daftar tolak dan mengambil kredensial internal',
+          ],
+          [
+            'Melewatkan estimasi karena sistemnya sederhana',
+            'Cuma menyimpan URL',
+            'Dihitung, 103,3 TB di tahun kesepuluh. Shard key harus diputuskan sebelum datanya sebesar itu',
+          ],
+        ],
+      ),
+      p(
+        'Yang membuat latihan ini berharga bukan sistemnya melainkan bahwa hampir setiap keputusannya bisa dihitung sebelum satu baris kode ditulis. Panjang kode ditentukan ruang kunci, cara pembuatan ditentukan paradoks ulang tahun, kebutuhan cache ditentukan QPS, dan kebutuhan sharding ditentukan proyeksi penyimpanan. Latihan yang sama pada sistem apa pun akan menghasilkan daftar yang sama bentuknya, dan itulah yang sebenarnya sedang dilatih.',
+      ),
       references(
         {
           label: '301 Moved Permanently',
@@ -1776,7 +2860,7 @@ export const lessons: LessonDraft[] = [
   written(
     'studi-kasus-pembatas-laju',
     'Studi Kasus: Rate Limiter',
-    13,
+    19,
     'Empat algoritma, satu penyimpanan bersama, dan satu masalah atomisitas.',
     [
       p(
@@ -2147,6 +3231,224 @@ export const lessons: LessonDraft[] = [
         'Penolakan yang tiba-tiba melonjak berarti salah satu dari tiga hal, yaitu ada penyalahgunaan, ada klien yang salah tulis dan mencoba ulang tanpa henti, atau batasmu terlalu ketat untuk pemakaian yang wajar. Ketiganya perlu tindakan, dan ketiganya tidak akan terlihat bila yang dipantau hanya jumlah permintaan yang berhasil.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Rate limiter adalah komponen yang algoritmanya benar-benar menentukan perilakunya, dan selisihnya bisa diukur dengan tepat.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan Node 26.5.0. Batas 10 permintaan
+        per 1 detik.
+
+        UJI A — ledakan di batas jendela:
+        10 permintaan di milidetik 999, 10 lagi di milidetik 1000.
+
+          jendela tetap  ms 999: 10 lolos, ms 1000: 10 lolos
+                         TOTAL 20 dalam 2 ms
+          jendela geser  ms 999: 10 lolos, ms 1000:  0 lolos
+                         TOTAL 10
+          token bucket   ms 999: 10 lolos, ms 1000:  0 lolos
+                         TOTAL 10
+
+        Jendela tetap meloloskan DUA KALI batasnya dalam dua
+        milidetik, dan itu bukan bug melainkan sifatnya.
+        `,
+        {
+          caption:
+            'Batas "10 per detik" pada jendela tetap sebenarnya berarti "sampai 20 dalam sekejap di perbatasan jendela".',
+        },
+      ),
+      p(
+        'Dua uji berikutnya menunjukkan bahwa pada beban normal ketiganya berperilaku sama, sehingga selisihnya hanya muncul di keadaan tepi.',
+      ),
+      code(
+        'text',
+        `
+        UJI B — lalu lintas mantap 10 permintaan/detik selama 5 detik:
+
+          jendela tetap  lolos 50, ditolak 0
+          jendela geser  lolos 50, ditolak 0
+          token bucket   lolos 50, ditolak 0
+
+        UJI C — ledakan mendadak 20 permintaan serentak, lalu diam:
+
+          jendela tetap  10 lolos dari 20
+          jendela geser  10 lolos dari 20
+          token bucket   10 lolos dari 20
+
+        Ketiganya identik. Yang membedakan hanya perilaku di
+        PERBATASAN jendela, dan itu satu-satunya alasan memilih.
+        `,
+      ),
+      p(
+        'Biaya memorinya juga berbeda, dan pada jumlah pengguna yang besar selisih itu menentukan.',
+      ),
+      table(
+        ['Algoritma', 'Yang disimpan per kunci', 'Perilaku di perbatasan', 'Mengizinkan ledakan'],
+        [
+          ['Jendela tetap', '2 angka, tetap', 'Sampai 2x batas', 'Tidak sengaja'],
+          ['Jendela geser (log)', 'Satu waktu per permintaan', 'Tepat', 'Tidak'],
+          ['Jendela geser (hitung)', '2 angka, tetap', 'Hampir tepat', 'Tidak'],
+          ['Token bucket', '2 angka, tetap', 'Tepat', 'Ya, dan itu disengaja'],
+          ['Leaky bucket', '2 angka, tetap', 'Tepat', 'Tidak, lajunya dihaluskan'],
+        ],
+      ),
+      p(
+        'Kolom terakhir yang paling sering salah dipahami. Token bucket **memang** mengizinkan ledakan sampai sebesar embernya, dan itu sering merupakan perilaku yang diinginkan, misalnya untuk klien yang mengirim beberapa permintaan sekaligus saat halaman dibuka.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kesalahan pertama pada rate limiter bukan pada algoritmanya melainkan pada tempat hitungannya disimpan.',
+      ),
+      code(
+        'text',
+        `
+        Penghitung di memori proses:
+
+          10 instance aplikasi, masing-masing membatasi 10/detik
+          -> batas SESUNGGUHNYA adalah 100/detik
+
+        Dan lebih buruk: penyeimbang beban tidak menjamin permintaan
+        dari satu pengguna mendarat di instance yang sama, sehingga
+        batasnya tidak dapat diprediksi sama sekali.
+
+        Untuk batas yang berarti, penghitungnya harus BERSAMA.
+        Dan penghitung bersama berarti satu panggilan jaringan per
+        permintaan — diukur di mesin ini, round trip loopback
+        sebagai patokan adalah 1,69 ms.
+
+        Karena itu bentuk yang lazim menggabungkan keduanya:
+          batas kasar di memori proses (murah, menyaring mayoritas)
+          batas tepat di penghitung bersama (untuk yang lolos)
+        `,
+      ),
+      p(
+        'Kesalahan kedua menyangkut apa yang dipakai sebagai kunci, dan keduanya punya cara gagal yang berbeda.',
+      ),
+      code(
+        'text',
+        `
+        KUNCI = alamat IP
+
+          - satu kantor atau satu operator seluler berbagi satu IP
+            -> ribuan pengguna dihitung sebagai satu
+          - IPv6 memberi setiap perangkat rentang sendiri
+            -> penyerang punya alamat yang praktis tak terbatas
+          - dan di belakang proxy, IP-nya harus dibaca dari header
+            teruskan
+
+          Diuji sungguhan: header X-Forwarded-For yang dikirim
+          LANGSUNG oleh klien diterima apa adanya oleh aplikasi yang
+          membacanya tanpa penjagaan.
+          -> pembatas laju yang memakai nilai itu tidak membatasi
+             apa pun, sebab penyerang mengganti nilainya tiap permintaan
+
+        KUNCI = id pengguna
+
+          - hanya berlaku SESUDAH login
+          - endpoint login sendiri tidak bisa memakainya
+
+        Karena itu keduanya dipakai bersamaan, pada sumbu yang berbeda.
+        `,
+        {
+          caption:
+            'Diukur di bab Keamanan: membatasi hanya per akun tidak menghentikan credential stuffing yang mencoba satu sandi ke ribuan akun.',
+        },
+      ),
+      code(
+        'text',
+        `
+        KESALAHAN KETIGA: respons yang tidak memberi tahu apa pun.
+
+          429 Too Many Requests
+
+        Klien tidak tahu harus menunggu berapa lama, jadi ia mencoba
+        lagi seketika. Bebannya tidak turun.
+
+        Yang seharusnya dikirim:
+
+          HTTP/1.1 429 Too Many Requests
+          Retry-After: 30
+          RateLimit-Limit: 100
+          RateLimit-Remaining: 0
+          RateLimit-Reset: 30
+          Content-Type: application/problem+json
+
+          {"type":"about:blank","title":"Terlalu banyak permintaan",
+           "status":429,"detail":"Coba lagi dalam 30 detik"}
+
+        Dan header RateLimit-Remaining dikirim pada respons yang
+        BERHASIL juga, supaya klien yang baik bisa melambat
+        sebelum ditolak.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KESALAHAN KEEMPAT: pembatas laju yang gagal menutup.
+
+          const sisa = await penghitung.ambil(kunci);   // melempar bila mati
+
+        Bila penyimpanan penghitungnya mati, apa yang terjadi?
+
+          GAGAL TERBUKA  -> semua permintaan lolos. Sistem tidak
+                            terlindungi tepat saat ia mungkin sedang
+                            diserang
+          GAGAL TERTUTUP -> semua permintaan ditolak. Pemadaman total
+                            karena komponen pendukung
+
+        Untuk pembatas anti-penyalahgunaan pada endpoint biasa,
+        gagal TERBUKA biasanya benar. Untuk endpoint login dan
+        pembayaran, gagal TERTUTUP lebih tepat.
+
+        Yang salah adalah tidak memutuskannya sama sekali dan
+        membiarkan perilakunya ditentukan oleh di mana exception-nya
+        kebetulan tertangkap.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p('Rate limiter mudah ditulis dan mudah ditulis dengan cara yang tidak membatasi apa pun.'),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai jendela tetap',
+            'Paling sederhana',
+            'Diukur, 20 permintaan lolos dalam 2 ms di perbatasan jendela, yaitu dua kali batasnya',
+          ],
+          [
+            'Menyimpan penghitung di memori proses',
+            'Paling cepat',
+            '10 instance berarti batas sesungguhnya 10 kali lipat, dan tidak dapat diprediksi',
+          ],
+          [
+            'Membatasi hanya per IP',
+            'Itu identitas pengunjung',
+            'Satu kantor berbagi satu IP, dan IPv6 memberi penyerang alamat yang praktis tak terbatas',
+          ],
+          [
+            'Memercayai header teruskan tanpa penjagaan',
+            'IP-nya kan ada di sana',
+            'Diuji, klien langsung bisa mengirimnya sendiri. Penyerang mengganti nilainya tiap permintaan',
+          ],
+          [
+            'Menjawab `429` tanpa `Retry-After`',
+            'Statusnya kan sudah jelas',
+            'Klien mencoba lagi seketika. Bebannya tidak turun sama sekali',
+          ],
+          [
+            'Tidak memutuskan perilaku saat penyimpanannya mati',
+            'Kan jarang mati',
+            'Perilakunya ditentukan oleh di mana exception-nya kebetulan tertangkap. Putuskan dengan sengaja',
+          ],
+        ],
+      ),
+      p(
+        'Hasil pengukuran di awal sub-bab ini pantas diingat karena ia sangat spesifik. Jendela tetap bukan pendekatan yang "kurang teliti", melainkan pendekatan yang secara terukur meloloskan dua kali batasnya pada keadaan yang paling mungkin terjadi saat ada serangan, yaitu ketika permintaan datang berkelompok. Token bucket menyimpan jumlah keadaan yang sama persis dan tidak punya kelemahan itu, sehingga pada hampir semua kasus ia pilihan yang lebih baik tanpa biaya tambahan.',
+      ),
       references(
         {
           label: '429 Too Many Requests',
@@ -2178,7 +3480,7 @@ export const lessons: LessonDraft[] = [
   written(
     'studi-kasus-linimasa',
     'Studi Kasus: Linimasa',
-    15,
+    22,
     'Satu pertukaran yang menentukan segalanya, dan satu celebrity problem yang tidak bisa dihindari.',
     [
       p(
@@ -2563,6 +3865,231 @@ export const lessons: LessonDraft[] = [
         'Angka 100.000 pada studi kasus ini bukan sekadar pengaturan. Menurunkannya berarti lebih banyak akun ditangani saat baca sehingga beban tulis berkurang dan beban baca bertambah. Menaikkannya berarti sebaliknya. Satu angka itu adalah tuas utama yang menyeimbangkan seluruh sistem, dan mengetahui tuas mana yang seperti itu adalah bagian penting dari memahami sebuah desain.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Linimasa adalah kasus yang memaksa satu keputusan besar dijawab lebih dulu, yaitu apakah pekerjaan dilakukan saat menulis atau saat membaca. Jawabannya ditentukan oleh angka.',
+      ),
+      code(
+        'text',
+        `
+        Dihitung dari bentuk beban yang khas:
+
+          baca (10:1)  1.000.000.000/hari -> 11.574 QPS, puncak ~34.722
+          tulis          100.000.000/hari ->  1.157 QPS, puncak ~3.472
+
+        Rasio 10:1 berarti setiap unggahan dibaca sepuluh kali.
+        Untuk akun dengan banyak pengikut, rasionya jauh lebih ekstrem.
+
+        FAN-OUT SAAT MENULIS:
+          satu unggahan disalin ke linimasa SETIAP pengikut
+          baca  = ambil satu daftar yang sudah jadi -> murah
+          tulis = sebanyak jumlah pengikut -> mahal
+
+        FAN-OUT SAAT MEMBACA:
+          linimasa dirakit saat diminta
+          tulis = satu baris -> murah
+          baca  = gabungkan unggahan dari semua yang diikuti -> mahal
+        `,
+      ),
+      p(
+        'Karena rasio bacanya jauh lebih besar, fan-out saat menulis hampir selalu menang. Lalu muncul satu kasus yang mematahkannya.',
+      ),
+      code(
+        'text',
+        `
+        Akun dengan 40 juta pengikut mengunggah satu kali.
+
+        Fan-out saat menulis berarti 40 juta penulisan untuk SATU
+        unggahan. Dengan biaya penulisan yang sudah diukur pada
+        PostgreSQL 16.15:
+
+          INSERT sederhana: 0,0090 ms per operasi
+
+          40.000.000 x 0,0090 ms = 360 detik = 6 menit
+          pada SATU koneksi, tanpa pertentangan apa pun
+
+        Dan itu untuk satu unggahan. Bila sepuluh akun sebesar itu
+        mengunggah dalam menit yang sama, sistemnya tidak akan
+        menyusul.
+
+        Jawabannya BUKAN memilih salah satu, melainkan MENCAMPUR:
+          akun biasa      -> fan-out saat menulis
+          akun sangat besar -> fan-out saat membaca
+          linimasa pengguna = gabungan keduanya saat diminta
+        `,
+        {
+          caption:
+            'Hampir semua sistem linimasa besar memakai bentuk campuran ini, dan ambangnya ditentukan pengukuran.',
+        },
+      ),
+      p('Keputusan ketiga menyangkut penyimpanan, dan di sini ada penghematan yang sangat besar.'),
+      code(
+        'text',
+        `
+        Linimasa TIDAK menyimpan salinan unggahannya, hanya ID-nya.
+
+          menyimpan salinan penuh:
+            283 byte per baris (dihitung di bab Fondasi)
+            x 40 juta pengikut = 11,3 GB untuk SATU unggahan
+
+          menyimpan id saja:
+            ~16 byte (id unggahan + waktu)
+            x 40 juta = 640 MB
+
+        Selisihnya ~18 kali, dan isi unggahannya tetap satu salinan
+        yang dibaca dari cache.
+
+        Dan linimasa dibatasi: hanya ~800 entri terbaru yang disimpan.
+        Yang lebih lama dirakit saat diminta, sebab hampir tidak ada
+        yang menggulir sejauh itu.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p('Kegagalan pertama pada linimasa adalah paginasi, dan bentuknya sudah diukur di bab lain.'),
+      code(
+        'text',
+        `
+        Paginasi dengan OFFSET pada linimasa yang terus bertambah:
+
+        Diukur di bab Desain API pada node:sqlite, 200.000 baris:
+          OFFSET di halaman pertama  : 0,01 ms
+          OFFSET di halaman jauh     : 1,51 ms
+
+        Dan yang lebih buruk daripada lambatnya: OFFSET pada data
+        yang BERTAMBAH DI DEPAN menghasilkan duplikat.
+
+          halaman 1 diambil -> 20 unggahan
+          3 unggahan baru masuk
+          halaman 2 diambil dengan OFFSET 20
+          -> 3 unggahan dari halaman 1 muncul LAGI
+
+        Keyset pagination menutup keduanya:
+          WHERE (dibuat, id) < (?, ?) ORDER BY dibuat DESC, id DESC
+          diukur: rata 0,01 ms, dan tidak ada duplikat
+        `,
+      ),
+      p('Kegagalan kedua menyangkut apa yang terjadi saat hubungan antar pengguna berubah.'),
+      code(
+        'text',
+        `
+        Pengguna berhenti mengikuti seseorang.
+
+          Fan-out saat MEMBACA : otomatis benar pada permintaan
+                                 berikutnya
+          Fan-out saat MENULIS : unggahan orang itu masih ada di
+                                 linimasa yang sudah tersalin
+
+        Menghapusnya berarti memindai dan menghapus dari linimasa
+        yang mungkin sangat panjang.
+
+        Yang lazim dilakukan: JANGAN hapus. Saring saat membaca,
+        dengan memeriksa daftar yang diikuti saat ini. Pemeriksaan
+        itu murah, dan ia juga menutup kasus blokir dan akun yang
+        dihapus.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KETIGA: fan-out yang dijalankan di dalam permintaan.
+
+        Diukur sungguhan pada Node 26.5.0, 1 pekerjaan berat
+        ditambah 5 permintaan ringan:
+
+          pekerjaan berat SINKRON  : permintaan ringan 73,9 - 74,6 ms
+          pekerjaan berat ASINKRON : permintaan ringan  6,1 -  7,5 ms
+
+        Fan-out ke ribuan pengikut TIDAK boleh berada di jalur
+        permintaan. Ia masuk antrean, dan unggahannya dinyatakan
+        berhasil begitu satu baris sumbernya tersimpan.
+
+        Konsekuensinya harus terlihat di antarmuka: unggahan muncul
+        di linimasa pengikut beberapa detik kemudian, bukan seketika.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KEEMPAT: akun yang sangat populer sebagai hotspot.
+
+        Diukur sungguhan pada PostgreSQL 16.15:
+          2.000 UPDATE ke BARIS YANG SAMA  : 459 ms
+          2.000 UPDATE ke baris BERBEDA    :  29 ms
+
+        Penghitung suka pada unggahan viral adalah satu baris yang
+        diperbarui jutaan kali. Ia menjadi penghambat tersendiri.
+
+        Menutupnya: pecah penghitungnya menjadi beberapa baris yang
+        dipilih acak saat menulis, lalu jumlahkan saat membaca.
+        Atau lebih sederhana: tulis peristiwanya ke antrean dan
+        agregasikan berkala, sebab jumlah suka boleh terlambat.
+        `,
+      ),
+      p(
+        'Kegagalan terakhir menyangkut pengurutan, dan ia sering baru disadari setelah sistemnya berjalan.',
+      ),
+      code(
+        'text',
+        `
+        Mengurutkan berdasarkan waktu saja tidak cukup:
+
+          dua unggahan dengan waktu yang SAMA PERSIS menghasilkan
+          urutan yang tidak dijamin
+
+        Diuji di bab Desain API: urutan untuk nilai seri TIDAK
+        melewatkan baris pada node:sqlite, dan MELEWATKAN baris pada
+        PostgreSQL 16.15. Kesimpulannya: urutan untuk nilai yang
+        seri tidak pernah dijanjikan, dan tidak boleh disimpulkan
+        dari satu mesin.
+
+        Menutupnya: selalu sertakan pemecah seri yang unik.
+          ORDER BY dibuat DESC, id DESC
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Linimasa menggabungkan hampir semua topik di kategori ini, dan kesalahannya sebagian besar berupa memilih satu pendekatan untuk semua kasus.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai fan-out saat menulis untuk semua akun',
+            'Bacanya kan jauh lebih banyak',
+            'Dihitung, 40 juta pengikut berarti ~6 menit penulisan untuk satu unggahan. Campurkan kedua pendekatan',
+          ],
+          [
+            'Menyimpan salinan penuh unggahan di tiap linimasa',
+            'Biar tidak perlu query lagi',
+            'Dihitung, 11,3 GB melawan 640 MB untuk satu unggahan. Simpan id saja',
+          ],
+          [
+            'Memakai `OFFSET` untuk paginasi linimasa',
+            'Itu cara yang biasa',
+            'Diukur 1,51 ms melawan 0,01 ms, dan data yang bertambah di depan menghasilkan duplikat',
+          ],
+          [
+            'Menjalankan fan-out di dalam permintaan',
+            'Biar langsung muncul',
+            'Diukur, permintaan lain naik dari 6 ms menjadi 74 ms. Pindahkan ke antrean',
+          ],
+          [
+            'Menghapus entri linimasa saat berhenti mengikuti',
+            'Biar konsisten',
+            'Memindai linimasa yang sangat panjang. Saring saat membaca, dan itu juga menutup blokir',
+          ],
+          [
+            'Mengurutkan hanya berdasarkan waktu',
+            'Waktunya kan berbeda',
+            'Diuji, urutan untuk nilai seri berbeda antar basis data. Sertakan pemecah seri yang unik',
+          ],
+        ],
+      ),
+      p(
+        'Yang membuat linimasa menjadi latihan yang baik adalah bahwa ia memaksa satu pertanyaan dijawab dengan angka, yaitu di mana pekerjaan sebaiknya dilakukan. Rasio baca terhadap tulis menjawabnya untuk mayoritas kasus, dan satu kasus ekstrem mematahkan jawabannya sehingga sistemnya harus punya dua jalur sekaligus. Pola itu berulang di hampir semua sistem besar: jawaban yang benar untuk 99% data bukan jawaban yang benar untuk 1% yang paling penting.',
+      ),
       references(
         {
           label: 'Redis: Sorted sets',
@@ -2595,7 +4122,7 @@ export const lessons: LessonDraft[] = [
   written(
     'praktik-rancang-sendiri',
     'Praktik: Rancang Sistemmu Sendiri',
-    14,
+    20,
     'Kerangka kerja, daftar periksa, dan tiga latihan dengan tingkat kesulitan menaik.',
     [
       p(
@@ -2841,6 +4368,204 @@ export const lessons: LessonDraft[] = [
         'Gagasan turunannya sama pentingnya, yaitu hampir semua sistem yang akan kamu bangun **tidak membutuhkan sebagian besar isi kategori ini**. Mengetahui bahwa satu server dengan index yang benar sudah cukup adalah penerapan desain sistem yang sama sahnya dengan merancang susunan berlapis, dan biasanya jauh lebih berharga bagi orang yang akan merawatnya sesudahmu.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Latihan merancang sendiri berguna hanya bila setiap keputusannya bisa ditelusuri kembali ke sebuah angka. Tanpa itu, yang dihasilkan adalah diagram yang terlihat masuk akal dan tidak bisa diperiksa.',
+      ),
+      code(
+        'text',
+        `
+        Urutan yang dipakai sepanjang kategori ini, dan angkanya
+        semuanya dihitung atau diukur sungguhan:
+
+        LANGKAH 1 — batasi dan sepakati
+          berapa pengguna, berapa tulis, berapa baca, berapa besar
+          satu satuan data, berapa lama disimpan, target latensi
+          pada persentil berapa, target ketersediaan
+          DAN apa yang TIDAK dikerjakan
+
+        LANGKAH 2 — hitung
+          100.000.000 tulis/hari   -> 1.157 QPS, puncak ~3.472
+          1.000.000.000 baca/hari  -> 11.574 QPS, puncak ~34.722
+          283 byte/baris, 1 tahun  -> 10,3 TB
+                         10 tahun  -> 103,3 TB
+
+        LANGKAH 3 — gambar, dan untuk TIAP kotak jawab:
+          "angka mana di langkah 2 yang membuat kotak ini perlu ada?"
+
+        LANGKAH 4 — dalami yang paling berisiko
+          skema dan shard key, jalur terpanas, dan apa yang terjadi
+          bila komponen X mati
+        `,
+      ),
+      p(
+        'Angka-angka yang diukur sepanjang kategori ini bisa dipakai langsung sebagai patokan saat merancang, dan mengumpulkannya di satu tempat membuat latihannya jauh lebih cepat.',
+      ),
+      table(
+        ['Pertanyaan', 'Angka yang diukur', 'Keputusan yang lahir darinya'],
+        [
+          [
+            'Seberapa mahal panggilan jaringan?',
+            'loopback 1,69 ms, internet p50 70,04 ms, p99 362,72 ms',
+            'Kurangi JUMLAH panggilan, bukan percepat masing-masing',
+          ],
+          [
+            'Seberapa mahal query tanpa indeks?',
+            'by key 1,05 us melawan pindai 100.000 baris 4,69 ms',
+            'Indeks sebelum cache, dan cache sebelum mesin tambahan',
+          ],
+          [
+            'Seberapa mahal agregasi?',
+            'GROUP BY 1 juta baris 468,9 ms melawan kolom 0,068 ms',
+            'Denormalisasi untuk agregasi, bukan untuk JOIN 20 baris',
+          ],
+          [
+            'Berapa biaya denormalisasi?',
+            'tulis 0,0090 ms menjadi 0,2825 ms, yaitu 31 kali',
+            'Hitung rasio baca terhadap tulis sebelum memutuskan',
+          ],
+          [
+            'Seberapa buruk baris yang panas?',
+            '2.000 UPDATE baris sama 459 ms melawan berbeda 29 ms',
+            'Pecah penghitung, atau pindahkan ke antrean',
+          ],
+          [
+            'Apa yang hilang saat menambah replika?',
+            'saat beban tulis, 8 dari 8 read-after-write GAGAL',
+            'Baca dari primary untuk jalur yang menuntut kesegaran',
+          ],
+        ],
+      ),
+      p('Dan beberapa angka yang dihitung, bukan diukur, tetapi sama menentukannya.'),
+      code(
+        'text',
+        `
+          99,9%  -> 43,8 menit/bulan  -> manusia sempat bertindak
+          99,99% ->  4,4 menit/bulan  -> harus otomatis
+
+          10 komponen berantai @ 99,9% -> 99,0045% (87,2 jam/tahun)
+           2 salinan paralel   @ 99%   -> 99,99%
+
+          modulo, tambah 1 server dari 4 -> 80,2% kunci pindah
+          consistent hashing 200 vnode   -> 16,8% pindah, simpangan 7,8%
+
+          7 karakter base62 -> 3,5 triliun kemungkinan
+          dan tabrakan 50% sudah tercapai pada 2,2 juta kunci acak
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan pada latihan merancang punya bentuk yang berulang, dan mengenalinya lebih cepat daripada menunggu koreksi orang lain.',
+      ),
+      code(
+        'text',
+        `
+        1. Kotak yang tidak bisa menjawab "angka mana?"
+
+           Itu kotak yang ada karena sudah terbayang sejak awal,
+           bukan karena dibutuhkan. Hapus, atau temukan angkanya.
+
+        2. Estimasi yang dihitung sampai digit terakhir
+
+           Yang dicari urutan besarannya. 1.157 melawan 1.200 QPS
+           tidak mengubah satu pun keputusan; 1.157 melawan 34.722
+           mengubah semuanya.
+
+        3. Asumsi yang tidak tertulis
+
+           Setiap angka lahir dari asumsi. Yang tidak tertulis tidak
+           bisa dikoreksi orang lain, dan baru ketahuan setelah
+           sistemnya dibangun.
+
+        4. Tidak ada satu pun jawaban untuk "bagaimana kalau X mati?"
+
+           Dihitung: bila tiap permintaan menyentuh 16 shard, satu
+           shard mati berarti 100% permintaan gagal. Bila tiap
+           permintaan menyentuh satu shard, 6,25%.
+           Selisih itu ditentukan RANCANGAN, bukan keandalan shard-nya.
+
+        5. Rancangan yang tidak menyebut apa yang TIDAK dikerjakan
+
+           Tanpa batas, cakupannya melebar sampai tidak ada yang
+           bisa dinilai.
+        `,
+      ),
+      p(
+        'Kesalahan keenam bersifat arah, dan ia yang paling sering membuat latihan ini kehilangan gunanya.',
+      ),
+      code(
+        'text',
+        `
+        Merancang untuk skala yang tidak ada.
+
+        Contoh nyata dari project ini, diukur sungguhan:
+
+          Gejala : build gagal, beberapa halaman melewati 60 detik,
+                   termasuk yang tidak diubah
+          Dugaan : bebannya terlalu besar untuk mesin ini
+
+          Yang diukur:
+            rata-rata per halaman :  14 ms
+            halaman yang gagal    :  30 ms
+            satu halaman yang gagal tidak punya blok kode sama sekali
+            CPU 4, swap 0, memori tersisa ~1,1 GB
+            load average          : 12,84 pada mesin 4 CPU
+
+          Satu perubahan, satu variabel:
+            CIRCLE_NODE_TOTAL=2 npm run build -> EXIT=0, 15,9 detik
+
+        Yang dibutuhkan bukan arsitektur yang lebih besar melainkan
+        pekerjaan yang lebih sedikit berjalan bersamaan.
+
+        Kebiasaan yang dilatih di sini berlaku di semua skala:
+        ukur dulu, baru simpulkan.
+        `,
+        { caption: 'Dugaan pertamanya masuk akal dan salah. Yang membedakan hanya urutannya.' },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Latihan merancang mudah dikerjakan dengan cara yang menghasilkan diagram bagus tanpa satu pun keputusan yang bisa diperiksa.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Langsung menggambar arsitektur',
+            'Itu yang ditunggu orang',
+            'Tidak ada dasar menilai apakah tiap kotaknya perlu. Ukur dulu di langkah 1 dan 2',
+          ],
+          [
+            'Menyalin arsitektur perusahaan besar',
+            'Mereka kan sudah teruji',
+            'Arsitektur mereka menjawab masalah mereka, termasuk masalah organisasi yang tidak kamu punya',
+          ],
+          [
+            'Menyebut nama teknologi sebagai jawaban',
+            'Itu yang dipakai orang',
+            '"Pakai Kafka" bukan keputusan sampai ada angka yang menjelaskan kenapa antrean dibutuhkan',
+          ],
+          [
+            'Melewatkan estimasi karena angkanya belum ada',
+            'Menebak kan tidak ilmiah',
+            'Estimasi kasar dengan asumsi tertulis jauh lebih berguna daripada tidak ada angka sama sekali',
+          ],
+          [
+            'Tidak menjawab "bagaimana kalau X mati?"',
+            'Komponennya kan andal',
+            'Dihitung, satu shard mati bisa berarti 6,25% atau 100% permintaan gagal, tergantung rancangannya',
+          ],
+          [
+            'Tidak menulis apa yang TIDAK dikerjakan',
+            'Yang penting yang dikerjakan',
+            'Tanpa batas, cakupannya melebar sampai tidak ada yang bisa dinilai selesai',
+          ],
+        ],
+      ),
+      p(
+        'Yang sebenarnya dilatih di seluruh kategori ini bukan kemampuan menggambar sistem melainkan kebiasaan menuntut angka sebelum mengambil keputusan. Kebiasaan itu berlaku sama pada sistem berjuta pengguna dan pada build yang gagal di laptop sendiri, dan pada keduanya ia menghasilkan hal yang sama, yaitu keputusan yang bisa diperiksa orang lain dan diperbaiki ketika angkanya berubah.',
+      ),
       references(
         {
           label: 'Site Reliability Engineering: Simplicity',

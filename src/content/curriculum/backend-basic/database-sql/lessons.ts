@@ -28,7 +28,7 @@ export const lessons: LessonDraft[] = [
   written(
     'kenapa-database',
     'Kenapa Database, Bukan Berkas Biasa',
-    8,
+    14,
     'Empat masalah yang muncul begitu data disimpan sendiri.',
     [
       p(
@@ -158,6 +158,158 @@ export const lessons: LessonDraft[] = [
         'Website ini memang tidak punya database',
         'Ruang Belajar Fullstack menyimpan progres di `localStorage` — satu pengguna, satu perangkat, tidak ada penulis bersamaan, dan data yang hilang bukan bencana. Keputusannya tercatat di ADR-0002. Ini contoh nyata bahwa "pakai database" bukan jawaban otomatis; ia jawaban untuk masalah tertentu.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Alasan memakai database paling mudah dibuktikan pada satu situasi yang mustahil ditangani berkas biasa, yaitu **dua penulis pada saat yang sama**. Berikut ukuran sungguhannya, dijalankan pada PostgreSQL 16.15 dengan dua proses yang berjalan bersamaan mengurangi saldo yang sama.',
+      ),
+      code(
+        'text',
+        `
+        Saldo awal 100. Dua proses masing-masing mengurangi 10.
+        Hasil yang benar seharusnya 80.
+
+        POLA BACA-LALU-TULIS
+          proses A: SELECT jumlah -> 100 ... hitung 100-10 ... UPDATE SET jumlah = 90
+          proses B: SELECT jumlah -> 100 ... hitung 100-10 ... UPDATE SET jumlah = 90
+
+          saldo akhir = 90        <- satu pengurangan HILANG
+
+        POLA ATOMIK
+          proses A: UPDATE saldo SET jumlah = jumlah - 10
+          proses B: UPDATE saldo SET jumlah = jumlah - 10
+
+          saldo akhir = 80        <- benar
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan pada PostgreSQL 16.15, dua proses psql yang berjalan bersamaan.',
+        },
+      ),
+      p(
+        'Selisih antara keduanya bukan gaya penulisan melainkan **di mana perhitungannya terjadi**. Pada pola pertama, angka dibaca ke aplikasi, dihitung di sana, lalu dikirim kembali sebagai nilai jadi. Selama perjalanan itu, database tidak tahu bahwa nilai yang jadi dasar perhitungan sudah kedaluwarsa. Pada pola kedua, perhitungannya terjadi di dalam database sambil barisnya terkunci, sehingga proses kedua menunggu dan membaca nilai yang sudah diperbarui.',
+      ),
+      p(
+        'Kejadian ini punya nama, yaitu **lost update**, dan ia tidak menghasilkan error apa pun. Yang tersisa hanya angka yang salah, dan pada sistem keuangan atau stok barang, angka yang salah itu ditemukan berminggu-minggu kemudian ketika ada yang menghitung ulang secara manual.',
+      ),
+      table(
+        ['Kebutuhan', 'Berkas biasa', 'Database'],
+        [
+          [
+            'Dua penulis pada waktu yang sama',
+            'Diukur, satu perubahan bisa hilang tanpa jejak',
+            'Baris terkunci selama diubah, jadi perubahan kedua menunggu',
+          ],
+          [
+            'Mencari satu baris di antara ratusan ribu',
+            'Seluruh berkas harus dibaca',
+            'Diukur, index membuatnya 0,05 milidetik alih-alih 10 milidetik',
+          ],
+          [
+            'Menjaga bentuk data tetap sah',
+            'Tidak ada yang memeriksa apa pun',
+            'Diuji sungguhan, `NOT NULL`, `CHECK`, dan `UNIQUE` menolak baris yang salah',
+          ],
+          [
+            'Beberapa perubahan yang harus jadi satu kesatuan',
+            'Bisa berhenti di tengah dan meninggalkan keadaan setengah',
+            'Diuji sungguhan, transaksi membatalkan seluruhnya bila satu bagian gagal',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir tabel itu yang paling sering diremehkan sampai terjadi. Sebuah pesanan yang mengurangi stok, mencatat pembayaran, dan mengirim notifikasi punya tiga langkah, dan kegagalan pada langkah kedua tanpa transaksi meninggalkan stok yang sudah berkurang untuk pesanan yang tidak pernah lahir.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kelas kegagalan berikutnya baru muncul ketika dua transaksi saling menunggu. PostgreSQL mendeteksinya sendiri lalu membunuh salah satunya, dan pesannya menyebutkan kedua pihak.',
+      ),
+      code(
+        'text',
+        `
+        Sesi A: UPDATE saldo ... WHERE id = 1   lalu   WHERE id = 2
+        Sesi B: UPDATE saldo ... WHERE id = 2   lalu   WHERE id = 1
+
+        ERROR:  deadlock detected
+        DETAIL:  Process 482844 waits for ShareLock on transaction 821;
+                 blocked by process 482845.
+                 Process 482845 waits for ShareLock on transaction 822;
+                 blocked by process 482844.
+        HINT:  See server log for query details.
+        CONTEXT:  while updating tuple (0,2) in relation "saldo"
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15 dengan dua sesi psql bersamaan.' },
+      ),
+      p(
+        'Yang layak diperhatikan, hanya **satu** dari dua sesi itu yang menerima error. Sesi yang lain berhasil sepenuhnya. Jadi deadlock bukan kerusakan database melainkan cara database menyelamatkan dirinya dari kebuntuan, dan tugas aplikasi adalah mencoba ulang transaksi yang dibatalkan.',
+      ),
+      p(
+        'Penyebabnya hampir selalu sama, yaitu **urutan pengambilan kunci yang berbeda**. Sesi A memegang baris 1 lalu meminta baris 2, sesi B memegang baris 2 lalu meminta baris 1. Pencegahannya sederhana dan tidak butuh alat apa pun, yaitu selalu mengambil kunci dalam urutan yang tetap, misalnya diurutkan berdasarkan id.',
+      ),
+      code(
+        'sql',
+        `
+        -- Rentan deadlock: urutannya bergantung siapa pengirim dan siapa penerima.
+        UPDATE saldo SET jumlah = jumlah - 100 WHERE id = pengirim;
+        UPDATE saldo SET jumlah = jumlah + 100 WHERE id = penerima;
+
+        -- Aman: kunci diambil dalam urutan id yang tetap, apa pun arah transfernya.
+        SELECT id FROM saldo
+        WHERE id IN (pengirim, penerima)
+        ORDER BY id
+        FOR UPDATE;
+
+        UPDATE saldo SET jumlah = jumlah - 100 WHERE id = pengirim;
+        UPDATE saldo SET jumlah = jumlah + 100 WHERE id = penerima;
+        `,
+        {
+          caption:
+            'ORDER BY di dalam FOR UPDATE-nya yang menentukan, sebab ia menetapkan urutan pengambilan kunci.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan pada tahap ini bukan soal sintaks SQL melainkan soal memindahkan pekerjaan ke tempat yang salah.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membaca nilai, menghitung di aplikasi, lalu menuliskannya kembali',
+            'Lebih mudah dibaca dan diuji',
+            'Diukur, dua proses bersamaan membuat satu pengurangan hilang. Pakai `SET kolom = kolom - n`',
+          ],
+          [
+            'Menyimpan data di berkas JSON karena datanya sedikit',
+            'Belum butuh database',
+            'Diukur, dua penulis bersamaan saling menimpa. Batasnya bukan jumlah data melainkan jumlah penulis',
+          ],
+          [
+            'Menganggap deadlock sebagai kerusakan',
+            'Ada kata error',
+            'Diuji sungguhan, satu sesi tetap berhasil. Ia mekanisme pelindung, dan aplikasinya harus mencoba ulang',
+          ],
+          [
+            'Mengunci baris lebih lama daripada perlu',
+            'Supaya aman',
+            'Transaksi panjang menahan sesi lain dan memperbesar peluang deadlock. Buka sependek mungkin',
+          ],
+          [
+            'Memanggil layanan luar di dalam transaksi',
+            'Sekalian satu blok',
+            'Transaksinya menggantung selama menunggu jaringan, dan kunci ikut tertahan. Panggil di luar transaksi',
+          ],
+          [
+            'Memvalidasi keunikan dengan `SELECT` lalu `INSERT`',
+            'Sudah diperiksa dulu',
+            'Dua proses bisa lolos pemeriksaan bersamaan. Yang menjamin hanyalah `UNIQUE` di database',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir adalah bentuk lain dari masalah yang sama dengan baris pertama, dan pantas dipegang sebagai aturan. Setiap pemeriksaan yang dilakukan aplikasi sebelum menulis punya celah waktu antara pemeriksaan dan penulisan, dan pada celah itu proses lain bisa menyelip. Yang menutupnya bukan kode yang lebih hati-hati melainkan batasan di database, sebab hanya database yang bisa menilai keduanya dalam satu tindakan.',
+      ),
       references(
         {
           label: 'PostgreSQL — Data Consistency Checks',
@@ -190,7 +342,7 @@ export const lessons: LessonDraft[] = [
   written(
     'konsep-tabel',
     'Konsep: tabel, baris, kolom, tipe data',
-    9,
+    17,
     'Bentuk dasar penyimpanan relasional.',
     [
       p(
@@ -349,6 +501,171 @@ export const lessons: LessonDraft[] = [
       p(
         'Batasan di database berlaku bagi siapa pun yang menulis — aplikasimu, skrip migrasi, seseorang yang menjalankan `psql` tengah malam. Validasi di kode aplikasi tidak.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Keputusan yang paling menentukan saat membuat tabel bukan pemilihan tipe data melainkan **seberapa ketat batasannya**. Tabel yang longgar terasa nyaman selama pengembangan dan menjadi sumber data kotor yang tidak bisa dibersihkan lagi setelah setahun berjalan. Berikut satu tabel produk yang batasannya sengaja ditulis lengkap, lalu diuji dengan data yang salah.',
+      ),
+      code(
+        'sql',
+        `
+        CREATE TABLE produk (
+          id     bigserial PRIMARY KEY,
+          sku    text    NOT NULL UNIQUE,
+          nama   text    NOT NULL,
+          harga  integer NOT NULL CHECK (harga > 0),
+          stok   integer NOT NULL DEFAULT 0 CHECK (stok >= 0)
+        );
+
+        -- Empat keputusan yang masing-masing menutup satu kelas data kotor:
+        --   NOT NULL      -> tidak ada produk tanpa nama
+        --   UNIQUE        -> tidak ada dua produk dengan SKU sama
+        --   CHECK harga>0 -> tidak ada produk berharga nol atau minus
+        --   CHECK stok>=0 -> stok tidak pernah bisa menjadi minus
+        --
+        -- harga bertipe integer, bukan pecahan: rupiah utuh, bukan rupiah koma.
+        -- Alasannya sama dengan yang diukur di bab Fondasi, yaitu 19.99 * 100
+        -- menghasilkan 1998.9999999999998 pada bilangan pecahan biner.
+        `,
+        {
+          caption:
+            'Skema yang benar-benar dibuat di PostgreSQL 16.15 untuk seluruh pengukuran di bab ini.',
+        },
+      ),
+      p(
+        'Setiap batasan itu bukan hiasan, dan cara paling meyakinkan untuk membuktikannya adalah melihat apa yang terjadi ketika data yang salah mencoba masuk.',
+      ),
+      code(
+        'text',
+        `
+        INSERT INTO pelanggan (email, nama) VALUES ('pengguna1@contoh.id', 'Kembar');
+          ERROR:  duplicate key value violates unique constraint "pelanggan_email_key"
+          DETAIL:  Key (email)=(pengguna1@contoh.id) already exists.
+
+        INSERT INTO pelanggan (email, nama) VALUES ('baru@contoh.id', NULL);
+          ERROR:  null value in column "nama" of relation "pelanggan"
+                  violates not-null constraint
+          DETAIL:  Failing row contains (200002, baru@contoh.id, null, null, 2026-09-07 ...).
+
+        INSERT INTO produk (sku, nama, harga) VALUES ('SKU-X', 'Gratisan', 0);
+          ERROR:  new row for relation "produk" violates check constraint "produk_harga_check"
+          DETAIL:  Failing row contains (5001, SKU-X, Gratisan, 0, 0).
+
+        INSERT INTO pesanan (pelanggan_id, status) VALUES (1, 'menunggu');
+          ERROR:  new row for relation "pesanan" violates check constraint "pesanan_status_check"
+          DETAIL:  Failing row contains (300001, 1, menunggu, 2026-09-07 ...).
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15.' },
+      ),
+      p(
+        'Baris `DETAIL` pada setiap pesan itu sangat berharga saat menelusuri, sebab ia mencetak **seluruh isi baris yang ditolak**. Ketika sebuah impor data massal gagal di baris ke sekian ribu, keterangan itu langsung menunjukkan nilai mana yang bermasalah tanpa perlu mencari sendiri.',
+      ),
+      p(
+        'Nilai `status` yang dibatasi `CHECK` layak diperhatikan tersendiri. Tanpa batasan itu, sebuah salah ketik di kode aplikasi akan melahirkan status baru yang tidak pernah dirancang siapa pun, misalnya `dibayar ` dengan spasi di belakang, dan barisnya menjadi tidak terlihat oleh semua penyaringan yang sudah ada. Data seperti itu tidak menghasilkan error, hanya laporan yang jumlahnya tidak pernah cocok.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Bagian tabel yang paling banyak menghasilkan bug senyap bukan tipe data melainkan `NULL`, sebab `NULL` bukan sebuah nilai melainkan **ketiadaan nilai**, dan perbandingan dengan ketiadaan tidak menghasilkan benar maupun salah.',
+      ),
+      code(
+        'text',
+        `
+        Dari 205.000 baris pelanggan, 41.000 di antaranya kota-nya NULL.
+
+        SELECT count(*) FROM pelanggan WHERE kota = NULL;
+          count = 0            <- TIDAK ada error, dan hasilnya salah
+
+        SELECT count(*) FROM pelanggan WHERE kota IS NULL;
+          count = 41000        <- yang benar
+
+        SELECT count(*), count(kota) FROM pelanggan;
+          count(*)    = 205000     <- menghitung BARIS
+          count(kota) = 164000     <- menghitung NILAI yang tidak NULL
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15.' },
+      ),
+      p(
+        'Baris pertama adalah bentuk kegagalan yang paling berbahaya, yaitu query yang berjalan tanpa keluhan dan mengembalikan nol baris. Penyebabnya, `kota = NULL` tidak bernilai benar maupun salah melainkan `NULL` sendiri, dan baris hanya lolos `WHERE` ketika syaratnya bernilai benar. Karena itu perbandingan dengan ketiadaan harus memakai `IS NULL` dan `IS NOT NULL`.',
+      ),
+      p('Bentuk yang lebih jahat lagi muncul pada `NOT IN`, dan yang ini menghapus seluruh hasil.'),
+      code(
+        'text',
+        `
+        SELECT count(*) FROM pelanggan WHERE kota NOT IN ('Bandung', NULL);
+          count = 0            <- seluruh hasil lenyap
+
+        SELECT count(*) FROM pelanggan WHERE kota NOT IN ('Bandung');
+          count = 123000       <- yang diharapkan
+        `,
+        { caption: 'Dijalankan sungguhan. Satu NULL di dalam daftar mengosongkan seluruh hasil.' },
+      ),
+      p(
+        'Sebabnya bisa ditelusuri langkah demi langkah. `kota NOT IN (a, b)` sama artinya dengan `kota <> a AND kota <> b`. Ketika `b` adalah `NULL`, bagian `kota <> NULL` bernilai `NULL`, dan `benar AND NULL` menghasilkan `NULL` yang tidak lolos `WHERE`. Jadi tidak ada satu baris pun yang bisa lolos, berapa pun isinya. Kasus ini nyata karena daftar di dalam `NOT IN` sering datang dari subquery yang tanpa sengaja memuat `NULL`.',
+      ),
+      table(
+        ['Yang ditulis', 'Hasil yang diukur', 'Yang benar'],
+        [
+          ['`WHERE kota = NULL`', '0 baris, tanpa error', '`WHERE kota IS NULL`'],
+          [
+            "`WHERE kota <> 'Bandung'`",
+            'Diukur, 123.000 baris — 41.000 baris ber-`NULL` ikut terbuang',
+            '`IS DISTINCT FROM` bila `NULL` harus ikut: diukur 164.000',
+          ],
+          [
+            '`NOT IN (subquery ber-NULL)`',
+            '0 baris, seluruhnya lenyap',
+            '`NOT EXISTS`, atau saring `NULL` di subquery-nya',
+          ],
+          [
+            '`count(kolom)`',
+            'Melewatkan baris ber-`NULL`',
+            '`count(*)` bila yang dihitung memang baris',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan merancang tabel punya biaya yang tertunda, yaitu murah saat ditulis dan sangat mahal saat harus diubah ketika sudah ada jutaan baris dan puluhan tempat yang memakainya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membuat semua kolom bertipe `text` dan boleh `NULL`',
+            'Fleksibel, tidak akan menghalangi',
+            'Setiap pembacaan harus memeriksa dan mengubah tipe sendiri, dan data kotor masuk tanpa hambatan',
+          ],
+          [
+            'Membandingkan dengan `= NULL`',
+            'Begitu cara membandingkan',
+            'Diuji sungguhan, hasilnya 0 baris tanpa error. Pakai `IS NULL`',
+          ],
+          [
+            'Memakai `NOT IN` dengan daftar dari subquery',
+            'Paling langsung dibaca',
+            'Diuji sungguhan, satu `NULL` di dalamnya mengosongkan seluruh hasil. Pakai `NOT EXISTS`',
+          ],
+          [
+            'Menyimpan uang dengan tipe pecahan',
+            'Harga memang berkoma',
+            'Pembulatan biner menghasilkan selisih yang tidak bisa dijelaskan. Simpan bilangan bulat dalam satuan terkecil',
+          ],
+          [
+            'Menyimpan waktu tanpa zona waktu',
+            'Servernya kan satu',
+            'Begitu ada pengguna atau server di zona lain, tidak ada cara mengetahui waktu itu maksudnya kapan. Pakai `timestamptz`',
+          ],
+          [
+            'Memakai string kosong untuk menyatakan tidak ada nilai',
+            'Sama saja dengan kosong',
+            'String kosong adalah nilai yang ada, jadi ia lolos `NOT NULL` dan ikut terhitung `count(kolom)`. Dua hal berbeda jadi tercampur',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima pantas ditegaskan karena akibatnya tidak bisa diperbaiki belakangan. Sebuah kolom `timestamp` tanpa zona menyimpan angka jam tanpa keterangan jam siapa, dan ketika suatu hari perlu diketahui apakah `2026-09-07 08:00` itu waktu Jakarta atau waktu server di Singapura, tidak ada satu pun keterangan di dalam data yang bisa menjawabnya. Menyimpan `timestamptz` sejak awal tidak menambah kerumitan apa pun dan menutup pertanyaan itu selamanya.',
+      ),
       references(
         {
           label: 'PostgreSQL — Data Types',
@@ -381,7 +698,7 @@ export const lessons: LessonDraft[] = [
   written(
     'key-index',
     'Primary Key, Foreign Key & Index',
-    12,
+    19,
     'Tiga hal yang menentukan benar dan cepatnya sebuah tabel.',
     [
       p(
@@ -563,6 +880,180 @@ export const lessons: LessonDraft[] = [
       p(
         'Ada satu peringatan penting, yaitu `Seq Scan` tidak selalu salah. Pada tabel kecil berisi puluhan atau ratusan baris, membaca semuanya justru lebih cepat daripada bolak-balik ke index, dan perencana Postgres memang sengaja memilihnya. Karena itu ujilah dengan data yang jumlahnya realistis, sebab index yang tampak "tidak dipakai" di tabel berisi sepuluh baris uji coba sering terbukti dipakai begitu datanya puluhan ribu. Yang tidak boleh dilakukan adalah menebak, jadi jalankan `EXPLAIN ANALYZE` lalu baca rencana yang **benar-benar** dijalankan beserta waktunya.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Cerita index selalu sama di setiap project. Aplikasinya cepat selama data masih sedikit, lalu melambat pelan-pelan tanpa ada satu perubahan kode pun. Berikut ukurannya pada tabel `pesanan` berisi 300.000 baris, memakai `EXPLAIN ANALYZE` yang menampilkan apa yang benar-benar dikerjakan PostgreSQL, bukan perkiraan.',
+      ),
+      code(
+        'text',
+        `
+        SELECT * FROM pesanan WHERE pelanggan_id = 137456;
+
+        TANPA index
+          Parallel Seq Scan on pesanan (actual time=5.111..6.970 rows=0 loops=2)
+            Rows Removed by Filter: 150000
+            Buffers: shared hit=2206
+          Execution Time: 10.688 ms
+
+        DENGAN index pada pelanggan_id
+          Index Scan using idx_pesanan_pelanggan on pesanan (actual time=0.019..0.019 rows=1 loops=1)
+            Buffers: shared hit=7
+          Execution Time: 0.047 ms
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15 dengan 300.000 baris pesanan.' },
+      ),
+      p(
+        'Tiga angka di situ yang layak dibaca, dan yang paling menjelaskan justru bukan waktunya. `Rows Removed by Filter: 150000` berarti PostgreSQL membaca seratus lima puluh ribu baris **per pekerja** lalu membuang hampir semuanya untuk menemukan satu baris. `Buffers: shared hit=2206` berarti 2206 halaman memori disentuh, dibandingkan dengan 7 pada versi ber-index. Selisih waktunya sekitar 227 kali, dan yang lebih penting, selisih itu **tumbuh seiring jumlah baris** sedangkan versi ber-index hampir tidak berubah.',
+      ),
+      p('Index bukan barang gratis, dan biayanya juga bisa diukur.'),
+      code(
+        'text',
+        `
+        SELECT pg_size_pretty(pg_relation_size('pesanan'))              AS tabel,
+               pg_size_pretty(pg_relation_size('idx_pesanan_pelanggan')) AS index;
+
+          tabel | index
+          ------+---------
+          17 MB | 6168 kB
+        `,
+        { caption: 'Dijalankan sungguhan. Satu index memakan sekitar sepertiga ukuran tabelnya.' },
+      ),
+      p(
+        'Jadi setiap index menambah ruang penyimpanan dan, yang lebih terasa, menambah pekerjaan pada setiap `INSERT`, `UPDATE`, dan `DELETE`, sebab index-nya ikut diperbarui. Tabel dengan sepuluh index membuat setiap penulisan mengerjakan sebelas pekerjaan. Karena itu index ditambahkan berdasarkan query yang benar-benar dijalankan aplikasi, bukan berdasarkan dugaan bahwa sebuah kolom "mungkin akan dicari".',
+      ),
+      table(
+        ['Kolom seperti apa', 'Perlu index?', 'Alasannya'],
+        [
+          [
+            'Foreign key',
+            'Hampir selalu',
+            'Setiap `JOIN` dan setiap pemeriksaan penghapusan induk memakainya',
+          ],
+          ['Kolom di `WHERE` yang sering dipakai', 'Ya', 'Itu tepat gunanya'],
+          [
+            'Kolom di `ORDER BY` bersama `LIMIT`',
+            'Ya',
+            'Index menyimpan urutan, jadi tidak perlu mengurutkan seluruh tabel',
+          ],
+          [
+            'Kolom bernilai sedikit variasi, misalnya `status`',
+            'Biasanya tidak sendirian',
+            'Menyaring separuh tabel tidak lebih murah daripada membaca semuanya',
+          ],
+          [
+            'Kolom yang tidak pernah muncul di query',
+            'Tidak',
+            'Hanya menambah biaya penulisan dan ruang',
+          ],
+        ],
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kunci menghasilkan dua error yang akan sering kamu temui, dan keduanya sebenarnya kabar baik, sebab keduanya mencegah data rusak.',
+      ),
+      code(
+        'text',
+        `
+        INSERT INTO pesanan (pelanggan_id) VALUES (999999999);
+
+          ERROR:  insert or update on table "pesanan" violates foreign key
+                  constraint "pesanan_pelanggan_id_fkey"
+          DETAIL:  Key (pelanggan_id)=(999999999) is not present in table "pelanggan".
+
+        DELETE FROM pelanggan WHERE id = 1;
+
+          ERROR:  update or delete on table "pelanggan" violates foreign key
+                  constraint "pesanan_pelanggan_id_fkey" on table "pesanan"
+          DETAIL:  Key (id)=(1) is still referenced from table "pesanan".
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15.' },
+      ),
+      p(
+        'Error pertama menghentikan lahirnya pesanan yatim, yaitu pesanan yang menunjuk pelanggan yang tidak ada. Error kedua menghentikan lahirnya hal yang sama dari arah sebaliknya, yaitu menghapus pelanggan yang masih punya pesanan. Tanpa foreign key, dua tindakan itu berhasil tanpa keluhan dan meninggalkan data yang mustahil dipulihkan, sebab keterangan tentang pelanggan itu sudah hilang.',
+      ),
+      p(
+        'Yang perlu diputuskan sadar adalah **apa yang terjadi ketika induknya dihapus**, dan pilihannya bukan soal selera melainkan soal arti data.',
+      ),
+      code(
+        'sql',
+        `
+        -- Item pesanan tidak punya arti tanpa pesanannya. Ikut terhapus.
+        pesanan_id bigint NOT NULL REFERENCES pesanan(id) ON DELETE CASCADE
+
+        -- Pesanan tetap punya arti meski pelanggannya dihapus (riwayat, akuntansi).
+        -- Bawaan PostgreSQL adalah NO ACTION, yaitu MENOLAK penghapusan induknya.
+        pelanggan_id bigint NOT NULL REFERENCES pelanggan(id)
+
+        -- Kalau memang boleh yatim, nyatakan secara eksplisit.
+        editor_id bigint REFERENCES pengguna(id) ON DELETE SET NULL
+        `,
+        {
+          caption:
+            'Diuji sungguhan: DELETE FROM pesanan WHERE id = 1 ikut menghapus 2 baris item_pesanan-nya.',
+        },
+      ),
+      p(
+        '`ON DELETE CASCADE` layak dipakai dengan hati-hati justru karena ia bekerja diam-diam. Menghapus satu baris bisa menghapus ribuan baris di tabel lain tanpa satu pun konfirmasi, dan bila tabel itu punya turunan lagi, penghapusannya menjalar. Untuk data yang penting, banyak tim memilih **soft delete**, yaitu menandai baris sebagai terhapus alih-alih menghapusnya.',
+      ),
+      code(
+        'text',
+        `
+        Error ketiga yang muncul dari UNIQUE, dan ini yang paling sering:
+
+          INSERT INTO pelanggan (email, nama) VALUES ('pengguna1@contoh.id', 'Kembar');
+
+          ERROR:  duplicate key value violates unique constraint "pelanggan_email_key"
+          DETAIL:  Key (email)=(pengguna1@contoh.id) already exists.
+        `,
+        { caption: 'Dijalankan sungguhan.' },
+      ),
+      p(
+        'Cara menanganinya di aplikasi menentukan kualitas pesan yang dilihat pengguna. Menangkapnya sebagai kegagalan umum menghasilkan "terjadi kesalahan", sedangkan memeriksa kode errornya menghasilkan "email ini sudah terdaftar". PostgreSQL memberi kode `23505` untuk pelanggaran keunikan, dan nama batasannya ikut dikirim sehingga bisa dipetakan ke nama field yang tepat.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kunci dan index adalah dua hal yang paling sering ditunda dengan alasan "nanti kalau sudah perlu", dan keduanya jauh lebih mahal ditambahkan setelah datanya banyak.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Tidak memasang foreign key supaya lebih fleksibel',
+            'Menghalangi saat mengembangkan',
+            'Diuji sungguhan, tanpa itu baris yatim masuk tanpa keluhan dan tidak bisa dipulihkan',
+          ],
+          [
+            'Lupa memberi index pada kolom foreign key',
+            'Sudah ada `REFERENCES`-nya',
+            '`REFERENCES` tidak membuat index. Setiap `JOIN` lewat kolom itu jadi pemindaian penuh',
+          ],
+          [
+            'Memberi index pada setiap kolom',
+            'Supaya semuanya cepat',
+            'Diukur, satu index sebesar sepertiga tabelnya, dan setiap penulisan harus memperbaruinya',
+          ],
+          [
+            'Menganggap query lambat pasti butuh index baru',
+            'Itu obat yang biasa dipakai',
+            'Jalankan `EXPLAIN ANALYZE` dulu. Kadang index-nya sudah ada tapi tidak terpakai karena bentuk query-nya',
+          ],
+          [
+            'Memakai `ON DELETE CASCADE` di mana-mana',
+            'Praktis, tidak ada error penghapusan',
+            'Satu penghapusan bisa menjalar ke ribuan baris di banyak tabel tanpa konfirmasi apa pun',
+          ],
+          [
+            'Memakai email atau nomor telepon sebagai primary key',
+            'Sudah unik secara alami',
+            'Keduanya bisa berubah, dan mengubah primary key berarti mengubah setiap baris yang menunjuknya',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat pantas dijadikan kebiasaan sebelum menambah index apa pun. Sebuah index tidak terpakai ketika kolomnya dibungkus fungsi, misalnya `WHERE lower(email) = ...` pada index biasa di `email`, atau ketika `LIKE`-nya diawali tanda persen. Menambah index kedua tidak menyelesaikan apa pun di situ, sedangkan mengubah bentuk query atau membuat index berbasis ekspresi menyelesaikannya. `EXPLAIN ANALYZE` yang membedakan dua situasi itu, dan menjalankannya lebih cepat daripada menebak.',
+      ),
       references(
         {
           label: 'PostgreSQL — Primary & Foreign Keys',
@@ -595,7 +1086,7 @@ export const lessons: LessonDraft[] = [
   written(
     'select-dasar',
     '`SELECT`, `WHERE`, `ORDER BY`, `LIMIT`',
-    11,
+    18,
     'Perintah yang paling sering kamu tulis seumur hidup.',
     [
       p(
@@ -784,6 +1275,223 @@ export const lessons: LessonDraft[] = [
       p(
         'Baris kedua menutup celah itu dengan menambahkan `id DESC` sebagai **pemecah seri**. Karena `id` unik, tidak akan pernah ada dua baris yang seluruh kunci urutannya sama, sehingga hasilnya pasti sama di setiap pemanggilan. Jadikan ini kebiasaan: setiap `ORDER BY` yang dipakai untuk paginasi diakhiri dengan kolom unik — biayanya nyaris nol, dan ia menutup bug yang sangat sulit dilacak karena hanya muncul sesekali.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman daftar dengan paginasi ada di hampir setiap aplikasi, dan ia punya satu sifat yang tidak terlihat selama pengujian, yaitu **biayanya bertambah seiring nomor halaman**. Halaman pertama selalu cepat, jadi tidak ada yang menyadari apa pun sampai seseorang membuka halaman lima ribu atau sebuah pekerjaan ekspor menelusuri seluruh tabel halaman demi halaman.',
+      ),
+      code(
+        'text',
+        `
+        SELECT * FROM pesanan ORDER BY id LIMIT 20 OFFSET n;
+        Tabel berisi 300.000 baris, kolom id sudah ber-index (primary key).
+
+          OFFSET      0   ->  membaca     20 baris   ->  0,041 ms
+          OFFSET 100000   ->  membaca 100.020 baris  ->  9,745 ms
+          OFFSET 250000   ->  membaca 250.020 baris  -> 24,722 ms
+
+        Untuk memberi 20 baris pada halaman terakhir, PostgreSQL harus
+        membaca 250.020 baris lalu MEMBUANG 250.000 di antaranya.
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan pada PostgreSQL 16.15, angka baris diambil dari EXPLAIN ANALYZE.',
+        },
+      ),
+      p(
+        'Sifat itu melekat pada cara `OFFSET` bekerja dan tidak bisa diperbaiki dengan index apa pun, sebab `OFFSET` memang berarti "hitung dan lewati sebanyak n baris". Index membantu menemukan urutannya, tetapi baris yang dilewati tetap harus dilalui satu per satu.',
+      ),
+      p(
+        'Penggantinya bernama **keyset pagination** atau paginasi berbasis kursor. Alih-alih menyebut nomor halaman, klien menyebut **di mana halaman sebelumnya berhenti**.',
+      ),
+      code(
+        'sql',
+        `
+        -- Halaman pertama: tidak perlu penanda apa pun.
+        SELECT id, judul, dibuat_pada
+        FROM pesanan
+        ORDER BY id
+        LIMIT 20;
+
+        -- Halaman berikutnya: bawa id terakhir dari halaman sebelumnya.
+        SELECT id, judul, dibuat_pada
+        FROM pesanan
+        WHERE id > $1              -- $1 = id terakhir yang sudah dikirim
+        ORDER BY id
+        LIMIT 20;
+        `,
+        { caption: 'Diukur di posisi yang sama dengan OFFSET 250000: membaca 20 baris, 0,064 ms.' },
+      ),
+      p(
+        'Selisihnya di posisi yang sama adalah 24,722 milidetik melawan 0,064 milidetik, sekitar 386 kali. Dan yang lebih penting daripada angkanya, biaya keyset **tidak bertambah** ketika nomor halamannya makin jauh, sebab ia selalu membaca dua puluh baris.',
+      ),
+      table(
+        ['Kebutuhan', 'Cara yang tepat', 'Alasannya'],
+        [
+          [
+            'Menelusuri seluruh data, misalnya ekspor atau sinkronisasi',
+            'Keyset',
+            'Tidak melambat di halaman jauh, dan tidak melewatkan baris saat data berubah',
+          ],
+          [
+            'Gulir tak berujung di aplikasi',
+            'Keyset',
+            'Klien hanya perlu bergerak maju, dan itu tepat yang diberikan keyset',
+          ],
+          [
+            'Halaman bernomor yang bisa dilompati pengguna',
+            '`OFFSET`, dengan batas nomor halaman',
+            'Keyset tidak bisa melompat ke halaman 500. Batasi nomor halaman maksimalnya',
+          ],
+          [
+            'Menampilkan jumlah total halaman',
+            'Perkiraan, bukan `count(*)` tepat',
+            '`count(*)` pada tabel besar sendiri sudah mahal. Pertimbangkan estimasi dari statistik tabel',
+          ],
+        ],
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Paginasi punya kegagalan kedua yang lebih serius daripada lambat, yaitu **baris yang tidak pernah terlihat pengguna**. Ia terjadi ketika urutannya tidak menentukan satu susunan yang pasti, dan itu terjadi setiap kali kolom pengurut punya nilai yang sama pada beberapa baris.',
+      ),
+      code(
+        'text',
+        `
+        Sepuluh tugas, SEMUANYA berprioritas 1.
+
+        ORDER BY prioritas   (tanpa pemecah seri)
+          halaman 1 (LIMIT 3 OFFSET 0)  ->  Tugas 2 | Tugas 3 | Tugas 1
+          ... satu baris di halaman 1 disunting pengguna lain ...
+          halaman 2 (LIMIT 3 OFFSET 3)  ->  Tugas 5 | Tugas 6 | Tugas 7
+
+          Tugas 4 TIDAK PERNAH muncul di halaman mana pun.
+
+        ORDER BY prioritas, id   (dengan pemecah seri)
+          halaman 1  ->  Tugas 1 | Tugas 2 | Tugas 3
+          ... suntingan yang sama ...
+          halaman 2  ->  Tugas 4 | Tugas 5 | Tugas 6
+
+          Tidak ada yang hilang.
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan pada PostgreSQL 16.15. Suntingannya berupa satu UPDATE biasa di antara dua pembacaan.',
+        },
+      ),
+      p(
+        'Penyebabnya, ketika beberapa baris punya nilai pengurut yang sama, database bebas mengembalikannya dalam urutan apa pun, dan urutan itu bisa berubah antara dua query. Sebuah `UPDATE` memindahkan baris secara fisik di dalam tabel, dan itu cukup untuk mengubah urutannya. Halaman pertama sudah mengambil tiga baris, halaman kedua melewati tiga baris dari susunan yang **sudah berbeda**, dan satu baris terlewat di celahnya.',
+      ),
+      p(
+        'Perhatikan juga bahwa halaman pertama tanpa pemecah seri mengembalikan `Tugas 2 | Tugas 3 | Tugas 1`, yaitu bukan urutan yang diharapkan siapa pun meski belum ada suntingan apa pun. Ini bukan bug database melainkan tepat apa yang dijanjikannya, yaitu tidak ada janji urutan untuk nilai yang seri.',
+      ),
+      code(
+        'sql',
+        `
+        -- Aturan yang menutup seluruh kelas bug ini, dan biayanya nol:
+        -- SETIAP query berpaginasi harus berakhir pada kolom yang UNIK.
+
+        ORDER BY dibuat_pada DESC, id DESC     -- benar
+        ORDER BY prioritas, id                 -- benar
+        ORDER BY nama                          -- rentan, nama bisa sama
+        ORDER BY dibuat_pada DESC              -- rentan, terutama bila diisi sekaligus
+        `,
+      ),
+      p(
+        'Kelompok kegagalan ketiga di sini adalah pencarian teks, dan yang menjebak adalah index yang **ada tetapi tidak terpakai**. Berikut empat bentuk pencarian pada kolom `email` yang sudah ber-index.',
+      ),
+      code(
+        'text',
+        `
+        Tabel 205.000 baris, ada index biasa pada email.
+        Collation basis data ini en_US.UTF-8.
+
+          WHERE email = 'pengguna137456@contoh.id'
+            Index Only Scan  ->   0,100 ms
+
+          WHERE email LIKE 'pengguna137456%'
+            Parallel Seq Scan, Rows Removed by Filter: 102500  ->  12,506 ms
+
+          WHERE email LIKE '%137456@contoh.id'
+            Parallel Seq Scan  ->  13,929 ms
+
+          WHERE lower(email) = 'pengguna137456@contoh.id'
+            Parallel Seq Scan  ->  33,832 ms
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Index-nya ada di ketiga kasus terakhir dan tidak satu pun memakainya.',
+        },
+      ),
+      p(
+        'Baris kedua adalah yang paling mengejutkan, sebab `LIKE` berawalan biasanya dikatakan bisa memakai index. Itu benar hanya bila urutan index-nya cocok dengan cara `LIKE` membandingkan, dan pada collation selain `C` keduanya tidak cocok. Perbaikannya adalah index dengan kelas operator khusus.',
+      ),
+      code(
+        'text',
+        `
+        CREATE INDEX idx_pelanggan_email_pola ON pelanggan(email text_pattern_ops);
+
+          WHERE email LIKE 'pengguna137456%'
+            Index Only Scan using idx_pelanggan_email_pola
+            Index Cond: ((email ~>=~ 'pengguna137456') AND (email ~<~ 'pengguna137457'))
+            ->  0,119 ms          (dari 12,506 ms)
+
+        CREATE INDEX idx_pelanggan_email_lower ON pelanggan(lower(email));
+
+          WHERE lower(email) = 'pengguna137456@contoh.id'
+            Index Scan using idx_pelanggan_email_lower
+            ->  0,077 ms          (dari 33,832 ms)
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Baris Index Cond memperlihatkan LIKE diubah menjadi pencarian rentang.',
+        },
+      ),
+      p(
+        'Baris `Index Cond` itu menjelaskan mekanismenya dengan jelas. `LIKE \'pengguna137456%\'` diterjemahkan menjadi "semua nilai antara `pengguna137456` dan `pengguna137457`", dan pencarian rentang memang tepat yang bisa dilakukan index terurut. Pola yang diawali tanda persen tidak bisa diubah menjadi rentang apa pun, dan karena itu tidak ada index biasa yang bisa menolongnya.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan di bagian ini hampir semuanya berupa query yang berjalan benar pada data kecil dan berubah sifat pada data besar.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `SELECT *` di kode aplikasi',
+            'Praktis, tidak perlu menyebut kolom',
+            'Menarik kolom yang tidak dipakai, membatalkan Index Only Scan, dan ikut berubah saat skema berubah',
+          ],
+          [
+            'Paginasi dengan `OFFSET` untuk menelusuri seluruh tabel',
+            'Itu cara paginasi yang biasa',
+            'Diukur, `OFFSET 250000` membaca 250.020 baris untuk memberi 20. Pakai keyset',
+          ],
+          [
+            'Mengurutkan hanya dengan kolom yang bisa seri',
+            'Urutannya kan sudah benar',
+            'Diuji sungguhan, satu baris tidak pernah muncul di halaman mana pun. Akhiri dengan kolom unik',
+          ],
+          [
+            "Mencari dengan `LIKE '%kata%'`",
+            'Paling fleksibel bagi pengguna',
+            'Diukur, tidak ada index yang bisa dipakai. Untuk pencarian teks, pakai full-text search atau trigram',
+          ],
+          [
+            'Membungkus kolom dengan fungsi di `WHERE`',
+            'Supaya perbandingannya tidak peka huruf',
+            'Diukur, index-nya jadi tidak terpakai dan waktunya 33,832 ms. Buat index berbasis ekspresi',
+          ],
+          [
+            'Menyimpulkan query cepat karena cepat di komputer sendiri',
+            'Sudah diuji',
+            'Data pengembangan biasanya ratusan baris. Uji dengan jumlah baris yang mendekati produksi',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir menjelaskan mengapa hampir semua masalah di sub-bab ini baru ditemukan di produksi. Pada seribu baris, pemindaian penuh selesai dalam waktu yang tidak terasa, jadi tidak ada satu pun gejala. Cara termurah menghindarinya adalah mengisi basis data pengembangan dengan jumlah baris yang mendekati produksi, dan `generate_series` di PostgreSQL membuat itu satu query saja, tepat seperti yang dipakai untuk seluruh pengukuran di bab ini.',
+      ),
       references(
         {
           label: 'SELECT',
@@ -816,7 +1524,7 @@ export const lessons: LessonDraft[] = [
   written(
     'insert-update-delete',
     '`INSERT`, `UPDATE`, `DELETE`',
-    10,
+    15,
     'Tiga perintah yang mengubah data — dan cara tidak merusaknya.',
     [
       terms(
@@ -1026,6 +1734,185 @@ export const lessons: LessonDraft[] = [
       p(
         'Ini menggantikan pola "cek dulu, lalu insert atau update" yang punya celah balapan di antaranya. Database melakukannya dalam satu operasi atomik.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Ada satu kesalahan SQL yang biayanya jauh melampaui semua kesalahan lain di bab ini, dan bentuknya cuma satu klausa yang lupa ditulis. Berikut ukurannya pada tabel produk berisi 5.000 baris.',
+      ),
+      code(
+        'text',
+        `
+        BEGIN;
+        UPDATE produk SET harga = 9999;
+          UPDATE 5000            <- SELURUH tabel
+
+        UPDATE produk SET harga = 9999 WHERE sku = 'SKU-000042';
+          UPDATE 1               <- satu baris, seperti yang dimaksud
+        ROLLBACK;
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan pada PostgreSQL 16.15 di dalam transaksi, lalu dibatalkan.',
+        },
+      ),
+      p(
+        'Angka `UPDATE 5000` itu dicetak PostgreSQL setelah perintahnya selesai, dan di situlah letak masalahnya. Keterangan bahwa lima ribu baris berubah baru tiba **sesudah** perubahannya terjadi. Di luar transaksi, tidak ada jalan kembali.',
+      ),
+      p(
+        'Karena itu ada dua kebiasaan yang layak dipakai selamanya, dan keduanya tidak memperlambat pekerjaan sama sekali.',
+      ),
+      code(
+        'sql',
+        `
+        -- Kebiasaan 1: tulis SELECT-nya lebih dulu dengan WHERE yang sama persis.
+        SELECT count(*) FROM produk WHERE sku = 'SKU-000042';
+          count = 1            -- angka ini yang akan jadi jumlah baris yang berubah
+
+        -- Kebiasaan 2: kerjakan di dalam transaksi sampai angkanya terbukti benar.
+        BEGIN;
+          UPDATE produk SET harga = 95000 WHERE sku = 'SKU-000042';
+          -- baca jumlah barisnya. Kalau tidak sesuai, ROLLBACK.
+        COMMIT;
+        `,
+        {
+          caption:
+            'Dua kebiasaan ini yang memisahkan perubahan data yang bisa dibatalkan dari yang tidak.',
+        },
+      ),
+      p(
+        'Ada cara ketiga yang lebih baik lagi karena ia menyatukan pemeriksaan dan perubahan dalam satu perintah, yaitu `RETURNING`. Alih-alih menebak apa yang berubah, PostgreSQL mengembalikan baris hasilnya.',
+      ),
+      code(
+        'text',
+        `
+        UPDATE produk SET stok = stok - 5
+        WHERE sku = 'SKU-000042' AND stok >= 5
+        RETURNING id, sku, stok;
+
+          id |    sku     | stok
+          ---+------------+------
+          42 | SKU-000042 |   95
+          (1 row)
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Bila tidak ada baris yang kembali, syaratnya tidak terpenuhi.',
+        },
+      ),
+      p(
+        'Bentuk itu menyelesaikan tiga persoalan sekaligus. Pengurangan stoknya **atomik** karena memakai `stok = stok - 5` alih-alih nilai yang dihitung aplikasi, jadi tidak ada lost update seperti yang diukur di sub-bab pertama. Syarat `stok >= 5` mencegah stok minus tanpa perlu membacanya lebih dulu. Dan `RETURNING` memberi tahu apakah pengurangannya benar-benar terjadi, sebab nol baris yang kembali berarti stoknya tidak cukup.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Menyimpan data yang mungkin sudah ada adalah kebutuhan yang muncul di hampir setiap project, dan cara menanganinya menentukan apakah aplikasinya tahan terhadap dua permintaan bersamaan.',
+      ),
+      code(
+        'text',
+        `
+        Pola yang terlihat aman dan sebenarnya tidak:
+
+          SELECT id FROM pelanggan WHERE email = $1;    -- tidak ada
+          INSERT INTO pelanggan (email, nama) VALUES ($1, $2);
+
+        Dua permintaan bersamaan bisa sama-sama lolos SELECT, lalu yang kedua
+        menabrak batasan UNIQUE:
+
+          ERROR:  duplicate key value violates unique constraint "pelanggan_email_key"
+          DETAIL:  Key (email)=(pengguna1@contoh.id) already exists.
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15.' },
+      ),
+      p(
+        'Celahnya ada di antara `SELECT` dan `INSERT`, dan celah itu tidak bisa ditutup dengan kode yang lebih hati-hati karena ia melekat pada adanya dua perintah terpisah. Yang menutupnya adalah satu perintah yang memutuskan sendiri.',
+      ),
+      code(
+        'text',
+        `
+        INSERT INTO produk (sku, nama, harga, stok)
+        VALUES ('SKU-000042', 'Nama Baru', 55000, 7)
+        ON CONFLICT (sku) DO UPDATE
+          SET nama = EXCLUDED.nama, harga = EXCLUDED.harga
+        RETURNING id, sku, nama, harga;
+
+          id |    sku     |   nama    | harga
+          ---+------------+-----------+-------
+          42 | SKU-000042 | Nama Baru | 55000
+          (1 row)
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Baris SKU-000042 sudah ada, jadi cabang DO UPDATE yang berjalan.',
+        },
+      ),
+      p(
+        'Kata `EXCLUDED` di situ menunjuk baris yang **gagal masuk**, yaitu nilai yang barusan kamu kirim. Jadi `SET nama = EXCLUDED.nama` berarti "pakai nama yang baru saja saya kirim". Perhatikan juga bahwa `stok` sengaja tidak ikut diperbarui, sebab stok yang sudah tercatat tidak boleh ditimpa oleh nilai dari sebuah operasi impor.',
+      ),
+      p(
+        'Ada varian kedua yang lebih sering dibutuhkan daripada yang disangka, yaitu ketika baris yang sudah ada cukup dibiarkan.',
+      ),
+      code(
+        'sql',
+        `
+        -- Diamkan bila sudah ada. Tidak error, dan tidak mengubah apa pun.
+        INSERT INTO tag (nama) VALUES ('database')
+        ON CONFLICT (nama) DO NOTHING
+        RETURNING id;
+
+        -- Perhatikan: DO NOTHING membuat RETURNING mengembalikan NOL baris
+        -- ketika barisnya sudah ada. Jadi jangan mengandalkannya untuk
+        -- mendapatkan id. Untuk itu, pakai DO UPDATE walaupun isinya sepele:
+        INSERT INTO tag (nama) VALUES ('database')
+        ON CONFLICT (nama) DO UPDATE SET nama = EXCLUDED.nama
+        RETURNING id;
+        `,
+        {
+          caption:
+            'Jebakan RETURNING pada DO NOTHING ini sering baru ketahuan saat kodenya menerima undefined.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Perintah yang mengubah data punya sifat yang membedakannya dari `SELECT`, yaitu kesalahannya meninggalkan jejak permanen.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menjalankan `UPDATE` langsung di basis data produksi',
+            'Cuma satu baris yang diubah',
+            'Diukur, `WHERE` yang lupa ditulis mengubah 5000 baris. Jalankan `SELECT` dengan `WHERE` yang sama dulu',
+          ],
+          [
+            'Membaca nilai, menghitung, lalu menulis kembali',
+            'Lebih mudah diuji',
+            'Dua permintaan bersamaan saling menimpa. Pakai `SET kolom = kolom - n` yang atomik',
+          ],
+          [
+            'Memeriksa keberadaan dengan `SELECT` sebelum `INSERT`',
+            'Sudah dipastikan belum ada',
+            'Diuji sungguhan, ada celah di antara keduanya. Pakai `ON CONFLICT`',
+          ],
+          [
+            'Mengandalkan `RETURNING` pada `DO NOTHING`',
+            'Sama-sama `ON CONFLICT`',
+            '`DO NOTHING` mengembalikan nol baris ketika datanya sudah ada, dan kodenya menerima nilai kosong',
+          ],
+          [
+            'Menghapus data penting dengan `DELETE`',
+            'Memang diminta dihapus',
+            'Riwayat, laporan, dan audit ikut hilang. Untuk data bernilai, pakai penandaan terhapus',
+          ],
+          [
+            'Menjalankan `UPDATE` massal tanpa batas jumlah',
+            'Sekalian semuanya',
+            'Satu transaksi besar mengunci banyak baris dan menahan sesi lain. Kerjakan bertahap dalam potongan',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir baru terasa ketika datanya sudah besar, dan akibatnya bisa menghentikan seluruh aplikasi. Sebuah `UPDATE` yang menyentuh sejuta baris menahan kuncinya sampai transaksinya selesai, dan selama itu setiap permintaan lain yang menyentuh baris-baris tersebut ikut menunggu. Mengerjakannya dalam potongan sepuluh ribu baris memberi hasil akhir yang sama dengan kunci yang dilepas berkali-kali di antaranya.',
+      ),
       references(
         {
           label: 'INSERT — termasuk ON CONFLICT',
@@ -1058,7 +1945,7 @@ export const lessons: LessonDraft[] = [
   written(
     'join',
     '`JOIN`: inner, left, right',
-    12,
+    19,
     'Menggabungkan tabel — inti dari kata "relasional".',
     [
       p(
@@ -1287,6 +2174,180 @@ export const lessons: LessonDraft[] = [
       p(
         'N+1 adalah masalah performa paling umum di aplikasi backend, dan ORM membuatnya sangat mudah terjadi tanpa disadari — dibahas lagi di Bab 4.9 (Eloquent) karena di sanalah ia paling sering muncul.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman daftar pelanggan beserta jumlah pesanannya adalah kebutuhan yang muncul di hampir setiap panel admin, dan ia memuat dua jebakan `JOIN` yang paling sering menghasilkan angka salah tanpa satu pun error. Berikut datanya, yaitu 205.000 pelanggan dan 300.000 pesanan, dengan 5.000 pelanggan yang belum pernah memesan.',
+      ),
+      code(
+        'text',
+        `
+        INNER JOIN  pelanggan x pesanan            -> 300.000 baris
+        LEFT JOIN   pelanggan x pesanan            -> 305.000 baris
+        LEFT JOIN + WHERE o.id IS NULL             ->   5.000 baris
+
+        Selisih 5.000 itu tepat jumlah pelanggan yang belum punya pesanan.
+        INNER JOIN membuang mereka; LEFT JOIN menyimpannya dengan kolom pesanan NULL.
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15.' },
+      ),
+      p(
+        'Sekarang jebakan pertamanya, dan ini yang paling sering lolos review karena query-nya terlihat benar.',
+      ),
+      code(
+        'text',
+        `
+        Maksudnya: "semua pelanggan, beserta pesanan yang sudah dibayar kalau ada"
+
+        SELECT ... FROM pelanggan p
+        LEFT JOIN pesanan o ON o.pelanggan_id = p.id
+        WHERE o.status = 'dibayar';
+          -> 75.000 baris        <- sama persis dengan INNER JOIN
+
+        SELECT ... FROM pelanggan p
+        LEFT JOIN pesanan o ON o.pelanggan_id = p.id AND o.status = 'dibayar';
+          -> 230.000 baris       <- pelanggan tanpa pesanan dibayar tetap ikut
+
+        Sebagai pembanding:
+        SELECT ... FROM pelanggan p JOIN pesanan o ON o.pelanggan_id = p.id
+        WHERE o.status = 'dibayar';
+          -> 75.000 baris
+        `,
+        { caption: 'Dijalankan sungguhan. Angka pertama dan ketiga identik, dan itu buktinya.' },
+      ),
+      p(
+        "Penjelasannya terletak pada urutan pengerjaan. `LEFT JOIN` lebih dulu menghasilkan baris, termasuk baris yang kolom pesanannya seluruhnya `NULL` untuk pelanggan tanpa pesanan. Barulah `WHERE` menyaring hasil itu. Karena `NULL = 'dibayar'` tidak pernah bernilai benar, seluruh baris hasil `LEFT JOIN` yang tadi dipertahankan justru terbuang di tahap `WHERE`, dan yang tersisa persis sama dengan `INNER JOIN`. Aturannya satu kalimat, yaitu **syarat terhadap tabel kanan harus ditulis di `ON`, bukan di `WHERE`**.",
+      ),
+      p(
+        'Jebakan kedua muncul saat menghitung, dan hasilnya adalah angka yang terlihat masuk akal sehingga tidak ada yang curiga.',
+      ),
+      code(
+        'text',
+        `
+        SELECT p.nama, count(*) AS pakai_bintang, count(o.id) AS pakai_kolom
+        FROM pelanggan p LEFT JOIN pesanan o ON o.pelanggan_id = p.id
+        GROUP BY p.id, p.nama;
+
+              nama      | pakai_bintang | pakai_kolom
+          --------------+---------------+-------------
+           Belum Pesan 1|             1 |           0     <- belum pernah memesan
+           Pengguna 1   |             1 |           1
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. count(*) melaporkan 1 pesanan untuk pelanggan yang punya nol.',
+        },
+      ),
+      p(
+        '`count(*)` menghitung **baris**, dan baris hasil `LEFT JOIN` untuk pelanggan tanpa pesanan tetap ada meski seluruh kolom pesanannya `NULL`. `count(o.id)` menghitung **nilai yang tidak NULL**, jadi ia menjawab pertanyaan yang sebenarnya. Kesalahan ini menghasilkan laporan yang menyatakan setiap pelanggan punya minimal satu pesanan, dan angka itu cukup masuk akal untuk tidak dipertanyakan siapa pun.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan `JOIN` yang ketiga tidak terjadi di SQL melainkan di kode aplikasi, dan namanya **masalah N+1**. Bentuknya, satu query mengambil daftar, lalu untuk setiap baris dijalankan satu query lagi.',
+      ),
+      code(
+        'ts',
+        `
+        // Bentuk yang hampir selalu ditulis lebih dulu, dan terlihat wajar.
+        const daftar = await db.query('SELECT id FROM pesanan ORDER BY id LIMIT 1000');
+
+        for (const pesanan of daftar) {
+          // Satu query PER BARIS. Untuk 1000 baris, 1000 perjalanan ke database.
+          pesanan.item = await db.query(
+            'SELECT count(*) FROM item_pesanan WHERE pesanan_id = $1',
+            [pesanan.id],
+          );
+        }
+        `,
+        {
+          caption:
+            'ORM sering menghasilkan bentuk ini tanpa terlihat, lewat pembacaan relasi yang malas.',
+        },
+      ),
+      code(
+        'text',
+        `
+        Diukur pada PostgreSQL 16.15, koneksi lokal:
+
+          biaya dasar menjalankan psql + 1 query sepele : 23 ms
+          1.000 query terpisah                          : 76 ms   -> 53 ms untuk query-nya
+          1 query dengan JOIN untuk 1.000 pesanan       : 26 ms   ->  3 ms untuk query-nya
+
+        Jadi sekitar 0,053 ms per perjalanan bolak-balik DI LOKAL.
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Angka ini sengaja disebut lokal, sebab di situlah letak jebakannya.',
+        },
+      ),
+      p(
+        'Selisih 53 milidetik melawan 3 milidetik terdengar kecil, dan justru itu yang membuat N+1 lolos dari pengujian. Yang menentukan bukan angkanya melainkan **apa yang dikalikan**. Pada koneksi lokal, satu perjalanan bolak-balik berbiaya 0,053 milidetik. Pada database yang berada di zona ketersediaan lain, biayanya biasanya 1 sampai 2 milidetik, dan seribu perjalanan berubah menjadi satu sampai dua **detik** untuk satu permintaan pengguna. Kode yang sama, mesin yang berbeda, dan selisih seribu kali.',
+      ),
+      p(
+        'Cara mengenalinya lebih awal bukan dengan membaca kode melainkan dengan menghitung query per permintaan. Sebagian besar ORM punya cara mencatat setiap query yang dijalankan, dan satu permintaan yang menghasilkan lebih dari beberapa puluh query hampir selalu berbentuk N+1.',
+      ),
+      code(
+        'sql',
+        `
+        -- Bentuk yang benar: satu query, dikelompokkan di database.
+        SELECT p.id, count(i.produk_id) AS jumlah_item
+        FROM pesanan p
+        LEFT JOIN item_pesanan i ON i.pesanan_id = p.id
+        WHERE p.id <= 1000
+        GROUP BY p.id;
+
+        -- Bila memang perlu dua query karena datanya berbeda bentuk,
+        -- ambil semuanya sekaligus, bukan satu per satu:
+        SELECT * FROM item_pesanan WHERE pesanan_id = ANY($1);   -- $1 = array of id
+        `,
+        {
+          caption:
+            'Pola kedua bernama batch loading, dan itu yang dipakai dataloader di berbagai ORM.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        '`JOIN` adalah tempat angka salah paling mudah lahir, sebab hasilnya tetap berupa tabel yang terlihat rapi.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menaruh syarat tabel kanan di `WHERE` pada `LEFT JOIN`',
+            'Di situ tempat syarat ditulis',
+            'Diukur, hasilnya 75.000 baris, sama persis dengan `INNER JOIN`. Taruh di `ON`',
+          ],
+          [
+            'Memakai `count(*)` untuk menghitung baris tabel kanan',
+            'Itu cara menghitung',
+            'Diukur, pelanggan tanpa pesanan dilaporkan punya 1. Pakai `count(kolom)`',
+          ],
+          [
+            'Mengambil relasi di dalam perulangan',
+            'Kodenya paling mudah dibaca',
+            'Diukur, 1.000 query melawan 1. Di lokal selisihnya kecil, di produksi bisa seribu kali',
+          ],
+          [
+            'Menganggap jumlah baris hasil `JOIN` sama dengan jumlah baris tabel kiri',
+            'Kan cuma menggabungkan',
+            'Satu pelanggan dengan tiga pesanan menghasilkan tiga baris. Agregasi apa pun sesudahnya jadi berlipat',
+          ],
+          [
+            'Menjumlahkan nilai setelah `JOIN` ke beberapa tabel',
+            'Tinggal `sum`',
+            'Baris berlipat membuat jumlahnya berlipat juga. Agregasikan per tabel dulu, baru gabungkan',
+          ],
+          [
+            'Memakai `JOIN` tanpa index pada kolom penghubungnya',
+            '`REFERENCES` sudah ada',
+            '`REFERENCES` tidak membuat index. Setiap `JOIN` lewat kolom itu memindai tabel penuh',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima adalah kesalahan yang paling sulit terlihat karena hasilnya berupa angka, bukan error, dan angkanya masih dalam kisaran yang masuk akal. Sebuah pesanan dengan tiga item yang di-`JOIN` ke tabel pembayaran dengan dua cicilan menghasilkan enam baris, dan `sum(item.harga)` di atasnya menghitung setiap harga dua kali. Cara amannya adalah menghitung tiap agregat di subquery terpisah, lalu menggabungkan hasilnya, sehingga tidak ada satu pun angka yang dihitung lebih dari sekali.',
+      ),
       references(
         {
           label: 'Table Joins',
@@ -1319,7 +2380,7 @@ export const lessons: LessonDraft[] = [
   written(
     'agregasi',
     'Agregasi: `COUNT`, `SUM`, `GROUP BY`, `HAVING`',
-    11,
+    18,
     'Meringkas banyak baris menjadi satu angka.',
     [
       terms(
@@ -1492,6 +2553,179 @@ export const lessons: LessonDraft[] = [
         'Pakai `COUNT(c.id)`, bukan `COUNT(*)`',
         'Pada `LEFT JOIN`, pengguna tanpa catatan tetap menghasilkan satu baris berisi `NULL`. `COUNT(*)` akan menghitungnya sebagai 1 — salah. `COUNT(c.id)` melewati `NULL` dan menghasilkan 0, yang benar.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Laporan penjualan per kota adalah permintaan yang datang ke hampir setiap pengembang backend, dan ia memaksa mengambil dua keputusan yang mudah salah, yaitu apa yang dihitung dan di mana penyaringannya diletakkan. Keduanya bisa dilihat langsung pada data 205.000 pelanggan berikut.',
+      ),
+      code(
+        'text',
+        `
+        SELECT count(*) AS semua, count(kota) AS kota_terisi FROM pelanggan;
+
+          semua  | kota_terisi
+          -------+-------------
+          205000 |      164000
+
+        Selisih 41.000 adalah baris yang kota-nya NULL.
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15.' },
+      ),
+      p(
+        'Selisih itu menentukan jawaban mana yang benar, dan jawabannya bergantung pada pertanyaannya. Kalau yang ditanya "berapa pelanggan yang kita punya", `count(*)` yang benar. Kalau yang ditanya "berapa pelanggan yang kotanya sudah kita ketahui", `count(kota)` yang benar. Keduanya tidak pernah bisa saling menggantikan, dan tidak ada satu pun error yang muncul bila kamu memilih yang salah.',
+      ),
+      p(
+        'Hal yang sama berlaku pada fungsi agregat lain, dan ini yang paling sering menghasilkan laporan yang salah tanpa disadari.',
+      ),
+      table(
+        ['Fungsi', 'Perlakuan terhadap `NULL`', 'Akibatnya di laporan'],
+        [
+          ['`count(*)`', 'Menghitung baris, `NULL` ikut', 'Jumlah baris yang sebenarnya'],
+          ['`count(kolom)`', 'Melewati `NULL`', 'Jumlah nilai yang terisi'],
+          [
+            '`sum(kolom)`',
+            'Melewati `NULL`; hasilnya `NULL` bila semuanya `NULL`',
+            'Angka kosong, bukan nol — pakai `coalesce`',
+          ],
+          [
+            '`avg(kolom)`',
+            'Melewati `NULL` di pembilang **dan** penyebut',
+            'Rata-rata dari yang terisi saja, bukan dari seluruh baris',
+          ],
+          [
+            '`max` dan `min`',
+            'Melewati `NULL`',
+            'Aman, tapi hasilnya `NULL` bila tak ada nilai sama sekali',
+          ],
+        ],
+      ),
+      p(
+        'Baris `avg` layak diperhatikan karena selisihnya paling menyesatkan. Rata-rata nilai ujian dari seratus siswa yang dua puluh di antaranya belum menginput nilai adalah rata-rata dari delapan puluh siswa, bukan seratus. Kedua angka itu benar untuk pertanyaan yang berbeda, dan yang membedakannya hanya niat pembuat laporannya.',
+      ),
+      p(
+        'Keputusan kedua adalah di mana penyaringan diletakkan, dan ini lebih mudah diingat begitu urutan pengerjaannya dipahami.',
+      ),
+      code(
+        'sql',
+        `
+        SELECT kota, count(*) AS jumlah
+        FROM pelanggan
+        WHERE kota IS NOT NULL        -- 1. menyaring BARIS, sebelum dikelompokkan
+        GROUP BY kota                 -- 2. mengelompokkan
+        HAVING count(*) > 30000       -- 3. menyaring KELOMPOK, setelah dihitung
+        ORDER BY jumlah DESC;         -- 4. mengurutkan hasil akhir
+
+        -- Urutan yang sebenarnya dikerjakan database:
+        --   FROM -> WHERE -> GROUP BY -> HAVING -> SELECT -> ORDER BY -> LIMIT
+        --
+        -- Dari urutan itu dua hal langsung jelas:
+        --   - WHERE tidak bisa memakai hasil agregat, sebab belum dihitung
+        --   - ORDER BY bisa memakai alias dari SELECT, sebab SELECT sudah lewat
+        `,
+        { caption: 'Urutan inilah yang menjelaskan hampir semua error agregasi.' },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Berbeda dengan bagian lain di bab ini, agregasi justru banyak berteriak, dan itu menguntungkan. Dua error berikut dijalankan sungguhan dan keduanya adalah error yang akan kamu temui berkali-kali.',
+      ),
+      code(
+        'text',
+        `
+        SELECT kota, nama, count(*) FROM pelanggan GROUP BY kota;
+
+          ERROR:  column "pelanggan.nama" must appear in the GROUP BY clause
+                  or be used in an aggregate function
+          LINE 1: SELECT kota, nama, count(*) FROM pelanggan GROUP BY kota;
+                               ^
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15.' },
+      ),
+      p(
+        "Pesan ini sering dianggap kerewelan database, padahal ia menghalangi pertanyaan yang memang tidak punya jawaban. Satu kelompok `kota = 'Bandung'` memuat puluhan ribu baris dengan nama berbeda-beda, jadi `nama` mana yang harus ditampilkan untuk kelompok itu? Tidak ada jawaban yang benar, dan PostgreSQL menolak menebak. Yang harus kamu putuskan adalah apakah `nama` ikut mengelompokkan, atau ia diringkas dengan agregat seperti `min(nama)` atau `string_agg(nama, ', ')`.",
+      ),
+      p(
+        'Perlu disebut bahwa MySQL dengan pengaturan tertentu **menerima** query seperti itu dan memilih satu nama secara sembarang. Itu bukan keunggulan melainkan sumber laporan yang isinya berubah-ubah tanpa sebab yang bisa dijelaskan.',
+      ),
+      code(
+        'text',
+        `
+        SELECT kota, count(*) FROM pelanggan WHERE count(*) > 10 GROUP BY kota;
+
+          ERROR:  aggregate functions are not allowed in WHERE
+          LINE 1: SELECT kota, count(*) FROM pelanggan WHERE count(*) > 10 GRO...
+                                                            ^
+        `,
+        { caption: 'Dijalankan sungguhan.' },
+      ),
+      p(
+        'Error ini langsung terjelaskan oleh urutan pengerjaan. `WHERE` berjalan sebelum `GROUP BY`, jadi pada saat `WHERE` dievaluasi belum ada satu pun kelompok, dan `count(*)` belum punya arti. Yang dibutuhkan adalah `HAVING`, yang berjalan sesudah pengelompokan.',
+      ),
+      p(
+        'Kegagalan ketiga tidak menghasilkan error, dan ia gabungan dari agregasi dengan `LEFT JOIN` yang sudah diukur di sub-bab sebelumnya.',
+      ),
+      code(
+        'text',
+        `
+        SELECT p.nama, count(*) AS pakai_bintang, count(o.id) AS pakai_kolom
+        FROM pelanggan p LEFT JOIN pesanan o ON o.pelanggan_id = p.id
+        GROUP BY p.id, p.nama;
+
+              nama       | pakai_bintang | pakai_kolom
+          ---------------+---------------+-------------
+           Belum Pesan 1 |             1 |           0
+           Pengguna 1    |             1 |           1
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. count(*) melaporkan angka yang salah untuk baris tanpa pasangan.',
+        },
+      ),
+      p(
+        'Selain itu, `sum` pada kelompok yang seluruh nilainya `NULL` menghasilkan `NULL`, bukan nol, dan itu merambat ke perhitungan berikutnya. Sebuah `sum(total) * 1.11` untuk pelanggan tanpa pesanan menghasilkan `NULL`, dan kalau angka itu ditampilkan apa adanya, pengguna melihat kolom kosong alih-alih nol. Pembungkus `coalesce(sum(total), 0)` menutupnya dalam satu langkah.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Agregasi adalah tempat laporan salah lahir, dan laporan salah punya sifat buruk yang khas, yaitu tetap dipercaya sampai ada yang menghitung ulang dengan tangan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `count(*)` untuk semua perhitungan',
+            'Paling sering dicontohkan',
+            'Diukur, selisihnya 41.000 baris pada kolom yang boleh `NULL`. Pilih sesuai pertanyaannya',
+          ],
+          [
+            'Menaruh syarat agregat di `WHERE`',
+            'Di situ tempat menyaring',
+            'Diuji sungguhan, hasilnya error. `WHERE` berjalan sebelum pengelompokan; pakai `HAVING`',
+          ],
+          [
+            'Menyaring baris dengan `HAVING`',
+            'Sama-sama menyaring',
+            'Menyaring sesudah pengelompokan berarti seluruh baris tetap dibaca dan dikelompokkan dulu. Lebih lambat tanpa alasan',
+          ],
+          [
+            'Menampilkan `sum` tanpa `coalesce`',
+            'Jumlahnya kan pasti angka',
+            'Kelompok tanpa nilai menghasilkan `NULL`, dan `NULL` merambat ke setiap perhitungan sesudahnya',
+          ],
+          [
+            'Mengira `avg` menghitung seluruh baris',
+            'Namanya rata-rata',
+            'Ia mengabaikan `NULL` di pembilang dan penyebut. Rata-rata dari 80 baris terisi, bukan dari 100 baris',
+          ],
+          [
+            'Menjalankan agregasi berat langsung ke tabel utama',
+            'Datanya kan di situ',
+            'Laporan yang sama dihitung ulang setiap kali dibuka. Untuk laporan besar, simpan hasilnya berkala',
+          ],
+        ],
+      ),
+      p(
+        'Baris ketiga layak diperjelas karena keduanya memang menyaring dan hasilnya bisa sama. Bedanya di biaya. `WHERE kota IS NOT NULL` membuang 41.000 baris **sebelum** pengelompokan, sehingga yang dikelompokkan hanya 164.000. `HAVING kota IS NOT NULL` mengelompokkan seluruh 205.000 baris lebih dulu, baru membuang kelompok `NULL`-nya. Hasilnya identik, pekerjaannya tidak. Aturannya mudah dipegang, yaitu **saring sedini mungkin**, dan `HAVING` hanya dipakai untuk hal yang memang belum ada sebelum pengelompokan.',
+      ),
       references(
         {
           label: 'Aggregate Functions',
@@ -1524,7 +2758,7 @@ export const lessons: LessonDraft[] = [
   written(
     'normalisasi',
     'Normalisasi 1NF–3NF secukupnya',
-    11,
+    18,
     'Menyusun tabel supaya satu fakta hanya tersimpan di satu tempat.',
     [
       p(
@@ -1702,6 +2936,193 @@ export const lessons: LessonDraft[] = [
         'Denormalisasi memindahkan tanggung jawab ke kodemu',
         'Begitu satu fakta tersimpan di dua tempat, **kamu** yang harus menjaganya tetap sama. Satu jalur update yang lupa, dan datanya bertentangan tanpa ada yang memberitahu. Mulailah selalu dari bentuk ternormalisasi; denormalisasi hanya sebagai jawaban atas masalah yang sudah terukur.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Normalisasi paling mudah dipahami bukan lewat definisi bentuk normal melainkan lewat melihat apa yang rusak tanpanya. Berikut satu tabel yang memuat segalanya sekaligus, persis seperti yang biasanya lahir ketika data dipindahkan dari spreadsheet.',
+      ),
+      code(
+        'text',
+        `
+        id | pelanggan_email | pelanggan_nama | pelanggan_kota | produk_sku | produk_nama | produk_harga | jumlah
+        ---+-----------------+----------------+----------------+------------+-------------+--------------+-------
+         1 | rina@contoh.id  | Rina           | Bandung        | SKU-001    | Kaos Polos  |        89000 |      2
+         2 | rina@contoh.id  | Rina           | Bandung        | SKU-002    | Topi Rajut  |        45000 |      1
+         3 | rina@contoh.id  | Rina           | Bandung        | SKU-001    | Kaos Polos  |        89000 |      3
+         4 | budi@contoh.id  | Budi           | Medan          | SKU-001    | Kaos Polos  |        89000 |      1
+        `,
+        {
+          caption:
+            'Tabel ini benar-benar dibuat di PostgreSQL 16.15 untuk menguji ketiga anomali di bawah.',
+        },
+      ),
+      p(
+        'Perhatikan bahwa nama dan kota Rina tertulis tiga kali, dan harga Kaos Polos tertulis tiga kali juga. Pengulangan itu bukan sekadar boros ruang, melainkan sumber dari tiga bentuk kerusakan yang punya nama sendiri.',
+      ),
+      code(
+        'text',
+        `
+        ANOMALI PEMBARUAN
+          Rina pindah ke Surabaya. UPDATE dijalankan, tapi satu baris terlewat.
+
+          SELECT DISTINCT pelanggan_email, pelanggan_kota
+          FROM pesanan_datar WHERE pelanggan_email = 'rina@contoh.id';
+
+            pelanggan_email | pelanggan_kota
+            ----------------+----------------
+            rina@contoh.id  | Bandung
+            rina@contoh.id  | Surabaya
+
+          Satu orang kini punya DUA kota, dan tidak ada satu pun error.
+
+        ANOMALI PENGHAPUSAN
+          Budi membatalkan satu-satunya pesanannya.
+
+          DELETE FROM pesanan_datar WHERE pelanggan_email = 'budi@contoh.id';
+          SELECT count(*) ... -> 0
+
+          Seluruh keterangan tentang Budi ikut hilang, padahal Budi masih pelanggan.
+
+        ANOMALI PENYISIPAN
+          Produk baru yang belum pernah dipesan tidak punya tempat disimpan,
+          sebab satu-satunya tabel yang ada bernama pesanan.
+        `,
+        { caption: 'Ketiganya dijalankan sungguhan pada PostgreSQL 16.15.' },
+      ),
+      p(
+        'Ketiga anomali itu punya satu akar yang sama, yaitu **satu fakta disimpan di lebih dari satu tempat**. Kota Rina adalah fakta tentang Rina, bukan fakta tentang pesanan, jadi menyimpannya di baris pesanan berarti menyimpannya berulang kali. Begitu sebuah fakta punya banyak salinan, tidak ada mekanisme apa pun yang menjamin salinan-salinan itu tetap sama.',
+      ),
+      p(
+        'Karena itu normalisasi sebenarnya bisa diringkas jadi satu pertanyaan yang diajukan pada setiap kolom, yaitu **fakta ini tentang apa**. Kolom yang faktanya tentang pelanggan pindah ke tabel pelanggan, kolom yang faktanya tentang produk pindah ke tabel produk, dan yang tersisa di tabel pesanan hanyalah fakta tentang pesanan itu sendiri.',
+      ),
+      code(
+        'sql',
+        `
+        -- Hasilnya, dan perhatikan harga_satuan yang sengaja TIDAK menunjuk produk.
+        CREATE TABLE pelanggan (
+          id bigserial PRIMARY KEY, email text NOT NULL UNIQUE,
+          nama text NOT NULL, kota text);
+
+        CREATE TABLE produk (
+          id bigserial PRIMARY KEY, sku text NOT NULL UNIQUE,
+          nama text NOT NULL, harga integer NOT NULL CHECK (harga > 0));
+
+        CREATE TABLE pesanan (
+          id bigserial PRIMARY KEY,
+          pelanggan_id bigint NOT NULL REFERENCES pelanggan(id),
+          dibuat_pada timestamptz NOT NULL DEFAULT now());
+
+        CREATE TABLE item_pesanan (
+          pesanan_id bigint NOT NULL REFERENCES pesanan(id) ON DELETE CASCADE,
+          produk_id  bigint NOT NULL REFERENCES produk(id),
+          jumlah integer NOT NULL CHECK (jumlah > 0),
+          harga_satuan integer NOT NULL,   -- <-- SALINAN yang disengaja
+          PRIMARY KEY (pesanan_id, produk_id));
+        `,
+        {
+          caption:
+            'Kolom harga_satuan melanggar normalisasi dengan sengaja, dan alasannya menentukan.',
+        },
+      ),
+      p(
+        'Kolom `harga_satuan` itu terlihat seperti pengulangan yang baru saja kita hapus, dan ia memang pengulangan. Bedanya, ia **bukan salinan dari fakta yang sama**. Harga di tabel produk adalah harga hari ini, sedangkan `harga_satuan` adalah harga pada saat pesanan itu dibuat. Tanpa kolom itu, menaikkan harga produk akan mengubah nilai seluruh pesanan lama, dan laporan penjualan bulan lalu berubah setiap kali ada perubahan harga.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Skema yang sudah dinormalisasi memunculkan error yang **tidak mungkin ada** pada tabel datar, dan itu justru gunanya. Error di bawah adalah penolakan terhadap data yang pada tabel datar akan masuk tanpa keluhan.',
+      ),
+      code(
+        'text',
+        `
+        Pada tabel datar, mengetik kota yang salah tidak menghasilkan apa-apa:
+
+          INSERT INTO pesanan_datar (..., pelanggan_kota, ...) VALUES (..., 'Bandunng', ...);
+          -> berhasil. Rina kini punya kota ketiga.
+
+        Pada skema ternormalisasi, kesalahan yang setara ditolak:
+
+          INSERT INTO pesanan (pelanggan_id) VALUES (999999999);
+
+          ERROR:  insert or update on table "pesanan" violates foreign key
+                  constraint "pesanan_pelanggan_id_fkey"
+          DETAIL:  Key (pelanggan_id)=(999999999) is not present in table "pelanggan".
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15.' },
+      ),
+      p(
+        'Jadi normalisasi bukan hanya soal menghemat ruang. Ia memindahkan sekelompok kesalahan dari kategori "data kotor yang baru ketahuan berbulan-bulan kemudian" ke kategori "error yang muncul saat itu juga". Tabel datar tidak punya cara memeriksa bahwa `Bandunng` bukan kota yang sah, sebab tidak ada daftar kota yang bisa dijadikan acuan.',
+      ),
+      p(
+        'Sisi sebaliknya juga harus disebut jujur, yaitu normalisasi menambah `JOIN`. Untuk menampilkan satu baris laporan yang dulunya ada di satu tabel, sekarang dibutuhkan tiga sampai empat tabel. Pada kebanyakan aplikasi, biaya itu tidak terasa selama kolom penghubungnya ber-index. Pada laporan analitik yang menggabungkan puluhan juta baris, biayanya nyata, dan di situlah denormalisasi yang disengaja punya tempat.',
+      ),
+      table(
+        ['Bentuk denormalisasi', 'Kapan dibenarkan', 'Yang harus disiapkan'],
+        [
+          [
+            'Menyalin harga saat transaksi',
+            'Hampir selalu — nilainya memang berbeda dari harga sekarang',
+            'Tidak ada. Ini bukan duplikasi fakta yang sama',
+          ],
+          [
+            'Menyimpan `jumlah_komentar` di tabel artikel',
+            'Ketika perhitungannya sering dan mahal',
+            'Mekanisme yang menjaganya tetap benar, misalnya trigger, plus pemeriksaan berkala',
+          ],
+          [
+            'Tabel ringkasan untuk laporan',
+            'Laporan berat yang tidak perlu waktu nyata',
+            'Jadwal pembaruan dan kejelasan bahwa datanya tertinggal beberapa saat',
+          ],
+          [
+            'Menyalin nama pelanggan ke tabel pesanan',
+            'Jarang dibenarkan',
+            'Hampir selalu berakhir jadi anomali pembaruan yang sudah diukur di atas',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Normalisasi punya dua arah kesalahan yang sama seringnya, yaitu terlalu sedikit dan terlalu banyak.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memindahkan spreadsheet apa adanya jadi satu tabel',
+            'Bentuknya sudah mirip',
+            'Diuji sungguhan, ketiga anomali langsung muncul dan tidak satu pun menghasilkan error',
+          ],
+          [
+            'Menyalin nama pelanggan ke tabel pesanan supaya tak perlu `JOIN`',
+            'Lebih cepat dibaca',
+            'Diuji sungguhan, satu pembaruan yang terlewat membuat satu orang punya dua kota',
+          ],
+          [
+            'Menormalisasi sampai bentuk paling ekstrem',
+            'Makin normal makin benar',
+            'Menampilkan satu halaman jadi butuh tujuh `JOIN`. Berhenti di 3NF kecuali ada alasan jelas',
+          ],
+          [
+            'Tidak menyimpan harga saat transaksi',
+            'Harganya kan ada di tabel produk',
+            'Menaikkan harga mengubah nilai seluruh pesanan lama, dan laporan bulan lalu ikut berubah',
+          ],
+          [
+            'Menyimpan beberapa nilai dalam satu kolom dipisah koma',
+            'Praktis, satu kolom saja',
+            'Tidak bisa di-`JOIN`, tidak bisa di-index, dan tidak ada yang menjaga isinya. Pakai tabel terpisah',
+          ],
+          [
+            'Menyimpan angka hasil hitungan tanpa penjaga',
+            'Supaya laporan cepat',
+            'Angkanya menyimpang pelan-pelan dari kenyataan. Denormalisasi butuh mekanisme yang menjaganya',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir adalah syarat yang membuat denormalisasi boleh dipakai. Setiap angka yang disalin harus punya jawaban atas satu pertanyaan, yaitu **apa yang menjaganya tetap benar**. Kalau jawabannya "kode aplikasi akan mengingatnya", itu bukan jawaban, sebab akan selalu ada satu jalur kode yang lupa. Jawaban yang sah adalah trigger di database, tugas berkala yang menghitung ulang, atau keduanya, ditambah kesadaran bahwa angka itu bisa menyimpang dan perlu diperiksa sesekali.',
+      ),
       references(
         {
           label: 'Data Definition — Constraints',
@@ -1734,7 +3155,7 @@ export const lessons: LessonDraft[] = [
   written(
     'relasi',
     'Relasi 1-1, 1-N, N-N & tabel pivot',
-    12,
+    18,
     'Tiga bentuk hubungan antar tabel dan cara mewujudkannya.',
     [
       terms(
@@ -1926,6 +3347,178 @@ export const lessons: LessonDraft[] = [
         'Menelusuri hierarki butuh query rekursif',
         'Untuk mengambil seluruh keturunan sebuah kategori, SQL punya `WITH RECURSIVE`. Untuk hierarki yang dangkal (dua sampai tiga tingkat), beberapa `JOIN` biasa lebih sederhana dan lebih mudah dibaca.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Relasi banyak-ke-banyak selalu dicontohkan dengan artikel dan tag, dan contoh itu bagus justru karena ia langsung memunculkan pertanyaan yang menentukan, yaitu **apakah tabel penghubungnya membawa data sendiri**. Jawabannya mengubah bentuk tabelnya.',
+      ),
+      code(
+        'sql',
+        `
+        CREATE TABLE artikel (id serial PRIMARY KEY, judul text NOT NULL);
+        CREATE TABLE tag     (id serial PRIMARY KEY, nama text NOT NULL UNIQUE);
+
+        CREATE TABLE artikel_tag (
+          artikel_id int NOT NULL REFERENCES artikel(id) ON DELETE CASCADE,
+          tag_id     int NOT NULL REFERENCES tag(id)     ON DELETE CASCADE,
+
+          -- Dua kolom berikut yang membuatnya lebih dari sekadar penghubung.
+          ditambah_oleh text NOT NULL,
+          ditambah_pada timestamptz NOT NULL DEFAULT now(),
+
+          PRIMARY KEY (artikel_id, tag_id)   -- <-- ini yang menjaga tidak ada pasangan ganda
+        );
+        `,
+        { caption: 'Skema ini benar-benar dibuat di PostgreSQL 16.15 untuk pengujian di bawah.' },
+      ),
+      p(
+        'Baris `PRIMARY KEY (artikel_id, tag_id)` adalah bagian yang paling sering dilupakan, dan tanpanya tabel penghubung menerima pasangan yang sama berulang kali. Akibatnya bukan error melainkan tag yang muncul dua kali di halaman artikel, dan hitungan yang berlipat pada laporan.',
+      ),
+      code(
+        'text',
+        `
+        INSERT INTO artikel_tag (artikel_id, tag_id, ditambah_oleh) VALUES (1, 1, 'budi');
+
+          ERROR:  duplicate key value violates unique constraint "artikel_tag_pkey"
+          DETAIL:  Key (artikel_id, tag_id)=(1, 1) already exists.
+        `,
+        { caption: 'Dijalankan sungguhan. Pasangan (1,1) sudah ditambahkan rina sebelumnya.' },
+      ),
+      p(
+        'Perhatikan bahwa yang ditolak adalah **pasangannya**, bukan nilai kolomnya masing-masing. Artikel 1 tetap boleh punya banyak tag, dan tag 1 tetap boleh menempel di banyak artikel. Yang tidak boleh hanyalah pasangan yang sama muncul dua kali, dan itu tepat arti primary key gabungan.',
+      ),
+      p(
+        'Membacanya kembali memerlukan dua `JOIN`, dan bentuk berikut adalah yang paling sering dipakai karena ia mengembalikan satu baris per artikel.',
+      ),
+      code(
+        'text',
+        `
+        SELECT a.judul, string_agg(t.nama, ', ' ORDER BY t.nama) AS tag
+        FROM artikel a
+        JOIN artikel_tag at ON at.artikel_id = a.id
+        JOIN tag t          ON t.id = at.tag_id
+        GROUP BY a.id, a.judul
+        ORDER BY a.id;
+
+              judul     |       tag
+          --------------+------------------
+           Belajar SQL  | database, pemula
+           Belajar HTTP | pemula, web
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15.' },
+      ),
+      p(
+        'Bagian `ORDER BY t.nama` di dalam `string_agg` itu bukan hiasan. Tanpanya, urutan tag di dalam satu baris tidak dijamin, dan halaman yang sama bisa menampilkan urutan berbeda pada pemuatan berikutnya. Ini bentuk lain dari masalah urutan tidak stabil yang sudah diukur pada sub-bab paginasi.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Relasi ke diri sendiri, misalnya komentar yang bisa dibalas, adalah bentuk yang paling sering membuat pemula bingung sebab tabelnya menunjuk dirinya sendiri. Bentuknya sebenarnya sederhana.',
+      ),
+      code(
+        'sql',
+        `
+        CREATE TABLE komentar (
+          id       serial PRIMARY KEY,
+          induk_id int REFERENCES komentar(id) ON DELETE CASCADE,  -- boleh NULL
+          isi      text NOT NULL
+        );
+
+        -- induk_id NULL berarti komentar tingkat atas.
+        -- ON DELETE CASCADE berarti menghapus induk ikut menghapus seluruh balasannya,
+        -- dan itu MENJALAR ke balasan atas balasan.
+        `,
+      ),
+      code(
+        'text',
+        `
+        Membaca seluruh pohon dengan satu query rekursif:
+
+        WITH RECURSIVE pohon AS (
+          SELECT id, induk_id, isi, 0 AS kedalaman
+          FROM komentar WHERE induk_id IS NULL
+        UNION ALL
+          SELECT k.id, k.induk_id, k.isi, p.kedalaman + 1
+          FROM komentar k JOIN pohon p ON k.induk_id = p.id
+        )
+        SELECT repeat('  ', kedalaman) || isi FROM pohon ORDER BY id;
+
+           Komentar utama
+             Balasan pertama
+               Balasan atas balasan
+           Komentar utama kedua
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15.' },
+      ),
+      p(
+        'Query rekursif ini menggantikan pola N+1 yang biasanya ditulis pertama kali, yaitu mengambil komentar tingkat atas lalu memanggil database lagi untuk setiap tingkat balasannya. Untuk pohon sedalam lima tingkat dengan seratus komentar, pola itu menghasilkan ratusan query, sedangkan bentuk di atas satu.',
+      ),
+      p('Dua bahaya melekat pada relasi ke diri sendiri, dan keduanya harus ditangani sadar.'),
+      code(
+        'text',
+        `
+        BAHAYA 1 — penghapusan yang menjalar tanpa terlihat
+
+          DELETE FROM komentar WHERE id = 1;
+
+          Satu perintah itu menghapus 'Balasan pertama' DAN 'Balasan atas balasan',
+          sebab CASCADE menjalar mengikuti pohonnya. Tidak ada konfirmasi apa pun,
+          dan jumlah baris yang dilaporkan hanya menghitung yang disebut langsung.
+
+        BAHAYA 2 — lingkaran
+
+          UPDATE komentar SET induk_id = 3 WHERE id = 1;
+
+          Komentar 1 jadi anak dari komentar 3, yang merupakan cucunya sendiri.
+          Foreign key TIDAK mencegah ini, sebab setiap barisnya tetap menunjuk
+          baris yang ada. Query rekursif di atas akan berputar tanpa henti.
+        `,
+      ),
+      p(
+        'Bahaya kedua layak ditegaskan karena foreign key sering dianggap menutup segalanya. Ia hanya menjamin bahwa yang ditunjuk **ada**, bukan bahwa susunannya masuk akal. Pencegahannya ada di aplikasi, atau di klausa `CYCLE` pada query rekursif PostgreSQL yang menghentikan penelusuran begitu sebuah baris dikunjungi dua kali.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Merancang relasi adalah keputusan yang paling mahal diubah, sebab mengubahnya berarti memindahkan data yang sudah ada beserta setiap kode yang membacanya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyimpan banyak nilai dalam satu kolom dipisah koma',
+            'Menghindari tabel ketiga',
+            'Tidak bisa di-`JOIN`, tidak bisa di-index, dan tidak ada yang menjaga isinya tetap sah',
+          ],
+          [
+            'Lupa primary key gabungan di tabel penghubung',
+            'Kedua kolomnya sudah `REFERENCES`',
+            'Diuji sungguhan, tanpa itu pasangan yang sama bisa masuk berkali-kali dan hitungan jadi berlipat',
+          ],
+          [
+            'Memakai `ON DELETE CASCADE` pada relasi ke diri sendiri tanpa berpikir',
+            'Balasan memang ikut terhapus',
+            'Penghapusannya menjalar ke seluruh kedalaman pohon tanpa konfirmasi dan tanpa jumlah yang dilaporkan',
+          ],
+          [
+            'Membaca pohon komentar dengan perulangan per tingkat',
+            'Paling mudah dibayangkan',
+            'Menghasilkan pola N+1 bertingkat. Satu `WITH RECURSIVE` menggantikan seluruhnya',
+          ],
+          [
+            'Mengandalkan foreign key untuk mencegah lingkaran',
+            'Kan sudah ada batasannya',
+            'Foreign key hanya memastikan yang ditunjuk ada. Susunan melingkar tetap lolos',
+          ],
+          [
+            'Membuat tabel terpisah untuk relasi satu-ke-satu tanpa alasan',
+            'Lebih rapi',
+            'Menambah `JOIN` pada setiap pembacaan. Pisahkan hanya bila kolomnya jarang dipakai atau bersifat sensitif',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir punya batas yang layak diperjelas karena relasi satu-ke-satu memang kadang benar. Memisahkan kolom yang jarang dibaca, misalnya isi dokumen yang besar, membuat pembacaan tabel utamanya lebih ringan. Memisahkan kolom yang aksesnya perlu dibatasi, misalnya nomor identitas, memungkinkan izin database diberikan terpisah. Di luar dua alasan itu, dua tabel yang selalu dibaca bersamaan lebih baik menjadi satu.',
+      ),
       references(
         {
           label: 'Foreign Keys',
@@ -1958,7 +3551,7 @@ export const lessons: LessonDraft[] = [
   written(
     'transaksi-acid',
     'Transaksi & ACID',
-    12,
+    20,
     'Beberapa perubahan yang berhasil bersama atau gagal bersama.',
     [
       p(
@@ -2168,6 +3761,198 @@ export const lessons: LessonDraft[] = [
       p(
         'Mulai dari default. Naikkan tingkat isolasi hanya kalau kamu bisa menyebutkan anomali konkret yang ingin dicegah — bukan karena terdengar lebih aman.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Transaksi paling mudah dipahami lewat satu pengukuran yang menunjukkan keadaan setengah jadi yang **tidak pernah terlihat siapa pun**. Berikut pengurangan stok yang dibatalkan di tengah jalan.',
+      ),
+      code(
+        'text',
+        `
+        SELECT stok FROM produk WHERE sku = 'SKU-000042';
+          stok = 100
+
+        BEGIN;
+          UPDATE produk SET stok = stok - 100 WHERE sku = 'SKU-000042';
+          SELECT stok FROM produk WHERE sku = 'SKU-000042';
+            stok = 0          <- terlihat DI DALAM transaksi ini saja
+        ROLLBACK;
+
+        SELECT stok FROM produk WHERE sku = 'SKU-000042';
+          stok = 100          <- kembali utuh
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15.' },
+      ),
+      p(
+        'Angka nol di tengah itu nyata bagi transaksi yang sedang berjalan dan tidak pernah ada bagi siapa pun di luarnya. Sesi lain yang membaca stok pada saat itu tetap melihat 100. Inilah yang dimaksud **isolation**, dan ia satu-satunya alasan sebuah operasi berlangkah banyak bisa gagal di tengah tanpa meninggalkan data yang mustahil dijelaskan.',
+      ),
+      p(
+        'Berikut bentuk nyatanya pada pembuatan pesanan, yang selalu punya tiga langkah yang harus berhasil bersama-sama.',
+      ),
+      code(
+        'ts',
+        `
+        // Tiga langkah yang harus utuh atau tidak sama sekali.
+        await db.transaction(async (tx) => {
+          // 1. Kurangi stok secara ATOMIK, dan biarkan syaratnya yang menolak.
+          const { rowCount } = await tx.query(
+            \`UPDATE produk SET stok = stok - $2
+             WHERE id = $1 AND stok >= $2\`,
+            [produkId, jumlah],
+          );
+          // Nol baris berarti stoknya tidak cukup. Melempar di sini membatalkan semuanya.
+          if (rowCount === 0) throw new StokKurang(produkId);
+
+          // 2. Catat pesanannya.
+          const pesanan = await tx.query(
+            'INSERT INTO pesanan (pelanggan_id) VALUES ($1) RETURNING id',
+            [pelangganId],
+          );
+
+          // 3. Catat itemnya, beserta SALINAN harga saat ini.
+          await tx.query(
+            \`INSERT INTO item_pesanan (pesanan_id, produk_id, jumlah, harga_satuan)
+             SELECT $1, id, $3, harga FROM produk WHERE id = $2\`,
+            [pesanan.rows[0].id, produkId, jumlah],
+          );
+        });
+
+        // Yang TIDAK boleh ada di dalam blok ini:
+        //   - panggilan ke layanan pembayaran
+        //   - pengiriman email atau notifikasi
+        //   - pemanggilan API pihak ketiga mana pun
+        // Semuanya menahan kunci selama menunggu jaringan, dan jaringan bisa
+        // menggantung jauh lebih lama daripada query mana pun.
+        `,
+        {
+          caption:
+            'Pengurangan stok dan pemeriksaannya digabung jadi satu perintah, jadi tidak ada celah di antaranya.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Ada satu perilaku transaksi PostgreSQL yang membingungkan hampir semua orang saat pertama kali melihatnya, yaitu **satu error membatalkan seluruh transaksi**, termasuk perintah yang sudah berhasil sebelumnya.',
+      ),
+      code(
+        'text',
+        `
+        BEGIN;
+        INSERT INTO pelanggan (email, nama) VALUES ('sah1@contoh.id', 'Sah Satu');
+          INSERT 0 1                                          <- berhasil
+
+        INSERT INTO pelanggan (email, nama) VALUES ('pengguna1@contoh.id', 'Kembar');
+          ERROR:  duplicate key value violates unique constraint "pelanggan_email_key"
+          DETAIL:  Key (email)=(pengguna1@contoh.id) already exists.
+
+        INSERT INTO pelanggan (email, nama) VALUES ('sah2@contoh.id', 'Sah Dua');
+          ERROR:  current transaction is aborted, commands ignored
+                  until end of transaction block
+
+        SELECT count(*) FROM pelanggan;
+          ERROR:  current transaction is aborted, commands ignored
+                  until end of transaction block
+
+        COMMIT;
+          ROLLBACK                                            <- COMMIT berubah jadi ROLLBACK
+
+        Yang benar-benar tersimpan sesudahnya: 0 baris.
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15.' },
+      ),
+      p(
+        'Tiga hal terjadi sekaligus di situ. Setelah error pertama, **setiap** perintah berikutnya ditolak dengan pesan yang sama, termasuk `SELECT` yang tidak mengubah apa pun. Lalu `COMMIT` yang dijalankan di akhir tidak menyimpan apa-apa melainkan dilaporkan sebagai `ROLLBACK`. Dan yang paling penting, baris `sah1@contoh.id` yang tadi berhasil ikut hilang.',
+      ),
+      p(
+        'Perilaku ini benar dan memang yang diinginkan, sebab arti transaksi adalah semua atau tidak sama sekali. Yang perlu diketahui adalah bahwa error di tengah transaksi tidak bisa sekadar ditangkap lalu dilanjutkan. Untuk itu ada `SAVEPOINT`.',
+      ),
+      code(
+        'text',
+        `
+        BEGIN;
+        INSERT INTO pelanggan (email, nama) VALUES ('sp1@contoh.id', 'Titik Satu');
+          INSERT 0 1
+
+        SAVEPOINT sebelum_ragu;
+        INSERT INTO pelanggan (email, nama) VALUES ('pengguna1@contoh.id', 'Kembar');
+          ERROR:  duplicate key value violates unique constraint "pelanggan_email_key"
+
+        ROLLBACK TO SAVEPOINT sebelum_ragu;    <- hanya membatalkan sampai titik itu
+        INSERT INTO pelanggan (email, nama) VALUES ('sp2@contoh.id', 'Titik Dua');
+          INSERT 0 1                            <- transaksinya hidup lagi
+        COMMIT;
+
+        Yang tersimpan: 2 baris.
+        `,
+        { caption: 'Dijalankan sungguhan. Bandingkan dengan 0 baris pada percobaan sebelumnya.' },
+      ),
+      p(
+        'Kegagalan kedua adalah **deadlock**, yaitu dua transaksi yang saling menunggu kunci milik lawannya. PostgreSQL mendeteksinya lalu membunuh salah satu.',
+      ),
+      code(
+        'text',
+        `
+        Sesi A: UPDATE saldo ... id = 1   lalu   id = 2
+        Sesi B: UPDATE saldo ... id = 2   lalu   id = 1
+
+        ERROR:  deadlock detected
+        DETAIL:  Process 482844 waits for ShareLock on transaction 821;
+                 blocked by process 482845.
+                 Process 482845 waits for ShareLock on transaction 822;
+                 blocked by process 482844.
+        HINT:  See server log for query details.
+        CONTEXT:  while updating tuple (0,2) in relation "saldo"
+        `,
+        { caption: 'Dijalankan sungguhan dengan dua sesi psql bersamaan.' },
+      ),
+      p(
+        'Hanya satu dari dua sesi yang menerima error itu, dan yang lain berhasil sepenuhnya. Karena itu aplikasi yang menangani deadlock dengan benar tidak menampilkan kegagalan kepada pengguna melainkan **mencoba ulang** transaksinya. Percobaan ulang aman di sini justru karena transaksinya sudah dibatalkan seluruhnya, jadi tidak ada keadaan setengah jadi yang tertinggal.',
+      ),
+      p(
+        'Pencegahannya satu kalimat, yaitu ambil kunci dalam urutan yang selalu sama. Untuk transfer saldo, urutkan berdasarkan id alih-alih berdasarkan siapa pengirim dan siapa penerima.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Transaksi adalah alat yang mudah dipakai setengah benar, dan setengah benar di sini berarti tetap meninggalkan data rusak.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menangkap error di tengah transaksi lalu melanjutkan',
+            'Errornya sudah ditangani',
+            'Diuji sungguhan, setiap perintah berikutnya ditolak `current transaction is aborted`. Pakai `SAVEPOINT`',
+          ],
+          [
+            'Memanggil API pembayaran di dalam transaksi',
+            'Sekalian satu kesatuan',
+            'Kuncinya tertahan selama menunggu jaringan. Panggil di luar, lalu catat hasilnya di transaksi pendek',
+          ],
+          [
+            'Membungkus seluruh permintaan HTTP dalam satu transaksi',
+            'Lebih aman',
+            'Transaksi jadi sepanjang permintaan, termasuk menunggu hal yang tidak perlu dikunci',
+          ],
+          [
+            'Menganggap deadlock sebagai kegagalan yang harus ditampilkan',
+            'Ada kata error',
+            'Diuji sungguhan, satu sesi berhasil dan yang gagal sudah dibatalkan utuh. Coba ulang, jangan dilaporkan',
+          ],
+          [
+            'Memeriksa stok dengan `SELECT` lalu `UPDATE`',
+            'Sudah dipastikan cukup',
+            'Ada celah di antaranya. Gabungkan jadi `UPDATE ... WHERE stok >= n` lalu periksa jumlah barisnya',
+          ],
+          [
+            'Mengandalkan `COMMIT` yang berhasil sebagai bukti data tersimpan',
+            'Tidak ada error',
+            'Diuji sungguhan, `COMMIT` pada transaksi yang sudah gagal dilaporkan sebagai `ROLLBACK`. Periksa hasilnya',
+          ],
+        ],
+      ),
+      p(
+        'Baris ketiga layak diperjelas karena ia terdengar seperti kehati-hatian. Transaksi menahan kunci selama ia terbuka, dan permintaan HTTP memuat banyak hal yang tidak ada hubungannya dengan database, misalnya menyusun respons, memformat tanggal, atau menunggu pemanggilan lain. Menahan kunci selama itu memperbesar peluang deadlock dan membuat sesi lain menunggu tanpa alasan. Bukalah transaksi tepat sebelum penulisan pertama dan tutup tepat setelah penulisan terakhir.',
+      ),
       references(
         {
           label: 'Transactions',
@@ -2200,7 +3985,7 @@ export const lessons: LessonDraft[] = [
   written(
     'sql-injection',
     'SQL Injection & Prepared Statement',
-    12,
+    21,
     'Kerentanan tertua yang masih terus terjadi, dan cara menutupnya sepenuhnya.',
     [
       p(
@@ -2404,6 +4189,224 @@ export const lessons: LessonDraft[] = [
       p(
         'Kalau suatu hari ada injeksi yang lolos, hak akses yang sempit membatasi kerusakannya. Aplikasi yang tidak pernah mengubah skema tidak boleh terhubung sebagai pemilik skema.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman login adalah tempat SQL injection paling sering ditemui, dan alasannya bukan karena login itu rumit melainkan karena bentuk query-nya paling mudah ditebak penyerang. Berikut demonstrasinya, dijalankan sungguhan pada basis data percobaan terisolasi berisi dua pengguna.',
+      ),
+      code(
+        'text',
+        `
+        Tabel pengguna:
+          id | email            | sandi_hash | peran
+          ---+------------------+------------+-------
+           1 | rina@contoh.id   | $2b$abc    | user
+           2 | admin@contoh.id  | $2b$xyz    | admin
+
+        Kode servernya merangkai query dengan penggabungan teks:
+
+          const q = "SELECT id, email, peran FROM pengguna WHERE email = '" + masukan + "'";
+        `,
+      ),
+      code(
+        'text',
+        `
+        MASUKAN 1 — pengguna biasa
+          rina@contoh.id
+
+          query jadi: SELECT id, email, peran FROM pengguna WHERE email = 'rina@contoh.id';
+
+           id |     email      | peran
+           ---+----------------+-------
+            1 | rina@contoh.id | user
+          (1 row)
+
+        MASUKAN 2 — penyerang
+          ' OR '1'='1
+
+          query jadi: SELECT id, email, peran FROM pengguna WHERE email = '' OR '1'='1';
+
+           id |      email      | peran
+           ---+-----------------+-------
+            1 | rina@contoh.id  | user
+            2 | admin@contoh.id | admin      <-- seluruh tabel terbuka
+          (2 rows)
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15 di basis data percobaan terpisah.' },
+      ),
+      p(
+        'Yang terjadi bukan penyerang "membobol" apa pun. Ia hanya mengetik teks yang, setelah digabungkan, **mengubah bentuk query-nya**. Tanda kutip pertama menutup string yang sedang dibuka, dan sisanya menjadi bagian dari SQL yang dijalankan server dengan senang hati. Inilah akar seluruh persoalan, yaitu data pengguna dan perintah SQL dicampur menjadi satu teks, sehingga tidak ada lagi cara membedakan keduanya.',
+      ),
+      p('Serangan kedua menunjukkan bahwa akibatnya jauh melampaui melewati login.'),
+      code(
+        'text',
+        `
+        MASUKAN 3
+          ' UNION SELECT id, email, sandi_hash FROM pengguna --
+
+          query jadi:
+            SELECT id, email, peran FROM pengguna WHERE email = ''
+            UNION SELECT id, email, sandi_hash FROM pengguna --';
+
+           id |      email      |  peran
+           ---+-----------------+---------
+            1 | rina@contoh.id  | $2b$abc     <-- hash sandi, di kolom "peran"
+            2 | admin@contoh.id | $2b$xyz
+          (2 rows)
+        `,
+        { caption: 'Dijalankan sungguhan. Kolom peran kini berisi hash sandi seluruh pengguna.' },
+      ),
+      p(
+        'Penyerang tidak perlu akses ke basis data, tidak perlu kata sandi, dan tidak perlu satu pun kerentanan lain. Ia hanya memakai satu kotak isian yang memang disediakan untuknya, lalu membaca kolom mana pun dari tabel mana pun yang bisa dijangkau akun database aplikasimu. Tanda `--` di akhir mematikan sisa query aslinya sehingga tanda kutip yang menggantung tidak menghasilkan error.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Perbaikannya satu hal, dan hanya satu, yaitu **jangan pernah menggabungkan masukan pengguna ke dalam teks query**. Kirim query dan datanya sebagai dua hal terpisah, dan biarkan database yang menyatukannya. Berikut ketiga masukan yang sama persis, dijalankan lewat query berparameter.',
+      ),
+      code(
+        'text',
+        `
+        PREPARE cari(text) AS SELECT id, email, peran FROM pengguna WHERE email = $1;
+
+        masukan: rina@contoh.id
+           id |     email      | peran
+           ---+----------------+-------
+            1 | rina@contoh.id | user
+          (1 row)
+
+        masukan: ' OR '1'='1
+           id | email | peran
+           ---+-------+-------
+          (0 rows)
+
+        masukan: ' UNION SELECT id, email, sandi_hash FROM pengguna --
+           id | email | peran
+           ---+-------+-------
+          (0 rows)
+        `,
+        { caption: 'Dijalankan sungguhan. Query-nya sama, masukannya sama, hasilnya aman.' },
+      ),
+      p(
+        "Perhatikan bahwa kedua serangan tidak menghasilkan error, melainkan **nol baris**. Itu tepat yang seharusnya terjadi, sebab `' OR '1'='1` memang bukan alamat email siapa pun. Database mencarinya sebagai teks biasa, tidak menemukannya, lalu menjawab kosong. Parameter tidak \"membersihkan\" masukannya melainkan memindahkannya ke tempat yang **tidak bisa mengubah bentuk query**.",
+      ),
+      p(
+        'Sekarang batas yang harus diketahui, dan bagian ini yang paling sering luput. Parameter hanya bisa dipakai untuk **nilai**, tidak untuk nama tabel, nama kolom, maupun arah pengurutan.',
+      ),
+      code(
+        'text',
+        `
+        PREPARE urut(text) AS SELECT id, email FROM pengguna ORDER BY $1 LIMIT 2;
+        EXECUTE urut('email');
+
+           id |      email
+           ---+-----------------
+            1 | rina@contoh.id
+            2 | admin@contoh.id      <-- urutan id, BUKAN urutan email
+
+        Bandingkan dengan pengurutan yang sebenarnya:
+        SELECT id, email FROM pengguna ORDER BY email LIMIT 2;
+
+           id |      email
+           ---+-----------------
+            2 | admin@contoh.id
+            1 | rina@contoh.id
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Parameternya diperlakukan sebagai teks tetap, jadi pengurutannya tidak terjadi.',
+        },
+      ),
+      p(
+        'Jadi memakai parameter untuk nama kolom tidak menghasilkan error melainkan pengurutan yang diam-diam tidak berfungsi. Godaan berikutnya adalah merangkainya dengan penggabungan teks, dan di situlah kerentanan yang sama kembali lewat pintu yang berbeda.',
+      ),
+      code(
+        'text',
+        `
+        Kode: "SELECT id, email FROM pengguna ORDER BY " + kolomDariPengguna
+
+        masukan: email; DROP TABLE artikel_tag
+
+           id |      email
+           ---+-----------------
+            2 | admin@contoh.id
+            1 | rina@contoh.id
+          (2 rows)
+
+        Lalu:
+        SELECT count(*) FROM artikel_tag;
+          ERROR:  relation "artikel_tag" does not exist
+        `,
+        { caption: 'Dijalankan sungguhan di basis data percobaan. Tabelnya benar-benar terhapus.' },
+      ),
+      p(
+        'Query pertama mengembalikan hasil yang terlihat normal, dan tabel `artikel_tag` sudah tidak ada. Tidak ada error yang muncul ke pengguna, dan tidak ada tanda apa pun di respons. Karena parameter tidak bisa menolong di sini, satu-satunya perlindungan adalah **daftar yang diizinkan**.',
+      ),
+      code(
+        'ts',
+        `
+        // Nama kolom TIDAK PERNAH boleh datang dari pengguna, meski sudah "divalidasi"
+        // dengan regex. Petakan dari daftar tetap yang kamu tulis sendiri.
+        const KOLOM_URUT = {
+          terbaru: 'dibuat_pada DESC, id DESC',
+          nama: 'nama ASC, id ASC',
+          harga: 'harga ASC, id ASC',
+        } as const;
+
+        function daftarProduk(urut: string) {
+          // Kunci yang tidak dikenal jatuh ke bawaan, bukan diteruskan apa adanya.
+          const klausa = KOLOM_URUT[urut as keyof typeof KOLOM_URUT] ?? KOLOM_URUT.terbaru;
+          return db.query(\`SELECT * FROM produk ORDER BY \${klausa} LIMIT $1\`, [20]);
+        }
+
+        // Nilai tetap lewat parameter; hanya potongan SQL dari daftar TETAP yang boleh
+        // digabungkan. Perhatikan setiap kunci berakhir pada kolom unik, sesuai
+        // aturan urutan stabil yang sudah diukur di sub-bab paginasi.
+        `,
+        { caption: 'Ini pola yang menutup injeksi lewat ORDER BY tanpa mengorbankan fiturnya.' },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Sebagian besar kesalahan di sini berasal dari percaya pada perlindungan yang sebenarnya tidak melindungi.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyaring kata kunci berbahaya seperti `DROP` dan `UNION`',
+            'Serangannya kan memakai kata itu',
+            'Selalu ada bentuk lain — huruf besar kecil dicampur, komentar disisipkan, penyandian berbeda. Daftar larangan selalu bisa dilewati',
+          ],
+          [
+            'Meng-escape tanda kutip sendiri',
+            'Itu yang dipakai penyerang',
+            'Penyandian karakter dan tipe data tertentu punya jalan lain. Serahkan ke driver lewat parameter',
+          ],
+          [
+            'Memakai ORM lalu merasa aman sepenuhnya',
+            'ORM kan sudah memakai parameter',
+            'Setiap ORM punya jalan keluar untuk SQL mentah, dan di situlah penggabungan teks kembali masuk',
+          ],
+          [
+            'Memakai parameter untuk nama kolom di `ORDER BY`',
+            'Sama-sama masukan pengguna',
+            'Diuji sungguhan, pengurutannya diam-diam tidak terjadi. Nama kolom butuh daftar yang diizinkan',
+          ],
+          [
+            'Merangkai `ORDER BY` dari masukan pengguna',
+            'Parameter tidak bisa, jadi tidak ada pilihan',
+            'Diuji sungguhan, satu masukan menghapus sebuah tabel tanpa error apa pun di respons',
+          ],
+          [
+            'Memakai akun database dengan hak penuh',
+            'Supaya tidak ada yang menghalangi',
+            'Satu celah injeksi jadi berhak menghapus tabel dan membaca segalanya. Beri hak seminimal yang dibutuhkan',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir adalah lapisan kedua yang harganya nol dan sering dilewatkan. Aplikasi web yang tidak pernah membuat tabel tidak perlu terhubung sebagai pemilik skema. Dengan akun yang hanya berhak membaca dan menulis baris, serangan `DROP TABLE` yang barusan ditunjukkan akan gagal di tingkat izin meski celah injeksinya ada. Tidak ada satu lapisan pun yang cukup sendirian, dan itu tepat alasan kenapa keduanya dipasang.',
+      ),
       references(
         {
           label: 'SQL Injection Prevention Cheat Sheet',
@@ -2436,7 +4439,7 @@ export const lessons: LessonDraft[] = [
   written(
     'praktik-skema-blog',
     'Praktik: Rancang skema untuk aplikasi blog',
-    13,
+    19,
     'Menerapkan seluruh bab pada satu rancangan utuh.',
     [
       p(
@@ -2704,6 +4707,195 @@ export const lessons: LessonDraft[] = [
         'Pastikan tidak ada satu pun query di kodemu yang dirangkai dengan penggabungan string',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Skema blog yang dibangun di sub-bab ini benar-benar dibuat di PostgreSQL 16.15 lalu diisi 50.000 artikel dan 60.000 komentar, supaya setiap keputusan di dalamnya bisa diukur akibatnya. Dua bagian yang biasanya tidak muncul di contoh sederhana justru yang paling menentukan, yaitu batasan lintas-kolom dan index parsial.',
+      ),
+      code(
+        'sql',
+        `
+        CREATE TABLE artikel (
+          id          bigserial PRIMARY KEY,
+          penulis_id  bigint NOT NULL REFERENCES penulis(id),
+          slug        text NOT NULL UNIQUE,
+          judul       text NOT NULL,
+          isi         text NOT NULL,
+          status      text NOT NULL DEFAULT 'draf'
+                      CHECK (status IN ('draf','terbit','arsip')),
+          terbit_pada timestamptz,
+          dibuat_pada timestamptz NOT NULL DEFAULT now(),
+
+          -- Batasan LINTAS-KOLOM: artikel berstatus terbit wajib punya waktu terbit.
+          -- Satu baris ini menutup keadaan yang mustahil dijelaskan di laporan mana pun.
+          CONSTRAINT terbit_wajib_berwaktu
+            CHECK (status <> 'terbit' OR terbit_pada IS NOT NULL)
+        );
+        `,
+        { caption: 'Skema ini benar-benar dijalankan, dan batasannya diuji di bawah.' },
+      ),
+      p(
+        'Batasan `terbit_wajib_berwaktu` adalah jenis yang biasanya ditulis sebagai aturan di kode aplikasi lalu dilanggar oleh jalur kode kedua yang lupa memeriksanya, misalnya sebuah skrip impor atau perintah administratif. Ditaruh di database, ia berlaku untuk semua jalur tanpa kecuali.',
+      ),
+      code(
+        'text',
+        `
+        INSERT INTO artikel (penulis_id, slug, judul, isi, status)
+        VALUES (1, 'x', 'X', 'isi', 'terbit');
+
+          ERROR:  new row for relation "artikel" violates check constraint
+                  "terbit_wajib_berwaktu"
+          DETAIL:  Failing row contains (50001, 1, x, X, isi, terbit, null, 2026-09-14 ...).
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15.' },
+      ),
+      p(
+        'Keputusan kedua adalah **index parsial**, yaitu index yang hanya memuat sebagian baris. Halaman depan blog hanya pernah menampilkan artikel berstatus terbit, jadi tidak ada gunanya artikel draf ikut masuk index.',
+      ),
+      code(
+        'sql',
+        `
+        CREATE INDEX idx_artikel_terbit
+          ON artikel(terbit_pada DESC, id DESC)
+          WHERE status = 'terbit';
+
+        -- Tiga keputusan dalam satu baris:
+        --   DESC          mengikuti urutan yang benar-benar dipakai halaman depan
+        --   , id DESC     pemecah seri, supaya paginasinya tidak melewatkan baris
+        --   WHERE status  hanya baris terbit yang masuk index
+        `,
+      ),
+      code(
+        'text',
+        `
+        Diukur pada 50.000 artikel (33.334 terbit, 16.666 draf):
+
+          ukuran tabel artikel        : 5536 kB
+          index parsial (hanya terbit): 1040 kB
+          index penuh (semua baris)   : 1552 kB
+
+        Query halaman depan:
+          SELECT id, judul FROM artikel WHERE status='terbit'
+          ORDER BY terbit_pada DESC, id DESC LIMIT 20;
+
+          TANPA index
+            Seq Scan on artikel, Rows Removed by Filter: 16666
+            Sort Method: top-N heapsort  Memory: 26kB
+            Execution Time: 8,865 ms
+
+          DENGAN index parsial
+            Index Scan using idx_artikel_terbit
+            Execution Time: 0,018 ms
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15.' },
+      ),
+      p(
+        'Dua keuntungan sekaligus terlihat di angka itu. Index parsial 33 persen lebih kecil daripada index penuh, dan ia tidak perlu diperbarui ketika sebuah artikel draf disunting, sebab baris draf memang tidak ada di dalamnya. Selisih waktunya sekitar 490 kali, dan yang membuatnya sebesar itu bukan hanya pemindaian melainkan juga `top-N heapsort` yang hilang seluruhnya karena index sudah menyimpan urutannya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Halaman artikel biasanya menampilkan lebih dari sekadar artikel, yaitu nama penulis, jumlah komentar yang disetujui, dan daftar tag. Di sinilah pola N+1 paling sering lahir, sebab setiap tambahan itu terasa seperti pengambilan data yang terpisah.',
+      ),
+      code(
+        'ts',
+        `
+        // Bentuk yang hampir selalu ditulis pertama, dan menghasilkan 61 query
+        // untuk satu halaman berisi 20 artikel.
+        const artikel = await db.query('SELECT ... FROM artikel ... LIMIT 20');
+
+        for (const a of artikel) {
+          a.penulis = await db.query('SELECT nama FROM penulis WHERE id = $1', [a.penulis_id]);
+          a.jumlahKomentar = await db.query(
+            'SELECT count(*) FROM komentar WHERE artikel_id = $1 AND disetujui', [a.id]);
+          a.tag = await db.query('SELECT ... FROM artikel_tag ... WHERE artikel_id = $1', [a.id]);
+        }
+        `,
+        {
+          caption:
+            '1 query daftar + 20 penulis + 20 hitungan + 20 tag = 61 perjalanan ke database.',
+        },
+      ),
+      code(
+        'text',
+        `
+        Satu query yang menggantikan seluruhnya:
+
+        SELECT a.slug, a.judul, p.nama AS penulis,
+               (SELECT count(*) FROM komentar k
+                WHERE k.artikel_id = a.id AND k.disetujui) AS jml_komentar,
+               (SELECT string_agg(t.nama, ', ') FROM artikel_tag at
+                JOIN tag t ON t.id = at.tag_id WHERE at.artikel_id = a.id) AS tag
+        FROM artikel a JOIN penulis p ON p.id = a.penulis_id
+        WHERE a.status = 'terbit'
+        ORDER BY a.terbit_pada DESC, a.id DESC
+        LIMIT 20;
+
+        Rencana eksekusinya:
+          Index Scan using idx_artikel_terbit on artikel a (rows=20)
+          SubPlan 1 -> Index Only Scan using idx_komentar_artikel (loops=20)
+          SubPlan 2 -> Index Only Scan using artikel_tag_pkey    (loops=20)
+          Execution Time: 0,167 ms
+        `,
+        { caption: 'Dijalankan sungguhan. Satu perjalanan ke database untuk seluruh halaman.' },
+      ),
+      p(
+        'Baris `loops=20` pada rencana eksekusi itu menarik, sebab subquery-nya memang dijalankan dua puluh kali. Bedanya, dua puluh kali itu terjadi **di dalam database** tanpa perjalanan jaringan, dan keduanya memakai index. Seperti yang sudah diukur di sub-bab `JOIN`, biaya N+1 bukan terletak pada banyaknya query melainkan pada banyaknya perjalanan bolak-balik.',
+      ),
+      p('Index yang membuat subquery pertama murah juga parsial, dan alasannya sama.'),
+      code(
+        'sql',
+        `
+        CREATE INDEX idx_komentar_artikel ON komentar(artikel_id) WHERE disetujui;
+
+        -- Komentar yang belum disetujui tidak pernah ikut dihitung di halaman publik,
+        -- jadi ia tidak perlu ada di index. Baris moderasi yang menunggu antrean
+        -- biasanya jauh lebih sedikit daripada yang sudah tayang, dan dengan index
+        -- parsial ia tidak menambah biaya penulisan di jalur publik sama sekali.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Merancang skema adalah pekerjaan yang hasilnya baru terasa berbulan-bulan kemudian, dan itu membuat sebagian besar kesalahannya tidak terlihat saat ditulis.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menaruh aturan lintas-kolom hanya di kode aplikasi',
+            'Di situ tempat logika bisnis',
+            'Jalur kedua seperti skrip impor melewatinya. Diuji sungguhan, `CHECK` menolaknya dari semua jalur',
+          ],
+          [
+            'Membuat index penuh padahal query-nya selalu menyaring',
+            'Index kan untuk mempercepat',
+            'Diukur, index parsial 33 persen lebih kecil dan tidak ikut diperbarui saat baris draf disunting',
+          ],
+          [
+            'Mengurutkan hanya dengan `terbit_pada DESC`',
+            'Itu yang ditampilkan',
+            'Waktu bisa sama persis pada impor massal. Akhiri dengan `id DESC` agar urutannya pasti',
+          ],
+          [
+            'Mengambil penulis, tag, dan jumlah komentar satu per satu',
+            'Masing-masing datanya terpisah',
+            'Diukur, 61 query untuk satu halaman. Satu query dengan subquery berindeks selesai 0,167 ms',
+          ],
+          [
+            'Memakai `id` berurutan sebagai slug URL',
+            'Sudah unik dan pendek',
+            'Membocorkan jumlah artikel dan memudahkan penelusuran berurutan. Pakai slug teks yang `UNIQUE`',
+          ],
+          [
+            'Menghapus artikel dengan `DELETE`',
+            'Memang diminta dihapus',
+            'Komentar ikut terhapus lewat `CASCADE`, dan tidak ada jalan mengembalikannya. Pertimbangkan status `arsip`',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir sekaligus menjelaskan kenapa kolom `status` di skema ini punya nilai `arsip` di samping `draf` dan `terbit`. Menyembunyikan artikel dari halaman publik tidak harus berarti menghapusnya, dan perbedaan keduanya menjadi nyata pada hari seseorang meminta artikel yang tahun lalu ditarik. Dengan `arsip`, artikelnya masih ada beserta seluruh komentarnya, dan index parsial memastikan baris arsip itu tidak membebani halaman depan sama sekali.',
+      ),
       references(
         {
           label: 'CREATE TABLE',

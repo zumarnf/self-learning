@@ -20,7 +20,7 @@ export const lessons: LessonDraft[] = [
   written(
     'modul-es',
     'Modul ES: `import` & `export`',
-    11,
+    17,
     'Memecah kode ke banyak berkas tanpa membuat kekacauan variabel global.',
     [
       p(
@@ -252,6 +252,185 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Project yang sudah berjalan beberapa bulan biasanya punya puluhan berkas, dan di situ muncul dua masalah yang tidak terasa saat berkasnya baru lima. Pertama, baris impor di bagian atas berkas menjadi panjang dan berantakan karena tiap fungsi diambil dari berkasnya masing-masing. Kedua, halaman menjadi berat karena semua kode ikut diunduh pembaca walaupun sebagian besar tidak pernah ia buka.',
+      ),
+      p(
+        'Dua masalah itu punya jawaban yang berbeda, dan keduanya bagian dari materi sub-bab ini. Yang pertama diselesaikan berkas indeks, dan yang kedua diselesaikan dynamic import.',
+      ),
+      code(
+        'js',
+        `
+        // src/api/pesanan.js
+        export async function ambilPesanan(id) { /* ... */ }
+        export async function batalkanPesanan(id) { /* ... */ }
+
+        // src/api/produk.js
+        export async function ambilProduk(id) { /* ... */ }
+        export async function cariProduk(kata) { /* ... */ }
+
+        // src/api/index.js  <- berkas indeks, sering disebut barrel
+        export { ambilPesanan, batalkanPesanan } from './pesanan.js';
+        export { ambilProduk, cariProduk } from './produk.js';
+        `,
+        { filename: 'Tiga berkas, satu pintu masuk' },
+      ),
+      p(
+        "Dengan berkas indeks itu, pemakainya cukup menulis satu baris impor, yaitu `import { ambilPesanan, cariProduk } from './api/index.js'`. Keuntungan yang lebih besar baru terasa nanti. Kalau suatu hari `pesanan.js` dipecah menjadi dua berkas karena isinya terlalu banyak, kamu cukup memperbarui `index.js` dan tidak ada satu pun berkas pemakai yang perlu diubah. Berkas indeks berperan sebagai lapisan pemisah antara struktur folder di dalam dan cara memakainya dari luar.",
+      ),
+      callout(
+        'warning',
+        'Berkas indeks punya harga yang perlu diketahui',
+        'Karena satu impor menarik seluruh isi indeks, alat pembangun harus bekerja lebih keras untuk membuang yang tidak dipakai, dan pada project besar ini bisa memperlambat build. Pakai berkas indeks untuk sekumpulan berkas yang memang biasa dipakai bersama, bukan untuk seluruh folder secara membabi buta.',
+      ),
+      code(
+        'js',
+        `
+        // Library grafik beratnya ratusan kilobyte, dan hanya dipakai di tab Laporan.
+        // Statis: ikut terunduh walaupun pengguna tidak pernah membuka tab itu.
+        // import { gambarGrafik } from './grafik-berat.js';
+
+        async function bukaTabLaporan() {
+          tampilkanSkeleton();
+
+          // Dynamic import: berkasnya baru diunduh saat baris ini dijalankan.
+          const { gambarGrafik } = await import('./grafik-berat.js');
+
+          gambarGrafik(document.querySelector('#grafik'), await ambilDataLaporan());
+        }
+        `,
+        { filename: 'src/tab-laporan.js' },
+      ),
+      p(
+        'Perbedaan `import` di bagian atas berkas dan `import()` di dalam fungsi bukan sekadar gaya penulisan. Bentuk pertama adalah pernyataan yang diproses alat pembangun sebelum kode dijalankan, sehingga isinya selalu ikut dalam berkas yang diunduh pembaca. Bentuk kedua adalah pemanggilan sungguhan yang mengembalikan janji, dan alat pembangun memisahkan berkas itu menjadi potongan tersendiri yang baru diunduh saat dibutuhkan.',
+      ),
+      p(
+        'Perhatikan `tampilkanSkeleton()` dipanggil sebelum `await import(...)`, dan itu bukan hiasan. Mengunduh potongan baru butuh waktu, dan tanpa tanda apa pun pengguna akan mengira tab-nya rusak. Ini keadaan memuat yang menjadi salah satu dari empat keadaan wajib tiap tampilan, dan pembahasan penuhnya ada di kategori Frontend Intermediate.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Error modul punya satu sifat yang membedakannya dari error lain, yaitu sebagian besarnya terjadi **sebelum** satu baris kodemu sempat dijalankan. Karena itu gejalanya sering berupa halaman yang benar-benar kosong.',
+      ),
+      code(
+        'text',
+        `
+        import { hitungTotal } from './src/util.js';
+                 ^^^^^^^^^^^
+
+        SyntaxError: The requested module './src/util.js' does not
+        provide an export named 'hitungTotal'
+        `,
+        { caption: 'Nama yang diimpor tidak ada di berkas tujuannya.' },
+      ),
+      p(
+        'Pesan ini sangat informatif, dan ia menyebut kedua sisinya sekaligus. Tiga penyebab yang paling sering adalah salah ketik nama, berkas tujuan memakai `export default` sedangkan kamu mengimpornya dengan kurung kurawal, dan fungsi yang lupa diberi kata `export` di depannya. Perhatikan ini `SyntaxError`, sehingga ia terdeteksi saat berkasnya dibaca dan bukan saat fungsinya dipanggil, jadi seluruh berkas gagal berjalan bukan hanya bagian ini.',
+      ),
+      code(
+        'text',
+        `
+        Error [ERR_MODULE_NOT_FOUND]: Cannot find module
+        '/home/kamu/toko/src/util' imported from /home/kamu/toko/z.js
+        Did you mean to import "./src/util.js"?
+        `,
+        { caption: 'Ekstensi `.js` tidak ditulis.' },
+      ),
+      p(
+        'Node.js mewajibkan ekstensi berkas ditulis lengkap pada impor relatif, dan itu berbeda dari kebiasaan yang mungkin kamu lihat di project berbasis alat pembangun seperti Vite atau Next.js. Kabar baiknya Node.js menebakkan jawabannya sendiri di baris terakhir. Kalau kamu berpindah antara project yang memakai alat pembangun dan skrip Node.js polos, inilah perbedaan yang paling sering menyandung.',
+      ),
+      code(
+        'text',
+        `
+        console.log('b.js melihat dariA =', dariA);
+                                            ^
+
+        ReferenceError: Cannot access 'dariA' before initialization
+        `,
+        { caption: 'Dua berkas saling mengimpor, dan salah satunya membaca terlalu awal.' },
+      ),
+      p(
+        'Ini gejala impor melingkar, yaitu `a.js` mengimpor `b.js` sementara `b.js` mengimpor `a.js`. JavaScript menanganinya tanpa melempar error saat memuat, tapi salah satu berkas pasti dijalankan lebih dulu, dan berkas kedua akan melihat nilai dari berkas pertama yang belum sempat diisi. Perbaikan yang benar bukan menambal urutannya melainkan memindahkan bagian yang dibutuhkan keduanya ke berkas ketiga yang tidak mengimpor keduanya.',
+      ),
+      table(
+        ['Pesan error', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            "`does not provide an export named 'x'`",
+            'Salah ketik, atau bentuk ekspor dan impornya tidak cocok',
+            'Samakan bentuknya, yaitu kurung kurawal untuk ekspor bernama dan tanpa kurung kurawal untuk `default`',
+          ],
+          [
+            '`ERR_MODULE_NOT_FOUND`',
+            'Jalur berkasnya salah, atau ekstensi `.js` tidak ditulis',
+            'Tulis ekstensinya lengkap, dan periksa jumlah `../` pada jalurnya',
+          ],
+          [
+            "`Cannot access 'x' before initialization` saat memuat",
+            'Impor melingkar antara dua berkas',
+            'Pindahkan bagian bersama ke berkas ketiga',
+          ],
+          [
+            '`Cannot use import statement outside a module`',
+            'Berkasnya tidak diperlakukan sebagai module',
+            'Tambahkan `"type": "module"` di `package.json`, atau `type="module"` pada tag skrip',
+          ],
+          [
+            'Halaman kosong tanpa satu pun error di console',
+            'Tag skrip menunjuk jalur yang salah sehingga server mengirim halaman error',
+            'Buka tab Network di DevTools dan periksa status permintaan berkas skripnya',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Modul terlihat seperti soal sintaks, padahal sebagian besar kesalahannya soal keputusan struktur. Baris di bawah dipilih karena ketiganya baru terasa merugikan beberapa minggu setelah ditulis.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `export default` untuk semua berkas',
+            'Bentuknya lebih pendek dan tidak perlu kurung kurawal',
+            'Nama saat diimpor bebas, sehingga satu fungsi bisa dipanggil dengan tiga nama berbeda di tiga berkas. Ekspor bernama membuat pencarian nama di seluruh project menjadi mungkin',
+          ],
+          [
+            'Menjalankan kode di badan modul, bukan di dalam fungsi',
+            'Berkasnya toh hanya dimuat sekali',
+            'Kode itu berjalan begitu berkasnya diimpor siapa pun, termasuk oleh test. Modul sebaiknya hanya mendefinisikan, dan yang menjalankan adalah pemanggilnya',
+          ],
+          [
+            'Mengimpor berkas hanya untuk efek sampingnya',
+            "Bentuk `import './setup.js'` memang sah",
+            'Urutannya menjadi penting dan tidak terlihat dari kode. Alat pembangun juga bisa membuangnya karena tidak ada yang dipakai',
+          ],
+          [
+            'Membuat berkas indeks untuk setiap folder',
+            'Terlihat rapi dan seragam',
+            'Menambah jalur impor tak langsung yang harus ditelusuri, dan mempermudah lahirnya impor melingkar. Buat indeks hanya untuk folder yang memang punya batas jelas',
+          ],
+          [
+            'Menyimpan variabel yang bisa berubah di dalam modul',
+            'Modul dimuat sekali, jadi terasa seperti tempat menyimpan yang aman',
+            'Nilainya dibagi seluruh aplikasi, dan siapa pun yang mengimpornya bisa mengubahnya. Ini penyebab bug yang sangat sulit dilacak, dan sudah dibahas di Sub-bab 1.2',
+          ],
+          [
+            'Memakai dynamic import untuk semua hal supaya bundelnya kecil',
+            'Semakin banyak yang ditunda semakin ringan halaman awalnya',
+            'Tiap potongan berarti satu permintaan jaringan tambahan saat dibuka. Tunda hanya yang besar dan benar-benar jarang dipakai',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua adalah yang paling sering menyulitkan saat kamu mulai menulis test. Kalau `src/api/pesanan.js` langsung memanggil server di badan modulnya, maka setiap test yang kebetulan mengimpor berkas itu ikut memanggil server. Aturan praktisnya, badan modul hanya berisi `import`, `export`, deklarasi fungsi, dan konstanta. Segala yang benar-benar melakukan sesuatu ditaruh di dalam fungsi dan dipanggil dari satu titik masuk yang jelas.',
+      ),
+      callout(
+        'tip',
+        'Cara cepat memilih antara ekspor bernama dan `default`',
+        'Pakai ekspor bernama sebagai kebiasaan. Pakai `export default` hanya kalau berkas itu memang berisi satu hal utama yang jelas, misalnya satu komponen React per berkas. Beberapa project bahkan melarang `export default` lewat aturan lint, dan alasannya persis yang disebut di baris pertama tabel.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Yang tidak di-`export` tidak bisa disentuh dari luar — batasnya dijaga bahasa.',
@@ -298,7 +477,7 @@ export const lessons: LessonDraft[] = [
   written(
     'error-handling',
     'Error Handling: `try`, `catch`, `finally`',
-    12,
+    20,
     'Menangani kegagalan dengan sengaja — bukan menyembunyikannya sampai jadi kerusakan diam-diam.',
     [
       p(
@@ -585,6 +764,240 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Setiap aplikasi yang berbicara dengan server akhirnya punya satu fungsi pembungkus untuk memanggil API. Fungsi itu selalu tumbuh, dan yang membuatnya tumbuh bukan penambahan fitur melainkan penemuan bahwa gagal itu ada banyak macamnya. Kabel internet putus berbeda dari email yang formatnya salah, dan keduanya berbeda lagi dari server yang sedang rusak. Ketiganya butuh perlakuan yang berbeda di layar.',
+      ),
+      p(
+        'Kalau ketiganya ditangani dengan satu `catch` yang menampilkan pesan yang sama, pengguna yang salah mengetik email akan melihat tulisan terjadi kesalahan pada server, dan ia tidak akan pernah tahu bahwa yang perlu ia perbaiki adalah ketikannya sendiri.',
+      ),
+      code(
+        'js',
+        `
+        class ErrorJaringan extends Error {
+          constructor(pesan, { cause } = {}) {
+            super(pesan, { cause });
+            this.name = 'ErrorJaringan';
+          }
+        }
+
+        class ErrorValidasi extends Error {
+          constructor(pesan, field) {
+            super(pesan);
+            this.name = 'ErrorValidasi';
+            this.field = field;      // supaya UI bisa menyorot kolom yang salah
+          }
+        }
+
+        class ErrorServer extends Error {
+          constructor(pesan, status) {
+            super(pesan);
+            this.name = 'ErrorServer';
+            this.status = status;
+          }
+        }
+        `,
+        { filename: 'src/errors.js' },
+      ),
+      p(
+        'Tiga kelas ini semuanya mewarisi `Error`, sehingga `e instanceof Error` tetap bernilai `true` dan seluruh alat yang sudah ada tetap mengenalinya. Yang ditambahkan tiap kelas adalah **informasi yang dibutuhkan penanganannya**. `ErrorValidasi` membawa `field` supaya tampilan bisa menyorot kolom yang salah. `ErrorServer` membawa `status` supaya kode pemanggil bisa memutuskan apakah layak dicoba lagi. `ErrorJaringan` membawa `cause`, yaitu error asli yang menyebabkannya, sehingga penyebab teknisnya tidak hilang.',
+      ),
+      code(
+        'js',
+        `
+        import { ErrorJaringan, ErrorValidasi, ErrorServer } from './errors.js';
+
+        export async function ambilJson(url, opsi) {
+          let respons;
+
+          try {
+            respons = await fetch(url, opsi);
+          } catch (penyebab) {
+            // fetch hanya melempar untuk kegagalan jaringan, bukan untuk status 4xx/5xx.
+            throw new ErrorJaringan(\`Tidak bisa menghubungi \${url}\`, { cause: penyebab });
+          }
+
+          if (respons.status === 422) {
+            const isi = await respons.json();
+            throw new ErrorValidasi(isi.pesan ?? 'Data tidak sah', isi.field);
+          }
+
+          if (!respons.ok) {
+            throw new ErrorServer(\`Server menjawab \${respons.status}\`, respons.status);
+          }
+
+          return respons.json();
+        }
+        `,
+        { filename: 'src/api/klien.js' },
+      ),
+      p(
+        'Komentar di dalam `catch` menandai satu hal yang mengejutkan hampir semua orang saat pertama kali memakai `fetch`, yaitu status 404 dan 500 **tidak** melempar error. `fetch` hanya melempar kalau permintaannya tidak sampai sama sekali, misalnya karena tidak ada internet atau nama domainnya tidak ditemukan. Respons 500 tetap dianggap berhasil sampai di tujuan, dan karena itu pemeriksaan `respons.ok` harus ditulis sendiri. Ini penyebab bug yang sangat sering, yaitu aplikasi menampilkan data kosong alih-alih pesan error.',
+      ),
+      p(
+        'Urutan pemeriksaannya juga disengaja. Status 422 diperiksa lebih dulu dan dipisahkan dari `!respons.ok` yang umum, sebab hanya untuk kasus itulah badan responsnya berisi keterangan kolom mana yang salah. Kalau urutannya dibalik, `!respons.ok` akan menangkap 422 lebih dulu dan keterangan kolomnya hilang.',
+      ),
+      code(
+        'js',
+        `
+        try {
+          await simpanProfil(data);
+        } catch (e) {
+          if (e instanceof ErrorValidasi) {
+            sorotKolom(e.field, e.message);           // pengguna bisa memperbaiki sendiri
+          } else if (e instanceof ErrorJaringan) {
+            tampilkanBanner('Koneksi terputus. Coba lagi?', { bolehCobaLagi: true });
+          } else if (e instanceof ErrorServer && e.status >= 500) {
+            laporkanKeSentry(e);                      // ini bug kami, bukan salah pengguna
+            tampilkanBanner('Ada gangguan di sisi kami. Tim sudah diberi tahu.');
+          } else {
+            throw e;                                  // yang tidak dikenali JANGAN ditelan
+          }
+        }
+        `,
+        { filename: 'src/halaman-profil.js' },
+      ),
+      p(
+        'Baris `throw e` di cabang terakhir adalah bagian yang paling sering hilang, dan ia yang membedakan penanganan error dari penyembunyian error. Tiga cabang di atasnya menangani hal yang memang sudah kamu perkirakan. Apa pun di luar itu adalah kejadian yang belum kamu pahami, dan menelannya berarti mengubah bug yang bisa diperbaiki menjadi perilaku aneh tanpa jejak. Melemparnya kembali membuatnya sampai ke jaring pengaman terakhir dan tercatat.',
+      ),
+      callout(
+        'tip',
+        'Bedakan yang bisa diperbaiki pengguna dari yang tidak',
+        'Kalau pengguna bisa melakukan sesuatu untuk memperbaikinya, katakan apa yang harus ia lakukan. Kalau ia tidak bisa, jangan tampilkan detail teknis yang tidak berguna baginya, dan pastikan errornya sampai ke sistem pemantauanmu. Pesan error yang bocor ke pengguna juga bisa membocorkan informasi internal, dan itu dibahas di Kategori Keamanan Fullstack.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Bagian ini agak berbeda dari sub-bab lain, sebab yang dibahas justru error tentang error. Dua di antaranya adalah kegagalan yang muncul karena penanganannya sendiri yang keliru.',
+      ),
+      code(
+        'text',
+        `
+        node x.js
+
+        baris ini tetap jalan
+        Error: gagal simpan catatan
+            at simpan (file:///home/kamu/toko/x.js:1:32)
+            at file:///home/kamu/toko/x.js:2:1
+        `,
+        { caption: 'Janji yang gagal tanpa ada yang menangkapnya.' },
+      ),
+      p(
+        'Perhatikan urutan keluarannya, sebab di situlah pelajarannya. Baris `baris ini tetap jalan` tercetak **lebih dulu** daripada errornya. Ini karena `simpan()` dipanggil tanpa `await`, sehingga program terus berjalan dan kegagalannya baru muncul belakangan. Di browser, bentuknya adalah `Uncaught (in promise) Error: ...`. Kalau kamu melihat error yang muncul terlambat dan seakan tidak berhubungan dengan baris mana pun, tersangka pertamanya selalu janji yang lupa di-`await` atau lupa diberi `catch`.',
+      ),
+      code(
+        'text',
+        `
+        function ambil() {
+          try {
+            return 'berhasil';
+          } finally {
+            return 'dari finally';
+          }
+        }
+
+        console.log(ambil());   // 'dari finally'
+        `,
+        { caption: 'Tidak ada error, tapi nilai kembaliannya bukan yang kamu kira.' },
+      ),
+      p(
+        '`return` di dalam `finally` menimpa `return` dari `try` maupun `catch`, dan lebih buruk lagi ia juga menelan error yang sedang dalam perjalanan naik. Artinya sebuah `throw` di dalam `try` bisa lenyap tanpa jejak hanya karena ada `return` di `finally`. Aturan praktisnya sederhana, yaitu `finally` hanya untuk membersihkan, misalnya menutup koneksi atau mematikan indikator memuat, dan tidak pernah untuk mengembalikan nilai.',
+      ),
+      code(
+        'text',
+        `
+        try {
+          JSON.parse(teksDariServer);
+        } catch (e) {
+          // tidak ada isinya
+        }
+
+        (tidak ada keluaran apa pun, dan datanya diam-diam hilang)
+        `,
+        { caption: '`catch` kosong mengubah kegagalan berisik menjadi kesalahan senyap.' },
+      ),
+      p(
+        'Blok `catch` kosong adalah salah satu dari sedikit hal yang hampir selalu salah. Ia mengubah kegagalan yang seharusnya terlihat menjadi data yang diam-diam hilang, dan penyelidikan berikutnya akan dimulai dari tempat yang sama sekali berbeda. Kalau kamu memang sengaja mengabaikan sebuah kegagalan, tulis komentar yang menyebutkan alasannya, dan tetap catat kejadiannya. Aturan ini juga ditegakkan banyak konfigurasi lint dengan nama `no-empty`.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`Uncaught (in promise) Error: ...`',
+            'Fungsi async dipanggil tanpa `await` dan tanpa `catch`',
+            'Tambahkan `await` di dalam `try`, atau rangkaikan `.catch()`',
+          ],
+          [
+            'Error muncul terlambat dan tidak terkait baris mana pun',
+            'Kegagalannya berasal dari janji yang berjalan sendiri',
+            'Telusuri pemanggilan async yang hasilnya tidak dipakai',
+          ],
+          [
+            'Fungsi mengembalikan nilai dari `finally`',
+            '`return` di `finally` menimpa segalanya, termasuk `throw`',
+            'Jangan pernah menulis `return` di dalam `finally`',
+          ],
+          [
+            'Aplikasi menampilkan data kosong padahal server menjawab 500',
+            '`fetch` tidak melempar untuk status kegagalan',
+            'Periksa `respons.ok` secara eksplisit sebelum membaca isinya',
+          ],
+          [
+            'Kegagalan hilang tanpa jejak',
+            '`catch` kosong, atau `catch` yang hanya mencetak lalu melanjutkan',
+            'Tangani, atau lempar ulang. Jangan pernah hanya menelan',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Penanganan error paling sering dipakai sebagai obat penenang, yaitu dipasang supaya errornya berhenti muncul. Itu kebalikan dari tujuannya. Empat baris pertama di bawah semuanya bentuk dari kekeliruan itu.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membungkus kode yang sering gagal dengan `try` supaya errornya hilang',
+            'Errornya memang berhenti muncul di console',
+            'Penyebabnya masih ada dan sekarang tidak terlihat. Cari akar masalahnya lebih dulu, sebab `try` bukan perbaikan melainkan penundaan',
+          ],
+          [
+            'Menangkap error lalu hanya menulis `console.error(e)`',
+            'Setidaknya errornya tercatat',
+            'Program melanjutkan seolah tidak terjadi apa-apa, membawa data setengah jadi ke langkah berikutnya. Setelah mencatat, tentukan mau memulihkan atau melempar ulang',
+          ],
+          [
+            'Membungkus seluruh isi fungsi dalam satu `try` besar',
+            'Semua kemungkinan gagal jadi tertangani sekaligus',
+            'Kamu kehilangan informasi bagian mana yang gagal, dan penanganannya terpaksa seragam. Bungkus bagian yang memang bisa gagal saja',
+          ],
+          [
+            "Melempar teks biasa dengan `throw 'gagal'`",
+            'Bentuknya lebih pendek daripada membuat objek',
+            'Teks tidak punya `stack`, sehingga kamu kehilangan jejak asal kegagalannya. Selalu lempar `new Error(...)`',
+          ],
+          [
+            'Memakai pesan error yang sama untuk kegagalan yang berbeda',
+            'Pengguna toh tidak peduli detailnya',
+            'Pengguna kehilangan petunjuk apa yang bisa ia lakukan, dan kamu kehilangan petunjuk saat menelusuri laporan bug',
+          ],
+          [
+            'Menampilkan `e.message` mentah ke pengguna',
+            'Pesan itu paling menjelaskan apa yang terjadi',
+            'Pesan teknis bisa memuat nama tabel, jalur berkas, atau detail internal lain. Tampilkan pesan yang ramah, dan simpan detailnya di log',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama layak diingat sebagai aturan tetap. Kalau kamu memasang `try` karena ada error yang mengganggu, tanyakan lebih dulu kenapa error itu muncul. Sebagian besar error yang orang tutup dengan `try` sebenarnya bisa dicegah dengan memeriksa nilainya lebih awal, dan hasilnya kode yang lebih pendek sekaligus lebih benar. Disiplin mencari akar masalah sebelum menambal ini juga yang dipakai di seluruh materi debugging pada sub-bab berikutnya.',
+      ),
+      callout(
+        'danger',
+        'Jaring pengaman terakhir bukan pengganti penanganan',
+        'Pasang `window.onerror` dan `window.onunhandledrejection` supaya kegagalan yang lolos tetap tercatat, tapi jangan memakainya sebagai alasan untuk tidak menangani kegagalan di tempatnya. Jaring itu untuk hal yang tidak kamu duga, bukan untuk hal yang kamu tahu bisa gagal.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Selalu `throw new Error(...)`, jangan string — jejak tumpukan itu berharga.',
@@ -632,7 +1045,7 @@ export const lessons: LessonDraft[] = [
   written(
     'debugging',
     'Debugging dengan DevTools & `"use strict"`',
-    11,
+    19,
     'Menemukan penyebab masalah dengan alat, bukan dengan menebak lalu mengubah baris acak.',
     [
       p(
@@ -859,6 +1272,195 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Ada laporan masuk dari tim penjualan. Total di keranjang belanja kadang meleset beberapa ribu rupiah, tapi hanya kadang, dan tidak ada yang bisa menyebutkan langkah pastinya. Tidak ada error di console, tidak ada permintaan yang gagal, dan halaman terlihat baik-baik saja. Inilah jenis bug yang paling menghabiskan waktu kalau ditelusuri dengan menebak, dan paling cepat selesai kalau ditelusuri dengan mempersempit.',
+      ),
+      p(
+        'Yang membedakan penelusuran cepat dari penelusuran lambat bukan kepintaran melainkan urutan. Urutannya selalu sama, yaitu buat kegagalannya bisa diulang, lalu persempit sampai satu baris, baru perbaiki.',
+      ),
+      steps(
+        {
+          title: 'Buat kegagalannya bisa diulang',
+          body: 'Sebelum apa pun, cari satu rangkaian langkah yang selalu menghasilkan angka yang salah. Selama kamu belum bisa mengulanginya sesuka hati, kamu tidak punya cara untuk tahu apakah perbaikanmu berhasil. Kalau bugnya kadang muncul kadang tidak, itu petunjuk kuat bahwa ia bergantung pada data tertentu, urutan tertentu, atau waktu tertentu.',
+        },
+        {
+          title: 'Lihat datanya, jangan menebak isinya',
+          body: 'Cetak seluruh isi keranjang dengan `console.table(keranjang)` alih-alih mencetak totalnya saja. Bentuk tabel memperlihatkan seluruh baris sekaligus, dan mata jauh lebih cepat menemukan satu baris yang bentuknya berbeda daripada membaca satu per satu.',
+        },
+        {
+          title: 'Persempit ke satu langkah perhitungan',
+          body: 'Pasang breakpoint bersyarat di baris penjumlahan, dengan syarat yang hanya benar untuk baris yang mencurigakan. Ini menghemat puluhan kali menekan tombol lanjut, dan langsung menghentikan program pada keadaan yang kamu cari.',
+        },
+        {
+          title: 'Baca nilainya di tempat, bukan dari ingatan',
+          body: 'Saat program berhenti, periksa nilai tiap variabel di panel Scope. Yang kamu cari bukan nilai yang salah besar melainkan nilai yang tipenya tidak sesuai dugaan, misalnya harga yang ternyata teks.',
+        },
+        {
+          title: 'Perbaiki, lalu buktikan dengan langkah yang sama',
+          body: 'Ulangi rangkaian langkah dari nomor satu. Kalau angkanya benar sekarang dan tetap benar setelah halaman dimuat ulang, barulah perbaikannya selesai.',
+        },
+      ),
+      code(
+        'js',
+        `
+        // Langkah 2: lihat seluruh barisnya sekaligus.
+        console.table(keranjang);
+
+        // ┌─────────┬────┬────────┬──────────┬────────┐
+        // │ (index) │ id │ nama   │ harga    │ jumlah │
+        // ├─────────┼────┼────────┼──────────┼────────┤
+        // │ 0       │ 1  │ 'Kaos' │ 89000    │ 2      │
+        // │ 1       │ 2  │ 'Topi' │ '55000'  │ 1      │  <- harga berupa teks
+        // └─────────┴────┴────────┴──────────┴────────┘
+        `,
+        { caption: 'Satu baris punya tipe yang berbeda dari yang lain.' },
+      ),
+      p(
+        "Tanda kutip di sekitar `'55000'` adalah seluruh jawabannya, dan itu terlihat dalam dua detik lewat `console.table` sementara `console.log(total)` tidak akan pernah menunjukkannya. Barang yang ditambahkan lewat satu jalur tertentu, misalnya lewat tombol beli cepat, ternyata mengirim harga sebagai teks. Penjumlahan dengan `+` lalu menggabungkan teks alih-alih menjumlahkan, dan itu menjelaskan kenapa bugnya hanya kadang muncul. Inilah coercion dari Sub-bab 1.4 muncul kembali sebagai bug produksi.",
+      ),
+      code(
+        'js',
+        `
+        // Langkah 3: breakpoint bersyarat, dipasang lewat klik kanan pada nomor baris.
+        // Syarat yang diketik di kotaknya:
+        typeof item.harga !== 'number'
+
+        // Program hanya berhenti pada iterasi yang bermasalah,
+        // bukan pada seluruh 40 baris keranjang.
+        `,
+        { caption: 'Syarat breakpoint ditulis sebagai ekspresi JavaScript biasa.' },
+      ),
+      p(
+        'Breakpoint bersyarat adalah alat yang paling kurang dipakai padahal paling menghemat waktu. Syaratnya ditulis sebagai ekspresi biasa yang bisa memakai variabel apa pun yang terlihat di baris itu. Selain bentuk ini, DevTools juga menyediakan logpoint, yaitu titik yang mencetak sesuatu tanpa menghentikan program, dan itu berguna saat menghentikan program justru mengubah perilakunya, misalnya pada kode yang berhubungan dengan waktu.',
+      ),
+      callout(
+        'tip',
+        'Cetak yang bisa dibandingkan, bukan yang hanya bisa dilihat',
+        "Ganti `console.log(nilai)` dengan `console.log({ nilai })` supaya nama variabelnya ikut tercetak. Untuk daftar object, `console.table` jauh lebih terbaca. Untuk menghitung berapa kali sebuah baris dilewati, `console.count('nama')` lebih ringkas daripada membuat penghitung sendiri.",
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Bagian ini membahas hal yang membuat pesan error menjadi sulit dibaca, sebab pesan yang membingungkan sering bukan salah pesannya melainkan salah tempat kamu membacanya.',
+      ),
+      code(
+        'text',
+        `
+        TypeError: Cannot read properties of undefined (reading 'harga')
+            at hitungTotal (bundle.min.js:1:48213)
+            at bundle.min.js:1:51902
+            at bundle.min.js:1:2044
+        `,
+        { caption: 'Jejak tumpukan menunjuk ke berkas hasil build, bukan ke kode sumbermu.' },
+      ),
+      p(
+        'Baris `bundle.min.js:1:48213` berarti seluruh kodemu digabung menjadi satu berkas satu baris, dan angka 48213 adalah kolom ke sekian ribu. Tidak ada gunanya membuka berkas itu. Yang perlu dinyalakan adalah source map, yaitu berkas pendamping yang memetakan posisi di berkas hasil build kembali ke berkas sumbermu. Sebagian besar alat pembangun menyalakannya secara bawaan di mode pengembangan, jadi kalau kamu melihat jejak seperti ini saat mengembangkan, periksa apakah kamu tidak sengaja menjalankan versi produksi.',
+      ),
+      code(
+        'text',
+        `
+        Uncaught TypeError: Cannot set properties of null (setting 'textContent')
+            at app.js:3:38
+        `,
+        { caption: 'Elemen tidak ditemukan karena skrip berjalan sebelum halaman siap.' },
+      ),
+      p(
+        'Pesan ini hampir selalu berarti `document.querySelector(...)` mengembalikan `null`. Dua penyebabnya, yaitu pemilihnya salah ketik, atau skripnya berjalan sebelum elemen itu ada di halaman. Cara membedakan keduanya cepat, yaitu ketik pemilih yang sama di console setelah halaman selesai dimuat. Kalau di console ia menemukan elemennya, berarti masalahnya waktu bukan pemilih, dan perbaikannya menaruh tag skrip di akhir `body` atau memakai atribut `defer`.',
+      ),
+      code(
+        'text',
+        `
+        console.log(pesanan);       // { total: 0, item: [] }
+        // beberapa baris kemudian
+        console.log(pesanan);       // { total: 0, item: [] }
+
+        // Padahal saat panah di console diklik, isinya justru terisi.
+        `,
+        { caption: 'Console menampilkan isi object saat dibuka, bukan saat dicetak.' },
+      ),
+      p(
+        'Ini jebakan console yang sangat sering menyesatkan. Untuk object dan array, console menyimpan rujukannya lalu membaca isinya saat kamu mengklik panah untuk membukanya, sehingga yang kamu lihat adalah keadaan **sekarang** bukan keadaan saat baris itu dijalankan. Kalau kamu perlu potret pada saat itu juga, cetak salinannya dengan `console.log(structuredClone(pesanan))`, atau cetak nilai primitifnya saja seperti `console.log(pesanan.total)`.',
+      ),
+      table(
+        ['Gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            'Jejak tumpukan menunjuk `bundle.min.js`',
+            'Source map tidak aktif, atau kamu menjalankan versi produksi',
+            'Nyalakan source map di konfigurasi build, dan pastikan menjalankan mode pengembangan',
+          ],
+          [
+            '`Cannot set properties of null`',
+            'Elemen belum ada saat skrip berjalan, atau pemilihnya salah',
+            'Uji pemilihnya di console, lalu pindahkan skripnya ke akhir `body` atau pakai `defer`',
+          ],
+          [
+            'Object yang dicetak isinya berbeda dari yang diharapkan',
+            'Console membaca isinya saat panah dibuka, bukan saat dicetak',
+            'Cetak salinannya dengan `structuredClone`, atau cetak nilai primitifnya',
+          ],
+          [
+            'Breakpoint tidak pernah tercapai',
+            'Berkas yang dibuka di panel Sources bukan berkas yang benar-benar dijalankan',
+            'Cari berkasnya lewat Ctrl+P di DevTools, atau sisipkan `debugger` langsung di kodenya',
+          ],
+          [
+            'Perubahan kode tidak terasa saat dimuat ulang',
+            'Berkas lama masih tersimpan di cache peramban',
+            'Muat ulang paksa, atau centang Disable cache selama DevTools terbuka',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan terbesar dalam debugging bukan memakai alat yang salah melainkan melewati langkah. Tiga baris pertama di bawah semuanya adalah bentuk dari melompat langsung ke perbaikan sebelum penyebabnya diketahui.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Mengubah beberapa hal sekaligus lalu memuat ulang',
+            'Kalau salah satunya berhasil, bugnya beres',
+            'Kamu tidak tahu mana yang memperbaikinya, dan mungkin ada dua perubahan yang saling menutupi. Ubah satu hal, uji, lalu lanjut',
+          ],
+          [
+            'Menambahkan `try` atau `?.` supaya errornya berhenti muncul',
+            'Halamannya jadi tidak rusak lagi',
+            'Gejalanya hilang dan penyebabnya tetap ada, sekarang tanpa peringatan. Bug yang sama akan muncul lagi di tempat lain',
+          ],
+          [
+            'Menebak penyebabnya lalu langsung menulis perbaikan',
+            'Dugaannya masuk akal dan kadang memang benar',
+            'Kalau salah, kamu menambah satu perubahan yang tidak perlu dan mempersulit penelusuran berikutnya. Buktikan dugaannya dulu dengan satu pemeriksaan kecil',
+          ],
+          [
+            'Mencetak nilai dengan `console.log(nilai)` tanpa nama',
+            'Nilainya toh terlihat',
+            'Setelah sepuluh cetakan, tidak ada yang tahu angka mana milik apa. Pakai `console.log({ nilai })` supaya namanya ikut',
+          ],
+          [
+            'Membaca jejak tumpukan dari baris paling bawah',
+            'Baris bawah terasa seperti kesimpulan',
+            'Baris teratas adalah tempat error benar-benar terjadi. Baris di bawahnya hanya menceritakan siapa yang memanggil siapa',
+          ],
+          [
+            'Meninggalkan `console.log` di kode yang dikirim ke produksi',
+            'Tidak ada salahnya, toh tidak terlihat pengguna',
+            'Ia terlihat siapa pun yang membuka DevTools, dan bisa membocorkan data. Ia juga membuat console penuh sehingga error sungguhan tenggelam',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua patut dijadikan aturan pribadi. Setiap kali kamu tergoda menambahkan `try`, `?.`, atau penundaan dengan `setTimeout` supaya sesuatu berhenti error, berhenti sejenak dan tanyakan kenapa nilainya kosong atau kenapa urutannya salah. Tiga penambal itu punya tempatnya masing-masing, dan tempatnya bukan sebagai jawaban pertama atas bug yang belum dipahami.',
+      ),
+      callout(
+        'tip',
+        'Sisipkan `debugger` kalau breakpoint sulit dipasang',
+        'Menulis satu baris `debugger;` di dalam kode menghentikan program di titik itu selama DevTools terbuka, dan ia bekerja bahkan pada kode yang sulit ditemukan di panel Sources. Jangan lupa menghapusnya sebelum menyimpan, dan sebagian besar konfigurasi lint memang sudah menandainya sebagai kesalahan supaya tidak ikut terkirim.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         '`console.log({ x })` mencetak nama beserta nilainya.',
@@ -906,7 +1508,7 @@ export const lessons: LessonDraft[] = [
   written(
     'praktik-todo-logic',
     'Praktik: Logika To-Do List tanpa DOM',
-    16,
+    23,
     'Menggabungkan seluruh bab menjadi satu modul logika yang bisa diuji — tanpa satu baris pun kode tampilan.',
     [
       p(
@@ -1255,6 +1857,190 @@ console.log(ringkasan(daftar));
         'Sudah dijalankan dengan `node` atau di playground di atas, dan outputnya diperiksa',
       ),
 
+      divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Logika todo yang baru kamu tulis sudah cukup untuk satu orang dengan sepuluh tugas. Begitu dipakai sungguhan, tiga permintaan hampir pasti datang. Pengguna ingin menandai semua sekaligus, ingin membersihkan yang sudah selesai dalam satu klik, dan ingin membatalkan kalau ternyata salah pencet. Permintaan ketiga itu yang mengubah bentuk kodenya.',
+      ),
+      p(
+        'Fitur urungkan tidak bisa ditambahkan belakangan kalau data diubah di tempat, sebab keadaan sebelumnya sudah hilang begitu diubah. Justru karena seluruh fungsi di sub-bab ini mengembalikan array baru dan tidak pernah mengubah yang lama, menambahkan urungkan menjadi mudah. Ini contoh nyata kenapa pantangan mutasi tadi bukan aturan kosong.',
+      ),
+      code(
+        'js',
+        `
+        export function buatToko(awal = []) {
+          let daftar = awal;
+          const riwayat = [];
+
+          // Simpan keadaan SEBELUM diubah. Karena tiap perubahan menghasilkan
+          // array baru, menyimpan rujukan yang lama sudah cukup.
+          const rekam = () => {
+            riwayat.push(daftar);
+            if (riwayat.length > 20) riwayat.shift();   // batasi supaya tidak menumpuk
+          };
+
+          return {
+            isi: () => daftar,
+
+            tambah(judul) {
+              rekam();
+              daftar = [...daftar, { id: crypto.randomUUID(), judul, selesai: false }];
+            },
+
+            tandaiSemua(selesai) {
+              rekam();
+              daftar = daftar.map((t) => ({ ...t, selesai }));
+            },
+
+            hapusSelesai() {
+              rekam();
+              daftar = daftar.filter((t) => !t.selesai);
+            },
+
+            urungkan() {
+              if (riwayat.length > 0) daftar = riwayat.pop();
+            },
+          };
+        }
+        `,
+        { filename: 'src/toko-todo.js' },
+      ),
+      p(
+        'Fungsi `rekam` hanya berisi satu baris yang menyimpan, dan itu terlihat terlalu sederhana untuk sebuah fitur urungkan. Ia memang sesederhana itu, **karena** `tambah`, `tandaiSemua`, dan `hapusSelesai` tidak pernah mengubah array lama. Setiap perubahan menghasilkan array baru, sehingga rujukan lama yang tersimpan di `riwayat` tetap menunjuk susunan yang lama apa adanya. Kalau salah satu fungsi memakai `push` atau `splice`, isi `riwayat` ikut berubah dan fitur urungkan mengembalikan keadaan yang sama dengan sekarang.',
+      ),
+      p(
+        'Baris `if (riwayat.length > 20) riwayat.shift()` adalah pembatas yang mudah dilupakan. Tanpa itu, setiap perubahan menambah satu salinan susunan ke memori, dan pada sesi panjang berisi ribuan perubahan, tab peramban menjadi berat. Angka 20 dipilih karena pengguna hampir tidak pernah membatalkan lebih dari beberapa langkah, dan angka itu layak ditulis sebagai konstanta bernama kalau nanti perlu diubah.',
+      ),
+      p(
+        'Perhatikan `daftar` dan `riwayat` dideklarasikan di dalam `buatToko` dan tidak pernah dikembalikan. Keduanya hanya bisa disentuh lewat empat fungsi yang disediakan, dan itu membuat mustahil ada bagian lain aplikasi yang mengubahnya diam-diam. Ini closure yang dipakai untuk membungkus keadaan, persis pola yang dibahas di Sub-bab 1.13, dan ia jauh lebih aman daripada menaruh `daftar` sebagai variabel di badan modul.',
+      ),
+      callout(
+        'tip',
+        'Pola ini yang akan kamu kenali lagi di React',
+        'Menyimpan keadaan di satu tempat, mengubahnya hanya lewat fungsi tertentu, dan selalu menghasilkan nilai baru bukan mengubah yang lama adalah persis cara kerja `useState` dan `useReducer`. Kalau bagian ini masuk sekarang, Bab 6 dan Bab 7 akan terasa seperti nama baru untuk hal yang sudah kamu pahami.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Tiga kegagalan berikut adalah yang paling sering muncul saat orang menyalin logika seperti ini ke project sungguhan.',
+      ),
+      code(
+        'text',
+        `
+        const id = crypto.randomUUID();
+                          ^
+
+        TypeError: crypto.randomUUID is not a function
+        `,
+        { caption: 'Dijalankan di halaman yang tidak memakai HTTPS.' },
+      ),
+      p(
+        'Peramban sengaja hanya menyediakan sebagian API pada konteks yang dianggap aman, yaitu HTTPS dan `localhost`. Kalau kamu membuka halaman lewat alamat IP di jaringan lokal seperti `http://192.168.1.5:3000`, `crypto.randomUUID` tidak tersedia dan pemanggilannya gagal. Perbaikan yang benar bukan membuat pembuat id sendiri, melainkan menguji lewat `localhost` atau memasang sertifikat untuk pengembangan.',
+      ),
+      code(
+        'text',
+        `
+        toko.tandaiSemua(true);
+        console.log(toko.isi()[0].selesai);   // true
+        console.log(daftarAsliDiKomponen[0].selesai);   // true juga, padahal tidak diminta
+        `,
+        { caption: 'Tidak ada error, tapi array di luar ikut berubah.' },
+      ),
+      p(
+        'Gejala ini muncul kalau salah satu fungsi diam-diam memakai method yang mengubah aslinya. Ganti `map` menjadi `forEach` yang menulis ke `t.selesai`, dan seluruh sifat baik kode ini hilang sekaligus, termasuk fitur urungkan. Cara paling mudah menjaganya adalah dengan mengingat daftar pendek method yang mengubah aslinya, yaitu `push`, `pop`, `shift`, `unshift`, `splice`, `sort`, `reverse`, dan `fill`.',
+      ),
+      code(
+        'text',
+        `
+        toko.hapusSelesai();
+        toko.urungkan();
+        toko.urungkan();
+
+        // Klik urungkan kedua tidak melakukan apa-apa, tanpa pesan apa pun.
+        `,
+        { caption: 'Riwayat sudah habis dan tidak ada tanda apa pun bagi pengguna.' },
+      ),
+      p(
+        'Fungsi `urungkan` sudah benar karena ia memeriksa `riwayat.length` sebelum memanggil `pop`. Tanpa pemeriksaan itu, `pop` pada array kosong mengembalikan `undefined` dan `daftar` menjadi `undefined`, sehingga pemanggilan berikutnya melempar `TypeError`. Yang masih kurang adalah tampilannya, sebab pengguna tidak punya cara tahu bahwa tidak ada lagi yang bisa dibatalkan. Sediakan cara memeriksanya, misalnya `bisaUrungkan: () => riwayat.length > 0`, lalu nonaktifkan tombolnya di tampilan.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`crypto.randomUUID is not a function`',
+            'Halaman dibuka lewat HTTP di alamat selain `localhost`',
+            'Uji lewat `localhost`, atau pasang sertifikat pengembangan',
+          ],
+          [
+            'Data di luar toko ikut berubah',
+            'Ada fungsi yang memakai method pengubah',
+            'Pastikan semuanya menghasilkan array baru lewat `map`, `filter`, dan spread',
+          ],
+          [
+            'Urungkan tidak mengembalikan apa pun',
+            'Riwayat menyimpan rujukan ke array yang isinya sudah ikut berubah',
+            'Jangan pernah mengubah array yang sudah masuk riwayat',
+          ],
+          [
+            'Tombol urungkan diam tanpa memberi tahu apa pun',
+            'Riwayat kosong dan tampilannya tidak diberi tahu',
+            'Sediakan `bisaUrungkan()`, lalu nonaktifkan tombolnya',
+          ],
+          [
+            'Tab menjadi berat setelah dipakai lama',
+            'Riwayat menumpuk tanpa batas',
+            'Batasi panjang riwayat dan buang yang paling lama',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Praktik ini menggabungkan hampir seluruh materi bab, sehingga kesalahannya juga campuran. Yang dikumpulkan di bawah adalah yang muncul justru saat kode sudah bekerja dan mulai dipakai orang lain.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai indeks array sebagai id tugas',
+            'Indeksnya unik dan sudah tersedia gratis',
+            'Indeks berubah begitu ada yang dihapus, sehingga tugas yang salah ikut tertandai. Simpan id sungguhan pada tiap tugas',
+          ],
+          [
+            'Menyimpan teks tampilan di dalam data',
+            'Sekalian saja supaya tidak dihitung berulang',
+            'Data dan tampilan jadi terikat, dan mengubah bahasa atau format berarti mengubah datanya. Simpan nilai mentah, dan format saat menampilkan',
+          ],
+          [
+            'Menaruh `daftar` sebagai variabel di badan modul',
+            'Lebih pendek daripada membuat fungsi pembungkus',
+            'Seluruh aplikasi berbagi satu daftar, dan test saling mempengaruhi. Bungkus dengan fungsi pembuat seperti `buatToko`',
+          ],
+          [
+            'Menggabungkan penyaringan dan penampilan dalam satu fungsi',
+            'Keduanya memang dijalankan berurutan',
+            'Logikanya jadi tidak bisa diuji tanpa halaman. Pisahkan fungsi yang mengolah data dari fungsi yang menyentuh tampilan',
+          ],
+          [
+            'Menguji hanya dengan data yang lengkap dan benar',
+            'Itu yang akan terjadi sehari-hari',
+            'Daftar kosong, judul kosong, dan judul yang sangat panjang adalah tiga kasus yang paling sering merusak tampilan. Ujilah ketiganya',
+          ],
+          [
+            'Menyimpan seluruh daftar ke penyimpanan peramban pada tiap ketikan',
+            'Supaya tidak pernah ada yang hilang',
+            'Menulis ke penyimpanan itu sinkron dan menahan tampilan. Simpan setelah pengguna berhenti mengetik, memakai debounce dari Sub-bab 1.13',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama adalah kesalahan yang akan kamu temui lagi persis dalam bentuk yang sama di React, di sana bernama memakai indeks sebagai `key`. Akarnya satu, yaitu indeks menggambarkan posisi bukan identitas, sedangkan posisi berubah setiap kali ada yang disisipkan atau dihapus. Biasakan sejak sekarang memberi id sungguhan pada tiap data, dan `crypto.randomUUID()` sudah cukup untuk keperluan di sisi peramban.',
+      ),
+      callout(
+        'warning',
+        'Judul tugas berasal dari pengguna, jadi ia tidak boleh dipercaya',
+        'Menaruh judul ke halaman lewat `innerHTML` membuat siapa pun bisa menyisipkan tag yang ikut dijalankan peramban. Pakai `textContent` untuk teks dari pengguna. Aturan ini berlaku untuk seluruh data yang tidak kamu tulis sendiri, dan pembahasan lengkapnya ada di Bab 6 serta di Kategori Keamanan Fullstack.',
+      ),
       divider,
       h2('Rangkuman'),
       ul(

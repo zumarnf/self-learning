@@ -29,7 +29,7 @@ export const lessons: LessonDraft[] = [
   written(
     'arsitektur-berlapis',
     'Arsitektur Berlapis & Dependency Injection Sederhana',
-    11,
+    17,
     'Menyusun ketergantungan supaya kodenya bisa diuji tanpa database.',
     [
       p(
@@ -239,6 +239,190 @@ export const lessons: LessonDraft[] = [
         'Jangan berlebihan',
         'Setiap lapisan yang tidak menyerap kerumitan hanya meneruskannya. Kalau sebuah service hanya memanggil satu method repository tanpa menambah aturan apa pun, ia belum layak ada — panggil repository-nya langsung dari controller sampai ada aturan bisnis yang benar-benar muncul.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Arsitektur berlapis sering dijelaskan sebagai soal kerapian, dan itu membuatnya mudah ditunda. Cara paling jujur menilainya bukan dengan melihat diagram melainkan dengan **mencoba menulis satu test**.',
+      ),
+      code(
+        'ts',
+        `
+        // Semua tercampur. Setiap barisnya benar, dan aturan bisnisnya tidak terjangkau test.
+        app.post('/pesanan', async (req, res) => {
+          const { itemId, jumlah } = req.body;
+
+          const item = await db.query('SELECT * FROM produk WHERE id = $1', [itemId]);
+          if (!item) return res.status(404).json({ error: 'Produk tidak ada' });
+          if (item.stok < jumlah) return res.status(409).json({ error: 'Stok kurang' });
+
+          const diskon = jumlah >= 12 ? 0.1 : jumlah >= 6 ? 0.05 : 0;
+          const total = Math.round(item.harga * jumlah * (1 - diskon));
+
+          await db.query('INSERT INTO pesanan ...', [itemId, jumlah, total]);
+          await mail.send(req.user.email, 'Pesanan diterima');
+          res.status(201).json({ total, diskon });
+        });
+        `,
+        {
+          caption:
+            'Untuk menguji satu aturan diskon, dibutuhkan server HTTP, basis data, dan pengirim surel.',
+        },
+      ),
+      p(
+        'Yang ingin diuji sebenarnya satu kalimat, yaitu "beli enam dapat lima persen, beli dua belas dapat sepuluh persen". Empat hal yang dibutuhkan untuk mengujinya sekarang tidak satu pun berhubungan dengan kalimat itu.',
+      ),
+      p(
+        'Pemisahannya tidak dimulai dari membuat folder melainkan dari memindahkan **satu hal** ke tempat yang tidak bergantung pada apa pun.',
+      ),
+      code(
+        'ts',
+        `
+        // domain/diskon.ts — fungsi murni. Tanpa HTTP, tanpa basis data, tanpa async.
+        export function hitungDiskon(jumlah: number): number {
+          if (jumlah >= 12) return 0.1;
+          if (jumlah >= 6) return 0.05;
+          return 0;
+        }
+
+        // Testnya tidak butuh apa pun, dan yang paling penting ada DI BATAS,
+        // sebab di situlah kesalahan >= melawan > bersembunyi:
+        //   hitungDiskon(5)  -> 0
+        //   hitungDiskon(6)  -> 0.05      <- tepat di batas
+        //   hitungDiskon(11) -> 0.05
+        //   hitungDiskon(12) -> 0.1       <- tepat di batas
+        `,
+        {
+          caption:
+            'Empat baris uji itu mustahil ditulis dengan nyaman selama aturannya di dalam handler.',
+        },
+      ),
+      p(
+        'Aturan yang menjaga susunannya tetap berguna hanya satu kalimat, yaitu **ketergantungan mengalir satu arah**, dan pelanggarannya punya gejala yang bisa dikenali.',
+      ),
+      code(
+        'text',
+        `
+        controller  ->  service  ->  repository  ->  basis data
+           (HTTP)      (aturan)      (query)
+
+        Yang TIDAK boleh, dan masing-masing gejalanya:
+
+          service mengimpor controller   -> service terikat HTTP, tak bisa dipakai job latar
+          repository mengimpor service   -> lingkaran ketergantungan
+          controller memanggil db        -> aturan bisnis kembali tak terjangkau test
+          service memanggil res.json     -> service tak bisa dipakai perintah CLI
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Pelanggaran arah ketergantungan bukan selalu soal estetika. Pada CommonJS ia menghasilkan error saat pemuatan yang menghentikan aplikasi sebelum satu permintaan pun dilayani.',
+      ),
+      code(
+        'text',
+        `
+        service.cjs  ->  require('./repo.cjs')
+        repo.cjs     ->  require('./service.cjs')
+
+        TypeError: ambilPesanan is not a function
+            at Object.<anonymous> (.../service.cjs:4:16)
+            at Module._compile (node:internal/modules/cjs/loader:1934:14)
+            at Module.require (node:internal/modules/cjs/loader:1679:12)
+            at Object.<anonymous> (.../repo.cjs:2:25)
+                                        ^^^^^^^^^^^^
+                                        jejaknya menunjuk kembali ke repo
+        `,
+        { caption: 'Dijalankan sungguhan dengan Node 26.5.0 di bab Fondasi.' },
+      ),
+      p(
+        'Bentuk yang jauh lebih sering bertahan di repo adalah versi yang hanya memberi peringatan, dan peringatan itu bercampur dengan keluaran lain lalu tidak terbaca siapa pun.',
+      ),
+      code(
+        'text',
+        `
+        Versi yang pemanggilannya di dalam fungsi, bukan di tingkat modul:
+
+          2000
+          (node:478812) Warning: Accessing non-existent property 'hitungTotal'
+                                 of module exports inside circular dependency
+
+        Dan pada project ESM, lingkaran yang SAMA tidak menghasilkan apa pun:
+
+          { total: 2000 }
+        `,
+        {
+          caption:
+            'Keduanya dijalankan sungguhan. ESM memakai live binding, jadi tidak ada sinyal sama sekali.',
+        },
+      ),
+      p(
+        'Baris terakhir itu yang menentukan sikap. Pada project ESM modern, **tidak ada satu pun peringatan dari Node** yang akan memberitahumu bahwa arah ketergantungan sudah rusak. Yang menahannya hanya keputusan arsitektur dan, kalau mau lebih pasti, alat pemeriksa lingkaran yang dijalankan di CI.',
+      ),
+      p(
+        'Kegagalan kedua tidak berupa error melainkan lapisan yang tidak menghasilkan apa pun, dan ini yang paling sering terjadi ketika berlapis dijadikan aturan alih-alih alat.',
+      ),
+      code(
+        'ts',
+        `
+        // Lapisan yang hanya meneruskan. Ia menambah satu berkas untuk dibuka
+        // dan tidak menutup satu pun kerumitan.
+        export class LayananPesanan {
+          constructor(private repo: RepoPesanan) {}
+          cari(id: number) { return this.repo.cari(id); }
+          daftar() { return this.repo.daftar(); }
+          hapus(id: number) { return this.repo.hapus(id); }
+        }
+
+        // Ukuran yang bisa dipakai memutuskan — "uji penghapusan":
+        //   Bila lapisan ini dihapus, apakah kerumitannya MENYEBAR ke pemanggil,
+        //   atau apakah ia HILANG?
+        //
+        //   menyebar -> lapisannya menanggung beban, pertahankan
+        //   hilang   -> lapisannya kosong, hapus
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Arsitektur punya dua arah kesalahan yang sama seringnya, yaitu terlalu sedikit lapisan dan terlalu banyak.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis query langsung di handler rute',
+            'Paling singkat dan terlihat jelas',
+            'Aturan bisnisnya hanya bisa diuji lewat HTTP dan basis data sungguhan',
+          ],
+          [
+            'Membuat lima folder sejak hari pertama',
+            'Terlihat profesional',
+            'Lapisan tanpa isi hanya menambah tempat yang harus dibuka. Tambah saat ada pemakai kedua',
+          ],
+          [
+            'Memanggil service dari repository',
+            'Fungsinya sudah ada di sana',
+            'Diuji sungguhan, CommonJS menghasilkan `TypeError` saat pemuatan; ESM diam dan tetap salah',
+          ],
+          [
+            'Meneruskan `res` ke dalam service',
+            'Lebih sedikit kode perantara',
+            'Service jadi terikat HTTP dan tidak bisa dipakai perintah CLI maupun job latar',
+          ],
+          [
+            'Membuat service yang hanya meneruskan ke repository',
+            'Supaya lapisannya lengkap',
+            'Tidak menutup kerumitan apa pun. Uji penghapusan: kalau dihapus kerumitannya hilang, hapus',
+          ],
+          [
+            'Mengabaikan peringatan circular dependency',
+            'Aplikasinya tetap berjalan',
+            'Ia berjalan sampai satu pemanggilan dipindah ke tingkat modul, lalu mati mendadak',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima memberi ukuran yang bisa dipakai tanpa perdebatan. Sebuah lapisan layak ada ketika menghapusnya membuat kerumitannya **menyebar ke pemanggil**, dan tidak layak ketika menghapusnya membuat kerumitannya **hilang**. Service yang isinya hanya meneruskan panggilan termasuk kategori kedua, dan menghapusnya menyederhanakan tanpa kehilangan apa pun.',
+      ),
       references(
         {
           label: 'node-postgres — Pooling',
@@ -268,7 +452,7 @@ export const lessons: LessonDraft[] = [
     ],
   ),
 
-  written('prisma', 'ORM: Prisma', 13, 'Query bertipe dari skema, dan biaya yang menyertainya.', [
+  written('prisma', 'ORM: Prisma', 21, 'Query bertipe dari skema, dan biaya yang menyertainya.', [
     p(
       'Prisma menghasilkan klien bertipe dari satu berkas skema. Keunggulannya nyata: salah ketik nama kolom menjadi error type-check, bukan error runtime. Tapi ia tetap ORM — dan aturan dari Backend Basic tentang N+1 dan biaya query tetap berlaku.',
     ),
@@ -487,6 +671,222 @@ export const lessons: LessonDraft[] = [
     p(
       'Agregasi rumit, CTE, dan window function sering lebih jelas ditulis sebagai SQL. Yang penting: pakai bentuk tagged template, jangan `$queryRawUnsafe`.',
     ),
+    h2('Studi kasus di project nyata'),
+    p(
+      'Keunggulan Prisma yang paling sering disebut adalah tipe, dan yang paling sering dilupakan adalah bahwa **tipe tidak menghalangi query yang buruk**. Klien bertipe tetap menghasilkan SQL, dan SQL itu tetap tunduk pada aturan yang sama dengan yang diukur di Backend Basic.',
+    ),
+    code(
+      'ts',
+      `
+      // Terlihat bersih, bertipe penuh, dan menghasilkan 101 query.
+      const pesanan = await prisma.pesanan.findMany({ take: 100 });
+      for (const p of pesanan) {
+        const pelanggan = await prisma.pelanggan.findUnique({ where: { id: p.pelangganId } });
+        console.log(pelanggan.nama);
+      }
+
+      // Satu query, dan tipenya tetap penuh.
+      const pesanan = await prisma.pesanan.findMany({
+        take: 100,
+        include: { pelanggan: true },
+      });
+      `,
+    ),
+    code(
+      'text',
+      `
+      Diukur pada PostgreSQL 16.15 di bab database:
+
+        biaya dasar + 1 query sepele : 23 ms
+        1.000 query terpisah         : 76 ms   -> 53 ms untuk query-nya
+        1 query dengan JOIN          : 26 ms   ->  3 ms untuk query-nya
+
+      Itu di koneksi LOKAL, sekitar 0,053 ms per perjalanan bolak-balik.
+      Ke basis data di zona lain, biayanya 1-2 ms, dan seribu perjalanan
+      menjadi satu sampai dua DETIK untuk satu permintaan pengguna.
+      `,
+      { caption: 'Dijalankan sungguhan. Angkanya lokal, dan di situlah jebakannya.' },
+    ),
+    p(
+      'Keputusan kedua yang berpengaruh besar adalah antara `include` dan `select`, dan bedanya bukan soal gaya melainkan soal **apa yang keluar dari aplikasimu**.',
+    ),
+    code(
+      'ts',
+      `
+      // include: menambahkan relasi ke SELURUH field bawaan.
+      // Kolom yang ditambahkan orang lain bulan depan otomatis ikut keluar.
+      await prisma.pengguna.findUnique({ where: { id }, include: { pesanan: true } });
+      // -> { id, email, sandiHash, catatanInternal, ..., pesanan: [...] }
+
+      // select: menyebut PERSIS field yang diambil.
+      // Kolom baru tidak pernah ikut kecuali sengaja ditambahkan.
+      await prisma.pengguna.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          email: true,
+          pesanan: { select: { id: true, total: true } },
+        },
+      });
+      `,
+      {
+        caption:
+          'Ini perbedaan antara daftar larangan dan daftar izin, sama seperti $hidden vs API Resource di Laravel.',
+      },
+    ),
+    p(
+      'Perlu satu catatan penting yang sering disalahpahami, dan ia bisa diukur. Tipe TypeScript **tidak** menghalangi field ikut terkirim, sebab tipe hanya ada saat kompilasi.',
+    ),
+    code(
+      'text',
+      `
+      interface Pengguna { id; email; sandiHash; catatanInternal }
+      type ResponsPublik = Pick<Pengguna, 'id' | 'email'>;
+
+      const a: ResponsPublik = dariDb;      <- TypeScript MENERIMA ini, tanpa error
+
+      Saat dijalankan:
+        JSON.stringify(a) : {"id":1,"email":"a@b.id",
+                             "sandiHash":"$2b$rahasia",
+                             "catatanInternal":"skor risiko 87"}
+      `,
+      { caption: 'Dijalankan sungguhan dengan tsc 5.9.3 dan Node 26.5.0.' },
+    ),
+    p(
+      'Jadi memberi tipe sempit pada variabel memberi rasa aman yang tidak berdasar. Yang benar-benar menutupnya adalah `select` di sisi query, atau menyusun objek barunya field demi field. Bagian ini dibahas lebih jauh di sub-bab TypeScript, berikut pengukuran lengkapnya.',
+    ),
+
+    h2('Saat error-nya muncul'),
+    p(
+      'Prisma menghasilkan beberapa error yang bunyinya khas, dan masing-masing menunjuk satu penyebab yang sempit.',
+    ),
+    code(
+      'text',
+      `
+      1. @prisma/client did not initialize yet. Please run "prisma generate"
+
+         Klien dihasilkan dari skema, bukan dipasang jadi. Setiap kali skema
+         berubah, klien harus dihasilkan ulang. Karena itu ia biasanya
+         dipasang sebagai script postinstall, supaya tidak pernah lupa.
+
+      2. Unique constraint failed on the fields: (\`email\`)
+         code: 'P2002'
+
+         Bentuk Prisma dari pelanggaran UNIQUE. Kode aslinya di PostgreSQL
+         adalah SQLSTATE 23505 — diverifikasi sungguhan di bab database.
+         Tangkap KODE-nya, bukan teks pesannya, lalu terjemahkan jadi 409 atau 422.
+
+      3. An operation failed because it depends on one or more records that
+         were required but not found.
+         code: 'P2025'
+
+         Bentuk Prisma dari update/delete yang tidak menemukan barisnya.
+         Terjemahkan jadi 404, bukan 500.
+
+      4. Foreign key constraint failed on the field
+         code: 'P2003'
+
+         Bentuk Prisma dari SQLSTATE 23503.
+      `,
+    ),
+    p(
+      'Pola penanganannya sama untuk keempatnya, yaitu memetakan kode error basis data menjadi status HTTP di **satu tempat**, bukan di setiap handler.',
+    ),
+    code(
+      'ts',
+      `
+      // Dipasang di penangan error terpusat.
+      const PETA: Record<string, { status: number; kode: string }> = {
+        P2002: { status: 409, kode: 'SUDAH_ADA' },
+        P2025: { status: 404, kode: 'TIDAK_DITEMUKAN' },
+        P2003: { status: 422, kode: 'RELASI_TIDAK_VALID' },
+      };
+
+      if (err instanceof Prisma.PrismaClientKnownRequestError) {
+        const p = PETA[err.code];
+        if (p) return res.status(p.status).json({ error: '...', kode: p.kode, requestId });
+      }
+      // Sisanya 500, dengan detail HANYA di log server.
+      `,
+      {
+        caption:
+          'Tanpa peta ini, pelanggaran UNIQUE muncul sebagai 500 dan membunyikan pemantauan.',
+      },
+    ),
+    p(
+      'Kegagalan kelima tidak menghasilkan error dan menyangkut **jumlah koneksi**. Ini yang paling sering menjatuhkan aplikasi di produksi tanpa satu pun baris kode yang salah.',
+    ),
+    code(
+      'text',
+      `
+      Setiap instance PrismaClient membuka KUMPULAN KONEKSI sendiri.
+
+      Bentuk yang menghasilkan kehabisan koneksi:
+
+        // db.ts — dipanggil di banyak berkas
+        export const prisma = new PrismaClient();     <- terlihat benar
+
+        Tapi pada mode pengembangan dengan hot reload, modulnya dimuat ulang
+        berkali-kali dan setiap muat membuat klien BARU. Setelah beberapa
+        perubahan berkas:
+
+          Error: Can't reach database server
+          — atau —
+          FATAL: sorry, too many clients already
+
+      Perbaikannya menyimpan satu instance di globalThis saat pengembangan:
+
+        const g = globalThis as { prisma?: PrismaClient };
+        export const prisma = g.prisma ?? new PrismaClient();
+        if (process.env.NODE_ENV !== 'production') g.prisma = prisma;
+      `,
+    ),
+    p(
+      'Pada penempatan serverless, masalahnya berbentuk lain dan lebih keras. Setiap instance fungsi membuka kumpulan koneksinya sendiri, dan jumlah instance bisa melonjak mengikuti lalu lintas. Di situ jawabannya bukan menyimpan di global melainkan memakai penghubung koneksi di depan basis data.',
+    ),
+
+    h2('Kesalahan umum pemula'),
+    p(
+      'Prisma menyembunyikan SQL dengan sangat baik, dan hampir semua kesalahannya berupa lupa bahwa SQL-nya tetap ada.',
+    ),
+    table(
+      ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+      [
+        [
+          'Mengambil relasi di dalam perulangan',
+          'Kodenya bertipe dan terlihat bersih',
+          'Diukur, 1.000 query 53 ms melawan 1 query 3 ms di lokal, dan seribu kali lipat di produksi',
+        ],
+        [
+          'Memakai `include` untuk respons API',
+          'Relasinya memang dibutuhkan',
+          'Seluruh kolom ikut, termasuk yang ditambahkan orang lain nanti. Pakai `select`',
+        ],
+        [
+          'Mengandalkan tipe TypeScript untuk mencegah kebocoran field',
+          'Tipenya sudah sempit',
+          'Diuji sungguhan, `JSON.stringify` tetap mengeluarkan `sandiHash`. Tipe hilang saat dijalankan',
+        ],
+        [
+          'Membuat `new PrismaClient()` di banyak tempat',
+          'Tiap modul butuh aksesnya',
+          'Setiap instance membuka kumpulan koneksi sendiri, dan hot reload melipatgandakannya',
+        ],
+        [
+          'Memakai `db push` untuk mengubah skema produksi',
+          'Lebih cepat daripada migrate',
+          'Ia mengubah basis data tanpa meninggalkan berkas migrasi. Tidak ada riwayat dan tidak ada rollback',
+        ],
+        [
+          'Menangkap error Prisma dengan mencocokkan teks pesannya',
+          'Pesannya kan jelas',
+          'Pesan berubah antar-versi. Cocokkan `err.code`, misalnya `P2002`',
+        ],
+      ],
+    ),
+    p(
+      'Baris kelima pantas ditegaskan karena perbedaannya baru terasa pada hari terburuk. Perintah `db push` membandingkan skema dengan basis data lalu mengubahnya langsung, tanpa menghasilkan berkas apa pun. Akibatnya tidak ada catatan tentang apa yang berubah, tidak ada cara membatalkannya, dan tidak ada cara memastikan basis data staging sama dengan produksi. Ia berguna untuk prototipe yang datanya boleh hilang, dan tidak untuk apa pun yang punya riwayat.',
+    ),
     references(
       {
         label: 'Prisma — Schema reference',
@@ -518,7 +918,7 @@ export const lessons: LessonDraft[] = [
   written(
     'relasi-query-kompleks',
     'Relasi & Query Kompleks di ORM',
-    12,
+    19,
     'Mengambil data bercabang tanpa membuat ratusan query.',
     [
       terms(
@@ -778,6 +1178,211 @@ export const lessons: LessonDraft[] = [
         'Ini satu-satunya cara N+1 tidak kembali',
         'N+1 tidak menimbulkan error dan tidak terlihat saat membaca kode. Ia muncul berbulan-bulan kemudian sebagai "aplikasinya makin lambat". Tes yang menghitung query membuatnya gagal **saat ditambahkan**, bukan saat sudah mahal.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Query kompleks adalah tempat angka salah paling mudah lahir, dan yang membuatnya berbahaya adalah hasilnya tetap berupa angka yang terlihat wajar. Tidak ada error, tidak ada test yang gagal, dan laporannya tetap dipercaya sampai ada yang menghitung ulang dengan tangan.',
+      ),
+      p('Kesalahan pertama muncul dari `LEFT JOIN` yang dibatalkan tanpa disadari.'),
+      code(
+        'text',
+        `
+        Data: 205.000 pelanggan, 300.000 pesanan, 5.000 pelanggan belum pernah memesan.
+
+          INNER JOIN  pelanggan x pesanan                        -> 300.000 baris
+          LEFT JOIN   pelanggan x pesanan                        -> 305.000 baris
+          LEFT JOIN + WHERE o.status = 'dibayar'                 ->  75.000 baris
+          LEFT JOIN + syarat di ON (AND o.status = 'dibayar')    -> 230.000 baris
+
+        Perhatikan angka ketiga IDENTIK dengan INNER JOIN. Itu buktinya:
+        WHERE terhadap tabel kanan MEMBATALKAN sifat LEFT JOIN.
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15 di bab database.' },
+      ),
+      p(
+        "Sebabnya ada di urutan pengerjaan. `LEFT JOIN` lebih dulu menghasilkan baris, termasuk baris yang kolom kanannya seluruhnya `NULL`. Barulah `WHERE` menyaring hasil itu, dan `NULL = 'dibayar'` tidak pernah bernilai benar, sehingga seluruh baris yang tadi dipertahankan justru terbuang. Aturannya satu kalimat, **syarat terhadap tabel kanan ditulis di `ON`, bukan di `WHERE`**.",
+      ),
+      p('Kesalahan kedua muncul saat menghitung, dan ini yang paling sering lolos review.'),
+      code(
+        'text',
+        `
+        SELECT p.nama, count(*) AS pakai_bintang, count(o.id) AS pakai_kolom
+        FROM pelanggan p LEFT JOIN pesanan o ON o.pelanggan_id = p.id
+        GROUP BY p.id, p.nama;
+
+              nama       | pakai_bintang | pakai_kolom
+          ---------------+---------------+-------------
+           Belum Pesan 1 |             1 |           0     <- belum pernah memesan
+           Pengguna 1    |             1 |           1
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. count(*) melaporkan 1 pesanan untuk pelanggan yang punya nol.',
+        },
+      ),
+      p(
+        'Kesalahan ketiga adalah yang paling merusak laporan keuangan, yaitu penjumlahan di atas beberapa relasi sekaligus.',
+      ),
+      code(
+        'text',
+        `
+        Satu pesanan dengan 3 item, di-JOIN ke tabel cicilan dengan 2 baris:
+
+          3 x 2 = 6 baris hasil
+
+        sum(item.harga) di atas hasil itu menghitung setiap harga DUA KALI.
+        Totalnya persis dua kali lipat, dan tidak ada satu pun error.
+
+        Yang benar: agregasikan tiap relasi di subquery TERPISAH.
+        `,
+      ),
+      code(
+        'sql',
+        `
+        -- Bentuk yang benar: tiap agregat dihitung sendiri, lalu digabungkan.
+        SELECT
+          p.id,
+          p.dibuat_pada,
+          i.total_item,
+          c.total_bayar
+        FROM pesanan p
+        LEFT JOIN LATERAL (
+          SELECT sum(harga_satuan * jumlah) AS total_item
+          FROM item_pesanan WHERE pesanan_id = p.id
+        ) i ON true
+        LEFT JOIN LATERAL (
+          SELECT sum(jumlah) AS total_bayar
+          FROM cicilan WHERE pesanan_id = p.id
+        ) c ON true
+        WHERE p.status = 'dibayar'
+        ORDER BY p.dibuat_pada DESC, p.id DESC     -- pengurut UNIK di akhir
+        LIMIT 20;
+        `,
+        {
+          caption:
+            'LATERAL membuat tiap subquery melihat baris p yang sedang diproses, tanpa melipatgandakan baris.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Query kompleks menghasilkan dua error yang bunyinya khas, dan keduanya sebenarnya menolong.',
+      ),
+      code(
+        'text',
+        `
+        SELECT kota, nama, count(*) FROM pelanggan GROUP BY kota;
+
+          ERROR:  column "pelanggan.nama" must appear in the GROUP BY clause
+                  or be used in an aggregate function
+
+        SELECT kota, count(*) FROM pelanggan WHERE count(*) > 10 GROUP BY kota;
+
+          ERROR:  aggregate functions are not allowed in WHERE
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15.' },
+      ),
+      p(
+        'Keduanya terjelaskan oleh urutan pengerjaan, yaitu `FROM` lalu `WHERE` lalu `GROUP BY` lalu `HAVING` lalu `SELECT` lalu `ORDER BY`. `WHERE` berjalan sebelum pengelompokan, jadi pada saat itu belum ada kelompok dan `count(*)` belum punya arti. Dan satu kelompok memuat banyak nama berbeda, jadi tidak ada jawaban benar untuk "nama mana yang ditampilkan".',
+      ),
+      p(
+        'Kegagalan yang lebih sering justru tidak berupa error melainkan **query yang berjalan lambat**, dan penyebabnya sering index yang ada tapi tidak terpakai.',
+      ),
+      code(
+        'text',
+        `
+        Tabel 205.000 baris, ada index biasa pada kolom email,
+        collation basis data en_US.UTF-8:
+
+          WHERE email = 'pengguna137456@contoh.id'
+            Index Only Scan  ->   0,100 ms
+
+          WHERE email LIKE 'pengguna137456%'
+            Parallel Seq Scan, Rows Removed by Filter: 102500  ->  12,506 ms
+
+          WHERE lower(email) = 'pengguna137456@contoh.id'
+            Parallel Seq Scan  ->  33,832 ms
+
+        Setelah index yang tepat ditambahkan:
+
+          CREATE INDEX ... ON pelanggan(email text_pattern_ops);
+            LIKE berawalan -> Index Only Scan, 0,119 ms   (dari 12,506 ms)
+
+          CREATE INDEX ... ON pelanggan(lower(email));
+            lower(email) = -> Index Scan, 0,077 ms        (dari 33,832 ms)
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15 di bab database.' },
+      ),
+      p(
+        'Baris kedua itu paling mengejutkan, sebab `LIKE` berawalan biasanya dikatakan bisa memakai index. Itu benar hanya bila urutan index-nya cocok dengan cara `LIKE` membandingkan, dan pada collation selain `C` keduanya tidak cocok. Yang membedakan dugaan dari fakta di sini hanya satu perintah, yaitu `EXPLAIN ANALYZE`.',
+      ),
+      p(
+        'Kegagalan terakhir muncul dari paginasi yang digabung dengan penggabungan tabel, dan ia menghasilkan halaman yang isinya lebih sedikit daripada yang diminta.',
+      ),
+      code(
+        'text',
+        `
+        SELECT p.*, i.*
+        FROM pesanan p JOIN item_pesanan i ON i.pesanan_id = p.id
+        ORDER BY p.id LIMIT 20;
+
+        LIMIT 20 membatasi BARIS HASIL, bukan jumlah PESANAN.
+        Dengan rata-rata 2 item per pesanan, 20 baris itu hanya sekitar
+        10 pesanan — dan pesanan terakhirnya bisa TERPOTONG di tengah.
+
+        Yang benar: batasi dulu pesanannya, baru ambil itemnya.
+
+          WITH halaman AS (
+            SELECT id FROM pesanan WHERE ... ORDER BY id LIMIT 20
+          )
+          SELECT p.*, i.*
+          FROM halaman h
+          JOIN pesanan p ON p.id = h.id
+          LEFT JOIN item_pesanan i ON i.pesanan_id = p.id;
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Query kompleks adalah tempat di mana hasil yang salah paling sulit terlihat, sebab ia tetap berupa tabel yang rapi.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menaruh syarat tabel kanan di `WHERE` pada `LEFT JOIN`',
+            'Di situ tempat syarat ditulis',
+            'Diukur, hasilnya 75.000 baris — identik dengan `INNER JOIN`. Taruh di `ON`',
+          ],
+          [
+            'Memakai `count(*)` untuk menghitung baris tabel kanan',
+            'Itu cara menghitung',
+            'Diukur, pelanggan tanpa pesanan dilaporkan punya 1. Pakai `count(kolom)`',
+          ],
+          [
+            'Menjumlahkan setelah menggabungkan dua relasi',
+            'Tinggal `sum`',
+            'Baris berlipat membuat jumlahnya berlipat. Agregasikan tiap relasi di subquery terpisah',
+          ],
+          [
+            'Memakai `LIMIT` pada query yang sudah di-`JOIN`',
+            'Itu cara membatasi',
+            '`LIMIT` membatasi baris hasil, bukan jumlah entitas. Batasi dulu di subquery',
+          ],
+          [
+            'Menyimpulkan query lambat pasti butuh index baru',
+            'Itu obat yang biasa',
+            'Diukur, index bisa ADA dan tidak terpakai karena bentuk query-nya. Jalankan `EXPLAIN ANALYZE` dulu',
+          ],
+          [
+            'Menguji query pada data pengembangan yang kecil',
+            'Sudah diuji',
+            'Pada ratusan baris, pemindaian penuh selesai tanpa terasa. Isi dengan jumlah mendekati produksi',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir menjelaskan kenapa hampir semua masalah di sub-bab ini baru ditemukan di produksi, dan jalan keluarnya murah. Satu perintah `generate_series` mengisi tabel dengan ratusan ribu baris dalam hitungan detik, dan seluruh pengukuran di bab ini dibuat dengan cara itu. Setelah datanya sebesar produksi, `EXPLAIN ANALYZE` menjawab pertanyaan yang tidak bisa dijawab pengujian biasa, yaitu apakah query-mu memindai dua puluh baris atau dua ratus ribu.',
+      ),
       references(
         {
           label: 'Prisma — Relation queries',
@@ -810,7 +1415,7 @@ export const lessons: LessonDraft[] = [
   written(
     'transaksi-orm',
     'Transaksi Database',
-    11,
+    17,
     'Beberapa perubahan yang berhasil bersama atau tidak sama sekali.',
     [
       terms(
@@ -1035,6 +1640,208 @@ export const lessons: LessonDraft[] = [
         'Pesan error ORM membocorkan struktur database',
         '`Unique constraint failed on the fields: (email)` menyebutkan nama kolom; error Postgres mentah menyebutkan nama constraint. Keduanya memberi peta kepada penyerang. Terjemahkan menjadi kode error milikmu sendiri sebelum dikirim ke klien.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Transaksi paling mudah dipahami lewat satu pengukuran yang menunjukkan keadaan setengah jadi yang **tidak pernah terlihat siapa pun**.',
+      ),
+      code(
+        'text',
+        `
+        SELECT stok FROM produk WHERE sku = 'SKU-000042';   ->  100
+
+        BEGIN;
+          UPDATE produk SET stok = stok - 100 WHERE sku = 'SKU-000042';
+          SELECT stok ...                                   ->  0    <- hanya di sesi ini
+        ROLLBACK;
+
+        SELECT stok ...                                     ->  100  <- utuh kembali
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15 di bab database.' },
+      ),
+      p(
+        'Angka nol di tengah itu nyata bagi transaksi yang sedang berjalan dan tidak pernah ada bagi siapa pun di luarnya. Inilah satu-satunya alasan operasi berlangkah banyak bisa gagal di tengah tanpa meninggalkan data yang mustahil dijelaskan.',
+      ),
+      p('Di ORM, bentuk yang benar punya tiga bagian yang masing-masing menjawab kegagalan nyata.'),
+      code(
+        'ts',
+        `
+        await prisma.$transaction(async (tx) => {
+          // 1. Pemeriksaan DAN pengurangan dalam SATU perintah.
+          //    Diukur di bab database: pola baca-hitung-tulis menyisakan
+          //    saldo 90 dari seharusnya 80 ketika dua proses berjalan bersamaan.
+          const { count } = await tx.produk.updateMany({
+            where: { id: produkId, stok: { gte: jumlah } },
+            data: { stok: { decrement: jumlah } },
+          });
+          if (count === 0) throw new StokKurang(produkId);
+
+          const produk = await tx.produk.findUniqueOrThrow({ where: { id: produkId } });
+
+          // 2. Harga DISALIN saat transaksi. Tanpa ini, menaikkan harga produk
+          //    mengubah nilai seluruh pesanan lama.
+          return tx.pesanan.create({
+            data: { pelangganId, produkId, jumlah, hargaSatuan: produk.harga },
+          });
+        });
+
+        // 3. Pengiriman surel SENGAJA di luar blok ini.
+        //    Memanggil layanan luar di dalam transaksi menahan kunci
+        //    selama menunggu jaringan, dan jaringan bisa menggantung
+        //    jauh lebih lama daripada query mana pun.
+        `,
+        {
+          caption:
+            'updateMany mengembalikan jumlah baris yang berubah — nol berarti syaratnya tidak terpenuhi.',
+        },
+      ),
+      p(
+        'Pola `where` yang memuat syarat stok itu yang menghapus celah antara memeriksa dan mengubah. Tanpa itu, dua permintaan bersamaan bisa sama-sama membaca stok yang cukup lalu sama-sama menguranginya.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada PostgreSQL 16.15, saldo awal 100,
+        dua proses masing-masing mengurangi 10:
+
+          pola baca-lalu-tulis  -> saldo akhir 90     <- satu pengurangan HILANG
+          pola atomik           -> saldo akhir 80     <- benar
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Ada satu perilaku transaksi PostgreSQL yang membingungkan hampir semua orang saat pertama melihatnya, yaitu **satu error membatalkan seluruh transaksi**, termasuk perintah yang sudah berhasil sebelumnya.',
+      ),
+      code(
+        'text',
+        `
+        BEGIN;
+        INSERT ... ('sah1@contoh.id')     INSERT 0 1        <- berhasil
+        INSERT ... ('pengguna1@contoh.id')
+          ERROR:  duplicate key value violates unique constraint "pelanggan_email_key"
+        INSERT ... ('sah2@contoh.id')
+          ERROR:  current transaction is aborted, commands ignored
+                  until end of transaction block
+        SELECT count(*) FROM pelanggan;
+          ERROR:  current transaction is aborted, ...
+        COMMIT;
+          ROLLBACK                        <- COMMIT berubah jadi ROLLBACK
+
+        Yang benar-benar tersimpan: 0 baris.
+        `,
+        { caption: 'Dijalankan sungguhan pada PostgreSQL 16.15.' },
+      ),
+      p(
+        'Tiga hal terjadi sekaligus. Setelah error pertama, **setiap** perintah berikutnya ditolak termasuk `SELECT` yang tidak mengubah apa pun. Lalu `COMMIT` dilaporkan sebagai `ROLLBACK`. Dan baris pertama yang tadi berhasil ikut hilang.',
+      ),
+      p(
+        'Untuk melanjutkan setelah kegagalan yang diperkirakan, yang dibutuhkan adalah `SAVEPOINT`, dan di ORM ia muncul sebagai transaksi bersarang.',
+      ),
+      code(
+        'text',
+        `
+        BEGIN;
+        INSERT ... ('sp1@contoh.id')      INSERT 0 1
+        SAVEPOINT sebelum_ragu;
+        INSERT ... ('pengguna1@contoh.id')
+          ERROR:  duplicate key value ...
+        ROLLBACK TO SAVEPOINT sebelum_ragu;
+        INSERT ... ('sp2@contoh.id')      INSERT 0 1        <- transaksinya hidup lagi
+        COMMIT;
+
+        Yang tersimpan: 2 baris.
+        `,
+        { caption: 'Dijalankan sungguhan. Bandingkan dengan 0 baris pada percobaan sebelumnya.' },
+      ),
+      p(
+        'Kegagalan kedua adalah **deadlock**, dan ia bukan kerusakan melainkan mekanisme perlindungan.',
+      ),
+      code(
+        'text',
+        `
+        Sesi A: UPDATE saldo ... id = 1   lalu   id = 2
+        Sesi B: UPDATE saldo ... id = 2   lalu   id = 1
+
+        ERROR:  deadlock detected
+        DETAIL:  Process 482844 waits for ShareLock on transaction 821;
+                 blocked by process 482845.
+                 Process 482845 waits for ShareLock on transaction 822;
+                 blocked by process 482844.
+        CONTEXT:  while updating tuple (0,2) in relation "saldo"
+        `,
+        { caption: 'Dijalankan sungguhan dengan dua sesi psql bersamaan.' },
+      ),
+      p(
+        'Hanya **satu** dari dua sesi yang menerima error itu, dan yang lain berhasil sepenuhnya. Karena itu aplikasi yang menanganinya dengan benar tidak menampilkan kegagalan kepada pengguna melainkan mencoba ulang transaksinya. Percobaan ulang aman di sini justru karena transaksinya sudah dibatalkan seluruhnya.',
+      ),
+      code(
+        'ts',
+        `
+        // Percobaan ulang untuk deadlock dan konflik serialisasi.
+        // Kode 40P01 = deadlock, 40001 = serialization failure.
+        async function denganPercobaanUlang<T>(f: () => Promise<T>, maks = 3): Promise<T> {
+          for (let i = 0; ; i++) {
+            try { return await f(); }
+            catch (e: any) {
+              const kode = e?.code ?? e?.meta?.code;
+              if (i >= maks - 1 || !['40P01', '40001'].includes(kode)) throw e;
+              // Jeda acak supaya dua sesi tidak mencoba ulang bersamaan lagi.
+              await new Promise((r) => setTimeout(r, 50 * 2 ** i + Math.random() * 50));
+            }
+          }
+        }
+        `,
+        {
+          caption:
+            'Jeda acak itu penting: tanpa itu, dua sesi bisa bertabrakan berulang kali dengan pola yang sama.',
+        },
+      ),
+      p(
+        'Pencegahannya lebih murah daripada percobaan ulang, dan bentuknya satu kalimat, yaitu **ambil kunci dalam urutan yang selalu sama**. Untuk transfer saldo, urutkan berdasarkan id alih-alih berdasarkan siapa pengirim dan siapa penerima.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Transaksi mudah dipakai setengah benar, dan setengah benar di sini berarti tetap meninggalkan data rusak.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memanggil API pembayaran di dalam transaksi',
+            'Sekalian satu kesatuan',
+            'Kuncinya tertahan selama menunggu jaringan. Panggil di luar, catat hasilnya di transaksi pendek',
+          ],
+          [
+            'Menangkap error di tengah transaksi lalu melanjutkan',
+            'Errornya sudah ditangani',
+            'Diuji sungguhan, perintah berikutnya ditolak `current transaction is aborted`. Pakai `SAVEPOINT`',
+          ],
+          [
+            'Membaca stok lalu menyimpan hasil hitungan',
+            'Lebih mudah dibaca',
+            'Diukur, dua proses bersamaan membuat satu pengurangan hilang. Gabungkan syaratnya ke dalam `where`',
+          ],
+          [
+            'Menganggap deadlock sebagai kegagalan yang harus ditampilkan',
+            'Ada kata error',
+            'Diuji sungguhan, satu sesi berhasil dan yang gagal sudah dibatalkan utuh. Coba ulang',
+          ],
+          [
+            'Mencoba ulang tanpa jeda acak',
+            'Langsung coba lagi lebih cepat',
+            'Dua sesi bertabrakan lagi dengan pola yang sama. Beri jeda acak yang membesar',
+          ],
+          [
+            'Membungkus seluruh permintaan HTTP dalam satu transaksi',
+            'Lebih aman',
+            'Transaksi jadi sepanjang permintaan, termasuk menunggu hal yang tidak perlu dikunci',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama pantas ditegaskan karena akibatnya berlipat di bawah beban. Sebuah transaksi yang menunggu pemanggilan jaringan menahan kuncinya selama itu, dan setiap permintaan lain yang menyentuh baris yang sama ikut menunggu. Pada lalu lintas rendah ia tidak terlihat sama sekali; pada lalu lintas tinggi ia menghasilkan antrean yang memanjang sampai kumpulan koneksinya habis, dan gejalanya muncul sebagai "basis data lambat" padahal basis datanya sedang menunggu jaringan.',
+      ),
       references(
         {
           label: 'Prisma — Transactions and batch queries',
@@ -1067,7 +1874,7 @@ export const lessons: LessonDraft[] = [
   written(
     'auth-produksi',
     'Autentikasi Produksi: JWT + refresh + pencabutan',
-    13,
+    19,
     'Merangkai seluruh potongan auth menjadi sistem yang bisa dicabut.',
     [
       p(
@@ -1367,6 +2174,234 @@ export const lessons: LessonDraft[] = [
       p(
         'Perhatikan syaratnya bukan "sudah kedaluwarsa", melainkan **kedaluwarsa lebih dari tujuh hari lalu**. Jeda itu disengaja: baris yang baru saja kedaluwarsa masih berguna untuk penelusuran — misalnya saat menyelidiki laporan "akun saya diakses orang lain", di mana kolom `ip` dan `userAgent` dari sesi lama justru yang paling menjelaskan. Jalankan ini sebagai job terjadwal, bukan di dalam permintaan pengguna.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Autentikasi yang siap produksi berbeda dari yang siap demo pada hal-hal yang tidak terlihat di jalur sukses, dan seluruhnya sudah diukur di Backend Basic. Berikut kedelapannya bertemu dalam satu alur.',
+      ),
+      code(
+        'ts',
+        `
+        // service/auth.ts — tanpa req, tanpa res, tanpa status code.
+        const OPSI = { N: 2 ** 14, r: 8, p: 1, maxmem: 128 * 1024 * 1024 };
+
+        // Dibuat SEKALI saat boot. Biayanya sama persis dengan hash sungguhan,
+        // dan ia tidak akan pernah cocok dengan sandi apa pun.
+        const HASH_UMPAN = buatHash(randomBytes(32).toString('hex'));
+
+        export async function login(email: string, sandi: string) {
+          const pengguna = await repo.cariByEmail(email);
+
+          // Hash SELALU dihitung, bahkan ketika emailnya tidak ada.
+          const benar = cocok(sandi, pengguna?.sandiHash ?? HASH_UMPAN);
+
+          if (!pengguna || !benar) return null;
+          return pengguna;
+        }
+        `,
+        { caption: 'Baris HASH_UMPAN itu yang menutup kebocoran waktu; angkanya di bawah.' },
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan scrypt pada Node 26.5.0, median 12 pengukuran:
+
+          VERSI RENTAN — keluar lebih awal saat emailnya tidak ada
+            email TIDAK terdaftar      0,0 ms
+            email ada, sandi SALAH    28,7 ms
+            email ada, sandi BENAR    30,0 ms
+
+          VERSI AMAN — hash selalu dihitung
+            email TIDAK terdaftar     28,4 ms
+            email ada, sandi SALAH    28,5 ms
+            email ada, sandi BENAR    28,2 ms
+        `,
+        {
+          caption:
+            'Selisih 28 ms jauh di atas derau jaringan, dan cukup untuk memilah sejuta alamat.',
+        },
+      ),
+      p('Pilihan algoritma hash-nya juga bukan selera, dan selisihnya bisa diukur.'),
+      code(
+        'text',
+        `
+          SHA-256                       1.270.049 hash/detik
+          SHA-256 + salt                1.228.039 hash/detik    <- salt TIDAK memperlambat
+          scrypt N=2^14                        35 hash/detik
+          scrypt N=2^16                         7 hash/detik
+
+        Selisih SHA-256 dengan scrypt di mesin ini sekitar 36.000 kali.
+        `,
+        { caption: 'Dijalankan sungguhan dengan node:crypto pada Node 26.5.0.' },
+      ),
+      p('Sisi sesi dan token punya keputusan yang sama menentukan, dan keduanya juga diukur.'),
+      code(
+        'text',
+        `
+        Server mengirim tiga cookie, satu di antaranya HttpOnly:
+
+          Set-Cookie: sesi=rahasia-abc123; HttpOnly; SameSite=Lax; Path=/
+          Set-Cookie: tema=gelap; SameSite=Lax; Path=/
+          Set-Cookie: analitik=xyz; Path=/
+
+        Yang terlihat JavaScript di halaman (document.cookie):
+          tema=gelap
+          analitik=xyz
+
+        Yang DIKIRIM peramban ke server:
+          sesi=rahasia-abc123; tema=gelap; analitik=xyz
+        `,
+        { caption: 'Dijalankan sungguhan: server Node 26.5.0, dibaca Chrome for Testing 149.' },
+      ),
+      p(
+        'Cookie sesi **tidak terlihat sama sekali** oleh JavaScript, dan **tetap dikirim** ke server pada setiap permintaan. Itulah seluruh isi janji `HttpOnly`, dan itu yang membuat satu baris XSS tidak cukup untuk mencuri sesi.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan autentikasi di produksi jarang berupa error. Yang paling sering adalah perlindungan yang dipasang setengah, dan setengahnya justru bagian yang menutup kebocoran.',
+      ),
+      code(
+        'text',
+        `
+        KEBOCORAN 1 — pesan berbeda untuk email salah dan sandi salah
+          "Email tidak terdaftar" vs "Sandi salah"
+          -> penyerang memilah daftar sejuta alamat tanpa menebak satu sandi pun
+
+        KEBOCORAN 2 — pesan SUDAH disamakan, tapi waktunya tidak
+          Diukur: 0,0 ms melawan 28,7 ms.
+          Waktunya membocorkan tepat apa yang pesannya sembunyikan.
+
+        KEBOCORAN 3 — pendaftaran membocorkan hal yang sama
+          "Email sudah terdaftar" saat mendaftar adalah alat enumerasi
+          yang identik. Jawab SAMA, bedakan isi surelnya.
+
+        KEBOCORAN 4 — reset sandi membocorkan hal yang sama
+          Jawab: "Bila alamat itu terdaftar, tautan sudah kami kirim",
+          dan kirim surelnya hanya bila memang ada.
+        `,
+      ),
+      p(
+        'Kegagalan kedua menyangkut pembatasan laju, dan memasangnya di tempat yang salah membuatnya tidak berguna sama sekali.',
+      ),
+      code(
+        'ts',
+        `
+        // SALAH: throttle di BELAKANG auth.
+        app.use(auth);
+        app.use(rateLimit({ ... }));
+        // Pembatasan lajunya hanya berlaku untuk yang SUDAH login.
+        // Penyerang yang menebak sandi belum login, jadi ia tidak pernah dibatasi.
+
+        // BENAR: khusus untuk endpoint autentikasi, batasi SEBELUM auth.
+        app.post('/login', rateLimitLogin, handlerLogin);
+        `,
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan, backoff eksponensial per akun:
+
+          t=   0s  percobaan ke- 1  jeda berikutnya   0s
+          t=   0s  percobaan ke- 3  jeda berikutnya   1s
+          t=   7s  percobaan ke- 6  jeda berikutnya   8s
+          t=  63s  percobaan ke- 9  jeda berikutnya  60s
+          t= 543s  percobaan ke-12  jeda berikutnya 300s
+
+          dengan backoff : 298 tebakan / 24 jam
+          tanpa backoff  : dibatasi kecepatan jaringan saja
+        `,
+        {
+          caption:
+            'Tiga percobaan pertama sengaja tanpa jeda, supaya salah ketik biasa tidak terhukum.',
+        },
+      ),
+      p(
+        'Pembatasannya juga harus pada **dua sumbu sekaligus**. Hanya per IP membiarkan botnet ribuan IP lolos. Hanya per akun membiarkan penyerang menebak satu sandi umum terhadap sejuta akun berbeda, sebab tiap akun hanya kena satu percobaan.',
+      ),
+      p('Kegagalan ketiga adalah yang paling sering pada JWT, dan ketiganya sudah diuji.'),
+      code(
+        'text',
+        `
+        SERANGAN 1 — payload diubah, tanda tangan lama dibiarkan
+          urai saja        -> peran = admin   <- LOLOS
+          verifikasi penuh -> Tanda tangan tidak cocok
+
+        SERANGAN 2 — alg diganti "none", tanda tangan diisi asal
+          percaya header   -> LOLOS, peran = admin
+          allow-list alg   -> Algoritma tidak diizinkan: none
+
+        SERANGAN 3 — token ASLI yang sudah kedaluwarsa satu jam
+          urai saja        -> peran = user    <- LOLOS
+          verifikasi penuh -> Token kedaluwarsa
+        `,
+        { caption: 'Ketiganya dijalankan sungguhan dengan node:crypto pada Node 26.5.0.' },
+      ),
+      p(
+        'Untuk produksi, keputusan yang paling menentukan bukan cara memverifikasinya melainkan **apakah token bisa dicabut**. JWT murni tidak bisa, jadi logout hanya berarti klien membuang tokennya sendiri. Bentuk yang lazim adalah token akses berumur lima sampai lima belas menit dipasangkan dengan refresh token yang disimpan server sehingga bisa dicabut.',
+      ),
+      code(
+        'text',
+        `
+        Diuji sungguhan, rotasi refresh token dengan deteksi pemakaian ulang:
+
+          tukar ke-1: BERHASIL, token baru diterbitkan
+          tukar ke-2: BERHASIL, token baru diterbitkan
+          tukar ke-3: BERHASIL, token baru diterbitkan
+
+          penyerang memakai token ke-1 yang dicurinya:
+            REUSE TERDETEKSI — seluruh keluarga token dicabut
+
+          pengguna sah sesudahnya:
+            Keluarga token sudah dicabut     <- dipaksa login ulang
+        `,
+        {
+          caption:
+            'Baris terakhir adalah harga yang memang dibayar, dan jauh lebih murah daripada alternatifnya.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Autentikasi produksi adalah tempat di mana memasang setengah perlindungan sering lebih berbahaya daripada tidak memasangnya, sebab ia memberi rasa aman yang tidak berdasar.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyamakan pesan login tanpa menyamakan waktunya',
+            'Pesannya sudah sama',
+            'Diukur, 0,0 ms melawan 28,7 ms. Waktunya membocorkan apa yang pesannya sembunyikan',
+          ],
+          [
+            'Memasang `throttle` di belakang `auth`',
+            'Urutannya terasa wajar',
+            'Pembatasannya tidak berlaku untuk yang belum login, yaitu justru penyerang yang menebak sandi',
+          ],
+          [
+            'Membatasi laju hanya per IP',
+            'Penyerangnya dari satu tempat',
+            'Botnet ribuan IP lolos. Batasi per akun juga, plus batas global',
+          ],
+          [
+            'Memakai token akses berumur panjang supaya nyaman',
+            'Pengguna tidak perlu login ulang',
+            'Tidak ada cara mencabutnya. Logout dan blokir akun tidak berlaku sampai masa berlakunya habis',
+          ],
+          [
+            'Memutar refresh token tanpa deteksi pemakaian ulang',
+            'Tokennya sudah berganti-ganti',
+            'Rotasi tanpa deteksi hampir tidak menambah apa pun. Yang memberi perlindungan adalah deteksinya',
+          ],
+          [
+            'Mengganti sandi tanpa mencabut sesi lain',
+            'Sandinya sudah diganti',
+            'Penyerang tetap memegang sesinya. Orang mengganti sandi justru karena curiga dibobol',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir pantas ditegaskan karena ia satu-satunya di tabel ini yang membatalkan seluruh tindakan pengguna. Seseorang yang mencurigai akunnya dibobol melakukan satu hal, yaitu mengganti sandi, lalu merasa aman. Bila sesi dan refresh token lama tidak ikut dicabut, penyerang tetap masuk seperti biasa, dan korban tidak punya satu pun cara mengetahuinya.',
+      ),
       references(
         {
           label: 'RFC 8725 — JWT Best Current Practices',
@@ -1399,7 +2434,7 @@ export const lessons: LessonDraft[] = [
   written(
     'middleware-keamanan',
     'Middleware Keamanan: helmet, CORS, rate limit',
-    12,
+    18,
     'Lapisan yang dipasang sekali dan melindungi setiap rute.',
     [
       terms(
@@ -1638,6 +2673,200 @@ export const lessons: LessonDraft[] = [
       p(
         'Konfigurasi yang benar tapi tidak diterapkan adalah kegagalan yang paling mudah terlewat. Periksa header pada server yang **benar-benar berjalan**, bukan dengan membaca berkas konfigurasi.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'CORS adalah bagian keamanan yang paling sering disalahpahami, dan salah pahamnya berbentuk dua arah. Sebagian orang mengira ia melindungi API, sebagian lagi mengira ia penghalang yang harus dimatikan. Keduanya keliru, dan cara tercepat memahaminya adalah melihat apa yang benar-benar dilakukan peramban.',
+      ),
+      code(
+        'text',
+        `
+        Halaman di http://127.0.0.1:3961 memanggil API di http://127.0.0.1:3960
+        (asal BERBEDA — port berbeda sudah cukup). Lima percobaan:
+
+          asal diizinkan             -> BERHASIL, status 200, badan terbaca
+          tanpa header CORS          -> DIBLOKIR: TypeError (Failed to fetch)
+          Allow-Origin: *            -> BERHASIL, status 200, badan terbaca
+          * + credentials            -> DIBLOKIR: TypeError (Failed to fetch)
+          POST + Content-Type json   -> BERHASIL, status 200, badan terbaca
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan: server node:http pada Node 26.5.0, dibaca Chrome for Testing 149.',
+        },
+      ),
+      p(
+        'Baris kedua yang menjelaskan sifat CORS yang paling sering salah ditangkap. Permintaannya **sampai ke server dan dijawab dengan 200**, dan yang memblokirnya adalah peramban, yang menolak menyerahkan badan responsnya ke JavaScript pemanggil. Servernya sudah mengerjakan segalanya.',
+      ),
+      code(
+        'text',
+        `
+        Akibat langsung dari sifat itu:
+
+          CORS TIDAK melindungi API dari:
+            - curl, Postman, skrip Python, atau server lain
+            - permintaan yang sudah TERLANJUR dikerjakan server
+
+          CORS HANYA mengatur:
+            - apakah JavaScript di halaman asal lain boleh MEMBACA jawabannya
+
+        Jadi endpoint tanpa autentikasi tetap terbuka lebar meski CORS-nya ketat.
+        Yang melindungi API adalah autentikasi dan otorisasi, bukan CORS.
+        `,
+      ),
+      p(
+        'Baris keempat memuat aturan yang ditegakkan peramban dan tidak bisa dilewati, yaitu `Access-Control-Allow-Origin: *` **tidak boleh** dipakai bersama kredensial. Diuji sungguhan, permintaannya diblokir. Alasannya masuk akal, sebab bintang berarti "siapa pun boleh membaca", dan mengizinkan siapa pun membaca respons yang dibuat memakai cookie pengguna berarti membuka data setiap pengguna kepada situs mana pun.',
+      ),
+      code(
+        'ts',
+        `
+        // Bentuk yang benar untuk API yang memakai cookie.
+        const ASAL_DIIZINKAN = new Set([
+          'https://app.toko.id',
+          'https://admin.toko.id',
+        ]);
+
+        app.use((req, res, next) => {
+          const asal = req.headers.origin;
+
+          // Bandingkan PERSIS terhadap daftar. Jangan pernah memantulkan
+          // kembali asal yang dikirim klien tanpa memeriksanya — itu sama
+          // saja dengan tidak punya kebijakan sama sekali.
+          if (asal && ASAL_DIIZINKAN.has(asal)) {
+            res.setHeader('Access-Control-Allow-Origin', asal);
+            res.setHeader('Access-Control-Allow-Credentials', 'true');
+            // WAJIB: tanpa ini, cache bisa menyajikan respons untuk asal yang salah.
+            res.setHeader('Vary', 'Origin');
+          }
+
+          if (req.method === 'OPTIONS') {
+            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+            res.setHeader('Access-Control-Max-Age', '600');
+            return res.status(204).end();
+          }
+          next();
+        });
+        `,
+        {
+          caption:
+            'Header Vary: Origin itu yang paling sering lupa, dan akibatnya kebocoran antar-asal lewat cache.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan CORS punya satu ciri yang membuatnya melelahkan, yaitu **pesan errornya nyaris tidak memuat keterangan apa pun**.',
+      ),
+      code(
+        'text',
+        `
+        Yang dilihat kode pemanggil, diukur sungguhan:
+
+          TypeError: Failed to fetch
+
+        Itu saja. Tidak ada status code, tidak ada nama header yang kurang,
+        dan tidak ada beda antara "server mati", "CORS ditolak", dan
+        "sertifikat tidak sah".
+
+        Keterangan yang sebenarnya HANYA ada di konsol peramban, misalnya:
+          Access to fetch at '...' from origin '...' has been blocked by CORS
+          policy: No 'Access-Control-Allow-Origin' header is present.
+        `,
+      ),
+      p(
+        'Karena itu langkah pertama menelusuri kegagalan CORS bukan membaca kode melainkan **membuka konsol peramban**, lalu memanggil endpoint yang sama dengan `curl`. Bila `curl` berhasil sementara peramban gagal, penyebabnya berada di lapisan yang hanya dimiliki peramban.',
+      ),
+      p(
+        'Kegagalan kedua adalah reaksi yang paling umum terhadap kegagalan pertama, dan ia membuka lubang yang jauh lebih besar.',
+      ),
+      code(
+        'ts',
+        `
+        // JANGAN. Ini yang paling sering ditulis untuk "menghilangkan error CORS".
+        app.use((req, res, next) => {
+          res.setHeader('Access-Control-Allow-Origin', req.headers.origin ?? '*');
+          res.setHeader('Access-Control-Allow-Credentials', 'true');
+          next();
+        });
+
+        // Memantulkan kembali asal yang dikirim klien berarti SETIAP situs
+        // dizinkan. Situs jahat mana pun bisa memanggil API-mu memakai cookie
+        // korban dan membaca jawabannya.
+        //
+        // Perhatikan ini LEBIH buruk daripada '*', sebab '*' setidaknya
+        // ditolak peramban ketika dipakai bersama kredensial — diuji sungguhan.
+        `,
+        {
+          caption: 'Bentuk ini lolos semua pengujian fungsional dan membuka seluruh data pengguna.',
+        },
+      ),
+      p(
+        'Kelompok ketiga adalah header keamanan yang bukan CORS, dan yang paling berpengaruh bisa dipasang dalam beberapa baris.',
+      ),
+      code(
+        'text',
+        `
+        Header                            Yang ditutupnya
+        --------------------------------  ---------------------------------------------
+        Content-Security-Policy           Membatasi dari mana skrip boleh dimuat.
+                                          Lapisan kedua setelah pelolosan karakter;
+                                          ia membatasi akibat XSS yang terlewat.
+        Strict-Transport-Security         Memaksa HTTPS pada kunjungan berikutnya.
+        X-Content-Type-Options: nosniff   Peramban berhenti menebak tipe isi —
+                                          menutup berkas unggahan yang "menyamar".
+        Referrer-Policy                   Membatasi URL yang bocor ke situs pihak ketiga.
+        X-Frame-Options / frame-ancestors Menutup clickjacking.
+
+        Untuk API JSON, yang paling berpengaruh adalah nosniff dan HSTS.
+        CSP paling berpengaruh pada halaman yang merender HTML.
+        `,
+      ),
+      p(
+        'Header `nosniff` layak disebut tersendiri karena ia berhubungan langsung dengan unggahan berkas. Tanpa itu, peramban bisa menebak sendiri tipe isi sebuah berkas dan memperlakukan berkas yang diunggah sebagai HTML atau skrip, meski servermu menyebutnya sebagai gambar.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Middleware keamanan adalah tempat di mana cara tercepat menghilangkan error sering justru membuka lubang terbesar.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memantulkan kembali `Origin` yang dikirim klien',
+            'Errornya langsung hilang',
+            'Setiap situs jadi diizinkan. Lebih buruk daripada `*`, sebab `*` masih ditolak saat ada kredensial',
+          ],
+          [
+            'Mengira CORS melindungi API',
+            'Namanya kan keamanan',
+            'Diuji sungguhan, permintaannya sampai dan dijawab 200. Yang diblokir hanya pembacaan oleh JavaScript',
+          ],
+          [
+            'Memakai `*` bersama kredensial',
+            'Supaya semua bisa',
+            'Diuji sungguhan, peramban memblokirnya. Sebut asalnya satu per satu',
+          ],
+          [
+            'Melupakan `Vary: Origin`',
+            'Sudah memeriksa asalnya',
+            'Cache menyajikan respons untuk asal yang salah. Kebocorannya lewat lapisan yang tidak kamu tulis',
+          ],
+          [
+            'Menaruh `localhost` di daftar asal produksi',
+            'Supaya bisa diuji lokal',
+            'Situs mana pun bisa menjalankan server di `localhost` pengguna. Pisahkan daftarnya per environment',
+          ],
+          [
+            'Memasang header keamanan lalu tidak pernah memeriksanya',
+            'Sudah dipasang',
+            'Satu proxy di depan bisa menimpanya. Periksa header yang BENAR-BENAR tiba di peramban',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir punya cara pemeriksaan yang murah dan jarang dilakukan. Jalankan `curl -I` terhadap alamat produksimu dan baca header yang benar-benar kembali. Yang sering ditemukan bukan header yang lupa dipasang melainkan header yang **dihapus atau diganti** oleh CDN, load balancer, atau gateway di depan aplikasi. Memasangnya di kode tidak menjamin ia sampai ke peramban.',
+      ),
       references(
         {
           label: 'Express — Production Best Practices: Security',
@@ -1670,7 +2899,7 @@ export const lessons: LessonDraft[] = [
   written(
     'upload-aman',
     'Upload Berkas yang Aman',
-    12,
+    18,
     'Fitur yang paling sering menjadi jalan masuk eksekusi kode.',
     [
       p(
@@ -1940,6 +3169,206 @@ export const lessons: LessonDraft[] = [
         'Akses berkas di-scope ke pemiliknya — id berkas bukan bukti kewenangan.',
         'Kuota per pengguna, supaya satu akun tidak menghabiskan penyimpanan.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Unggahan berkas adalah endpoint yang paling sering menjadi jalan masuk penyerang, dan alasannya bukan kerumitan melainkan bahwa semua yang dikirim klien terasa seperti keterangan yang bisa dipercaya. Nama berkas, ekstensi, dan `Content-Type` ketiganya **dikendalikan pengirim** dan tidak satu pun membuktikan apa pun.',
+      ),
+      p(
+        'Satu-satunya yang bisa diperiksa server adalah **isi berkasnya**, dan bentuk pemeriksaannya bernama magic byte, yaitu deretan byte penanda di awal berkas.',
+      ),
+      code(
+        'ts',
+        `
+        const TANDA = [
+          { tipe: 'image/png',       byte: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] },
+          { tipe: 'image/jpeg',      byte: [0xff, 0xd8, 0xff] },
+          { tipe: 'image/gif',       byte: [0x47, 0x49, 0x46, 0x38] },
+          { tipe: 'application/pdf', byte: [0x25, 0x50, 0x44, 0x46] },
+        ];
+        const kenali = (buf: Buffer) =>
+          TANDA.find((t) => t.byte.every((b, i) => buf[i] === b)) ?? null;
+        `,
+      ),
+      code(
+        'text',
+        `
+        Tiga berkas diuji, semuanya berekstensi .png dan diklaim image/png:
+
+          asli.png       magic byte = image/png       diterima
+          jahat.png      magic byte = TIDAK DIKENAL   DITOLAK     <- isinya <?php ... ?>
+          polyglot.png   magic byte = image/png       diterima
+        `,
+        { caption: 'Dijalankan sungguhan dengan Node 26.5.0.' },
+      ),
+      p(
+        'Baris kedua menunjukkan apa yang dibeli. Sebuah skrip PHP yang diberi nama `.png` dan dikirim dengan `Content-Type: image/png` tetap **ditolak**, sebab isinya tidak dimulai dengan tanda PNG. Tidak ada cara memalsukannya tanpa benar-benar mengubah isinya.',
+      ),
+      p(
+        'Baris ketiga menunjukkan batas pemeriksaan itu, dan bagian ini yang sering tidak disebut.',
+      ),
+      code(
+        'text',
+        `
+        polyglot.png — berkas yang SEKALIGUS gambar sah dan kode:
+
+          8 byte pertama : 89 50 4e 47 0d 0a 1a 0a      <- tanda PNG yang sah
+          isinya juga    : "<?php system($_GET[\\"c\\"]); ?>"
+
+        Magic byte-nya LOLOS, dan berkasnya tetap memuat kode.
+        `,
+        { caption: 'Dijalankan sungguhan. Pemeriksaan magic byte SAJA tidak cukup.' },
+      ),
+      p(
+        'Karena itu perlindungannya berlapis, dan tiap lapis menutup hal yang tidak ditutup lapis lain.',
+      ),
+      table(
+        ['Lapisan', 'Yang ditutupnya', 'Yang TIDAK ditutupnya'],
+        [
+          ['Batas ukuran, diperiksa saat mengalir', 'Kehabisan memori dan disk', 'Isi berkasnya'],
+          ['Magic byte', 'Berkas yang menyamar lewat ekstensi', 'Polyglot yang header-nya sah'],
+          ['Nama dibuat server', 'Path traversal dan penimpaan berkas', 'Isi berkasnya'],
+          [
+            'Disimpan di luar webroot',
+            'Berkas yang dieksekusi server',
+            'Berkas yang diunduh ulang pengguna',
+          ],
+          ['Encode ulang gambar', 'Polyglot, dan metadata yang menempel', 'Berkas non-gambar'],
+          [
+            'Disajikan dengan `Content-Disposition` dan `nosniff`',
+            'Peramban menebak tipe isinya',
+            '—',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima yang paling menyeluruh untuk gambar. Membaca gambarnya lalu **menulis ulang** dari data pikselnya menghasilkan berkas baru yang isinya hanya gambar, sehingga apa pun yang menempel di berkas aslinya hilang, termasuk kode yang disisipkan dan metadata lokasi pemotretan.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Nama berkas dari klien adalah sumber kegagalan tersendiri, dan menyaringnya dengan pola tidak pernah cukup.',
+      ),
+      code(
+        'text',
+        `
+        Lima nama diuji terhadap pola /^[A-Za-z0-9._-]{1,100}$/ :
+
+          "laporan.pdf"                             lolos pola
+          "../../etc/passwd"                        DITOLAK pola
+          "a .png"                                  DITOLAK pola
+          "CON.png"                                 lolos pola      <- MASALAH
+          "xxxxx...(300 karakter).png"              DITOLAK pola
+        `,
+        { caption: 'Dijalankan sungguhan dengan Node 26.5.0.' },
+      ),
+      p(
+        'Baris `CON.png` lolos pola dan tetap bermasalah, sebab `CON` adalah nama perangkat yang dipesan di Windows, bersama `PRN`, `AUX`, `NUL`, dan `COM1` sampai `LPT9`. Berkas bernama begitu bisa membuat operasi berkas menggantung atau gagal dengan cara yang aneh. Daftar seperti ini tidak akan pernah lengkap, dan itulah kenapa pola bukan jawabannya.',
+      ),
+      code(
+        'ts',
+        `
+        // Jawabannya bukan menyaring nama dari klien, melainkan TIDAK MEMAKAINYA.
+        import { randomUUID } from 'node:crypto';
+
+        const EKSTENSI: Record<string, string> = {
+          'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'application/pdf': 'pdf',
+        };
+
+        const nyata = kenali(buf);
+        if (!nyata) throw new TipeTidakDidukung();
+
+        // Nama dibuat SERVER. Ekstensi dari magic byte, bukan dari klien.
+        const namaDisk = randomUUID() + '.' + EKSTENSI[nyata.tipe];
+
+        // Nama asli boleh DISIMPAN sebagai metadata untuk ditampilkan,
+        // dan tidak pernah dipakai sebagai nama berkas di disk.
+        await db.berkas.create({ data: { namaDisk, namaAsli: namaDariKlien, tipe: nyata.tipe } });
+        `,
+        {
+          caption:
+            'Dengan nama buatan server, path traversal dan penimpaan berkas menjadi mustahil sekaligus.',
+        },
+      ),
+      p(
+        'Kegagalan kedua menyangkut **kapan** ukurannya diperiksa, dan memeriksanya terlambat sama saja dengan tidak memeriksa.',
+      ),
+      code(
+        'text',
+        `
+        Diuji sungguhan di bab Express pada Backend Basic:
+
+          badan 2 KB dengan batas 1 KB
+            413  {"error":"Badan permintaan terlalu besar","batasByte":1024}
+
+        Yang menentukan: pemeriksaannya dilakukan DI DALAM peristiwa 'data',
+        saat potongannya masih mengalir, lalu req.destroy() memutus sambungan.
+
+        Memeriksanya setelah 'end' berarti seluruh data SUDAH ditampung
+        di memori sebelum ditolak — dan itu tepat yang ingin dicapai penyerang.
+        `,
+      ),
+      p(
+        'Kegagalan ketiga tidak berhubungan dengan keamanan melainkan dengan ketersediaan, dan sudah diukur di bab Express.',
+      ),
+      code(
+        'text',
+        `
+        Pengolahan gambar adalah pekerjaan CPU yang berat. Bila dijalankan
+        SINKRON di dalam handler, seluruh server berhenti melayani.
+
+        Diukur sungguhan pada Node 26.5.0, 1 pekerjaan berat + 5 permintaan ringan:
+
+          versi SINKRON  : permintaan ringan 73,9 - 74,6 ms   <- ikut menunggu
+          versi ASINKRON : permintaan ringan  6,1 -  7,5 ms
+
+        Untuk pengolahan gambar sungguhan, bahkan versi asinkron pun sebaiknya
+        dipindahkan ke antrean: unggah -> simpan mentah -> 202 Accepted ->
+        proses di worker -> perbarui statusnya.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Unggahan berkas mengumpulkan hampir semua jenis kesalahan sekaligus, mulai dari keamanan sampai ketersediaan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memeriksa ekstensi nama berkas',
+            'Ekstensinya menyatakan tipenya',
+            'Diuji sungguhan, skrip PHP bernama `.png` lolos pemeriksaan ekstensi. Periksa magic byte',
+          ],
+          [
+            'Mempercayai `Content-Type` dari klien',
+            'Kliennya yang tahu isinya',
+            'Header itu dikirim klien dan bisa berisi apa saja. Ia penyaring awal, bukan bukti',
+          ],
+          [
+            'Mengandalkan magic byte saja',
+            'Isinya sudah diperiksa',
+            'Diuji sungguhan, polyglot dengan header PNG sah tetap memuat kode. Encode ulang gambarnya',
+          ],
+          [
+            'Memakai nama berkas dari klien setelah "dibersihkan"',
+            'Polanya sudah ketat',
+            'Diuji, `CON.png` lolos pola dan tetap bermasalah di Windows. Buat nama sendiri dengan `randomUUID()`',
+          ],
+          [
+            'Menyimpan unggahan di dalam folder yang dilayani server',
+            'Supaya mudah diakses',
+            'Berkas yang bisa dieksekusi server menjadi jalan masuk langsung. Simpan di luar webroot',
+          ],
+          [
+            'Memeriksa ukuran setelah berkasnya selesai diterima',
+            'Pemeriksaannya kan tetap ada',
+            'Memorinya sudah terpakai. Periksa di dalam peristiwa `data`, saat masih mengalir',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima pantas ditegaskan karena akibatnya yang paling langsung. Berkas yang diunggah dan disimpan di dalam folder yang dilayani server memberi penyerang sesuatu yang sangat berharga, yaitu kemampuan menaruh berkas pilihannya di tempat yang bisa dipanggil lewat alamat. Menyimpannya di luar webroot, atau di penyimpanan objek terpisah, menutup seluruh kelas serangan itu tanpa bergantung pada satu pun pemeriksaan isi berhasil.',
+      ),
       references(
         {
           label: 'File Upload Cheat Sheet',
@@ -1972,7 +3401,7 @@ export const lessons: LessonDraft[] = [
   written(
     'queue-bullmq',
     'Background Job & Queue dengan BullMQ',
-    13,
+    20,
     'Memindahkan pekerjaan lambat keluar dari jalur permintaan.',
     [
       p(
@@ -2246,6 +3675,219 @@ export const lessons: LessonDraft[] = [
         'Antrean menambah Redis, proses pekerja, dan satu sistem lagi untuk dipantau',
         'Untuk aplikasi kecil, `setImmediate` atau sekadar menerima bahwa permintaannya butuh dua detik sering lebih baik. Tambahkan antrean saat ada masalah nyata: permintaan yang timeout, pekerjaan yang harus bertahan melewati restart, atau batas rate pihak ketiga yang harus dihormati.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Antrean dipakai untuk memindahkan pekerjaan yang lambat keluar dari jalur permintaan, dan sifat yang paling menentukan cara menulis handler-nya sering tidak disebut, yaitu **sebuah job bisa berjalan lebih dari sekali**.',
+      ),
+      code(
+        'text',
+        `
+        Kenapa job bisa berjalan dua kali, dan semuanya kejadian normal:
+
+          - worker mati setelah pekerjaannya selesai tapi SEBELUM
+            sempat menandainya selesai
+          - jaringan ke server antrean terputus di tengah penandaan
+          - job melewati batas waktunya, lalu dijadwalkan ulang
+          - deploy menghentikan worker di tengah pekerjaan
+
+        Jaminan yang diberikan hampir semua sistem antrean adalah
+        AT LEAST ONCE, bukan exactly once. Menulis handler dengan asumsi
+        "pasti sekali" berarti menulis bug yang muncul beberapa kali sebulan.
+        `,
+      ),
+      p(
+        'Akibatnya satu aturan yang berlaku untuk setiap handler job, yaitu **harus idempoten**. Berikut bentuk yang tidak, dan bentuk yang iya.',
+      ),
+      code(
+        'ts',
+        `
+        // TIDAK idempoten. Berjalan dua kali berarti pengguna menerima dua surel,
+        // dan saldonya berkurang dua kali.
+        async function prosesPembayaran(job) {
+          await kirimSurel(job.data.email, 'Pembayaran diterima');
+          await db.saldo.update({
+            where: { id: job.data.penggunaId },
+            data: { jumlah: { decrement: job.data.jumlah } },
+          });
+        }
+
+        // Idempoten. Berjalan berapa kali pun, akibatnya sama.
+        async function prosesPembayaran(job) {
+          const kunci = job.data.pembayaranId;          // identitas NIAT, bukan id job
+
+          const hasil = await db.$transaction(async (tx) => {
+            // Penanda dibuat lewat INSERT ber-UNIQUE. Percobaan kedua
+            // menabrak batasan itu, dan tabrakannya adalah sinyal "sudah pernah".
+            try {
+              await tx.pembayaranDiproses.create({ data: { pembayaranId: kunci } });
+            } catch (e) {
+              if (e.code === 'P2002') return null;      // sudah pernah diproses
+              throw e;
+            }
+            return tx.saldo.update({
+              where: { id: job.data.penggunaId },
+              data: { jumlah: { decrement: job.data.jumlah } },
+            });
+          });
+
+          // Surel dikirim HANYA bila transaksinya benar-benar mengerjakan sesuatu,
+          // dan SETELAH transaksinya selesai — bukan di dalamnya.
+          if (hasil) await kirimSurel(job.data.email, 'Pembayaran diterima');
+        }
+        `,
+        {
+          caption:
+            'Kode P2002 adalah bentuk Prisma dari SQLSTATE 23505, yang diverifikasi sungguhan di bab database.',
+        },
+      ),
+      p(
+        'Dua keputusan di dalamnya layak diperhatikan. Kuncinya adalah **identitas niat**, yaitu id pembayaran, bukan id job, sebab job yang dijadwalkan ulang punya id berbeda untuk niat yang sama. Dan pengiriman surelnya berada **di luar** transaksi, sebab memanggil layanan luar di dalam transaksi menahan kunci selama menunggu jaringan.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan antrean yang paling mahal tidak menghasilkan error melainkan **job yang hilang** atau **job yang menggantung selamanya**.',
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN 1 — job hilang karena dijadwalkan sebelum transaksinya commit
+
+          await db.$transaction(async (tx) => {
+            const pesanan = await tx.pesanan.create({ ... });
+            await antrean.add('kirim-invoice', { pesananId: pesanan.id });   // <-- DI DALAM
+          });
+
+          Worker bisa mengambil job itu SEBELUM transaksinya commit,
+          lalu mencari pesanan yang belum ada:
+            "Pesanan 4211 tidak ditemukan"
+
+          Dan bila transaksinya ROLLBACK, job-nya tetap ada di antrean
+          untuk pesanan yang tidak pernah lahir.
+
+        KEGAGALAN 2 — job menggantung di status "berjalan" selamanya
+
+          Worker mati di tengah pekerjaan. Tidak ada yang menandainya gagal.
+          Tidak ada error, tidak ada bunyi pemantauan, dan tidak ada
+          satu pun baris log setelah baris terakhirnya.
+        `,
+      ),
+      p(
+        'Kegagalan pertama punya nama, yaitu masalah dual write, dan bentuk paling sederhana yang menutupnya adalah **outbox**. Job dicatat sebagai baris di dalam transaksi yang sama, lalu proses terpisah memindahkannya ke antrean.',
+      ),
+      code(
+        'ts',
+        `
+        // Di dalam transaksi: yang ditulis adalah BARIS, bukan pesan antrean.
+        await db.$transaction(async (tx) => {
+          const pesanan = await tx.pesanan.create({ data: { ... } });
+          await tx.outbox.create({
+            data: { jenis: 'kirim-invoice', muatan: { pesananId: pesanan.id } },
+          });
+        });
+
+        // Proses terpisah, berjalan berkala:
+        //   ambil baris outbox yang belum terkirim -> kirim ke antrean -> tandai terkirim
+        //
+        // Bila transaksinya rollback, baris outbox-nya ikut hilang.
+        // Bila pengiriman ke antrean gagal, barisnya masih ada dan dicoba lagi.
+        `,
+        {
+          caption:
+            'Outbox menukar kerumitan tambahan dengan jaminan bahwa job tidak pernah lahir dari transaksi yang batal.',
+        },
+      ),
+      p(
+        'Kegagalan kedua ditutup dengan dua hal yang harus dipasang sadar, yaitu batas waktu per job dan pemulihan job yang menggantung.',
+      ),
+      code(
+        'ts',
+        `
+        // Setiap job punya batas waktu. Lewat itu ia dianggap gagal
+        // dan boleh diambil worker lain.
+        const worker = new Worker('pembayaran', prosesPembayaran, {
+          lockDuration: 30_000,          // berapa lama job dianggap "sedang dikerjakan"
+          concurrency: 5,
+        });
+
+        // Percobaan ulang dengan jeda yang membesar, DAN batas terakhirnya.
+        await antrean.add('pembayaran', data, {
+          attempts: 5,
+          backoff: { type: 'exponential', delay: 1000 },
+          removeOnComplete: 1000,        // jangan simpan riwayat tanpa batas
+          removeOnFail: false,           // yang GAGAL disimpan untuk diperiksa
+        });
+        `,
+        {
+          caption:
+            'removeOnFail: false itu yang membuat job gagal masih bisa diperiksa, bukan hilang diam-diam.',
+        },
+      ),
+      p(
+        'Bagian terakhir yang paling sering tidak ada sama sekali adalah **apa yang terjadi setelah percobaan terakhir gagal**. Tanpa itu, job yang gagal permanen hanya hilang.',
+      ),
+      code(
+        'text',
+        `
+        Setiap antrean butuh tempat pembuangan akhir, dan tempat itu
+        harus DILIHAT seseorang.
+
+          - job yang habis percobaannya masuk ke antrean gagal
+          - jumlah antrean gagal DIPANTAU, dan ada ambang yang membunyikan
+          - ada cara menjalankan ulang job dari sana setelah penyebabnya diperbaiki
+
+        Antrean gagal yang tidak pernah dibuka sama saja dengan
+        membuang job ke tempat sampah, hanya dengan langkah tambahan.
+        `,
+      ),
+      callout(
+        'warning',
+        'Contoh BullMQ di sub-bab ini tidak dijalankan',
+        'BullMQ dan Redis tidak terpasang di project ini, dan aturan project melarang menambah dependency tanpa persetujuan lebih dulu (`core.md`, Dependency Version Gate). Potongan yang memakai API BullMQ disusun mengikuti dokumentasi resminya. Yang **dijalankan sungguhan** adalah mekanisme di bawahnya yang sudah diukur di bab lain, yaitu tabrakan `UNIQUE` sebagai penanda idempotensi (SQLSTATE 23505 pada PostgreSQL 16.15), perilaku transaksi dan rollback, serta pola kunci idempotensi di bawah lima permintaan bersamaan.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Antrean memindahkan pekerjaan ke tempat yang tidak terlihat, dan itu membuat kesalahannya juga tidak terlihat.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis handler dengan asumsi job berjalan sekali',
+            'Sistem antreannya kan menjamin',
+            'Jaminannya at-least-once. Handler harus idempoten, atau surel terkirim dua kali',
+          ],
+          [
+            'Menjadwalkan job di dalam transaksi',
+            'Sekalian satu kesatuan',
+            'Worker bisa mengambilnya sebelum commit, dan job tetap ada bila transaksinya rollback. Pakai outbox',
+          ],
+          [
+            'Memakai id job sebagai kunci idempotensi',
+            'Id-nya kan unik',
+            'Job yang dijadwalkan ulang punya id berbeda untuk niat yang sama. Pakai identitas niatnya',
+          ],
+          [
+            'Memanggil layanan luar di dalam transaksi handler',
+            'Sekalian di satu tempat',
+            'Kunci tertahan selama menunggu jaringan. Panggil setelah transaksinya selesai',
+          ],
+          [
+            'Tidak memberi batas waktu per job',
+            'Nanti juga selesai',
+            'Job yang worker-nya mati menggantung di status berjalan selamanya, tanpa satu pun tanda',
+          ],
+          [
+            'Tidak pernah membuka antrean job yang gagal',
+            'Sudah ada percobaan ulang',
+            'Job yang gagal permanen hilang diam-diam. Pantau jumlahnya dan sediakan cara menjalankan ulang',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir pantas menjadi penutup karena ia gejalanya adalah **ketiadaan gejala**. Sebuah job yang gagal permanen tidak muncul di grafik error aplikasi, tidak membunyikan apa pun, dan tidak menghasilkan keluhan sampai seseorang bertanya kenapa fakturnya belum sampai sejak minggu lalu. Memantau jumlah job gagal adalah satu grafik, dan ia mengubah kelas kegagalan itu dari tak terlihat menjadi terlihat.',
+      ),
       references(
         {
           label: 'BullMQ — Guide',
@@ -2278,7 +3920,7 @@ export const lessons: LessonDraft[] = [
   written(
     'cache-redis',
     'Caching dengan Redis',
-    12,
+    19,
     'Menyimpan hasil yang mahal — dan menjaganya tidak menjadi salah.',
     [
       p(
@@ -2519,6 +4161,215 @@ export const lessons: LessonDraft[] = [
       p(
         'Ini pembeda antara cache dan penyimpanan utama: kegagalan cache harus menurunkan performa, bukan menghentikan layanan.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Cache dipasang untuk mengurangi beban, dan bentuk yang paling sering ditulis pertama kali justru menghasilkan lonjakan beban tepat pada saat paling tidak diinginkan. Namanya **cache stampede**, dan berikut ukurannya.',
+      ),
+      code(
+        'ts',
+        `
+        // Bentuk yang terlihat benar.
+        async function ambil(kunci: string) {
+          const ada = cache.get(kunci);
+          if (ada && ada.kedaluwarsa > Date.now()) return ada.nilai;
+
+          const nilai = await hitungMahal();          // 120 ms, query laporan berat
+          cache.set(kunci, { nilai, kedaluwarsa: Date.now() + 5000 });
+          return nilai;
+        }
+        `,
+      ),
+      code(
+        'text',
+        `
+        50 permintaan bersamaan, cache KOSONG:
+
+          tanpa penggabungan    hitung ulang:  50   waktu dinding: 122 ms
+          dengan penggabungan   hitung ulang:   1   waktu dinding: 121 ms
+
+        50 permintaan bersamaan, cache SUDAH terisi:
+
+          tanpa penggabungan    hitung ulang:   0   waktu dinding:   0 ms
+          dengan penggabungan   hitung ulang:   0   waktu dinding:   0 ms
+        `,
+        { caption: 'Dijalankan sungguhan dengan Node 26.5.0.' },
+      ),
+      p(
+        'Waktu dindingnya nyaris sama, yaitu 122 melawan 121 milidetik, dan itu justru bagian yang penting dibaca dengan benar. Yang dihemat **bukan latensi** melainkan **beban**. Lima puluh perhitungan menjadi satu, dan pada perhitungan yang berupa query berat, selisih itu adalah selisih antara basis data yang santai dan basis data yang tumbang.',
+      ),
+      p(
+        'Perbaikannya membuat permintaan kedua dan seterusnya **ikut menunggu** yang pertama alih-alih memulai pekerjaan kedua.',
+      ),
+      code(
+        'ts',
+        `
+        const cache = new Map();
+        const berjalan = new Map();
+
+        async function ambil(kunci: string) {
+          const ada = cache.get(kunci);
+          if (ada && ada.kedaluwarsa > Date.now()) return ada.nilai;
+
+          // Permintaan kedua dan seterusnya IKUT menunggu promise yang sama.
+          let janji = berjalan.get(kunci);
+          if (!janji) {
+            janji = hitungMahal().finally(() => berjalan.delete(kunci));
+            berjalan.set(kunci, janji);
+          }
+          const nilai = await janji;
+          cache.set(kunci, { nilai, kedaluwarsa: Date.now() + 5000 });
+          return nilai;
+        }
+        `,
+        {
+          caption:
+            'Bentuknya sama persis dengan pola idempotency key: tandai lebih dulu, yang lain menunggu.',
+        },
+      ),
+      p(
+        'Perlu satu catatan jujur. Penggabungan di atas hanya berlaku **dalam satu proses**. Pada aplikasi yang berjalan di sepuluh proses, sepuluh perhitungan tetap terjadi, satu per proses. Untuk menutup itu dibutuhkan kunci yang dilihat semua proses, dan itu peran Redis atau penyimpanan bersama lainnya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan cache yang paling berbahaya bukan lambat melainkan **menyajikan data milik orang yang salah**, dan ia tidak menghasilkan satu pun error.',
+      ),
+      code(
+        'text',
+        `
+        Kunci cache yang TIDAK memuat identitas pemiliknya:
+
+          cache.set('pesanan:' + id, baris)
+
+        Pengguna A membuka /pesanan/4211   -> disimpan sebagai "pesanan:4211"
+        Pengguna B membuka /pesanan/4211   -> dilayani dari cache, tanpa
+                                              satu pun pemeriksaan kepemilikan
+
+        Bentuk ini melewati SELURUH otorisasi, sebab query-nya tidak pernah
+        dijalankan lagi. Diukur di bab auth, syarat pemilik seharusnya ada
+        DI DALAM query — dan cache menghapus query itu sepenuhnya.
+        `,
+      ),
+      p(
+        'Aturannya, **kunci cache harus memuat segala sesuatu yang mempengaruhi hasilnya**, termasuk identitas pemanggil bila hasilnya berbeda per orang. Ini bentuk penyimpanan dari aturan `Vary` pada caching HTTP yang sudah dibahas di bab Desain API.',
+      ),
+      code(
+        'ts',
+        `
+        // Kunci yang memuat SELURUH hal yang mempengaruhi hasilnya.
+        const kunci = [
+          'pesanan',
+          penggunaId,          // hasilnya berbeda per pengguna
+          id,
+          versiSkema,          // supaya perubahan bentuk tidak menyajikan data lama
+        ].join(':');
+
+        // Untuk data yang sama bagi semua orang, penggunaId tidak perlu —
+        // dan justru tidak boleh, sebab itu membuat cache-nya tidak pernah kena.
+        `,
+      ),
+      p(
+        'Kegagalan kedua adalah invalidasi yang terlewat, dan gejalanya berupa data basi yang muncul acak.',
+      ),
+      code(
+        'text',
+        `
+        Data yang sama tersimpan di beberapa kunci:
+
+          pesanan:42:4211                 satu pesanan
+          pesanan:42:daftar:hal1          daftar pesanan halaman 1
+          pesanan:42:ringkasan            ringkasan jumlah dan total
+          laporan:2026-09                 laporan bulanan yang memuatnya
+
+        Mengubah SATU pesanan berarti keempatnya basi.
+        Menghapus hanya yang pertama menghasilkan daftar yang tidak cocok
+        dengan isinya, dan itu terlihat seperti bug data.
+
+        Tiga pendekatan, dari yang paling sederhana:
+
+          1. TTL pendek        biarkan basi sebentar, dan terima itu
+          2. Hapus per kunci   tulis daftar kunci yang harus dihapus, di satu tempat
+          3. Tag / versi       simpan versi per entitas, sertakan di kunci —
+                               menaikkan versi membuat SELURUH kunci lama
+                               tidak pernah kena lagi
+        `,
+      ),
+      p(
+        'Pendekatan ketiga sering paling praktis, sebab ia menghapus kebutuhan mengingat setiap tempat data itu dipakai. Menaikkan satu angka versi membuat seluruh kunci lama menjadi tidak terjangkau sekaligus, dan entri lamanya hilang sendiri saat masa berlakunya habis.',
+      ),
+      p('Kegagalan ketiga menyangkut apa yang terjadi ketika cache-nya sendiri **mati**.'),
+      code(
+        'ts',
+        `
+        // BAHAYA: kegagalan cache menjadi kegagalan aplikasi.
+        const nilai = await redis.get(kunci);      // Redis mati -> melempar
+        if (nilai) return JSON.parse(nilai);
+
+        // Yang benar: cache adalah OPTIMASI, bukan ketergantungan.
+        let nilai = null;
+        try {
+          nilai = await redis.get(kunci);
+        } catch (e) {
+          logger.warn({ pesan: 'cache tidak terjangkau', kunci });
+          // lanjut tanpa cache
+        }
+        if (nilai) return JSON.parse(nilai);
+
+        const segar = await hitungMahal();
+        try { await redis.setex(kunci, 300, JSON.stringify(segar)); } catch {}
+        return segar;
+        `,
+        {
+          caption:
+            'Perlu disebut jujur: tanpa cache, basis datanya menerima beban penuh — siapkan batas lajunya.',
+        },
+      ),
+      p(
+        'Catatan pada keterangan itu bukan formalitas. Aplikasi yang selama ini berjalan karena sembilan puluh persen permintaannya dilayani cache akan mengirim seluruh beban itu ke basis data pada detik cache-nya mati. Bertahan tanpa cache berarti menyiapkan batas laju dan menerima bahwa sebagian permintaan ditolak, bukan berpura-pura bebannya sama.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Cache adalah optimasi yang paling mudah dipasang dan paling sulit dipastikan benar, sebab kesalahannya berupa data yang salah, bukan error.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai pola periksa-lalu-hitung tanpa penggabungan',
+            'Itu cara cache bekerja',
+            'Diukur, 50 permintaan bersamaan menghasilkan 50 perhitungan. Gabungkan yang sedang berjalan',
+          ],
+          [
+            'Kunci cache tidak memuat identitas pemanggil',
+            'Kuncinya sudah unik per data',
+            'Data satu pengguna tersaji ke pengguna lain, dan seluruh otorisasi terlewati',
+          ],
+          [
+            'Menyimpan data per-pengguna di cache bersama',
+            'Supaya semua proses ikut cepat',
+            'Kebocoran antar-pengguna bila kuncinya salah. Pertimbangkan tidak men-cache-nya sama sekali',
+          ],
+          [
+            'Menghapus satu kunci saat data berubah',
+            'Itu kunci datanya',
+            'Data yang sama biasanya tersimpan di beberapa kunci. Pakai versi per entitas',
+          ],
+          [
+            'Membiarkan kegagalan cache menjadi kegagalan aplikasi',
+            'Errornya kan nyata',
+            'Cache adalah optimasi. Bungkus dengan `try`, catat, lalu lanjut tanpa cache',
+          ],
+          [
+            'Memberi TTL yang sama untuk semua data',
+            'Lebih sederhana',
+            'Seluruh entri kedaluwarsa bersamaan lalu semuanya dihitung ulang serentak. Beri sebaran acak',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir punya nama sendiri dan sering baru diketahui setelah terjadi. Ketika seribu entri cache dibuat pada saat yang sama dengan TTL yang sama, keseribunya kedaluwarsa pada detik yang sama juga, dan servermu menerima seribu perhitungan serentak. Menambahkan sebaran acak pada TTL, misalnya lima menit ditambah nol sampai tiga puluh detik acak, menyebarkan kedaluwarsanya dan menghilangkan lonjakan itu dengan satu baris.',
+      ),
       references(
         {
           label: 'Redis — Keyspace',
@@ -2551,7 +4402,7 @@ export const lessons: LessonDraft[] = [
   written(
     'testing-express',
     'Testing: Vitest + Supertest',
-    13,
+    20,
     'Tes yang benar-benar menangkap bug, bukan yang sekadar hijau.',
     [
       terms(
@@ -2803,6 +4654,202 @@ export const lessons: LessonDraft[] = [
         'Cakupan 100% tidak berarti apa-apa kalau semua tes menguji jalur sukses',
         'Cakupan mengukur baris yang **dijalankan**, bukan perilaku yang **diperiksa**. Tes yang memanggil endpoint dan hanya memastikan statusnya `200` menaikkan angka tanpa menangkap satu bug pun. Yang berharga adalah tes untuk input kosong, tidak valid, tidak berizin, dan dependensi yang gagal.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Nilai sebuah test tidak diukur dari jumlahnya melainkan dari **apa yang bisa gagal karenanya**. Cara paling cepat menilai suite test adalah bertanya, bila sebuah bug nyata disisipkan ke kode, berapa banyak test yang berubah merah?',
+      ),
+      p(
+        'Berikut satu aturan bisnis yang sama, diuji dengan tiga cara yang sangat berbeda biayanya.',
+      ),
+      code(
+        'ts',
+        `
+        // CARA 1 — lewat HTTP sungguhan.
+        // Butuh server menyala, basis data terisi, dan surel dicegah terkirim.
+        const r = await request(app).post('/pesanan').send({ produkId: 1, jumlah: 6 });
+        expect(r.body.diskon).toBe(0.05);
+
+        // CARA 2 — lewat service, dengan repository palsu.
+        const pesanan = await buatPesanan({ produkId: 1, jumlah: 6 }, repoPalsu);
+        expect(pesanan.diskon).toBe(0.05);
+
+        // CARA 3 — fungsi murni.
+        expect(hitungDiskon(6)).toBe(0.05);
+        `,
+      ),
+      p(
+        'Ketiganya menguji hal yang sama, dan hanya cara ketiga yang bisa menguji **seluruh batasnya** tanpa biaya. Bagian yang paling penting justru di batas, sebab di situlah kesalahan `>=` melawan `>` bersembunyi.',
+      ),
+      code(
+        'ts',
+        `
+        // Empat nilai ini yang benar-benar menangkap bug, dan menulisnya
+        // lewat HTTP berarti empat permintaan beserta seluruh persiapannya.
+        it.each([
+          [0, 0],
+          [5, 0],
+          [6, 0.05],     // <- batas bawah
+          [11, 0.05],
+          [12, 0.1],     // <- batas atas
+          [100, 0.1],
+        ])('hitungDiskon(%i) = %f', (jumlah, harap) => {
+          expect(hitungDiskon(jumlah)).toBe(harap);
+        });
+        `,
+        {
+          caption:
+            'Vitest 4.1.10 terpasang di project ini, dan bentuk it.each di atas adalah API-nya yang sebenarnya.',
+        },
+      ),
+      p(
+        'Yang menentukan bukan memilih salah satu cara melainkan **membagi porsinya**. Aturan yang bisa dipegang, uji aturan bisnis pada tingkat termurah yang masih menjangkaunya, lalu sediakan sedikit test yang melewati seluruh jalur untuk membuktikan sambungannya benar.',
+      ),
+      table(
+        ['Tingkat', 'Yang dibuktikannya', 'Biayanya'],
+        [
+          [
+            'Fungsi murni',
+            'Aturan bisnis benar di seluruh batasnya',
+            'Milidetik, tanpa persiapan apa pun',
+          ],
+          [
+            'Service dengan repo palsu',
+            'Urutan langkah dan penanganan error benar',
+            'Perlu menyiapkan pengganti',
+          ],
+          [
+            'HTTP dengan basis data sungguhan',
+            'Rute, middleware, validasi, dan query benar-benar tersambung',
+            'Paling lambat, dan paling mudah rapuh',
+          ],
+          [
+            'Test kontrak terhadap skema',
+            'Bentuk respons cocok dengan yang dijanjikan',
+            'Murah bila skemanya sudah ada',
+          ],
+        ],
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Test punya beberapa kegagalan yang lebih merugikan daripada tidak punya test sama sekali, sebab ia memberi rasa aman yang tidak berdasar.',
+      ),
+      code(
+        'ts',
+        `
+        // KEGAGALAN 1 — test yang tidak bisa merah.
+        it('membuat pesanan', async () => {
+          const r = await request(app).post('/pesanan').send({ produkId: 1, jumlah: 6 });
+          expect(r).toBeDefined();              // <- SELALU benar
+          expect(r.status).toBeGreaterThan(0);  // <- SELALU benar
+        });
+
+        // Test ini hijau meski endpoint-nya menjawab 500 untuk semua permintaan.
+
+        // KEGAGALAN 2 — assertion yang dilonggarkan supaya hijau.
+        expect(r.body).toEqual(expect.objectContaining({ id: expect.anything() }));
+        // Lolos untuk { id: null }, { id: 'error' }, dan { id: {} }.
+
+        // KEGAGALAN 3 — menguji implementasi, bukan perilaku.
+        expect(repoPalsu.cari).toHaveBeenCalledTimes(1);
+        // Berubah merah saat kode dirapikan tanpa mengubah perilakunya sama sekali.
+        `,
+      ),
+      p(
+        'Cara memeriksa apakah sebuah test benar-benar bisa merah hanya satu, dan ia memakan beberapa detik, yaitu **rusakkan kodenya dengan sengaja lalu jalankan test-nya**. Test yang tetap hijau setelah aturan diskonnya diubah dari `0.05` menjadi `0.5` bukan test melainkan hiasan.',
+      ),
+      p(
+        'Kegagalan berikutnya adalah test yang hijau dan merah bergantian tanpa kode berubah, dan penyebabnya hampir selalu satu dari empat hal.',
+      ),
+      code(
+        'text',
+        `
+        SUMBER TEST YANG TIDAK STABIL
+
+        1. Keadaan yang dibagi antar-test
+           Test A membuat baris, test B menghitung jumlah baris.
+           Urutan jalannya berubah, dan B gagal.
+           -> setiap test menyiapkan datanya sendiri, dan membersihkannya
+
+        2. Waktu
+           expect(pesanan.dibuatPada).toBe('2026-09-14')
+           -> gagal tepat tengah malam, dan hanya di zona waktu tertentu
+           -> bekukan waktunya, atau bandingkan rentang
+
+        3. Urutan yang tidak dijamin
+           expect(daftar[0].nama).toBe('Rina')
+           -> diukur di bab database: urutan untuk nilai SERI tidak dijanjikan
+           -> urutkan di query dengan kolom unik, atau bandingkan sebagai himpunan
+
+        4. Berjalan bersamaan tanpa isolasi
+           Dua berkas test memakai basis data yang sama.
+           -> satu basis data per berkas, atau jalankan berurutan
+        `,
+      ),
+      p(
+        'Nomor tiga menghubungkan langsung ke pengukuran di Backend Basic. Diuji sungguhan pada PostgreSQL, sebuah `ORDER BY` tanpa pemecah seri membuat satu baris tidak pernah muncul di halaman mana pun, sementara percobaan yang sama pada SQLite kebetulan stabil. Test yang bergantung pada kebetulan itu akan merah pada mesin lain.',
+      ),
+      p(
+        'Kegagalan terakhir menyangkut apa yang **tidak pernah diuji**, dan biasanya itu justru jalur yang paling sering rusak di produksi.',
+      ),
+      code(
+        'text',
+        `
+        Untuk setiap endpoint, jalur yang wajib punya test:
+
+          200/201  jalur sukses                     <- hampir selalu ada
+          400      badan tidak bisa diurai          <- sering tidak ada
+          401      tanpa token                      <- sering tidak ada
+          403/404  milik pengguna LAIN              <- hampir tidak pernah ada
+          409      konflik keadaan                  <- sering tidak ada
+          422      validasi gagal, per field        <- kadang ada
+          413      badan melebihi batas             <- hampir tidak pernah ada
+
+        Baris keempat yang paling penting: itu satu-satunya test yang
+        menangkap IDOR, dan ia butuh DUA akun untuk ditulis.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p('Test adalah bagian yang paling mudah ditulis banyak dan paling sulit ditulis berguna.'),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menguji seluruh aturan lewat HTTP',
+            'Lebih menyerupai pemakaian nyata',
+            'Setiap kasus batas butuh permintaan dan persiapan sendiri, jadi kasus batasnya tidak pernah ditulis',
+          ],
+          [
+            'Menulis assertion yang selalu benar',
+            'Test-nya hijau',
+            'Test yang tidak bisa merah tidak membuktikan apa pun. Rusakkan kodenya dan pastikan ia merah',
+          ],
+          [
+            'Melonggarkan assertion supaya berhenti gagal',
+            'Test-nya rewel',
+            'Yang hilang justru kemampuannya menangkap bug. Perbaiki penyebabnya, bukan assertion-nya',
+          ],
+          [
+            'Menguji berapa kali sebuah fungsi dipanggil',
+            'Membuktikan alurnya benar',
+            'Merah saat kode dirapikan tanpa perilaku berubah. Uji hasilnya, bukan caranya',
+          ],
+          [
+            'Membiarkan test bergantung pada urutan jalannya',
+            'Selama ini lolos',
+            'Diukur di bab database, urutan untuk nilai seri tidak dijanjikan. Setiap test menyiapkan datanya sendiri',
+          ],
+          [
+            'Tidak menguji akses ke data pengguna lain',
+            'Fiturnya sudah bekerja',
+            'Itu satu-satunya test yang menangkap IDOR, dan ia butuh dua akun',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua bisa dijadikan kebiasaan yang murah dan menutup seluruh kelas masalahnya. Setelah menulis sebuah test dan melihatnya hijau, ubah satu angka di kode yang diujinya lalu jalankan lagi. Bila ia tetap hijau, test itu tidak menguji apa yang kamu kira. Langkah itu memakan beberapa detik dan membedakan suite yang menjaga dari suite yang hanya menghabiskan waktu CI.',
+      ),
       references(
         {
           label: 'Vitest — Getting Started',
@@ -2835,7 +4882,7 @@ export const lessons: LessonDraft[] = [
   written(
     'socketio',
     'Realtime dengan Socket.IO',
-    11,
+    17,
     'Komunikasi dua arah, beserta beban yang menyertainya.',
     [
       p(
@@ -3064,6 +5111,235 @@ export const lessons: LessonDraft[] = [
         'SSE sering cukup, dan jauh lebih murah',
         'Server-Sent Events berjalan di atas HTTP biasa: ia melewati proxy tanpa konfigurasi khusus, memakai autentikasi yang sama dengan endpoint lain, dan menyambung ulang sendiri. Kalau kamu hanya perlu mengirim dari server ke klien, WebSocket adalah beban yang tidak kamu butuhkan.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Sambungan dua arah dibutuhkan ketika **server perlu bicara lebih dulu**, dan itu sesuatu yang tidak bisa dilakukan HTTP biasa. Sifat itu sudah diukur sejak bab Fondasi.',
+      ),
+      code(
+        'text',
+        `
+        Diuji sungguhan dengan server Node 26.5.0 yang mencatat setiap
+        permintaan masuk:
+
+          permintaan ke-1  GET /halaman   (14 header dari Chrome)
+          permintaan ke-3  GET /halaman   header IDENTIK dengan ke-1
+
+          (server tidak menyimpan apa pun tentang permintaan sebelumnya)
+
+        Server tidak punya satu pun cara memulai percakapan. Setiap
+        pertukaran SELALU dimulai klien.
+        `,
+      ),
+      p(
+        'Ada tiga cara membalik arah itu, dan memilihnya bukan soal selera melainkan soal arah datanya.',
+      ),
+      table(
+        ['Cara', 'Arah', 'Cocok untuk', 'Biayanya'],
+        [
+          [
+            'Polling dengan `Retry-After`',
+            'Klien bertanya',
+            'Kemajuan job, status ekspor',
+            'Banyak permintaan kosong',
+          ],
+          [
+            'Server-Sent Events',
+            'Server ke klien saja',
+            'Notifikasi, kemajuan, harga yang berubah',
+            'Satu sambungan terbuka per klien',
+          ],
+          [
+            'WebSocket',
+            'Dua arah',
+            'Obrolan, kolaborasi, permainan',
+            'Sambungan tetap, dan seluruh kerumitannya',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua sering terlewat padahal ia menutup sebagian besar kebutuhan. Server-Sent Events berjalan di atas HTTP biasa, melewati proxy tanpa perlakuan khusus, dan menyambung kembali sendiri ketika terputus. Untuk kebutuhan yang **hanya satu arah**, ia jauh lebih sederhana daripada WebSocket.',
+      ),
+      code(
+        'ts',
+        `
+        // SSE dengan node:http polos — tidak butuh pustaka apa pun.
+        app.get('/kemajuan/:id', (req, res) => {
+          res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache, no-transform',   // no-transform: proxy jangan membuffer
+            Connection: 'keep-alive',
+            'X-Accel-Buffering': 'no',                   // untuk nginx
+          });
+
+          const kirim = (data: unknown) => res.write('data: ' + JSON.stringify(data) + '\\n\\n');
+
+          const timer = setInterval(() => {
+            const j = job.get(req.params.id);
+            kirim({ status: j.status, kemajuan: j.kemajuan });
+            if (j.status === 'selesai' || j.status === 'gagal') { clearInterval(timer); res.end(); }
+          }, 1000);
+
+          // WAJIB: bersihkan saat klien pergi, atau timer-nya bocor selamanya.
+          req.on('close', () => clearInterval(timer));
+        });
+        `,
+        {
+          caption:
+            'Baris req.on(close) itu yang paling sering lupa, dan akibatnya kebocoran yang menumpuk.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Sambungan tetap membawa kelas kegagalan yang tidak ada pada HTTP biasa, dan yang pertama menyangkut **keadaan yang menumpuk**.',
+      ),
+      code(
+        'text',
+        `
+        KEBOCORAN 1 — timer dan listener yang tidak dibersihkan
+
+          Setiap klien yang menyambung membuat satu setInterval.
+          Klien menutup tab, sambungannya putus, dan timer-nya TETAP berjalan
+          sambil menulis ke soket yang sudah mati.
+
+          Gejalanya: memori naik terus, dan CPU naik pelan-pelan.
+          Tidak ada error sama sekali.
+
+        KEBOCORAN 2 — daftar klien yang tidak pernah dikurangi
+
+          const klien = new Set();
+          klien.add(res);                <- ada
+          // klien.delete(res)           <- tidak pernah
+
+          Setelah sehari, Set-nya berisi ribuan objek respons mati.
+        `,
+      ),
+      p(
+        'Kegagalan kedua menyangkut autentikasi, dan ia berbeda dari HTTP biasa dengan cara yang penting.',
+      ),
+      code(
+        'ts',
+        `
+        // Pada HTTP, setiap permintaan diperiksa sendiri-sendiri.
+        // Pada sambungan tetap, pemeriksaannya terjadi SEKALI saat menyambung —
+        // dan sambungannya bisa bertahan berjam-jam sesudahnya.
+
+        io.use((socket, next) => {
+          const token = socket.handshake.auth?.token;
+          const payload = verifikasiToken(token);      // diperiksa SEKALI
+          if (!payload) return next(new Error('Tidak berwenang'));
+          socket.data.penggunaId = payload.sub;
+          next();
+        });
+
+        // Akibat yang harus ditangani sadar:
+        //   - token yang kedaluwarsa di tengah sambungan TIDAK otomatis memutusnya
+        //   - pengguna yang diblokir tetap tersambung sampai ia sendiri putus
+        //   - perubahan peran tidak berlaku sampai sambungan berikutnya
+        //
+        // Yang menutupnya: periksa ulang kewenangan pada SETIAP pesan yang
+        // menyentuh data, bukan hanya saat menyambung.
+        `,
+        {
+          caption:
+            'Diukur di bab auth: JWT murni tidak bisa dicabut, dan sambungan tetap memperpanjang akibatnya.',
+        },
+      ),
+      p(
+        'Kegagalan ketiga adalah yang paling sering pada otorisasi per-ruangan, dan bentuknya sama persis dengan IDOR yang sudah diukur.',
+      ),
+      code(
+        'ts',
+        `
+        // RENTAN: klien menyebut ruangan mana yang ingin diikutinya.
+        socket.on('gabung', (ruangan) => socket.join(ruangan));
+        // Siapa pun bisa mengirim 'gabung' dengan id percakapan milik orang lain,
+        // lalu menerima seluruh pesan di dalamnya.
+
+        // AMAN: kewenangannya diperiksa DI SERVER, terhadap basis data.
+        socket.on('gabung', async (percakapanId) => {
+          const boleh = await db.anggota.findFirst({
+            where: { percakapanId, penggunaId: socket.data.penggunaId },
+          });
+          if (!boleh) return socket.emit('error', { kode: 'TIDAK_BERWENANG' });
+          socket.join('percakapan:' + percakapanId);
+        });
+        `,
+        {
+          caption:
+            'Diuji di bab auth: syarat kepemilikan harus ikut ke dalam query, bukan dipercaya dari pemanggil.',
+        },
+      ),
+      p(
+        'Kegagalan keempat muncul saat aplikasinya berjalan di lebih dari satu proses, dan ia menghasilkan gejala yang membingungkan.',
+      ),
+      code(
+        'text',
+        `
+        Dua proses server, klien tersebar di antaranya:
+
+          Rina tersambung ke proses A
+          Budi tersambung ke proses B
+
+          Rina mengirim pesan -> proses A menyiarkannya ke klien DI PROSES A
+          Budi TIDAK menerimanya.
+
+        Gejalanya: "pesannya kadang sampai, kadang tidak" — dan polanya
+        mengikuti proses mana yang kebetulan melayani siapa.
+
+        Yang menutupnya: adapter yang menyiarkan antar-proses, biasanya
+        lewat Redis. Ini bukan optimasi melainkan SYARAT begitu proses
+        aplikasinya lebih dari satu.
+        `,
+      ),
+      callout(
+        'warning',
+        'Contoh Socket.IO di sub-bab ini tidak dijalankan',
+        'Socket.IO dan Redis tidak terpasang di project ini, dan aturan project melarang menambah dependency tanpa persetujuan lebih dulu (`core.md`, Dependency Version Gate). Potongan ber-API Socket.IO disusun mengikuti dokumentasi resminya. Yang **dijalankan sungguhan** adalah sifat HTTP yang mendasarinya, yaitu bahwa server tidak pernah bisa memulai percakapan, diukur dengan server Node 26.5.0 dan Chrome for Testing 149 di bab Fondasi.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Sambungan tetap memindahkan banyak hal dari "per permintaan" menjadi "per sambungan", dan hampir semua kesalahannya berasal dari tidak menyadari perpindahan itu.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai WebSocket untuk kebutuhan satu arah',
+            'Terdengar paling modern',
+            'Menambah sambungan tetap, penyiaran antar-proses, dan penyambungan ulang. SSE lebih sederhana',
+          ],
+          [
+            'Tidak membersihkan timer saat sambungan putus',
+            'Sambungannya kan sudah tutup',
+            'Timer tetap berjalan dan menulis ke soket mati. Memori naik tanpa satu pun error',
+          ],
+          [
+            'Memeriksa token hanya saat menyambung',
+            'Sudah diperiksa',
+            'Sambungan bertahan berjam-jam. Token kedaluwarsa dan blokir akun tidak berlaku sampai ia putus',
+          ],
+          [
+            'Membiarkan klien memilih ruangan yang diikutinya',
+            'Kliennya tahu percakapannya',
+            'Itu IDOR. Periksa keanggotaannya di basis data sebelum mengizinkan bergabung',
+          ],
+          [
+            'Menjalankan beberapa proses tanpa adapter penyiaran',
+            'Aplikasinya sama saja',
+            'Klien di proses berbeda tidak saling menerima. Gejalanya "kadang sampai, kadang tidak"',
+          ],
+          [
+            'Mengirim seluruh objek basis data lewat soket',
+            'Datanya memang itu',
+            'Kolom yang ditambahkan nanti otomatis ikut tersiar. Pilih field seperti pada respons HTTP',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama pantas ditegaskan karena pilihannya sering diambil dari kesan, bukan kebutuhan. Pertanyaan yang memutuskan cuma satu, yaitu **apakah klien perlu mengirim sesuatu lewat sambungan yang sama**. Bila jawabannya tidak, dan klien tetap bisa memakai permintaan HTTP biasa untuk mengirim, maka Server-Sent Events sudah cukup dan kamu menghindari seluruh kerumitan yang menyertai sambungan dua arah.',
+      ),
       references(
         {
           label: 'Socket.IO — Server API',
@@ -3096,7 +5372,7 @@ export const lessons: LessonDraft[] = [
   written(
     'observability',
     'Observability: logging, request id, health check',
-    12,
+    18,
     'Kemampuan menjawab "apa yang terjadi" setelah kejadiannya lewat.',
     [
       p(
@@ -3354,6 +5630,240 @@ export const lessons: LessonDraft[] = [
         'Log tanpa alert adalah arsip, bukan deteksi',
         'Ini kegagalan nomor sembilan di OWASP Top 10 dan yang paling sering dianggap sudah beres. Mengumpulkan log itu langkah pertama; yang membuatnya berguna adalah ada yang memberitahumu **saat sedang terjadi**, bukan saat kamu kebetulan membacanya minggu depan.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Observability diuji pada satu situasi, yaitu ketika sebuah laporan bug masuk berbunyi "kadang gagal simpan", tanpa jam, tanpa langkah, dan tanpa pesan. Yang memisahkan penelusuran satu jam dari tiga hari bukan kepintaran melainkan apakah satu permintaan bisa dilacak dari klien sampai log server.',
+      ),
+      code(
+        'text',
+        `
+        {"level":"info","waktu":"2026-09-07T08:36:34.988Z","requestId":"9546c1ef-...","method":"GET","path":"/catatan","status":200,"durasiMs":4.39}
+        {"level":"warn","waktu":"2026-09-07T08:36:34.998Z","requestId":"f070e263-...","method":"POST","path":"/catatan","status":400,"durasiMs":0.88}
+        {"level":"warn","waktu":"2026-09-07T08:36:35.004Z","requestId":"a55084a3-...","method":"POST","path":"/catatan","status":422,"durasiMs":0.27}
+        {"level":"error","waktu":"2026-09-07T08:36:35.016Z","requestId":"8aaf7722-...","method":"GET","path":"/rusak","status":500,"durasiMs":0.22}
+        {"level":"info","waktu":"2026-09-07T08:36:35.023Z","requestId":"jejak-manual-123","method":"GET","path":"/catatan","status":200,"durasiMs":0.92}
+        `,
+        { caption: 'Dijalankan sungguhan dengan Node 26.5.0 dan curl 8.5.0 di bab Fondasi.' },
+      ),
+      p(
+        'Baris terakhir memperlihatkan seluruh gunanya. Nilai `requestId`-nya bukan acak melainkan `jejak-manual-123`, sebab klien yang mengirimnya, dan nilai yang sama muncul di header respons serta di log server.',
+      ),
+      code(
+        'text',
+        `
+        curl -D- -H 'X-Request-Id: jejak-manual-123' http://127.0.0.1:3998/catatan
+
+          header respons : X-Request-Id: jejak-manual-123
+          log server     : {"level":"info", ... ,"requestId":"jejak-manual-123", ... }
+        `,
+        { caption: 'Dijalankan sungguhan. Satu nilai menghubungkan klien, respons, dan log.' },
+      ),
+      p(
+        'Pada aplikasi berlapis banyak, id itu harus ikut ke **setiap tempat** permintaannya melewati, dan menyalurkannya lewat argumen fungsi tidak praktis. Node menyediakan mekanisme untuk itu.',
+      ),
+      code(
+        'ts',
+        `
+        import { AsyncLocalStorage } from 'node:async_hooks';
+
+        // Satu tempat penyimpanan yang mengikuti alur asinkron, tanpa
+        // perlu meneruskan requestId lewat setiap argumen fungsi.
+        export const konteks = new AsyncLocalStorage<{ requestId: string; penggunaId?: string }>();
+
+        app.use((req, res, next) => {
+          const requestId = req.header('x-request-id') ?? randomUUID();
+          res.setHeader('X-Request-Id', requestId);
+          konteks.run({ requestId }, next);
+        });
+
+        // Di kedalaman mana pun — service, repository, job — tanpa argumen tambahan:
+        export function log(tingkat: string, isi: object) {
+          const k = konteks.getStore();
+          console.log(JSON.stringify({ level: tingkat, waktu: new Date().toISOString(), ...k, ...isi }));
+        }
+        `,
+        { caption: 'AsyncLocalStorage adalah bawaan Node, jadi ini bukan pustaka tambahan.' },
+      ),
+      p(
+        'Tiga hal yang perlu diukur berbeda jenis, dan mencampurnya membuat satu pun tidak berguna.',
+      ),
+      table(
+        ['Jenis', 'Menjawab pertanyaan', 'Bentuknya'],
+        [
+          [
+            'Log',
+            '"Apa yang terjadi pada permintaan INI?"',
+            'Satu baris JSON per peristiwa, ber-requestId',
+          ],
+          [
+            'Metrik',
+            '"Bagaimana keadaannya secara keseluruhan?"',
+            'Angka yang diagregasi: laju, durasi, jumlah error',
+          ],
+          [
+            'Trace',
+            '"Di bagian mana waktunya habis?"',
+            'Rentang bersarang: HTTP, query, pemanggilan luar',
+          ],
+        ],
+      ),
+      p(
+        'Metrik yang paling berguna justru sedikit, dan keempatnya bisa dipasang tanpa alat khusus.',
+      ),
+      code(
+        'text',
+        `
+        Empat angka yang menjawab hampir semua pertanyaan operasional:
+
+          laju permintaan       berapa banyak per detik
+          tingkat error         berapa persen yang 5xx
+          durasi                p50, p95, p99 — BUKAN rata-rata
+          saturasi              antrean koneksi, penggunaan memori, panjang antrean job
+
+        Kenapa BUKAN rata-rata: seribu permintaan 10 ms ditambah sepuluh
+        permintaan 5.000 ms menghasilkan rata-rata sekitar 60 ms — angka yang
+        tidak dialami SIAPA PUN. Yang p99-nya 5.000 ms adalah sepuluh pengguna
+        yang benar-benar menunggu lima detik.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Log yang salah rancang tidak menghasilkan error, melainkan membuat penelusuran mustahil tepat pada saat paling dibutuhkan.',
+      ),
+      code(
+        'text',
+        `
+        BENTUK 1 — teks bebas
+          console.log('Pesanan gagal untuk user ' + id + ' karena ' + alasan);
+          Tidak bisa disaring per status, tidak bisa dicari per pengguna,
+          tidak punya waktu, dan tidak punya id permintaan.
+
+        BENTUK 2 — objek dicetak apa adanya
+          console.log('data:', data);
+          Keluarannya multi-baris. Satu peristiwa jadi beberapa baris, dan
+          pengumpul log memperlakukannya sebagai peristiwa yang tidak berhubungan.
+
+        BENTUK 3 — mencatat seluruh badan permintaan
+          Kata sandi, token, dan data pribadi ikut tersimpan berbulan-bulan
+          di sistem yang biasanya bisa dibaca lebih banyak orang
+          daripada yang bisa membaca basis data.
+
+        BENTUK 4 — menulis log ke berkas di dalam container
+          Hilang saat container diganti, memblokir utas bila memakai Sync,
+          dan tidak terbaca pengumpul log. Tulis ke stdout.
+        `,
+      ),
+      p(
+        'Bentuk ketiga yang paling sulit diperbaiki setelah terjadi, dan penyensorannya harus dilakukan di **satu tempat**, bukan diingat di setiap pemanggilan.',
+      ),
+      code(
+        'ts',
+        `
+        const RAHASIA = new Set([
+          'password', 'sandi', 'token', 'authorization',
+          'secret', 'apikey', 'kartu', 'cvv', 'nik',
+        ]);
+
+        function sensor(nilai: unknown): unknown {
+          if (Array.isArray(nilai)) return nilai.map(sensor);
+          if (nilai && typeof nilai === 'object') {
+            return Object.fromEntries(
+              Object.entries(nilai).map(([k, v]) =>
+                RAHASIA.has(k.toLowerCase()) ? [k, '[disensor]'] : [k, sensor(v)],
+              ),
+            );
+          }
+          return nilai;
+        }
+        `,
+        {
+          caption:
+            'Perlu jujur: daftar nama tidak pernah lengkap. Lapisan pertamanya adalah tidak mencatat badan sama sekali.',
+        },
+      ),
+      p(
+        'Kegagalan kedua menyangkut **tingkat log** yang dipilih salah, dan akibatnya adalah pemantauan yang berhenti berguna.',
+      ),
+      code(
+        'text',
+        `
+        4xx = pemanggilnya salah  -> warn, tidak membangunkan siapa pun
+        5xx = kita yang salah     -> error, harus membangunkan seseorang
+
+        JSON rusak dari klien yang dicatat sebagai error berarti setiap klien
+        yang salah ketik membunyikan pemantauan. Setelah beberapa minggu,
+        tidak ada lagi yang memperhatikan bunyinya — termasuk saat ia nyata.
+
+        Gejala bahwa ini sudah terjadi: grafik error yang tidak pernah nol,
+        dan tidak ada yang bisa menjelaskan angka dasarnya.
+        `,
+      ),
+      p(
+        'Kegagalan ketiga adalah yang paling sering pada aplikasi yang sudah punya log lengkap, yaitu **mencatat banyak dan memantau tidak ada**.',
+      ),
+      code(
+        'text',
+        `
+        Log menjawab "apa yang terjadi pada permintaan ini" SETELAH
+        seseorang tahu ada masalah. Ia tidak pernah memberitahumu
+        bahwa ada masalah.
+
+        Yang memberitahu adalah peringatan atas METRIK, dan yang berguna sedikit:
+
+          tingkat error 5xx melewati ambang selama beberapa menit
+          p99 durasi melewati ambang
+          panjang antrean job terus naik
+          jumlah job gagal bertambah
+          pemeriksaan kesehatan gagal berturut-turut
+
+        Peringatan yang terlalu banyak sama tidak bergunanya dengan
+        tidak ada peringatan, sebab keduanya berakhir diabaikan.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Observability terasa seperti pekerjaan yang bisa ditambahkan nanti, dan yang terjadi tanpanya adalah penelusuran dengan cara menebak.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `console.log` dengan teks bebas',
+            'Cepat dan terbaca',
+            'Tidak bisa disaring maupun dicari, dan tidak punya waktu maupun id. Cetak satu baris JSON',
+          ],
+          [
+            'Mencatat seluruh badan permintaan',
+            'Supaya jelas apa yang dikirim',
+            'Kata sandi dan data pribadi tersimpan berbulan-bulan di sistem yang lebih terbuka daripada basis data',
+          ],
+          [
+            'Tidak mengembalikan `requestId` ke klien',
+            'Sudah dicatat di log',
+            'Pengguna yang melaporkan bug tidak punya apa pun untuk disebutkan. Kirim lewat header',
+          ],
+          [
+            'Memakai level `error` untuk kesalahan pengguna',
+            'Ada kata gagal',
+            '`4xx` adalah `warn`. Memakai `error` membuat grafiknya penuh, lalu diabaikan',
+          ],
+          [
+            'Memantau rata-rata durasi',
+            'Itu ukuran yang biasa',
+            'Rata-rata menyembunyikan ekor. Pantau p95 dan p99, yaitu pengguna yang benar-benar menunggu',
+          ],
+          [
+            'Mencatat lengkap tapi tidak memasang satu pun peringatan',
+            'Datanya sudah ada',
+            'Log tidak pernah memberitahumu ada masalah. Yang memberitahu adalah peringatan atas metrik',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima punya akibat yang paling sering menyesatkan keputusan teknis. Rata-rata durasi yang terlihat sehat bisa menyembunyikan satu persen permintaan yang memakan lima detik, dan satu persen dari sejuta permintaan adalah sepuluh ribu pengguna yang mengalaminya setiap hari. Nilai p99 memperlihatkan mereka, dan itulah angka yang menentukan apakah aplikasimu terasa cepat atau tidak.',
+      ),
       references(
         {
           label: 'AsyncLocalStorage',
@@ -3386,7 +5896,7 @@ export const lessons: LessonDraft[] = [
   written(
     'typescript-express',
     'TypeScript di Express',
-    11,
+    17,
     'Menutup celah tipe yang paling sering menjadi bug runtime.',
     [
       terms(
@@ -3652,6 +6162,218 @@ export const lessons: LessonDraft[] = [
         'Jalankan `type-check` di CI, terpisah dari build',
         'Alat seperti `tsx` dan `esbuild` **menghapus** tipe tanpa memeriksanya — jadi kode yang tidak lolos type-check tetap berjalan di pengembangan. Tanpa langkah pemeriksaan terpisah, error tipe baru ketahuan saat build produksi, atau tidak sama sekali.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'TypeScript pada Express membeli sesuatu yang nyata, yaitu memindahkan sekelompok kesalahan dari runtime ke waktu kompilasi. Berikut enam kesalahan yang benar-benar ditangkap, dijalankan dengan `tsc 5.9.3` yang terpasang di project ini.',
+      ),
+      code(
+        'text',
+        `
+        error TS2322: Type '"superadmin"' is not assignable to type 'Peran'.
+        error TS2540: Cannot assign to 'id' because it is a read-only property.
+        error TS2353: Object literal may only specify known properties,
+                      and 'peranAdmin' does not exist in type 'Pengguna'.
+        error TS2741: Property 'peran' is missing in type '{ id: number; email: string; }'
+                      but required in type 'Pengguna'.
+        error TS2322: Type 'string | string[] | undefined' is not assignable to type 'number'.
+        error TS2322: Type '"pembaca"' is not assignable to type 'never'.
+        `,
+        { caption: 'Dijalankan sungguhan dengan tsc 5.9.3 pada mode strict.' },
+      ),
+      p(
+        'Kelima yang menarik adalah tipe `req.query`. TypeScript memaksamu menghadapi kenyataan yang sudah diukur di bab Fondasi, yaitu nilai dari query string bukan string melainkan `string | string[] | undefined`, dan bentuknya ditentukan **pemanggil**, bukan kodemu.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan di bab Fondasi dengan URLSearchParams:
+
+          get("tag")            = "baju"                       <- hanya yang PERTAMA
+          getAll("tag")         = ["baju","celana","topi"]
+          Object.fromEntries(q) = {"tag":"topi"}               <- dua nilai HILANG
+
+        Kode yang menulis req.query.tag.toLowerCase() berjalan sempurna
+        untuk satu tag dan melempar TypeError untuk dua tag.
+        TypeScript menolaknya sebelum dijalankan.
+        `,
+      ),
+      p(
+        'Yang keenam bernama pemeriksaan kelengkapan, dan ia satu-satunya cara memastikan setiap nilai enum baru **dipaksa ditangani**.',
+      ),
+      code(
+        'ts',
+        `
+        function label(x: Peran): string {
+          switch (x) {
+            case 'admin': return 'Admin';
+            case 'editor': return 'Editor';
+            default: {
+              // Bila 'pembaca' belum ditangani, x bertipe '"pembaca"' di sini,
+              // dan ia tidak bisa ditugaskan ke never:
+              //   error TS2322: Type '"pembaca"' is not assignable to type 'never'.
+              const tidakPernah: never = x;
+              return tidakPernah;
+            }
+          }
+        }
+        `,
+        {
+          caption:
+            'Menambah nilai baru ke Peran membuat SETIAP tempat yang belum menanganinya gagal kompilasi.',
+        },
+      ),
+      p(
+        'Pola itu menutup persis kegagalan yang diukur di bab Desain API, yaitu menambah nilai enum baru **memutus** klien yang memetakan nilainya secara ketat. Di sisi server, `never` mengubah kelalaian itu dari bug runtime menjadi error kompilasi.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Ada satu batas TypeScript yang sangat sering disalahpahami, dan akibatnya berupa kebocoran data. Berikut pengukurannya.',
+      ),
+      code(
+        'ts',
+        `
+        interface Pengguna { id: number; email: string; sandiHash: string; catatanInternal: string }
+        type ResponsPublik = Pick<Pengguna, 'id' | 'email'>;
+
+        declare const dariDb: Pengguna;
+
+        const a: ResponsPublik = dariDb;                                  // A
+        const b: ResponsPublik = { id: 1, email: 'a@b.id', sandiHash: 'x' }; // B
+        const c: ResponsPublik = { id: dariDb.id, email: dariDb.email };   // C
+        `,
+      ),
+      code(
+        'text',
+        `
+        Yang dikatakan tsc 5.9.3:
+
+          A  -> (tidak ada error)
+          B  -> error TS2353: Object literal may only specify known properties,
+                and 'sandiHash' does not exist in type 'ResponsPublik'.
+          C  -> (tidak ada error)
+
+        Yang benar-benar terkirim saat dijalankan:
+
+          JSON.stringify(a) : {"id":1,"email":"a@b.id",
+                               "sandiHash":"$2b$rahasia",
+                               "catatanInternal":"skor risiko 87"}
+          JSON.stringify(c) : {"id":1,"email":"a@b.id"}
+        `,
+        { caption: 'Dijalankan sungguhan dengan tsc 5.9.3 dan Node 26.5.0.' },
+      ),
+      p(
+        'Baris A itu yang menentukan. TypeScript **menerimanya tanpa error**, dan saat dijalankan objek itu tetap membawa `sandiHash` dan `catatanInternal` secara utuh. Penyebabnya, pemeriksaan properti berlebih hanya berlaku pada **object literal**, bukan pada nilai yang berasal dari variabel. Memberi tipe sempit pada variabel hanya mempersempit apa yang boleh **dibaca**, bukan apa yang **ada di dalamnya**.',
+      ),
+      p(
+        'Akibat praktisnya satu aturan yang tidak boleh ditawar, yaitu tipe tidak pernah menjadi kontrol keamanan. Yang benar-benar menutup kebocoran adalah menyusun objek barunya field demi field, atau memilih field di sisi query.',
+      ),
+      p(
+        'Kegagalan kedua adalah kebalikan dari harapan orang terhadap TypeScript, yaitu **tipe hilang sepenuhnya di batas luar**.',
+      ),
+      code(
+        'ts',
+        `
+        // Tipe ini adalah JANJI, bukan pemeriksaan.
+        const data = await res.json() as Pengguna;
+        //                              ^^^^^^^^^^
+        // Tidak ada satu baris kode pun yang memeriksa apakah benar begitu.
+        // Bila API-nya mengganti nama field, kodenya tetap dikompilasi
+        // dan melempar saat dijalankan.
+
+        // Sama untuk batas-batas lain:
+        const body = req.body as BuatPesanan;         // tidak diperiksa
+        const baris = await db.query(...) as Pesanan[]; // tidak diperiksa
+        const env = process.env as unknown as Env;    // tidak diperiksa
+
+        // Yang benar-benar memeriksa: skema yang berjalan saat runtime.
+        const data = SkemaPengguna.parse(await res.json());
+        `,
+        {
+          caption:
+            'Diukur di bab Express: skema zod melaporkan seluruh field yang salah, lengkap dengan path-nya.',
+        },
+      ),
+      p(
+        'Aturannya bisa diringkas, **di dalam aplikasimu percayai tipe, di batas luarnya percayai skema**. Batas luar itu meliputi badan permintaan, query string, variabel lingkungan, respons API pihak ketiga, isi berkas, dan pesan dari antrean.',
+      ),
+      p(
+        'Kegagalan ketiga menyangkut cara menambahkan properti ke objek `req`, dan bentuk yang paling sering ditulis justru yang paling rapuh.',
+      ),
+      code(
+        'ts',
+        `
+        // Cara yang lazim dicontohkan: memperluas tipe bawaan Express.
+        declare global {
+          namespace Express {
+            interface Request { pengguna?: Pengguna }
+          }
+        }
+
+        // Dua masalahnya:
+        //   1. Ia BERLAKU GLOBAL. Setiap handler kini seolah punya req.pengguna,
+        //      termasuk yang tidak dilindungi middleware autentikasi.
+        //   2. Tanda tanya pada pengguna? memaksa setiap pemakaian memeriksanya,
+        //      dan yang lupa memeriksa akan gagal saat dijalankan.
+
+        // Bentuk yang lebih jujur: satu properti milik sendiri, dan tipe
+        // yang MENYATAKAN bahwa isinya sudah dipastikan middleware.
+        interface PermintaanTerautentikasi extends Request {
+          konteks: { requestId: string; pengguna: Pengguna };   // tanpa tanda tanya
+        }
+
+        const handler = (req: PermintaanTerautentikasi, res: Response) => {
+          req.konteks.pengguna.id;    // tidak perlu diperiksa, sebab tipenya menjamin
+        };
+        `,
+        {
+          caption:
+            'Menaruh titipan di satu properti sendiri juga menghindari tabrakan dengan pustaka lain.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'TypeScript memberi banyak jaminan, dan hampir semua kesalahannya berasal dari mengira ia menjamin hal yang sebenarnya tidak.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Mengandalkan tipe untuk mencegah kebocoran field',
+            'Tipenya sudah sempit',
+            'Diuji sungguhan, `const a: ResponsPublik = dariDb` LOLOS dan `sandiHash` tetap terkirim',
+          ],
+          [
+            'Memakai `as` pada hasil `res.json()` atau `req.body`',
+            'Sudah diberi tipe',
+            '`as` adalah janji, bukan pemeriksaan. Di batas luar, pakai skema yang berjalan saat runtime',
+          ],
+          [
+            'Memperluas `Express.Request` secara global',
+            'Itu yang dicontohkan di mana-mana',
+            'Berlaku untuk SETIAP handler, termasuk yang tidak terautentikasi. Pakai tipe permintaan sendiri',
+          ],
+          [
+            'Memakai `any` untuk melewati error kompilasi',
+            'Nanti diperbaiki',
+            '`any` menular ke seluruh nilai turunannya, dan pemeriksaannya mati diam-diam. Pakai `unknown`',
+          ],
+          [
+            'Mematikan `strict` supaya kode lama lolos',
+            'Supaya bisa jalan dulu',
+            'Sebagian besar nilai TypeScript ada di `strict`, terutama `strictNullChecks`',
+          ],
+          [
+            'Menulis `switch` atas enum tanpa pemeriksaan kelengkapan',
+            'Semua nilai sudah ditangani',
+            'Nilai yang ditambahkan nanti jatuh diam-diam ke `default`. Pakai `never` di cabang terakhir',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat layak diperjelas karena `unknown` sering terasa lebih merepotkan. Justru kerepotan itu yang membedakannya. Nilai `any` bisa dipakai langsung tanpa satu pun pemeriksaan dan menularkan sifat itu ke mana-mana, sedangkan `unknown` **memaksa** kamu mempersempitnya lebih dulu. Untuk data yang datang dari luar, memaksa pemeriksaan adalah tepat yang diinginkan.',
+      ),
       references(
         {
           label: 'TypeScript — tsconfig strict options',
@@ -3684,7 +6406,7 @@ export const lessons: LessonDraft[] = [
   written(
     'praktik-api-blog-express',
     'Praktik: API blog lengkap beserta testnya',
-    15,
+    24,
     'Menyatukan seluruh bab menjadi satu API produksi.',
     [
       p(
@@ -3919,6 +6641,218 @@ export const lessons: LessonDraft[] = [
         'Log tidak memuat token, password, atau header `Authorization`',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'API blog yang siap dipakai berbeda dari yang siap demo pada hal-hal yang tidak terlihat di jalur sukses, dan seluruhnya sudah diukur sepanjang tiga kategori terakhir. Berikut kesepuluhnya bertemu dalam satu sumber daya.',
+      ),
+      code(
+        'ts',
+        `
+        // rute/artikel.ts
+        export const ruteArtikel = Router();
+
+        const Kueri = z.object({
+          limit: z.coerce.number().int().min(1).max(100).default(20),   // 1. batas ATAS wajib
+          setelah: z.coerce.number().int().positive().optional(),       // 2. keyset, bukan OFFSET
+          urut: z.enum(['terbaru', 'judul']).default('terbaru'),        // 3. daftar yang diizinkan
+        });
+
+        const URUT = {
+          terbaru: [{ terbitPada: 'desc' }, { id: 'desc' }],            // 4. berakhir kolom UNIK
+          judul: [{ judul: 'asc' }, { id: 'asc' }],
+        } as const;
+
+        ruteArtikel.get('/', validasi('query', Kueri), async (req, res) => {
+          const { limit, setelah, urut } = req.konteks.query;
+
+          const baris = await prisma.artikel.findMany({
+            where: { status: 'terbit' },
+            orderBy: URUT[urut],
+            take: limit,
+            ...(setelah ? { cursor: { id: setelah }, skip: 1 } : {}),
+            select: {                                                   // 5. daftar IZIN
+              id: true, slug: true, judul: true, terbitPada: true,
+              penulis: { select: { id: true, nama: true } },            // 6. menutup N+1
+              _count: { select: { komentar: { where: { disetujui: true } } } },
+            },
+          });
+
+          res.json({
+            data: baris.map(keBentukPublik),
+            berikutnya: baris.length === limit ? baris[baris.length - 1].id : null,
+          });
+        });
+        `,
+        {
+          caption:
+            'Enam keputusan bertanda, dan tiap satunya menjawab pengukuran yang sudah dilakukan.',
+        },
+      ),
+      p(
+        'Keenamnya bukan pilihan gaya. Batas atas `limit` menutup permintaan yang memaksa membaca sejuta baris, dan akibatnya bagi permintaan lain sudah diukur, yaitu lima permintaan ringan naik dari enam menjadi tujuh puluh empat milidetik. Keyset dipakai karena `OFFSET 250000` terbukti membaca 250.020 baris untuk memberi dua puluh. Pengurut berakhir pada kolom unik karena tanpa itu satu baris terbukti tidak pernah muncul di halaman mana pun. Dan `select` dipakai alih-alih `include` karena kolom yang ditambahkan orang lain bulan depan tidak boleh otomatis ikut keluar.',
+      ),
+      p('Sisi penulisan punya empat keputusan lain yang sama pentingnya.'),
+      code(
+        'ts',
+        `
+        ruteArtikel.post('/', validasi('body', BuatArtikel), async (req, res) => {
+          const data = req.konteks.body;          // 7. hasil VALIDASI, bukan req.body
+
+          const artikel = await prisma.$transaction(async (tx) => {
+            const a = await tx.artikel.create({
+              data: { ...data, penulisId: req.konteks.pengguna.id },   // 8. dari SESI
+            });
+            // 9. Job dicatat sebagai BARIS di transaksi yang sama, bukan
+            //    dikirim ke antrean — supaya tidak lahir dari transaksi yang batal.
+            await tx.outbox.create({ data: { jenis: 'indeks-artikel', muatan: { id: a.id } } });
+            return a;
+          });
+
+          res.status(201)
+             .location('/v1/artikel/' + artikel.id)                    // 10. Location wajib
+             .json(keBentukPublik(artikel));
+        });
+
+        ruteArtikel.get('/:id', async (req, res) => {
+          const id = Number(req.params.id);
+          if (!Number.isInteger(id) || id < 1) throw new ValidasiGagal({ id: ['Tidak valid'] });
+
+          // Batas kepemilikan ikut ke DALAM query untuk artikel yang belum terbit.
+          const artikel = await prisma.artikel.findFirst({
+            where: {
+              id,
+              OR: [{ status: 'terbit' }, { penulisId: req.konteks.pengguna?.id ?? -1 }],
+            },
+            select: { /* ... */ },
+          });
+          if (!artikel) throw new TidakDitemukan('Artikel');           // 404, bukan 403
+          res.json(keBentukPublik(artikel));
+        });
+        `,
+        {
+          caption:
+            'Baris penulisId dari sesi itu yang menutup mass assignment; klien tidak pernah boleh menentukannya.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Yang memisahkan siap pakai dari siap demo adalah jalur yang tidak nyaman, dan seluruhnya bisa diuji dalam satu berkas perintah. Setiap angka harapan di bawah berasal dari respons yang benar-benar dijalankan di kategori ini.',
+      ),
+      code(
+        'text',
+        `
+        #!/bin/bash
+        # uji-artikel.sh — jalankan sebelum menyatakan endpoint selesai.
+        A=http://localhost:3000/v1/artikel
+        H="Content-Type: application/json"
+        J="Accept: application/json"
+        T="Authorization: Bearer $TOKEN"
+
+        p() { printf '%-40s %s\\n' "$1" "$(curl -s -o /dev/null -w '%{http_code}' "\${@:2}")"; }
+
+        echo "== KONTRAK =="
+        p "buat, valid                 (201)" -X POST "$A" -H "$H" -H "$J" -H "$T" -d '{"judul":"Uji","isi":"x"}'
+        p "buat, judul kosong          (422)" -X POST "$A" -H "$H" -H "$J" -H "$T" -d '{"judul":"   ","isi":"x"}'
+        p "buat, JSON rusak            (400)" -X POST "$A" -H "$H" -H "$J" -H "$T" -d '{judul:"x"}'
+        p "buat, tanpa token           (401)" -X POST "$A" -H "$H" -H "$J"        -d '{"judul":"x","isi":"y"}'
+        p "daftar kosong               (200)" -H "$J" -H "$T" "$A?urut=terbaru&setelah=999999999"
+        p "alamat tidak ada            (404)" -H "$J" -H "$T" "$A/tidakada"
+
+        echo "== KEAMANAN =="
+        p "urut tidak dikenal          (422)" -H "$J" -H "$T" "$A?urut=harga"
+        p "urut berisi injeksi         (422)" -H "$J" -H "$T" "$A?urut=judul;DROP+TABLE+x"
+        p "draf MILIK ORANG LAIN       (404)" -H "$J" -H "$T" "$A/4211"
+        p "buat, menyisipkan penulisId (201)" -X POST "$A" -H "$H" -H "$J" -H "$T" \\
+            -d '{"judul":"x","isi":"y","penulisId":1,"status":"terbit"}'
+        echo "   ^ periksa responsnya: penulisId HARUS id pemanggil, status HARUS draf"
+
+        echo "== KETERSEDIAAN =="
+        p "limit berlebihan            (422)" -H "$J" -H "$T" "$A?limit=1000000"
+        p "badan terlalu besar         (413)" -X POST "$A" -H "$H" -H "$J" -H "$T" \\
+            --data-binary @besar.json
+
+        echo "== CACHING =="
+        ETAG=$(curl -s -D- -o /dev/null -H "$J" -H "$T" "$A/1" | grep -i '^etag' | cut -d' ' -f2 | tr -d '\\r')
+        p "If-None-Match               (304)" -H "$J" -H "$T" -H "If-None-Match: $ETAG" "$A/1"
+        p "PUT tanpa If-Match          (428)" -X PUT "$A/1" -H "$H" -H "$J" -H "$T" -d '{"judul":"x"}'
+        `,
+        {
+          caption:
+            'Baris "menyisipkan penulisId" memang 201 — yang dibuktikan adalah ISI responsnya, bukan statusnya.',
+        },
+      ),
+      p(
+        'Tiga baris di daftar itu paling mudah salah dibaca. Baris penyisipan field memang menjawab `201`, dan yang membuktikan perlindungannya bekerja adalah `penulisId` di responsnya adalah id pemanggil dan `status`-nya tetap draf. Baris draf milik orang lain harus `404`, bukan `403`, sebab `403` mengakui bahwa artikel bernomor itu ada. Dan baris daftar kosong memang `200`, sebab alamatnya ada dan berhasil dilayani.',
+      ),
+      p(
+        'Terakhir, satu kelas kegagalan yang penyebabnya bukan kode sama sekali, dan bentuknya ditemui sendiri saat menyusun materi ini.',
+      ),
+      code(
+        'text',
+        `
+        Build project ini sendiri gagal:
+
+          Failed to build /kelas/... (attempt 1 of 3) because it took more
+          than 60 seconds. Retrying again shortly.
+
+        Dugaan pertama : isinya terlalu berat.
+        Diukur         : seluruh highlighting 427 halaman = 5.785 ms, dan
+                         halaman yang timeout 60 DETIK hanya butuh 30 MILIDETIK.
+        Penyebab nyata : 3 proses build berebut ~1,1 GB memori tersisa, tanpa swap.
+                         Dengan 1 proses: 506 halaman dalam 15,9 detik.
+
+        Pelajarannya berlaku untuk API juga: sebelum menyimpulkan
+        endpoint-nya lambat, ukur dulu apakah endpoint-nya yang lambat.
+        `,
+        {
+          caption:
+            'Ditelusuri sungguhan saat menyusun materi ini, memakai disiplin diagnose project.',
+        },
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Praktik menggabungkan seluruh materi kategori ini, jadi kesalahannya adalah kesalahan yang sudah dibahas terpisah dan baru bertemu sekarang.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyatakan selesai setelah jalur sukses berjalan',
+            'Fiturnya sudah bekerja',
+            'Jalur 400, 401, 404, 409, 413, dan 422 justru yang paling sering rusak di produksi',
+          ],
+          [
+            'Mengambil `penulisId` dari badan permintaan',
+            'Kliennya tahu siapa penulisnya',
+            'Klien bisa mengirim id siapa pun. Identitas hanya boleh dari sesi atau token',
+          ],
+          [
+            'Memakai `include` untuk respons publik',
+            'Relasinya memang dibutuhkan',
+            'Seluruh kolom ikut, termasuk yang ditambahkan orang lain nanti. Pakai `select`',
+          ],
+          [
+            'Menjadwalkan job di dalam transaksi',
+            'Sekalian satu kesatuan',
+            'Worker bisa mengambilnya sebelum commit, dan job tetap ada bila transaksinya batal. Pakai outbox',
+          ],
+          [
+            'Mengurutkan hanya dengan `terbitPada`',
+            'Itu urutan yang diinginkan',
+            'Waktu bisa sama persis pada impor massal, dan diuji sungguhan, satu baris jadi tidak pernah muncul',
+          ],
+          [
+            'Menguji API tanpa header `Accept: application/json`',
+            'Endpointnya kan API',
+            'Sebagian framework menjawab pengalihan alih-alih JSON, dan itu terlihat seperti endpoint tidak merespons',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama pantas menjadi penutup kategori ini. Sebuah endpoint dinyatakan selesai bukan ketika ia mengembalikan data yang benar, melainkan ketika setiap jalur kegagalannya sudah dijalankan sekali dan menghasilkan status serta pesan yang memang dirancang. Berkas perintah di atas menutup seluruhnya dalam beberapa detik, dan ia tetap berguna berbulan-bulan kemudian ketika seseorang mengubah sesuatu dan ingin tahu apakah ada yang kembali rusak.',
+      ),
       references(
         {
           label: 'Express — Production Best Practices',

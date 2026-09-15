@@ -7,6 +7,7 @@ import {
   ol,
   p,
   references,
+  steps,
   table,
   terms,
   ul,
@@ -20,7 +21,7 @@ export const lessons: LessonDraft[] = [
   written(
     'kenapa-jsx',
     'Kenapa Ada JSX: dari DOM manual ke deklaratif',
-    10,
+    20,
     'Masalah yang dipecahkan JSX, dilihat langsung dari kode DOM yang baru saja kamu tulis di Bab 4.',
     [
       p(
@@ -162,6 +163,222 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Di Bab 4 kamu membangun kartu produk dengan `createElement`, `textContent`, dan `append`. Fungsinya benar dan aman. Yang menjadi masalah muncul saat kartunya bertambah rumit, yaitu ada lencana diskon yang hanya tampil kalau ada diskon, tombol yang berubah bentuk kalau stok habis, dan daftar varian warna. Fungsi pembangunnya tumbuh menjadi enam puluh baris, dan tidak ada satu titik pun di dalamnya tempat kamu bisa melihat bentuk akhir kartunya.',
+      ),
+      p(
+        'Perbandingan di bawah memakai kartu yang sama persis, dan yang berbeda hanya cara menuliskannya.',
+      ),
+      compare(
+        {
+          title: 'Dibangun langkah demi langkah',
+          lang: 'js',
+          code: `
+          function buatKartu(p) {
+            const kartu = document.createElement('article');
+            kartu.className = 'kartu';
+
+            const judul = document.createElement('h3');
+            judul.textContent = p.nama;
+            kartu.append(judul);
+
+            if (p.diskonPersen > 0) {
+              const lencana = document.createElement('span');
+              lencana.className = 'lencana';
+              lencana.textContent = \`-\${p.diskonPersen}%\`;
+              kartu.append(lencana);
+            }
+
+            const tombol = document.createElement('button');
+            tombol.textContent = p.stok > 0 ? 'Beli' : 'Stok habis';
+            tombol.disabled = p.stok === 0;
+            kartu.append(tombol);
+
+            return kartu;
+          }
+          `,
+          notes: ['Bentuk akhirnya harus dibayangkan sendiri dari urutan perintahnya'],
+        },
+        {
+          title: 'Ditulis sebagai bentuk yang diinginkan',
+          lang: 'jsx',
+          code: `
+          function Kartu({ produk: p }) {
+            return (
+              <article className="kartu">
+                <h3>{p.nama}</h3>
+
+                {p.diskonPersen > 0 && (
+                  <span className="lencana">-{p.diskonPersen}%</span>
+                )}
+
+                <button disabled={p.stok === 0}>
+                  {p.stok > 0 ? 'Beli' : 'Stok habis'}
+                </button>
+              </article>
+            );
+          }
+          `,
+          notes: ['Susunannya terbaca langsung, dan percabangannya terlihat di tempatnya'],
+        },
+      ),
+      p(
+        'Kedua fungsi menghasilkan susunan yang sama, dan yang berubah bukan jumlah barisnya melainkan **apa yang bisa dilihat sekilas**. Di kolom kiri, hubungan induk dan anak dinyatakan lewat pemanggilan `append` yang tersebar, sehingga pembaca harus melacaknya sendiri untuk tahu lencana itu berada di dalam kartu. Di kolom kanan, hubungan itu terlihat dari indentasi seperti pada HTML biasa.',
+      ),
+      p(
+        'Perhatikan percabangan diskonnya. Di kolom kiri ia berupa blok `if` yang memutus alur pembacaan, dan blok itu harus berada di antara pembuatan judul dan pembuatan tombol supaya urutannya benar. Di kolom kanan percabangannya berada persis di posisi tempat hasilnya akan muncul, sehingga tidak ada urutan tersembunyi yang perlu dijaga.',
+      ),
+      p(
+        'Yang perlu ditegaskan, JSX **bukan** HTML dan bukan pula template. Ia sintaks JavaScript yang diubah alat pembangun menjadi pemanggilan fungsi biasa, dan itu dibahas tuntas di Sub-bab 6.4. Karena ia JavaScript, seluruh aturan bahasa tetap berlaku di dalamnya, termasuk aturan bahwa sebuah ekspresi harus menghasilkan nilai.',
+      ),
+      callout(
+        'info',
+        'JSX tidak wajib dipakai, dan hampir semua orang memakainya',
+        'React bisa ditulis sepenuhnya dengan `createElement` tanpa satu baris JSX, dan hasilnya sama persis. Yang membuat JSX hampir selalu dipakai adalah susunan bersarang yang dalam menjadi jauh lebih sulit dibaca dalam bentuk pemanggilan fungsi. Untuk satu atau dua tingkat perbedaannya tipis, dan untuk lima tingkat perbedaannya menentukan.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut adalah yang paling sering saat orang pertama kali menulis JSX, dan dua di antaranya tidak melempar apa pun. Semuanya diuji dengan `tsc` dan React sungguhan.',
+      ),
+      code(
+        'text',
+        `
+        <div class="kotak" />
+
+        error TS2322: Type '{ class: string; }' is not assignable to type
+        'DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>'.
+          Property 'class' does not exist on type '...'. Did you mean 'className'?
+        `,
+        { caption: 'Atribut HTML yang namanya bentrok dengan kata kunci JavaScript diganti.' },
+      ),
+      p(
+        'Karena JSX adalah JavaScript, atribut yang namanya sama dengan kata kunci bahasa tidak bisa dipakai apa adanya. `class` menjadi `className` dan `for` menjadi `htmlFor`. Kabar baiknya TypeScript menebakkan jawabannya di akhir pesan. Pada project tanpa TypeScript, kesalahan ini **tidak** melempar sama sekali, dan yang terjadi hanya gayanya tidak pernah menempel.',
+      ),
+      code(
+        'text',
+        `
+        <div onclick={() => {}} />
+
+        error TS2322: Property 'onclick' does not exist on type '...'.
+          Did you mean 'onClick'?
+        `,
+        { caption: 'Nama penangan peristiwa memakai huruf kapital di tengah.' },
+      ),
+      p(
+        'Seluruh penangan peristiwa di JSX ditulis dengan huruf kapital pada kata keduanya, yaitu `onClick`, `onChange`, `onSubmit`, dan seterusnya. Tanpa TypeScript, menulis `onclick` menghasilkan atribut biasa yang diabaikan React, sehingga tombolnya diam tanpa satu pun pesan. Ini salah satu contoh paling langsung kenapa TypeScript layak dipakai untuk kode React.',
+      ),
+      code(
+        'text',
+        `
+        const obj = { a: 1 };
+        <div>{obj}</div>
+
+        error TS2322: Type '{ a: number; }' is not assignable to type 'ReactNode'.
+
+        # Dan saat dijalankan, React melempar:
+        Objects are not valid as a React child (found: object with keys {a}).
+        If you meant to render a collection of children, use an array instead.
+        `,
+        { caption: 'Object tidak bisa dirender, dan pesannya menyebut kuncinya.' },
+      ),
+      p(
+        'Pesan runtime React di sini termasuk yang paling menolong karena ia menyebut kunci object yang bermasalah, sehingga kamu langsung tahu nilai mana yang salah tempat. Penyebab yang paling sering adalah lupa memilih fieldnya, misalnya menulis `{pengguna}` padahal yang dimaksud `{pengguna.nama}`. Penyebab kedua adalah menaruh object `Date` langsung, dan itu perlu diformat lebih dulu.',
+      ),
+      code(
+        'text',
+        `
+        function kartu() { return <div>x</div>; }
+        <kartu />
+
+        # Hasil render: <kartu></kartu>
+        # Tidak ada error, dan komponennya tidak pernah dipanggil.
+        `,
+        { caption: 'Nama berhuruf kecil dianggap tag HTML, bukan komponen.' },
+      ),
+      p(
+        'Ini kegagalan senyap yang paling membingungkan bagi pemula. JSX membedakan komponen dari tag HTML **hanya** lewat huruf pertamanya, yaitu huruf besar berarti komponen dan huruf kecil berarti tag HTML. Komponen bernama `kartu` diperlakukan sebagai tag HTML tak dikenal yang dirender apa adanya, dan fungsinya tidak pernah dipanggil. Selalu awali nama komponen dengan huruf besar.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            "`Property 'class' does not exist ... Did you mean 'className'?`",
+            'Atribut yang bentrok dengan kata kunci JavaScript',
+            'Pakai `className` dan `htmlFor`',
+          ],
+          [
+            "`Did you mean 'onClick'?`",
+            'Penangan peristiwa ditulis huruf kecil semua',
+            'Pakai huruf kapital di kata kedua',
+          ],
+          [
+            '`Objects are not valid as a React child`',
+            'Object dirender langsung tanpa dipilih fieldnya',
+            'Pilih fieldnya, atau format lebih dulu',
+          ],
+          [
+            'Komponen tidak pernah dipanggil, dan tag asing muncul di DOM',
+            'Nama komponennya berhuruf kecil',
+            'Awali dengan huruf besar',
+          ],
+          [
+            'Gaya tidak menempel tanpa satu pun error',
+            'Project tanpa TypeScript, sehingga `class` diabaikan diam-diam',
+            'Pertimbangkan TypeScript, atau pasang aturan lint untuk JSX',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'JSX terlihat seperti HTML, dan kemiripan itu yang menjadi sumber hampir seluruh kesalahan di bawah. Setiap kali ada yang terasa aneh, ingat bahwa yang kamu tulis adalah JavaScript.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyalin HTML apa adanya ke dalam JSX',
+            'Bentuknya kan sama',
+            '`class`, `for`, `tabindex`, dan seluruh atribut `on...` punya nama berbeda. Tag yang tidak ditutup juga menjadi kesalahan sintaks',
+          ],
+          [
+            'Menamai komponen dengan huruf kecil',
+            'Nama fungsi biasanya memang huruf kecil',
+            'JSX memperlakukannya sebagai tag HTML, dan komponennya tidak pernah dipanggil. Tidak ada error sama sekali',
+          ],
+          [
+            'Mengira JSX adalah bahasa template tersendiri',
+            'Ia punya sintaks sendiri',
+            'Ia JavaScript. Tidak ada `if` di dalamnya bukan karena dilarang melainkan karena `if` bukan ekspresi',
+          ],
+          [
+            'Menulis komentar HTML di dalam JSX',
+            'Bentuknya kan mirip HTML',
+            'Komentar HTML akan dirender sebagai teks. Pakai bentuk JavaScript di dalam kurung kurawal',
+          ],
+          [
+            'Menaruh seluruh halaman dalam satu komponen raksasa',
+            'Belum perlu dipecah',
+            'Keuntungan terbesar JSX muncul saat susunan bersarang bisa diberi nama. Komponen tiga ratus baris kehilangan itu',
+          ],
+          [
+            'Mengira JSX lebih lambat karena ada tahap penerjemahan',
+            'Ada langkah tambahan sebelum dijalankan',
+            'Penerjemahan terjadi saat build, bukan saat halaman berjalan. Hasil akhirnya pemanggilan fungsi biasa yang sama persis',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua adalah kesalahan yang paling mahal waktunya karena tidak menghasilkan satu pun petunjuk. Kamu melihat tag asing di tab Elements, komponennya tidak pernah berjalan, dan tidak ada pesan apa pun di console. Kebiasaan mengawali seluruh nama komponen dengan huruf besar sejak awal menutup seluruh kelas bug ini, dan hampir semua konfigurasi lint React memeriksanya.',
+      ),
+      callout(
+        'tip',
+        'Cara cepat memastikan sesuatu adalah komponen atau tag',
+        'Lihat huruf pertamanya. Huruf besar berarti JSX mencarinya sebagai variabel di scope, dan kalau tidak ada akan melempar. Huruf kecil berarti JSX mengirimkannya sebagai nama tag apa adanya, dan tag apa pun diterima tanpa protes. Aturan satu huruf itu yang menentukan segalanya.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Imperatif menuliskan langkah; deklaratif menggambarkan hasil.',
@@ -201,7 +418,7 @@ export const lessons: LessonDraft[] = [
   written(
     'anatomi-jsx',
     'Anatomi JSX & Aturannya',
-    10,
+    20,
     'Aturan penulisan yang berbeda dari HTML — dan alasan tiap perbedaannya.',
     [
       terms(
@@ -375,6 +592,227 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Komponen baris tabel pesanan harus menampilkan status dengan warna berbeda, menampilkan tombol batalkan hanya untuk pesanan yang masih bisa dibatalkan, dan menampilkan tanggal dalam format Indonesia. Kamu menulisnya dan bertemu tiga kesalahan sintaks berturut-turut, yaitu dua elemen berdampingan ditolak, blok `if` di dalam JSX ditolak, dan gaya inline yang ditulis seperti CSS ditolak.',
+      ),
+      p(
+        'Ketiganya berasal dari satu hal yang sama, yaitu JSX adalah **ekspresi JavaScript**, dan sebuah ekspresi harus menghasilkan tepat satu nilai. Begitu itu dipegang, ketiga aturannya berhenti terasa sewenang-wenang.',
+      ),
+      code(
+        'jsx',
+        `
+        function BarisPesanan({ pesanan, onBatal }) {
+          const bisaBatal = pesanan.status === 'lunas' || pesanan.status === 'menunggu';
+
+          return (
+            // Satu induk. Fragment dipakai supaya tidak menambah elemen ke DOM.
+            <>
+              <td>{pesanan.nomor}</td>
+
+              <td>
+                <span className={\`lencana lencana-\${pesanan.status}\`}>
+                  {LABEL_STATUS[pesanan.status] ?? 'Tidak dikenal'}
+                </span>
+              </td>
+
+              <td>
+                <time dateTime={pesanan.padaIso}>
+                  {new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' })
+                    .format(new Date(pesanan.padaIso))}
+                </time>
+              </td>
+
+              {/* Komentar di JSX ditulis begini, di dalam kurung kurawal */}
+              <td style={{ textAlign: 'right' }}>
+                {bisaBatal ? (
+                  <button type="button" onClick={() => onBatal(pesanan.id)}>
+                    Batalkan
+                  </button>
+                ) : null}
+              </td>
+            </>
+          );
+        }
+        `,
+        { filename: 'src/pesanan/BarisPesanan.jsx' },
+      ),
+      p(
+        'Fragment yang ditulis sebagai tag kosong menyelesaikan masalah pertama tanpa menambah elemen apa pun ke DOM. Ini penting untuk tabel, sebab menambahkan `div` pembungkus di antara `tr` dan `td` menghasilkan HTML yang tidak sah dan tata letak tabel yang rusak. Kalau kamu butuh memberi `key` pada fragment, ada bentuk panjangnya yaitu `<Fragment key={...}>` yang perlu diimpor.',
+      ),
+      p(
+        'Gaya inline ditulis sebagai **object**, bukan teks, dan itu konsekuensi langsung dari JSX yang berupa JavaScript. Nama propertinya memakai huruf kapital di tengah seperti di DOM, jadi `text-align` menjadi `textAlign`. Kurung kurawal ganda pada `style={{ ... }}` bukan sintaks khusus, melainkan satu pasang untuk menyisipkan ekspresi dan satu pasang lagi untuk object di dalamnya.',
+      ),
+      p(
+        'Percabangan memakai ternary karena `if` adalah pernyataan, bukan ekspresi, sehingga ia tidak menghasilkan nilai yang bisa disisipkan. Kalau percabangannya rumit, jalan keluarnya menghitung nilainya di atas `return` seperti pada baris `bisaBatal`, lalu menyisipkan hasilnya. Ini bentuk yang jauh lebih terbaca daripada ternary bersarang.',
+      ),
+      code(
+        'jsx',
+        `
+        // Empat cara menampilkan sesuatu secara bersyarat, dan kapan memakainya.
+
+        {bisaBatal ? <TombolBatal /> : null}          // dua kemungkinan, atau tidak ada
+        {bisaBatal && <TombolBatal />}                // hati-hati, lihat bagian error
+        {bisaBatal ? <TombolBatal /> : <TombolLacak />} // dua kemungkinan berbeda
+
+        {(() => {                                      // hindari, sulit dibaca
+          if (a) return <A />;
+          return <B />;
+        })()}
+        `,
+        { caption: 'Bentuk keempat sah dan hampir selalu menandakan logikanya perlu dipindah.' },
+      ),
+      p(
+        'Bentuk keempat memakai fungsi yang langsung dipanggil supaya `if` bisa dipakai di dalam JSX. Ia sah dan bekerja, dan kehadirannya hampir selalu menandakan bahwa percabangan itu terlalu rumit untuk berada di dalam JSX. Pindahkan ke atas `return` sebagai variabel, atau pecah menjadi komponen tersendiri. Keduanya menghasilkan kode yang lebih mudah diuji.',
+      ),
+      callout(
+        'tip',
+        'Kapan JSX perlu dibungkus tanda kurung',
+        'Tanda kurung setelah `return` diperlukan kalau JSX-nya dimulai di baris berikutnya. Tanpa itu, JavaScript menyisipkan titik koma otomatis setelah `return` dan fungsinya mengembalikan `undefined`. Ini salah satu dari sedikit tempat penyisipan titik koma otomatis benar-benar menggigit, dan gejalanya berupa komponen yang tidak menampilkan apa pun tanpa error.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut mencakup hampir seluruh kesalahan sintaks JSX yang akan kamu temui, dan satu di antaranya tidak melempar apa pun.',
+      ),
+      code(
+        'text',
+        `
+        return (
+          <td>satu</td>
+          <td>dua</td>
+        );
+
+        error: Adjacent JSX elements must be wrapped in an enclosing tag.
+        Did you want a JSX fragment <>...</>?
+        `,
+        { caption: 'Dua elemen berdampingan tanpa satu induk.' },
+      ),
+      p(
+        'Alasannya bukan aturan gaya melainkan konsekuensi bahasa. Ekspresi harus menghasilkan satu nilai, dan dua elemen berdampingan adalah dua nilai. Pesan errornya bahkan menyarankan jawabannya. Pakai fragment kalau kamu tidak ingin menambah elemen ke DOM, dan pakai elemen sungguhan kalau memang butuh pembungkus untuk gaya.',
+      ),
+      code(
+        'text',
+        `
+        <div>
+          {if (a) { return <A />; }}
+        </div>
+
+        error: Unexpected token. Did you mean \`{'if'}\` or \`&if;\`?
+        `,
+        { caption: '`if` adalah pernyataan, dan hanya ekspresi yang boleh disisipkan.' },
+      ),
+      p(
+        'Pesan errornya membingungkan karena penerjemah menduga kamu bermaksud menuliskan kata `if` sebagai teks. Yang sebenarnya terjadi adalah kurung kurawal di dalam JSX hanya menerima ekspresi, dan `if` bukan ekspresi. Gantilah dengan ternary, atau hitung nilainya di atas `return`. Aturan yang sama berlaku untuk `for` dan `switch`.',
+      ),
+      code(
+        'text',
+        `
+        function A() {
+          return
+            <div>halo</div>;
+        }
+
+        # Tidak ada error. Komponennya mengembalikan undefined
+        # dan tidak menampilkan apa pun.
+        `,
+        { caption: 'Titik koma disisipkan otomatis tepat setelah `return`.' },
+      ),
+      p(
+        'JavaScript menyisipkan titik koma setelah `return` yang diikuti baris baru, sehingga fungsinya mengembalikan `undefined` dan baris JSX di bawahnya menjadi kode mati. Tidak ada error karena keduanya sah secara sintaks. Perbaikannya membuka tanda kurung di baris yang sama dengan `return`, dan itu sebabnya hampir seluruh contoh React menulisnya begitu.',
+      ),
+      code(
+        'text',
+        `
+        <div style="color: red" />
+
+        error TS2559: Type 'string' has no properties in common with type
+        'Properties<string | number, string & {}>'.
+        `,
+        { caption: 'Gaya inline harus berupa object, bukan teks CSS.' },
+      ),
+      p(
+        "Pesannya tidak menyebut kata object sama sekali, dan itu yang membuatnya sulit dibaca pertama kali. Yang dikatakannya adalah teks tidak punya properti yang sama dengan tipe kumpulan properti CSS. Perbaikannya menulis `style={{ color: 'red' }}`, dengan nama properti bergaya huruf kapital di tengah untuk nama yang bertanda hubung.",
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`Adjacent JSX elements must be wrapped`',
+            'Lebih dari satu elemen dikembalikan',
+            'Bungkus dengan fragment `<>...</>`',
+          ],
+          [
+            '`Unexpected token` pada `if` di dalam JSX',
+            'Kurung kurawal hanya menerima ekspresi',
+            'Pakai ternary, atau hitung di atas `return`',
+          ],
+          [
+            'Komponen tidak menampilkan apa pun tanpa error',
+            'Titik koma otomatis setelah `return`',
+            'Buka tanda kurung di baris yang sama dengan `return`',
+          ],
+          [
+            "`Type 'string' has no properties in common with ... Properties`",
+            'Gaya inline ditulis sebagai teks CSS',
+            'Tulis sebagai object dengan nama bergaya huruf kapital di tengah',
+          ],
+          [
+            'Komentar muncul sebagai teks di halaman',
+            'Komentar HTML dipakai di dalam JSX',
+            'Pakai bentuk JavaScript di dalam kurung kurawal',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Anatomi JSX punya beberapa aturan yang terasa sewenang-wenang sampai kamu ingat bahwa semuanya JavaScript. Baris di bawah adalah tempat kemiripan dengan HTML paling menyesatkan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis gaya inline sebagai teks CSS',
+            'Bentuknya sama dengan atribut `style` di HTML',
+            'JSX menerima object. Nama bertanda hubung menjadi bergaya huruf kapital di tengah',
+          ],
+          [
+            'Membungkus segalanya dengan `div` supaya jadi satu induk',
+            'Itu jalan keluar yang paling langsung',
+            'Menambah elemen yang tidak diperlukan ke DOM, dan merusak tata letak tabel dan flex. Pakai fragment',
+          ],
+          [
+            'Menulis ternary bersarang tiga tingkat di dalam JSX',
+            'Semua kemungkinan jadi di satu tempat',
+            'Termasuk bentuk yang paling sulit dibaca. Hitung di atas `return`, atau pecah menjadi komponen',
+          ],
+          [
+            'Lupa menutup tag yang di HTML boleh tidak ditutup',
+            '`<br>` dan `<img>` di HTML memang begitu',
+            'JSX menuntut semuanya ditutup. Tulis `<br />` dan `<img />`',
+          ],
+          [
+            'Memakai `&&` untuk semua tampilan bersyarat',
+            'Lebih pendek daripada ternary',
+            'Nilai `0` dan teks kosong ikut dirender. Ini dibahas tuntas di sub-bab berikutnya',
+          ],
+          [
+            'Menaruh logika pengambilan data di dalam JSX',
+            'Datanya kan dipakai di situ',
+            'JSX sebaiknya hanya menyusun tampilan. Hitung dan ambil di atas `return`, lalu sisipkan hasilnya',
+          ],
+        ],
+      ),
+      p(
+        'Baris keenam layak dijadikan kebiasaan tetap sejak awal. Kalau di dalam JSX ada perhitungan yang lebih dari sekadar menyisipkan nilai, angkat ke variabel di atas `return` dan beri nama yang menjelaskan. Selain lebih terbaca, variabel itu juga bisa dicetak saat menelusuri bug, sedangkan ekspresi yang tertanam di dalam JSX tidak bisa disentuh tanpa mengubah strukturnya.',
+      ),
+      callout(
+        'info',
+        'Atribut yang namanya berbeda dari HTML',
+        'Yang paling sering ditemui adalah `class` menjadi `className`, `for` menjadi `htmlFor`, `tabindex` menjadi `tabIndex`, `readonly` menjadi `readOnly`, `maxlength` menjadi `maxLength`, dan `colspan` menjadi `colSpan`. Polanya seragam, yaitu atribut bertanda hubung atau bersuku kata banyak ditulis dengan huruf kapital di tengah. Atribut `data-` dan `aria-` justru dikecualikan dan tetap ditulis dengan tanda hubung.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Satu elemen akar; pakai Fragment `<>` supaya tidak menambah node.',
@@ -415,7 +853,7 @@ export const lessons: LessonDraft[] = [
   written(
     'ekspresi-di-jsx',
     'Menyisipkan Ekspresi JavaScript',
-    11,
+    20,
     'Apa yang boleh dan tidak boleh ditulis di dalam kurung kurawal — termasuk jebakan angka nol.',
     [
       terms(
@@ -579,6 +1017,215 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Halaman keranjang menampilkan jumlah barang di badge, daftar barangnya, dan pesan kosong kalau tidak ada apa-apa. Kamu menulisnya dengan `&&` karena bentuknya paling pendek. Setelah dipasang, muncul laporan aneh, yaitu angka nol muncul begitu saja di tengah halaman saat keranjang kosong, dan pesan kosongnya tidak pernah tampil.',
+      ),
+      p(
+        'Inilah jebakan `&&` yang paling sering, dan penyebabnya bukan React melainkan aturan JavaScript yang sudah dibahas di Bab 1. Operator `&&` mengembalikan **operand kirinya** kalau kiri bernilai salah, bukan mengembalikan `false`.',
+      ),
+      code(
+        'jsx',
+        `
+        const barang = [];   // keranjang kosong
+
+        // SALAH: barang.length bernilai 0, dan React MERENDER angka 0.
+        <div>{barang.length && <Badge jumlah={barang.length} />}</div>
+        // Hasil: <div>0</div>
+
+        // BENAR: paksa menjadi boolean, atau bandingkan.
+        <div>{barang.length > 0 && <Badge jumlah={barang.length} />}</div>
+        <div>{Boolean(barang.length) && <Badge jumlah={barang.length} />}</div>
+        <div>{barang.length ? <Badge jumlah={barang.length} /> : null}</div>
+        `,
+        { caption: 'Diuji dengan React sungguhan. Angka `0` benar-benar muncul di halaman.' },
+      ),
+      p(
+        'Yang membuat jebakan ini berbahaya adalah ia hanya muncul pada nilai nol, sehingga pengujian dengan keranjang berisi tiga barang selalu lulus. Perlu dicatat React memperlakukan nilai palsu secara berbeda satu sama lain. Nilai `false`, `null`, dan `undefined` tidak dirender sama sekali, sedangkan angka `0` dan teks kosong dirender apa adanya. Karena itu `&&` hanya aman kalau sisi kirinya benar-benar boolean.',
+      ),
+      code(
+        'jsx',
+        `
+        function DaftarKeranjang({ barang, memuat, galat }) {
+          // Empat keadaan diputuskan DI ATAS return, bukan bertumpuk di dalam JSX.
+          if (memuat) return <Skeleton baris={3} />;
+          if (galat) return <PesanGagal galat={galat} onCobaLagi={muatUlang} />;
+          if (barang.length === 0) return <KeranjangKosong />;
+
+          const totalSen = barang.reduce((j, b) => j + b.hargaSen * b.jumlah, 0);
+
+          return (
+            <div>
+              <Badge jumlah={barang.length} />
+
+              <ul>
+                {barang.map((b) => (
+                  // key WAJIB, dan harus id sungguhan bukan indeks.
+                  <li key={b.id}>
+                    {b.nama} × {b.jumlah}
+                  </li>
+                ))}
+              </ul>
+
+              <p>Total {formatRupiah(totalSen)}</p>
+            </div>
+          );
+        }
+        `,
+        { filename: 'src/keranjang/DaftarKeranjang.jsx' },
+      ),
+      p(
+        'Tiga `return` lebih awal di atas menggantikan tiga tingkat percabangan di dalam JSX, dan ini persis pola guard clause dari Bab 1 yang muncul kembali. Keuntungannya sama, yaitu tiap keadaan dan hasilnya bersebelahan, dan jalur suksesnya rata di bawah tanpa indentasi tambahan. Menambah keadaan keempat berarti menyisipkan satu baris, bukan membongkar ternary bersarang.',
+      ),
+      p(
+        'Baris `key={b.id}` adalah kewajiban yang sering dianggap formalitas. React memakainya untuk mencocokkan elemen lama dengan elemen baru saat daftar berubah, persis seperti `Map` id ke elemen yang kamu tulis sendiri di Bab 4. Tanpa `key`, React mencocokkan berdasarkan posisi, sehingga menghapus baris pertama membuat seluruh baris di bawahnya dianggap berubah isinya. Akibat nyatanya, isian kotak input di dalam baris ikut berpindah ke baris yang salah.',
+      ),
+      p(
+        'Perhitungan `totalSen` diletakkan di atas `return`, bukan disisipkan langsung ke JSX. Selain lebih terbaca, variabel bernama itu bisa dicetak saat menelusuri bug. Ekspresi panjang yang tertanam di dalam JSX tidak bisa disentuh tanpa mengubah strukturnya, dan itu perbedaan yang terasa saat ada laporan totalnya salah.',
+      ),
+      callout(
+        'warning',
+        'Jangan pernah memakai indeks array sebagai `key`',
+        'Bentuk `key={i}` sekilas bekerja dan rusak begitu daftarnya bisa diurutkan, disaring, atau dihapus di tengah. Indeks menyatakan posisi, sedangkan `key` harus menyatakan identitas. Gejalanya khas, yaitu isi kotak input berpindah ke baris lain, atau animasi terpasang pada baris yang salah. Ini persis masalah yang sama dengan memakai indeks sebagai penanda baris di Bab 4.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat kegagalan berikut diuji dengan React sungguhan, dan dua di antaranya berupa peringatan yang sangat mudah diabaikan.',
+      ),
+      code(
+        'text',
+        `
+        <ul>{[1, 2].map((n) => <li>{n}</li>)}</ul>
+
+        Warning: Each child in a list should have a unique "key" prop.
+        Check the top-level render call using <li>.
+        See https://react.dev/link/warning-keys for more information.
+        `,
+        { caption: 'Peringatan, bukan error, sehingga halaman tetap berjalan.' },
+      ),
+      p(
+        'Karena ini hanya peringatan, halamannya terlihat benar dan mudah sekali diabaikan. Akibatnya baru muncul saat daftarnya berubah, dan bentuknya berupa keadaan yang berpindah ke baris yang salah. Perlakukan peringatan `key` sebagai kesalahan yang harus diperbaiki, bukan sebagai catatan. Sebagian tim bahkan menyetel lint agar menolaknya.',
+      ),
+      code(
+        'text',
+        `
+        <div>{{ nama: 'Sari' }}</div>
+
+        Objects are not valid as a React child (found: object with keys {nama}).
+        If you meant to render a collection of children, use an array instead.
+        `,
+        { caption: 'Object dirender langsung, dan pesannya menyebut kuncinya.' },
+      ),
+      p(
+        'Pesan ini menyebut kunci object yang bermasalah, dan itu petunjuk yang langsung mengarah ke penyebabnya. Selain lupa memilih field, penyebab lain yang sering adalah object `Date` dan hasil `Promise`. Yang terakhir itu khas, yaitu memanggil fungsi `async` di dalam JSX menghasilkan janji yang bukan node React, dan pesannya akan menyebut object tanpa kunci.',
+      ),
+      code(
+        'text',
+        `
+        const jumlah = 0;
+        <div>{jumlah && <Badge />}</div>
+
+        # Hasil render: <div>0</div>
+        # Tidak ada error dan tidak ada peringatan.
+        `,
+        { caption: 'Angka nol dirender, sedangkan `false` dan `null` tidak.' },
+      ),
+      p(
+        'Perbedaan perlakuan inilah yang membuat jebakan ini bertahan. Kalau React merender `false` sebagai teks, kesalahan ini akan langsung terlihat pada semua kasus. Karena hanya nol dan teks kosong yang dirender, ia hanya muncul pada keadaan tertentu yang jarang diuji. Aturan praktisnya, sisi kiri `&&` harus selalu berupa perbandingan yang menghasilkan boolean.',
+      ),
+      code(
+        'text',
+        `
+        <input value={nilai} />
+
+        Warning: You provided a \`value\` prop to a form field without an
+        \`onChange\` handler. This will render a read-only field.
+        `,
+        { caption: 'Kolom terkendali tanpa penangan perubahan tidak bisa diketik.' },
+      ),
+      p(
+        'Begitu kamu memberikan `value` pada kolom formulir, React mengambil alih nilainya sepenuhnya dan mengabaikan ketikan pengguna kecuali kamu memperbaruinya lewat `onChange`. Gejalanya berupa kotak input yang tidak bisa diketik sama sekali. Kalau yang kamu maksud hanya nilai awal, pakai `defaultValue`. Perbedaan keduanya dibahas lebih jauh di kategori Frontend Intermediate.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`Each child in a list should have a unique "key" prop`',
+            'Elemen hasil `map` tidak diberi `key`',
+            'Tambahkan `key` berisi id sungguhan, bukan indeks',
+          ],
+          [
+            '`Objects are not valid as a React child`',
+            'Object, `Date`, atau janji dirender langsung',
+            'Pilih fieldnya, format lebih dulu, atau `await` di luar JSX',
+          ],
+          [
+            'Angka `0` muncul di halaman',
+            '`&&` dengan sisi kiri berupa angka',
+            'Bandingkan lebih dulu, misalnya `arr.length > 0 &&`',
+          ],
+          [
+            'Kotak input tidak bisa diketik',
+            '`value` diberikan tanpa `onChange`',
+            'Tambahkan `onChange`, atau pakai `defaultValue`',
+          ],
+          [
+            'Isian input berpindah ke baris lain setelah menghapus',
+            '`key` memakai indeks array',
+            'Pakai id yang melekat pada datanya',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Menyisipkan ekspresi ke JSX terlihat sederhana, dan sebagian besar kesalahan di bawah berasal dari lupa bahwa aturan JavaScript tetap berlaku sepenuhnya di dalam kurung kurawal.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `&&` dengan sisi kiri berupa angka',
+            'Nol kan berarti tidak ada',
+            'React merender angka `0`. Bandingkan lebih dulu supaya sisi kirinya boolean',
+          ],
+          [
+            'Memakai indeks array sebagai `key`',
+            'Indeksnya unik dan sudah tersedia',
+            'Indeks menyatakan posisi bukan identitas. Menghapus di tengah membuat keadaan berpindah ke baris salah',
+          ],
+          [
+            'Memanggil fungsi dengan tanda kurung pada penangan peristiwa',
+            'Bentuknya seperti memanggil fungsi biasa',
+            '`onClick={hapus(id)}` menjalankan `hapus` saat render, bukan saat diklik. Bungkus menjadi `onClick={() => hapus(id)}`',
+          ],
+          [
+            'Memakai fungsi `async` langsung sebagai isi JSX',
+            'Datanya kan perlu diambil',
+            'Fungsi `async` mengembalikan janji, dan janji bukan node React. Ambil datanya di luar, lalu sisipkan hasilnya',
+          ],
+          [
+            'Menaruh perhitungan panjang langsung di dalam kurung kurawal',
+            'Hemat baris',
+            'Tidak bisa dicetak saat menelusuri, dan sulit dibaca. Angkat menjadi variabel bernama di atas `return`',
+          ],
+          [
+            'Menumpuk ternary untuk empat keadaan tampilan',
+            'Semuanya jadi di satu tempat',
+            'Menjadi sangat sulit dibaca. Pakai `return` lebih awal untuk tiap keadaan',
+          ],
+        ],
+      ),
+      p(
+        'Baris ketiga adalah kesalahan yang paling sering dibuat sekali oleh setiap orang, dan gejalanya khas sehingga mudah dikenali. Kalau sebuah aksi berjalan sendiri saat halaman dimuat, bahkan sebelum ada yang mengklik apa pun, hampir pasti ada tanda kurung yang ikut ditulis pada penangan peristiwa. Ini bentuk yang sama dengan jebakan `addEventListener` di Bab 4, dan penyebabnya pun sama.',
+      ),
+      callout(
+        'tip',
+        'Yang dirender React dan yang tidak',
+        'Tidak dirender sama sekali, yaitu `false`, `null`, `undefined`, dan `true`. Dirender apa adanya, yaitu angka termasuk `0`, dan teks termasuk teks kosong yang tidak terlihat. Melempar error, yaitu object, `Map`, `Set`, dan janji. Mengingat kelompok pertama dan kedua sudah cukup untuk menghindari sebagian besar kejutan.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Hanya ekspresi yang boleh di dalam kurung kurawal — kalau muat di kanan `=`, ia boleh.',
@@ -625,7 +1272,7 @@ export const lessons: LessonDraft[] = [
   written(
     'kompilasi-jsx',
     'Apa yang Dihasilkan JSX Setelah Dikompilasi',
-    10,
+    20,
     'Melihat JSX berubah menjadi pemanggilan fungsi biasa — dan kenapa itu menjelaskan banyak hal.',
     [
       p(
@@ -777,6 +1424,226 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Tim kamu menerima laporan bahwa halaman produk terasa lambat dimuat pertama kali. Setelah diperiksa, berkas JavaScript yang dikirim ke pengguna berukuran tiga kali lebih besar daripada perkiraan. Salah satu penyebabnya ternyata konfigurasi penerjemah yang masih memakai mode lama, sehingga tiap berkas JSX ikut membawa impor React walaupun tidak dipakai langsung. Memahami apa yang sebenarnya terjadi saat build menjawab pertanyaan seperti ini.',
+      ),
+      p('Berikut satu potongan JSX beserta hasil terjemahannya pada dua mode yang berbeda.'),
+      compare(
+        {
+          title: 'Mode lama, disebut classic',
+          lang: 'jsx',
+          code: `
+          // Yang kamu tulis:
+          import React from 'react';
+
+          function Kartu({ nama }) {
+            return <h3 className="judul">{nama}</h3>;
+          }
+
+          // Menjadi:
+          function Kartu({ nama }) {
+            return React.createElement(
+              'h3',
+              { className: 'judul' },
+              nama,
+            );
+          }
+          `,
+          notes: [
+            'Impor React WAJIB ada, walaupun namanya tidak dipakai di kodemu',
+            'Lupa mengimpornya menghasilkan `React is not defined` saat dijalankan',
+          ],
+        },
+        {
+          title: 'Mode baru, disebut automatic',
+          lang: 'jsx',
+          code: `
+          // Yang kamu tulis:
+          function Kartu({ nama }) {
+            return <h3 className="judul">{nama}</h3>;
+          }
+
+          // Menjadi:
+          import { jsx as _jsx } from 'react/jsx-runtime';
+
+          function Kartu({ nama }) {
+            return _jsx('h3', {
+              className: 'judul',
+              children: nama,
+            });
+          }
+          `,
+          notes: [
+            'Impor ditambahkan penerjemah sendiri, hanya di berkas yang memakainya',
+            'Ini bawaan sejak React 17, dan yang dipakai project ini',
+          ],
+        },
+      ),
+      p(
+        'Perbedaan yang paling terlihat adalah `children` berpindah dari argumen ketiga menjadi bagian dari object properti. Perubahan itu bukan kosmetik, sebab ia memungkinkan penerjemah membedakan satu anak dari banyak anak lewat fungsi yang berbeda, yaitu `jsx` dan `jsxs`. Pembedaan itu menghemat pemeriksaan saat berjalan.',
+      ),
+      p(
+        'Yang lebih penting untuk dipahami adalah **kapan** penerjemahan ini terjadi, yaitu saat build, bukan saat halaman berjalan. Peramban tidak pernah melihat satu karakter JSX pun. Karena itu pertanyaan apakah JSX lebih lambat tidak punya arti, sebab yang dijalankan peramban sudah berupa pemanggilan fungsi biasa yang sama persis dengan yang akan kamu tulis sendiri.',
+      ),
+      code(
+        'js',
+        `
+        // Hasil pemanggilan itu bukan elemen DOM, melainkan object biasa.
+        const elemen = <h3 className="judul">Kaos</h3>;
+
+        console.log(elemen);
+        // {
+        //   type: 'h3',
+        //   props: { className: 'judul', children: 'Kaos' },
+        //   key: null,
+        //   ...
+        // }
+
+        // Ia hanya DESKRIPSI. Yang membuat DOM sungguhan adalah react-dom.
+        `,
+        { caption: 'Inilah yang disebut elemen React, dan ia sekadar object.' },
+      ),
+      p(
+        'Kesadaran bahwa hasilnya hanya object menjelaskan banyak hal sekaligus. Elemen React bisa disimpan di variabel, dikirim sebagai prop, dan ditaruh di array, sebab ia nilai biasa. Ia juga tidak melakukan apa pun sampai diserahkan ke penggambar. Ini yang membuat React bisa membandingkan deskripsi lama dengan deskripsi baru lalu mengubah DOM seperlunya, persis pola yang kamu tulis sendiri di praktik Bab 4.',
+      ),
+      p(
+        'Kembali ke masalah ukuran berkas di awal. Pada mode lama, tiap berkas JSX menyebut `React` sehingga alat pembangun tidak bisa membuang bagian React yang tidak dipakai. Pada mode baru, yang diimpor hanya fungsi `jsx` dari titik masuk terpisah, sehingga pembuangan kode mati bekerja lebih baik. Untuk project dengan ratusan komponen, selisihnya nyata.',
+      ),
+      callout(
+        'info',
+        'Alat pembangun mana yang menerjemahkan',
+        'Yang mengubah JSX menjadi pemanggilan fungsi bisa Babel, SWC, esbuild, atau TypeScript sendiri lewat opsi `jsx`. Project ini memakai Next.js yang di dalamnya memakai SWC. Yang perlu kamu ketahui bukan namanya melainkan bahwa penerjemahan itu ada, dan konfigurasinya menentukan bentuk keluarannya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan yang berhubungan dengan penerjemahan biasanya terjadi saat build atau saat halaman baru dimuat, dan pesannya sering menunjuk ke tempat yang tidak jelas.',
+      ),
+      code(
+        'text',
+        `
+        ReferenceError: React is not defined
+            at Kartu (Kartu.jsx:4:10)
+        `,
+        { caption: 'Mode classic dipakai, dan impor React tidak ada di berkas itu.' },
+      ),
+      p(
+        "Pesan ini membingungkan karena kodemu tidak menyebut `React` sama sekali. Yang menyebutnya adalah hasil terjemahan. Ada dua perbaikan, yaitu menambahkan `import React from 'react'` di berkas itu, atau lebih baik mengubah konfigurasi ke mode automatic sehingga impornya tidak pernah dibutuhkan lagi. Kalau kamu bertemu ini di project baru, hampir pasti konfigurasinya yang tertinggal.",
+      ),
+      code(
+        'text',
+        `
+        error TS2875: This JSX tag requires the module path 'react/jsx-runtime'
+        to exist, but none could be found.
+        `,
+        { caption: 'Diuji dengan `tsc` sungguhan. Mode automatic aktif tanpa React terpasang.' },
+      ),
+      p(
+        'Pesan ini muncul saat opsi `jsx` disetel ke `react-jsx` sedangkan paket React atau tipenya belum terpasang. Perhatikan ia menyebut jalur `react/jsx-runtime` dan bukan `react`, dan itu petunjuk bahwa konfigurasinya sudah memakai mode baru. Perbaikannya memasang `react` beserta `@types/react`, atau menyesuaikan opsi `jsx` kalau project itu memang bukan React.',
+      ),
+      code(
+        'text',
+        `
+        Failed to parse source for import analysis because the content
+        contains invalid JS syntax. If you are using JSX, make sure to
+        name the file with the .jsx or .tsx extension.
+        `,
+        { caption: 'Berkas berisi JSX tapi berekstensi `.js`.' },
+      ),
+      p(
+        'Sebagian alat pembangun hanya menerjemahkan JSX pada berkas berekstensi `.jsx` dan `.tsx`, dan memperlakukan `.js` sebagai JavaScript biasa. Karena JSX bukan sintaks JavaScript yang sah, penguraiannya gagal. Pesannya cukup jelas dan bahkan menyebut perbaikannya. Ganti nama berkasnya, dan jangan melonggarkan konfigurasi supaya `.js` ikut diterjemahkan sebab itu memperlambat build untuk seluruh berkas.',
+      ),
+      code(
+        'text',
+        `
+        Uncaught SyntaxError: Unexpected token '<'
+            at index.js:12
+        `,
+        { caption: 'JSX sampai ke peramban tanpa pernah diterjemahkan.' },
+      ),
+      p(
+        'Ini terjadi saat berkas berisi JSX dimuat langsung lewat tag skrip tanpa melewati alat pembangun sama sekali. Peramban membaca tanda kurung sudut sebagai operator perbandingan lalu menyerah. Kalau kamu melihat ini, periksa apakah berkasnya memang termasuk dalam proses build, dan bukan berkas yang tidak sengaja disalin ke folder publik.',
+      ),
+      table(
+        ['Pesan error', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`React is not defined`',
+            'Mode classic aktif tanpa impor React',
+            'Pindah ke mode automatic, atau tambahkan impornya',
+          ],
+          [
+            "`requires the module path 'react/jsx-runtime' to exist`",
+            'Mode automatic aktif tanpa React terpasang',
+            'Pasang `react` dan `@types/react`',
+          ],
+          [
+            '`make sure to name the file with the .jsx or .tsx extension`',
+            'Berkas berisi JSX berekstensi `.js`',
+            'Ganti nama berkasnya',
+          ],
+          [
+            "`Unexpected token '<'` di peramban",
+            'JSX tidak pernah diterjemahkan',
+            'Pastikan berkasnya melewati alat pembangun',
+          ],
+          [
+            'Ukuran bundel jauh lebih besar dari perkiraan',
+            'Mode classic membuat pembuangan kode mati kurang efektif',
+            'Pindah ke mode automatic',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Penerjemahan JSX adalah lapisan yang biasanya tidak terlihat, dan kesalahpahaman tentangnya muncul justru saat ada yang tidak beres.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Mengira JSX diproses saat halaman berjalan',
+            'Ada langkah tambahan sebelum jadi',
+            'Penerjemahan terjadi saat build. Peramban tidak pernah melihat JSX sama sekali',
+          ],
+          [
+            'Mengira elemen JSX adalah elemen DOM',
+            'Bentuknya seperti HTML',
+            'Ia object biasa yang mendeskripsikan tampilan. Yang membuat DOM adalah penggambar, dan itu langkah terpisah',
+          ],
+          [
+            'Menambahkan impor React di semua berkas untuk berjaga-jaga',
+            'Tidak ada ruginya',
+            'Pada mode automatic itu tidak dibutuhkan, dan sebagian konfigurasi lint menandainya sebagai impor yang tidak dipakai',
+          ],
+          [
+            'Menamai berkas berisi JSX dengan ekstensi `.js`',
+            'Isinya kan JavaScript',
+            'Sebagian alat tidak menerjemahkannya. Pakai `.jsx` atau `.tsx`',
+          ],
+          [
+            'Mengira JSX lebih lambat daripada `createElement`',
+            'Ada tahap tambahan',
+            'Keluarannya persis pemanggilan `createElement` yang sama. Tidak ada biaya tambahan saat berjalan',
+          ],
+          [
+            'Menyalin konfigurasi build dari project lain tanpa memeriksanya',
+            'Konfigurasinya kan sudah terbukti',
+            'Mode JSX, versi React, dan alat penerjemahnya bisa berbeda. Sebagian besar error di bagian atas berasal dari konfigurasi yang tidak cocok',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua adalah pemahaman yang paling berguna untuk bab-bab berikutnya. Karena elemen React hanya object, ia bisa diperlakukan seperti nilai biasa, yaitu disimpan di variabel, dikembalikan dari fungsi, ditaruh di array, dan dikirim sebagai prop. Kemampuan mengirim elemen sebagai prop itulah dasar dari pola komposisi yang dibahas di kategori Frontend Intermediate.',
+      ),
+      callout(
+        'tip',
+        'Cara melihat sendiri hasil terjemahannya',
+        'Situs resmi Babel menyediakan halaman percobaan tempat kamu bisa menempelkan JSX dan langsung melihat hasilnya. Lima menit mencoba beberapa potongan di sana memberi model mental yang jauh lebih kuat daripada membaca penjelasan mana pun, termasuk penjelasan ini. Coba juga bentuk bersarang dan bentuk dengan `key` untuk melihat perbedaannya.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'JSX dikompilasi menjadi `jsx(type, props)` yang mengembalikan objek deskripsi.',
@@ -817,7 +1684,7 @@ export const lessons: LessonDraft[] = [
   written(
     'typescript-sekilas',
     'TypeScript Sekilas',
-    13,
+    22,
     'Cukup TypeScript untuk memahami TSX — tanpa mempelajari seluruh sistem tipenya.',
     [
       p(
@@ -1032,6 +1899,209 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Fungsi `hitungOngkir` dipakai di empat tempat. Suatu hari ada yang menambahkan parameter baru berupa kode promo di posisi kedua, dan memperbarui tiga dari empat pemanggilnya. Pemanggil keempat tetap mengirim berat di posisi kedua, dan sejak itu setiap pesanan dari satu jalur pembelian mendapat ongkir yang salah. Tidak ada error, tidak ada test yang merah, dan bugnya baru ketahuan dari laporan keuangan tiga minggu kemudian.',
+      ),
+      p(
+        'Inilah kelas bug yang TypeScript hilangkan seluruhnya. Bukan dengan menambah pemeriksaan saat berjalan, melainkan dengan menolak kodenya sebelum sempat dijalankan.',
+      ),
+      code(
+        'ts',
+        `
+        // Bentuk data dinyatakan sekali, lalu dipakai di mana-mana.
+        type Berat = { gram: number };
+        type Tujuan = { provinsi: string; kota: string; kodePos: string };
+
+        type HasilOngkir = {
+          layanan: 'reguler' | 'kilat';   // hanya dua nilai ini yang sah
+          biayaSen: number;
+          estimasiHari: number;
+        };
+
+        export function hitungOngkir(
+          berat: Berat,
+          tujuan: Tujuan,
+          opsi: { layanan?: 'reguler' | 'kilat'; kodePromo?: string } = {},
+        ): HasilOngkir {
+          const layanan = opsi.layanan ?? 'reguler';
+          // ...
+          return { layanan, biayaSen: 1_800_000, estimasiHari: 3 };
+        }
+        `,
+        { filename: 'src/ongkir/hitung.ts' },
+      ),
+      p(
+        'Tiga keputusan di sini yang menutup bug di awal. Pertama, parameter opsional dikumpulkan ke satu object bernama, sehingga menambah opsi baru tidak pernah menggeser posisi apa pun. Kedua, `layanan` bertipe union dua nilai, sehingga salah ketik `regular` dengan huruf a ditolak sebelum dijalankan. Ketiga, nilai kembaliannya dinyatakan, sehingga pemanggil yang membaca `hasil.biaya` alih-alih `hasil.biayaSen` langsung ditolak.',
+      ),
+      p(
+        "Tipe union seperti `'reguler' | 'kilat'` sering diremehkan padahal ia salah satu yang paling berguna sehari-hari. Ia menggantikan konstanta teks yang tersebar, dan editor akan melengkapinya otomatis saat kamu mengetik. Yang lebih penting, menambah layanan ketiga berarti seluruh `switch` yang menanganinya akan ditandai belum lengkap kalau kamu memakai pemeriksaan kelengkapan.",
+      ),
+      code(
+        'ts',
+        `
+        // Menyempitkan tipe, yaitu meyakinkan TypeScript tentang bentuk sesungguhnya.
+        function tampilkan(v: string | number): string {
+          if (typeof v === 'number') {
+            return v.toFixed(2);        // di sini v pasti number
+          }
+          return v.toUpperCase();       // di sini v pasti string
+        }
+
+        // Untuk nilai yang mungkin tidak ada, penyempitannya lewat pemeriksaan.
+        function judulAman(el: HTMLElement | null): string {
+          if (el === null) return '';
+          return el.textContent ?? '';  // di sini el pasti HTMLElement
+        }
+        `,
+        { caption: 'TypeScript mengikuti alur kodemu, bukan sekadar melihat deklarasinya.' },
+      ),
+      p(
+        'Kemampuan mengikuti alur ini yang membuat TypeScript terasa membantu alih-alih mengganggu. Kamu tidak perlu menuliskan tipe di mana-mana, sebab ia menyimpulkan sendiri dari pemeriksaan yang sudah kamu tulis. Blok `if (el === null) return` bukan tambahan demi TypeScript, melainkan pemeriksaan yang memang seharusnya ada, dan TypeScript sekadar memanfaatkannya.',
+      ),
+      p(
+        'Perlu ditegaskan satu hal yang sering disalahpahami, yaitu **seluruh tipe hilang saat build**. Tidak ada satu pun pemeriksaan tipe yang berjalan di peramban. Data yang datang dari server tetap bisa berbentuk apa saja, dan menyatakan tipenya tidak mengubah itu. Untuk data dari luar, kamu tetap butuh validasi saat berjalan seperti dibahas di Bab 5.',
+      ),
+      callout(
+        'info',
+        'TypeScript tidak memperlambat apa pun saat berjalan',
+        'Berkas TypeScript diubah menjadi JavaScript biasa dengan seluruh anotasi tipe dihapus, dan itulah yang dijalankan. Yang bertambah hanya waktu build. Karena itu pertanyaan apakah TypeScript membuat aplikasi lebih lambat tidak punya arti, sebab keluarannya identik dengan JavaScript yang akan kamu tulis sendiri.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat pesan berikut diambil dari `tsc` sungguhan, dan keempatnya mewakili kategori kesalahan yang paling sering ditemui.',
+      ),
+      code(
+        'text',
+        `
+        const el = document.querySelector('#x');
+        el.textContent = 'a';
+
+        error TS18047: 'el' is possibly 'null'.
+        `,
+        { caption: 'Nilai yang mungkin tidak ada dipakai tanpa diperiksa.' },
+      ),
+      p(
+        'Ini pesan yang paling sering ditemui saat pertama kali memakai TypeScript, dan ia mudah dianggap mengganggu. Yang perlu disadari, ia menandai bug yang **nyata**, yaitu persis error `Cannot read properties of null` dari Bab 4 yang ditangkap sebelum sempat dijalankan. Perbaikan yang benar adalah memeriksa nilainya, bukan memakai tanda seru untuk memaksa TypeScript diam.',
+      ),
+      code(
+        'text',
+        `
+        function f(x) { return x * 2; }
+
+        error TS7006: Parameter 'x' implicitly has an 'any' type.
+        `,
+        { caption: 'Parameter tanpa tipe pada mode ketat.' },
+      ),
+      p(
+        'Tipe `any` mematikan seluruh pemeriksaan untuk nilai itu, sehingga membiarkannya masuk diam-diam akan melubangi jaminan yang justru kamu bayar. Opsi `noImplicitAny` yang aktif pada mode ketat menolaknya. Perbaikannya menuliskan tipe parameternya. Kalau kamu benar-benar tidak tahu tipenya, `unknown` jauh lebih baik daripada `any`, sebab ia memaksa pemeriksaan sebelum dipakai.',
+      ),
+      code(
+        'text',
+        `
+        function g(v: string | number) { return v.toUpperCase(); }
+
+        error TS2339: Property 'toUpperCase' does not exist on type 'string | number'.
+          Property 'toUpperCase' does not exist on type 'number'.
+        `,
+        { caption: 'Union dipakai tanpa disempitkan lebih dulu.' },
+      ),
+      p(
+        'Pesannya menyebut dua baris, dan baris kedua yang menjelaskan penyebabnya, yaitu `number` tidak punya method itu. TypeScript hanya mengizinkan hal yang berlaku untuk **seluruh** anggota union. Perbaikannya menyempitkan dulu dengan `typeof`, dan setelah penyempitan itu method yang khusus untuk teks menjadi tersedia.',
+      ),
+      code(
+        'text',
+        `
+        const arr: readonly number[] = [1];
+        arr.push(2);
+
+        error TS2339: Property 'push' does not exist on type 'readonly number[]'.
+        `,
+        { caption: 'Array yang ditandai tidak boleh diubah menolak method pengubah.' },
+      ),
+      p(
+        'Penanda `readonly` menghapus seluruh method yang mengubah array, yaitu `push`, `pop`, `splice`, `sort`, dan `reverse`. Ini cara menyatakan di tingkat tipe bahwa sebuah nilai tidak boleh diubah, dan ia sangat berguna untuk data yang dibagi beberapa bagian aplikasi. Perbaikannya membuat array baru dengan spread, dan itu memang bentuk yang diinginkan.',
+      ),
+      table(
+        ['Pesan error', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            "`'x' is possibly 'null'`",
+            'Nilai yang mungkin tidak ada dipakai tanpa diperiksa',
+            'Periksa dengan `if`, atau pakai `?.` bila ketiadaannya memang wajar',
+          ],
+          [
+            "`Parameter 'x' implicitly has an 'any' type`",
+            'Tipe parameter tidak dituliskan pada mode ketat',
+            'Tuliskan tipenya, dan pakai `unknown` bila benar-benar tidak diketahui',
+          ],
+          [
+            "`Property 'x' does not exist on type 'A | B'`",
+            'Union dipakai tanpa disempitkan',
+            'Sempitkan dengan `typeof`, `in`, atau pemeriksaan nilai',
+          ],
+          [
+            "`Property 'push' does not exist on type 'readonly ...'`",
+            'Array ditandai tidak boleh diubah',
+            'Buat array baru dengan spread, jangan mengubah aslinya',
+          ],
+          [
+            "`Object is of type 'unknown'`",
+            'Nilai dari `catch` atau `JSON.parse` bertipe tidak diketahui',
+            'Periksa bentuknya lebih dulu sebelum memakainya',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Sebagian besar keluhan tentang TypeScript berasal dari cara memakainya, bukan dari bahasanya. Baris di bawah adalah kebiasaan yang membuang sebagian besar manfaatnya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `any` saat tipenya sulit ditentukan',
+            'Errornya langsung hilang',
+            '`any` mematikan seluruh pemeriksaan untuk nilai itu dan seluruh yang berasal darinya. Pakai `unknown` yang memaksa pemeriksaan',
+          ],
+          [
+            'Memakai tanda seru untuk menghilangkan peringatan null',
+            'Kita kan tahu nilainya pasti ada',
+            'Itu janji yang tidak diperiksa siapa pun, dan errornya kembali sebagai kegagalan saat berjalan. Periksa nilainya',
+          ],
+          [
+            'Memakai `as` untuk memaksa tipe yang diinginkan',
+            'Lebih cepat daripada memperbaiki bentuknya',
+            '`as` memberi tahu TypeScript untuk percaya tanpa memeriksa. Kalau bentuk aslinya berbeda, kegagalannya muncul saat berjalan di tempat yang jauh',
+          ],
+          [
+            'Menuliskan tipe untuk setiap variabel',
+            'Semakin eksplisit semakin baik',
+            'TypeScript menyimpulkan sendiri dengan baik. Tuliskan tipe di **batas**, yaitu parameter fungsi dan nilai kembalian, dan biarkan sisanya disimpulkan',
+          ],
+          [
+            'Mengira tipe memvalidasi data dari server',
+            'Bentuknya kan sudah dinyatakan',
+            'Seluruh tipe hilang saat build. Data dari luar tetap harus divalidasi saat berjalan',
+          ],
+          [
+            'Mematikan mode ketat supaya errornya berkurang',
+            'Supaya bisa jalan dulu',
+            'Sebagian besar nilai TypeScript ada di mode ketat, terutama pemeriksaan null. Tanpanya, ia hanya menambah pekerjaan tanpa memberi jaminan',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir layak ditegaskan karena ia keputusan yang menentukan apakah TypeScript sepadan. Tanpa `strictNullChecks`, nilai `null` dan `undefined` diterima di mana saja, dan itu justru kategori bug terbesar yang ingin ditutup. Project yang menyalakan TypeScript tanpa mode ketat mendapat sebagian besar biayanya dan sebagian kecil manfaatnya, dan itu kombinasi yang paling buruk.',
+      ),
+      callout(
+        'tip',
+        'Urutan belajar yang jarang membuat frustrasi',
+        'Mulai dari tiga hal saja, yaitu tipe dasar pada parameter dan nilai kembalian fungsi, `type` untuk bentuk object, dan union teks untuk nilai yang pilihannya terbatas. Ketiganya sudah menutup sebagian besar kebutuhan sehari-hari. Generik, tipe kondisional, dan tipe pemetaan bisa menunggu sampai kamu benar-benar bertemu masalah yang membutuhkannya.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Tipe dihapus saat build — tidak ada biaya saat berjalan.',
@@ -1078,7 +2148,7 @@ export const lessons: LessonDraft[] = [
   written(
     'tsx-vs-jsx',
     '`.tsx` vs `.jsx` — apa yang berubah',
-    10,
+    21,
     'Perbedaan konkret di berkas, tooling, dan pengalaman menulis.',
     [
       terms(
@@ -1240,6 +2310,213 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Project yang kamu warisi berisi dua ratus berkas `.jsx` tanpa satu pun tipe. Tim memutuskan pindah ke TypeScript, dan usulan pertama yang muncul adalah menulis ulang semuanya dalam satu sprint. Setelah dua minggu, separuh berkas sudah diubah, aplikasinya tidak bisa dijalankan sama sekali karena impor antar-berkas saling tidak cocok, dan tidak ada satu pun fitur baru yang dikerjakan.',
+      ),
+      p(
+        'Perpindahan yang berhasil hampir selalu bertahap, dan yang memungkinkan itu adalah TypeScript sengaja dirancang bisa hidup berdampingan dengan JavaScript di project yang sama.',
+      ),
+      code(
+        'json',
+        `
+        {
+          "compilerOptions": {
+            "strict": true,
+            "allowJs": true,          // berkas .js tetap ikut dibaca
+            "checkJs": false,         // tapi belum diperiksa tipenya
+            "jsx": "react-jsx",       // mode automatic, lihat Sub-bab 6.4
+            "noEmit": true,           // alat pembangun yang menghasilkan berkasnya
+            "moduleResolution": "bundler"
+          },
+          "include": ["src"]
+        }
+        `,
+        { filename: 'tsconfig.json — susunan untuk perpindahan bertahap' },
+      ),
+      p(
+        'Kombinasi `allowJs` benar dan `checkJs` salah adalah kuncinya. Berkas `.js` dan `.jsx` yang lama tetap bisa diimpor dari berkas `.ts` dan `.tsx` yang baru, dan keduanya hidup berdampingan tanpa satu pun error dari berkas lama. Kamu bisa mengubah satu berkas per hari, dan aplikasinya tetap berjalan sepanjang prosesnya.',
+      ),
+      code(
+        'text',
+        `
+        Urutan perpindahan yang jarang menyakitkan:
+
+        1. Berkas yang TIDAK punya ketergantungan, yaitu fungsi bantu murni.
+           Contoh: format rupiah, hitung ongkir, validasi email.
+
+        2. Berkas tipe bersama, yaitu bentuk data yang dipakai banyak tempat.
+           Contoh: type Produk, type Pesanan, type Pengguna.
+
+        3. Komponen daun, yaitu yang tidak merender komponen lain.
+           Contoh: Badge, Lencana, Tombol.
+
+        4. Komponen menengah, lalu naik terus sampai halaman.
+
+        5. Terakhir: nyalakan checkJs, atau ubah sisa .js yang tinggal sedikit.
+        `,
+        { caption: 'Dari dalam ke luar, sebab tipe mengalir dari yang dipakai ke pemakainya.' },
+      ),
+      p(
+        'Urutan dari dalam ke luar itu bukan selera. Kalau kamu mulai dari halaman, seluruh komponen yang ia pakai masih tanpa tipe, sehingga propsnya bertipe `any` dan kamu tidak mendapat jaminan apa pun. Kalau kamu mulai dari daun, tiap berkas yang diubah langsung memberi manfaat kepada seluruh pemakainya, dan pemakainya menjadi lebih mudah diubah berikutnya.',
+      ),
+      code(
+        'ts',
+        `
+        // Dua ekstensi, dua aturan yang berbeda.
+
+        // Berkas .ts: tanda kurung sudut berarti penegasan tipe.
+        const el = document.querySelector('#x') as HTMLInputElement;
+        const lama = <HTMLInputElement>document.querySelector('#x');   // bentuk lama, sah di .ts
+
+        // Berkas .tsx: bentuk lama itu TIDAK BISA dipakai,
+        // sebab tanda kurung sudut sudah berarti JSX.
+        // Hanya 'as' yang tersedia.
+        `,
+        { caption: 'Inilah satu-satunya perbedaan sintaks yang benar-benar berarti.' },
+      ),
+      p(
+        'Aturan memilih ekstensinya sederhana, yaitu pakai `.tsx` kalau berkasnya berisi JSX, dan `.ts` kalau tidak. Menamai berkas tanpa JSX sebagai `.tsx` tidak merusak apa pun, dan hanya membuat bentuk penegasan bergaya kurung sudut tidak tersedia. Karena bentuk itu memang sudah jarang dipakai, sebagian tim memakai `.tsx` untuk semuanya demi keseragaman.',
+      ),
+      callout(
+        'warning',
+        'Jangan menyalakan `checkJs` di tengah perpindahan',
+        'Opsi itu membuat seluruh berkas `.js` lama ikut diperiksa, dan pada project dua ratus berkas hasilnya bisa ribuan error sekaligus. Itu membuat keluaran `tsc` tidak berguna sebab error yang benar-benar baru tenggelam di antaranya. Nyalakan di akhir, atau nyalakan per berkas dengan komentar `// @ts-check` di berkas yang sudah siap.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Perpindahan bertahap menghasilkan kelas kesalahan yang khas, yaitu batas antara bagian bertipe dan bagian tanpa tipe.',
+      ),
+      code(
+        'text',
+        `
+        import { formatRupiah } from './format';
+
+        error TS7016: Could not find a declaration file for module './format'.
+        '/src/format.js' implicitly has an 'any' type.
+        `,
+        { caption: 'Berkas `.js` diimpor dari berkas bertipe, dan `allowJs` belum aktif.' },
+      ),
+      p(
+        'Pesannya menyebut `implicitly has an any type`, dan itu justru menjelaskan apa yang hilang. Tanpa `allowJs`, TypeScript tidak tahu apa pun tentang berkas itu. Perbaikannya menyalakan `allowJs`, dan setelah itu TypeScript akan menyimpulkan tipe dari isi berkas `.js`-nya, yang biasanya sudah cukup baik untuk perpindahan bertahap.',
+      ),
+      code(
+        'text',
+        `
+        // Di dalam berkas .tsx:
+        const el = <HTMLInputElement>document.querySelector('#x');
+
+        error: Unterminated JSX contents.
+        `,
+        { caption: 'Penegasan bergaya kurung sudut dipakai di berkas `.tsx`.' },
+      ),
+      p(
+        'Di berkas `.tsx`, tanda kurung sudut selalu diartikan sebagai awal JSX, sehingga penerjemah mencari tag penutup yang tidak pernah ada. Pesannya menyebut JSX walaupun kamu tidak bermaksud menulis JSX sama sekali, dan itu yang membingungkan. Ganti menjadi bentuk `as`, dan itu satu-satunya jalan di berkas `.tsx`.',
+      ),
+      code(
+        'text',
+        `
+        import Kartu from './Kartu';
+        <Kartu judul={5} />
+
+        # Tidak ada error, sebab Kartu.jsx belum bertipe.
+        `,
+        { caption: 'Komponen dari berkas tanpa tipe menerima prop apa saja.' },
+      ),
+      p(
+        'Ini yang perlu dipahami sebagai batas manfaat perpindahan bertahap. Selama komponennya masih `.jsx`, propsnya bertipe `any` dan tidak ada satu pun pemeriksaan. Kamu tidak salah, dan kamu juga belum mendapat manfaat apa pun untuk bagian itu. Ini alasan urutan dari dalam ke luar penting, sebab ia memaksimalkan bagian yang sudah terlindungi lebih awal.',
+      ),
+      code(
+        'text',
+        `
+        error TS2307: Cannot find module 'react' or its corresponding
+        type declarations.
+        `,
+        { caption: 'Paket tipe untuk React belum terpasang.' },
+      ),
+      p(
+        'Sebagian pustaka menyertakan tipenya sendiri di dalam paketnya, dan sebagian lagi menyediakannya sebagai paket terpisah berawalan `@types`. React termasuk yang kedua, sehingga kamu perlu memasang `@types/react` dan `@types/react-dom` di samping paket utamanya. Kalau pesan ini muncul untuk pustaka lain, periksa apakah ada paket `@types` yang sepadan.',
+      ),
+      table(
+        ['Pesan error', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`Could not find a declaration file for module`',
+            'Berkas `.js` diimpor tanpa `allowJs`',
+            'Nyalakan `allowJs` di `tsconfig.json`',
+          ],
+          [
+            '`Unterminated JSX contents` pada penegasan tipe',
+            'Bentuk kurung sudut dipakai di berkas `.tsx`',
+            'Ganti menjadi bentuk `as`',
+          ],
+          [
+            'Komponen menerima prop yang salah tanpa error',
+            'Berkas komponennya masih tanpa tipe',
+            'Ubah berkasnya, dan utamakan komponen daun lebih dulu',
+          ],
+          [
+            '`Cannot find module ... or its corresponding type declarations`',
+            'Paket `@types` belum terpasang',
+            'Pasang paket `@types` yang sepadan',
+          ],
+          [
+            'Ribuan error muncul sekaligus',
+            '`checkJs` dinyalakan di tengah perpindahan',
+            'Matikan, dan nyalakan per berkas dengan `// @ts-check`',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Perpindahan ke TypeScript sering gagal bukan karena teknisnya sulit melainkan karena caranya terlalu ambisius.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Mengubah seluruh berkas dalam satu perubahan besar',
+            'Sekalian selesai',
+            'Aplikasinya rusak di tengah jalan, tinjauan kodenya mustahil, dan tidak ada fitur yang jalan selama itu. Ubah bertahap',
+          ],
+          [
+            'Mulai dari halaman atau komponen paling atas',
+            'Itu yang paling terlihat',
+            'Seluruh yang ia pakai masih tanpa tipe, jadi manfaatnya kecil. Mulai dari fungsi bantu dan komponen daun',
+          ],
+          [
+            'Menyebar `any` supaya berkasnya cepat lolos',
+            'Yang penting sudah `.ts`',
+            'Berkas itu terlihat sudah diubah padahal tidak memberi jaminan apa pun, dan tidak ada yang akan kembali memperbaikinya',
+          ],
+          [
+            'Menyalakan seluruh opsi ketat sekaligus di project lama',
+            'Sekalian benar dari awal',
+            'Ribuan error sekaligus membuat keluarannya tidak berguna. Nyalakan bertahap, dan `strictNullChecks` dulu karena dampaknya paling besar',
+          ],
+          [
+            'Menamai berkas tanpa JSX sebagai `.tsx`',
+            'Supaya seragam',
+            'Sah dan tidak merusak apa pun, hanya bentuk penegasan kurung sudut tidak tersedia. Ini keputusan gaya, bukan kebenaran',
+          ],
+          [
+            'Menulis tipe untuk data dari server dari ingatan',
+            'Bentuknya kan sudah diketahui',
+            'Tipe yang tidak cocok dengan kenyataan justru berbahaya, sebab kamu percaya pada jaminan yang salah. Bangkitkan dari skema API, atau validasi saat berjalan',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir adalah bahaya yang paling halus dari TypeScript. Menyatakan `type Produk = { harga: number }` untuk data yang sebenarnya mengirim harga sebagai teks membuat seluruh kode setelahnya yakin ia angka, padahal bukan. Hasilnya lebih buruk daripada tanpa tipe sama sekali, sebab pemeriksaan yang seharusnya kamu tulis justru dihilangkan atas dasar jaminan palsu. Untuk data dari luar, validasi saat berjalan tetap wajib.',
+      ),
+      callout(
+        'tip',
+        'Ukuran keberhasilan perpindahan bukan jumlah berkas',
+        'Yang layak diukur adalah berapa persen berkas yang bebas dari `any`, dan apakah `strict` sudah aktif. Project dengan dua ratus berkas `.ts` yang penuh `any` mendapat manfaat lebih sedikit daripada project dengan lima puluh berkas bertipe rapi. Ubah lebih sedikit, dan ubah dengan benar.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'JSX butuh ekstensi `.tsx`; `.ts` menolaknya.',
@@ -1280,7 +2557,7 @@ export const lessons: LessonDraft[] = [
   written(
     'tipe-props-children',
     'Memberi Tipe pada Props & `children`',
-    12,
+    23,
     'Kontrak antar komponen yang diperiksa mesin.',
     [
       terms(
@@ -1463,6 +2740,232 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Komponen `Kartu` dipakai di lima halaman. Suatu hari ada yang menambahkan prop wajib bernama `onKlik`, dan empat halaman diperbarui. Halaman kelima tidak, dan sejak itu mengklik kartu di halaman itu melempar `onKlik is not a function`. Bug yang sama tidak mungkin terjadi kalau propsnya bertipe, sebab halaman kelima akan menolak dikompilasi.',
+      ),
+      p(
+        'Berikut bentuk pengetikan props yang menutup seluruh kelas kesalahan itu, beserta cara menyatakan `children` dengan benar.',
+      ),
+      code(
+        'tsx',
+        `
+        import type { ReactNode } from 'react';
+
+        type Status = 'draf' | 'terbit' | 'arsip';
+
+        type KartuProps = {
+          judul: string;                       // wajib
+          status: Status;                      // hanya tiga nilai ini
+          ringkasan?: string;                  // opsional
+          jumlahDilihat?: number;
+          onKlik: (id: string) => void;        // tanda tangan ditegaskan
+          children?: ReactNode;                // apa pun yang bisa dirender
+        };
+
+        export function Kartu({
+          judul,
+          status,
+          ringkasan,
+          jumlahDilihat = 0,                   // bawaan, bukan tipe
+          onKlik,
+          children,
+        }: KartuProps) {
+          return (
+            <article className="kartu" data-status={status}>
+              <h3>{judul}</h3>
+              {ringkasan ? <p>{ringkasan}</p> : null}
+              <small>{jumlahDilihat} kali dilihat</small>
+              {children}
+              <button type="button" onClick={() => onKlik(judul)}>Buka</button>
+            </article>
+          );
+        }
+        `,
+        { filename: 'src/komponen/Kartu.tsx' },
+      ),
+      p(
+        'Tanda tanya pada `ringkasan?` berarti prop itu boleh tidak diberikan, dan tipenya menjadi `string | undefined`. Perhatikan tanda tanya menyatakan **boleh tidak ada**, bukan menyediakan nilai bawaan. Nilai bawaan diberikan saat pembongkaran seperti pada `jumlahDilihat = 0`, dan keduanya memang dipakai bersama.',
+      ),
+      p(
+        'Tipe `ReactNode` adalah yang benar untuk `children`, dan ia mencakup seluruh yang bisa dirender, yaitu elemen JSX, teks, angka, array, `null`, dan `undefined`. Kesalahan yang sering adalah memakai `JSX.Element` yang hanya mencakup satu elemen JSX, sehingga memberikan teks biasa sebagai anak akan ditolak padahal itu sah.',
+      ),
+      code(
+        'tsx',
+        `
+        // Ketika props hanya menambah sedikit pada elemen HTML,
+        // warisi tipenya alih-alih menulis ulang satu per satu.
+        import type { ComponentPropsWithoutRef } from 'react';
+
+        type TombolProps = ComponentPropsWithoutRef<'button'> & {
+          varian?: 'utama' | 'sekunder' | 'bahaya';
+          memuat?: boolean;
+        };
+
+        export function Tombol({ varian = 'utama', memuat = false, ...sisa }: TombolProps) {
+          return (
+            <button
+              {...sisa}                          // type, onClick, aria-*, semuanya lolos
+              className={\`tombol tombol-\${varian} \${sisa.className ?? ''}\`}
+              disabled={memuat || sisa.disabled}
+              aria-busy={memuat}
+            >
+              {memuat ? 'Memuat…' : sisa.children}
+            </button>
+          );
+        }
+        `,
+        { filename: 'src/komponen/Tombol.tsx' },
+      ),
+      p(
+        "Pola ini menyelesaikan masalah yang sangat nyata, yaitu komponen pembungkus yang selalu kekurangan satu prop. Tanpa mewarisi tipe elemennya, tiap kali seseorang butuh `aria-label`, `title`, atau `form` pada tombol, ia harus menambahkannya satu per satu ke tipe props. Dengan `ComponentPropsWithoutRef<'button'>`, seluruh atribut tombol yang sah otomatis diterima dan tetap diperiksa tipenya.",
+      ),
+      p(
+        'Perhatikan `disabled={memuat || sisa.disabled}` menggabungkan dua sumber, sehingga tombol tetap mati kalau pemanggilnya menyetel `disabled` sendiri. Tanpa penggabungan itu, spread `{...sisa}` yang berada di atas akan ditimpa oleh `disabled` di bawahnya, dan prop dari pemanggil diabaikan diam-diam. Urutan spread dan prop yang ditulis sendiri menentukan siapa yang menang, dan itu sering menjadi sumber bug.',
+      ),
+      callout(
+        'tip',
+        'Pakai `type` untuk props, dan simpan `interface` untuk kasus khusus',
+        'Keduanya hampir selalu bisa dipakai bergantian untuk props. `type` bisa menyatakan union dan gabungan dengan `&`, sedangkan `interface` bisa ditambahi dari berkas lain. Kemampuan ditambahi itu justru sering tidak diinginkan untuk props komponen, sebab ia berarti tipe komponenmu bisa diubah dari luar. Sebagian besar tim memakai `type` sebagai bawaan.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat pesan berikut diambil dari `tsc` sungguhan dengan tipe React asli, dan keempatnya menandai bug yang nyata.',
+      ),
+      code(
+        'text',
+        `
+        <Kartu judul="x" onKlik={() => {}} />
+
+        error TS2741: Property 'jumlah' is missing in type
+        '{ judul: string; onKlik: () => void; }' but required in type 'Props'.
+        `,
+        { caption: 'Prop wajib tidak diberikan.' },
+      ),
+      p(
+        'Inilah bug dari cerita di awal, ditangkap sebelum sempat dijalankan. Pesannya menyebut prop mana yang hilang dan tipe mana yang membutuhkannya, sehingga perbaikannya langsung jelas. Perhatikan pesannya juga menampilkan seluruh prop yang **sudah** diberikan, dan itu berguna saat namanya mirip.',
+      ),
+      code(
+        'text',
+        `
+        <Kartu judul={5} jumlah={1} onKlik={() => {}} />
+
+        error TS2322: Type 'number' is not assignable to type 'string'.
+        `,
+        { caption: 'Tipe prop tidak cocok.' },
+      ),
+      p(
+        'Kesalahan ini sering terjadi saat nilainya berasal dari data, misalnya `judul={produk.id}` padahal `id` bertipe angka. Tanpa TypeScript, angka itu akan dirender apa adanya dan tidak ada yang menyadari kesalahannya sampai ada yang membaca layar. Untuk union teks seperti `status`, pesan yang sama muncul saat nilainya salah ketik, dan itu salah satu manfaat union yang paling sering terasa.',
+      ),
+      code(
+        'text',
+        `
+        <Kartu judul="x" jumlah={1} onKlik={() => {}} warna="merah" />
+
+        error TS2322: Type '{ judul: string; jumlah: number; onKlik: () => void;
+        warna: string; }' is not assignable to type 'Props'.
+          Property 'warna' does not exist on type 'Props'.
+        `,
+        { caption: 'Prop yang tidak dikenal ditolak.' },
+      ),
+      p(
+        'Penolakan prop asing ini sangat berguna sebab ia menangkap salah ketik nama prop. Tanpa itu, `onKlick` dengan huruf k ganda akan diterima diam-diam sebagai prop yang tidak dipakai, dan komponennya tidak akan pernah bereaksi. Yang perlu diketahui, penolakan ini hanya berlaku untuk object literal yang ditulis langsung, sehingga menyebarkan object variabel dengan spread tidak terkena pemeriksaan yang sama.',
+      ),
+      code(
+        'text',
+        `
+        <Kartu judul="x" jumlah={1} onKlik={(id: number) => {}} />
+
+        error TS2322: Type '(id: number) => void' is not assignable to type
+        '(id: string) => void'.
+          Types of parameters 'id' and 'id' are incompatible.
+            Type 'string' is not assignable to type 'number'.
+        `,
+        { caption: 'Tanda tangan fungsi penangan tidak cocok.' },
+      ),
+      p(
+        'Pesan bertingkat tiga baris ini sekilas menakutkan, dan sebenarnya sangat runtut. Baris pertama menyebut kedua tipe fungsinya, baris kedua menunjuk parameter mana yang bermasalah, dan baris ketiga menyebut ketidakcocokannya. Kebiasaan membaca pesan TypeScript dari baris **paling dalam** ke luar membuat sebagian besar pesan panjang menjadi mudah dipahami.',
+      ),
+      table(
+        ['Pesan error', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            "`Property 'x' is missing ... but required in type`",
+            'Prop wajib tidak diberikan',
+            'Berikan propnya, atau jadikan opsional dengan tanda tanya',
+          ],
+          [
+            "`Type 'number' is not assignable to type 'string'`",
+            'Tipe nilai prop tidak cocok',
+            'Ubah nilainya, atau perbaiki tipe propsnya kalau memang salah',
+          ],
+          [
+            "`Property 'warna' does not exist on type`",
+            'Prop asing, sering karena salah ketik',
+            'Periksa ejaannya, atau tambahkan ke tipe props kalau memang perlu',
+          ],
+          [
+            '`Types of parameters ... are incompatible`',
+            'Tanda tangan fungsi penangan berbeda',
+            'Samakan parameternya dengan yang dinyatakan tipe props',
+          ],
+          [
+            "`Type 'string' is not assignable to type 'JSX.Element'`",
+            '`children` diketik `JSX.Element`, padahal teks juga sah',
+            'Pakai `ReactNode`',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Mengetik props adalah tempat TypeScript paling terasa manfaatnya di kode React, dan juga tempat sebagian orang membuatnya lebih rumit daripada perlu.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `JSX.Element` untuk `children`',
+            'Anaknya kan elemen JSX',
+            'Teks, angka, array, dan `null` juga sah sebagai anak dan akan ditolak. Pakai `ReactNode`',
+          ],
+          [
+            'Memakai `any` untuk prop yang bentuknya rumit',
+            'Menuliskannya makan waktu',
+            'Seluruh pemeriksaan untuk prop itu mati, termasuk salah ketik nama fieldnya. Tulis bentuknya, atau pakai `unknown` sementara',
+          ],
+          [
+            'Menulis ulang seluruh atribut HTML di tipe props pembungkus',
+            'Supaya jelas apa yang diterima',
+            'Selalu ada yang kurang, dan tiap kebutuhan baru berarti menyunting tipenya. Warisi dengan `ComponentPropsWithoutRef`',
+          ],
+          [
+            'Memakai `React.FC` untuk mengetik komponen',
+            'Banyak contoh lama memakainya',
+            'Ia menambahkan `children` secara diam-diam pada versi lama dan mempersulit generik. Ketik parameternya langsung',
+          ],
+          [
+            'Menjadikan seluruh prop opsional supaya pemanggilnya bebas',
+            'Lebih fleksibel',
+            'Kamu kehilangan jaminan bahwa prop yang memang wajib pasti diberikan, dan tiap pemakaian harus memeriksa keberadaannya',
+          ],
+          [
+            'Memakai `string` untuk nilai yang pilihannya terbatas',
+            '`string` menerima semuanya',
+            'Salah ketik lolos tanpa peringatan. Pakai union teks supaya editornya melengkapi dan salah ketik ditolak',
+          ],
+        ],
+      ),
+      p(
+        "Baris terakhir memberi manfaat yang langsung terasa saat mengetik kode. Dengan `status: 'draf' | 'terbit' | 'arsip'`, editor akan menawarkan ketiga pilihannya begitu kamu mengetik `status=`, dan salah ketik ditolak sebelum berkasnya disimpan. Dengan `status: string`, tidak ada bantuan apa pun dan `'terbitt'` diterima tanpa suara. Selisih usahanya nol, dan selisih manfaatnya besar.",
+      ),
+      callout(
+        'info',
+        'Prop asing hanya ditolak pada object literal',
+        'Pemeriksaan yang menolak prop tidak dikenal disebut excess property checking, dan ia hanya berlaku saat object ditulis langsung di tempatnya. Menyebarkan object dari variabel dengan spread melewatinya, sehingga `<Kartu {...data} />` bisa membawa field asing tanpa ditolak. Ini bukan lubang melainkan keputusan desain, dan ia perlu diketahui supaya kamu tidak mengandalkan pemeriksaan itu untuk data yang disebar.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         '`ReactNode` untuk `children` — bukan `ReactElement` kecuali memang satu elemen.',
@@ -1509,7 +3012,7 @@ export const lessons: LessonDraft[] = [
   written(
     'tipe-event-ref',
     'Memberi Tipe pada Event & `ref`',
-    12,
+    23,
     'Dua tempat pemula paling sering tersandung tipe.',
     [
       terms(
@@ -1694,6 +3197,234 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Formulir pencarian punya kotak teks, pilihan kategori, dan tombol kirim. Kamu ingin memfokuskan kotak teks saat halaman dibuka, membaca nilainya saat dikirim, dan mengosongkannya setelah berhasil. Ditulis tanpa tipe, tiga baris pertama sudah menghasilkan tiga kesalahan yang berbeda, yaitu `ref` yang mungkin `null`, `event.target` yang tidak punya `value`, dan tipe `ref` yang tidak cocok dengan elemennya.',
+      ),
+      p(
+        'Ketiganya adalah kesalahan yang memang nyata, dan bentuk di bawah menutup ketiganya sekaligus.',
+      ),
+      code(
+        'tsx',
+        `
+        import { useRef, useEffect } from 'react';
+        import type { ChangeEvent, FormEvent, KeyboardEvent } from 'react';
+
+        export function FormCari({ onCari }: { onCari: (kata: string, kategori: string) => void }) {
+          // Tipe elemennya disebut, dan nilai awal null diakui.
+          const kotakRef = useRef<HTMLInputElement>(null);
+
+          useEffect(() => {
+            kotakRef.current?.focus();      // current bisa null, jadi pakai ?.
+          }, []);
+
+          function tangani(peristiwa: FormEvent<HTMLFormElement>) {
+            peristiwa.preventDefault();
+
+            // currentTarget bertipe HTMLFormElement, jadi elements dikenali.
+            const data = new FormData(peristiwa.currentTarget);
+            const kata = String(data.get('q') ?? '').trim();
+            const kategori = String(data.get('kategori') ?? '');
+
+            if (kata === '') {
+              kotakRef.current?.focus();
+              return;
+            }
+
+            onCari(kata, kategori);
+            peristiwa.currentTarget.reset();
+          }
+
+          function tanganiEscape(peristiwa: KeyboardEvent<HTMLInputElement>) {
+            if (peristiwa.key === 'Escape') peristiwa.currentTarget.value = '';
+          }
+
+          return (
+            <form onSubmit={tangani}>
+              <input ref={kotakRef} name="q" onKeyDown={tanganiEscape} />
+              <select name="kategori">
+                <option value="">Semua</option>
+                <option value="kaos">Kaos</option>
+              </select>
+              <button type="submit">Cari</button>
+            </form>
+          );
+        }
+        `,
+        { filename: 'src/cari/FormCari.tsx' },
+      ),
+      p(
+        'Bentuk `useRef<HTMLInputElement>(null)` menyatakan dua hal sekaligus, yaitu elemen apa yang akan disimpan dan bahwa nilainya dimulai dari `null`. Nilai `null` itu bukan formalitas, sebab `ref` memang belum terisi sampai React memasang elemennya ke DOM. Karena itu `kotakRef.current?.focus()` dengan tanda tanya bukan kehati-hatian berlebihan melainkan satu-satunya bentuk yang benar.',
+      ),
+      p(
+        'Perbedaan `target` dan `currentTarget` pada peristiwa React sama dengan di DOM biasa, dan tipenya membuat perbedaan itu terasa. `currentTarget` bertipe persis elemen tempat penangan dipasang, sehingga `peristiwa.currentTarget.reset()` dikenali karena `HTMLFormElement` memang punya method itu. `target` bertipe lebih longgar sebab ia bisa berupa elemen mana pun di dalamnya, dan itu justru cerminan kenyataan.',
+      ),
+      code(
+        'tsx',
+        `
+        // Tipe peristiwa yang paling sering dipakai, dan elemen yang menyertainya.
+        function onUbah(e: ChangeEvent<HTMLInputElement>) {
+          e.currentTarget.value;      // string
+        }
+        function onUbahPilihan(e: ChangeEvent<HTMLSelectElement>) {
+          e.currentTarget.value;
+        }
+        function onKirim(e: FormEvent<HTMLFormElement>) {
+          e.currentTarget.elements;
+        }
+        function onKlik(e: MouseEvent<HTMLButtonElement>) {
+          e.currentTarget.disabled = true;
+        }
+        function onTombol(e: KeyboardEvent<HTMLInputElement>) {
+          e.key;                      // 'Escape', 'Enter', dan seterusnya
+        }
+        `,
+        { caption: 'Bagian dalam kurung sudut adalah elemen tempat penangan dipasang.' },
+      ),
+      p(
+        'Cara termudah mengingatnya adalah dengan tidak menghafalnya. Tulis penangannya sebagai fungsi panah langsung di dalam JSX lebih dulu, arahkan kursor ke parameternya, dan editor akan menampilkan tipe yang tepat. Salin tipe itu kalau kamu ingin memindahkan fungsinya keluar. Ini cara yang jauh lebih cepat daripada mencari di dokumentasi, dan hasilnya selalu benar untuk versi React yang kamu pakai.',
+      ),
+      callout(
+        'warning',
+        '`ref` bukan tempat menyimpan keadaan yang mempengaruhi tampilan',
+        'Mengubah `ref.current` tidak menyebabkan komponen digambar ulang, sehingga tampilan tidak akan mengikuti perubahannya. Ia untuk hal yang berada di luar alur penggambaran, yaitu memegang elemen DOM, menyimpan id timer, dan menyimpan nilai sebelumnya. Untuk apa pun yang harus terlihat di layar, gunakan state yang dibahas di kategori Frontend Intermediate.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat pesan berikut adalah yang paling sering saat mengetik peristiwa dan `ref`, dan seluruhnya menandai bug yang nyata.',
+      ),
+      code(
+        'text',
+        `
+        kotakRef.current.focus();
+
+        error TS18047: 'kotakRef.current' is possibly 'null'.
+        `,
+        { caption: '`ref` belum terisi saat kode itu bisa berjalan.' },
+      ),
+      p(
+        'Ini bukan kerewelan TypeScript melainkan cerminan kenyataan. Nilai `ref` diisi React **setelah** komponen digambar, sehingga kode yang berjalan sebelum itu benar-benar akan mendapat `null`. Perbaikannya memakai `?.`, atau memeriksa dengan `if` kalau ada beberapa baris yang memakainya. Yang harus dihindari adalah tanda seru untuk memaksa TypeScript diam, sebab itu mengubah error yang jelas menjadi kegagalan saat berjalan.',
+      ),
+      code(
+        'text',
+        `
+        function onUbah(e) { setNilai(e.target.value); }
+
+        error TS7006: Parameter 'e' implicitly has an 'any' type.
+        `,
+        { caption: 'Penangan ditulis sebagai fungsi terpisah tanpa tipe.' },
+      ),
+      p(
+        'Kalau penangan ditulis langsung di dalam JSX sebagai fungsi panah, TypeScript menyimpulkan tipenya sendiri dari propnya dan kamu tidak perlu menulis apa pun. Begitu fungsinya dipindahkan keluar, hubungan itu putus dan tipenya harus dituliskan. Ini alasan praktis kenapa penangan pendek sering dibiarkan di dalam JSX, dan penangan panjang diberi tipe eksplisit saat dipindahkan.',
+      ),
+      code(
+        'text',
+        `
+        function onUbah(e: ChangeEvent<HTMLElement>) {
+          setNilai(e.currentTarget.value);
+        }
+
+        error TS2339: Property 'value' does not exist on type 'HTMLElement'.
+        `,
+        { caption: 'Tipe elemennya terlalu umum.' },
+      ),
+      p(
+        'Properti `value` hanya ada pada elemen tertentu seperti `input`, `select`, dan `textarea`, bukan pada semua elemen. Menyebut tipe yang terlalu umum berarti kamu kehilangan properti yang khusus. Sebut tipe elemen yang sebenarnya, dan kalau satu penangan dipakai untuk beberapa jenis elemen, pakai union seperti `HTMLInputElement | HTMLTextAreaElement`.',
+      ),
+      code(
+        'text',
+        `
+        const ref = useRef<HTMLInputElement>();
+        <input ref={ref} />
+
+        error TS2322: Type 'MutableRefObject<HTMLInputElement | undefined>'
+        is not assignable to type 'Ref<HTMLInputElement>'.
+        `,
+        { caption: 'Nilai awal tidak diberikan, sehingga tipenya menyertakan `undefined`.' },
+      ),
+      p(
+        'Perbedaan antara `useRef<T>(null)` dan `useRef<T>()` menghasilkan dua tipe yang berbeda, dan hanya yang pertama yang cocok untuk dipasang ke atribut `ref`. Aturan praktisnya, kalau `ref` akan dipasang ke elemen, selalu beri nilai awal `null`. Kalau `ref` dipakai untuk menyimpan nilai biasa seperti id timer, barulah nilai awal lain masuk akal.',
+      ),
+      table(
+        ['Pesan error', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            "`'ref.current' is possibly 'null'`",
+            '`ref` belum terisi sebelum komponen digambar',
+            'Pakai `?.`, atau periksa dengan `if`',
+          ],
+          [
+            "`Parameter 'e' implicitly has an 'any' type`",
+            'Penangan dipindahkan keluar JSX tanpa tipe',
+            'Tuliskan tipenya, misalnya `ChangeEvent<HTMLInputElement>`',
+          ],
+          [
+            "`Property 'value' does not exist on type 'HTMLElement'`",
+            'Tipe elemen terlalu umum',
+            'Sebut tipe elemen yang sebenarnya',
+          ],
+          [
+            '`MutableRefObject<... | undefined> is not assignable to Ref<...>`',
+            '`useRef` dipanggil tanpa nilai awal',
+            'Beri nilai awal `null` untuk `ref` yang dipasang ke elemen',
+          ],
+          [
+            "`Property 'value' does not exist on type 'EventTarget'`",
+            '`e.target` dipakai, dan tipenya memang longgar',
+            'Pakai `e.currentTarget` yang tipenya persis',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Peristiwa dan `ref` adalah dua tempat kode React paling sering bersentuhan langsung dengan DOM, dan sebagian besar kesalahan di bawah berasal dari membawa kebiasaan DOM biasa apa adanya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai tanda seru untuk menghilangkan peringatan `ref.current`',
+            'Kita tahu elemennya pasti ada',
+            'Ia pasti ada setelah digambar, dan belum ada sebelum itu. Tanda seru mengubah error yang jelas menjadi kegagalan saat berjalan',
+          ],
+          [
+            'Membaca `e.target.value` alih-alih `e.currentTarget.value`',
+            'Bentuknya sama dengan DOM biasa',
+            '`target` bertipe longgar sebab bisa berupa elemen mana pun di dalamnya. `currentTarget` bertipe persis',
+          ],
+          [
+            'Memakai `ref` untuk menyimpan nilai yang ditampilkan',
+            'Lebih sederhana daripada state',
+            'Mengubah `ref.current` tidak menggambar ulang, sehingga layar tidak pernah berubah',
+          ],
+          [
+            'Membaca `ref.current` saat komponen pertama kali berjalan',
+            'Elemennya kan sudah ditulis di JSX',
+            'JSX baru berupa deskripsi. Elemennya belum ada di DOM sampai React memasangnya. Baca di dalam efek',
+          ],
+          [
+            'Menghafal seluruh nama tipe peristiwa',
+            'Perlu ditulis setiap kali',
+            'Arahkan kursor ke parameter penangan yang ditulis di dalam JSX, dan editor menampilkan tipenya. Salin dari sana',
+          ],
+          [
+            'Memakai `MouseEvent` dari DOM alih-alih dari React',
+            'Namanya sama',
+            'React memakai pembungkus peristiwanya sendiri dengan tipe berbeda. Impor dari `react`, bukan memakai tipe global',
+          ],
+        ],
+      ),
+      p(
+        "Baris terakhir menghasilkan pesan error yang sangat membingungkan karena kedua tipe itu bernama sama persis. Kalau kamu melihat pesan yang menyebut `MouseEvent` tidak cocok dengan `MouseEvent`, itulah penyebabnya. Impor tipe peristiwa secara eksplisit dari `react` dengan `import type { MouseEvent } from 'react'`, dan kebingungan itu tidak akan muncul lagi.",
+      ),
+      callout(
+        'tip',
+        'Sebagian besar `ref` bisa dihindari, dan itu memang lebih baik',
+        'Membaca nilai formulir bisa lewat `FormData` seperti pada studi kasus. Menampilkan atau menyembunyikan bisa lewat state. Mengubah gaya bisa lewat kelas. Yang benar-benar membutuhkan `ref` tinggal sedikit, yaitu memfokuskan elemen, memutar media, mengukur ukuran, dan berinteraksi dengan pustaka non-React. Kalau kamu memakai `ref` untuk hal di luar itu, biasanya ada jalan yang lebih sesuai.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Handler inline tidak perlu anotasi — inferensi sudah bekerja.',
@@ -1740,7 +3471,7 @@ export const lessons: LessonDraft[] = [
   written(
     'generic-component',
     'Generic Component & Discriminated Union Props',
-    13,
+    22,
     'Komponen yang tipenya menyesuaikan datanya — dan cara menghapus banyak boolean prop sekaligus.',
     [
       terms(
@@ -1962,6 +3693,238 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Aplikasi punya tiga tabel, yaitu tabel pesanan, tabel produk, dan tabel pengguna. Ketiganya butuh pengurutan, pemilihan baris, dan keadaan kosong yang sama. Versi pertama menyalin komponen tabelnya tiga kali, dan tiga bulan kemudian perbaikan pada pengurutan hanya diterapkan di satu salinan. Versi kedua membuat satu komponen dengan tipe `any[]`, dan seluruh jaminan tipe hilang justru di tempat yang paling banyak menyentuh data.',
+      ),
+      p(
+        'Generik menyelesaikan keduanya sekaligus, yaitu satu komponen untuk semua jenis data, dengan tipe yang tetap tepat untuk masing-masing.',
+      ),
+      code(
+        'tsx',
+        `
+        type Kolom<T> = {
+          kunci: keyof T & string;              // hanya nama field yang benar-benar ada
+          judul: string;
+          gambar?: (baris: T) => ReactNode;     // pemformat opsional
+          rata?: 'kiri' | 'kanan';
+        };
+
+        type TabelProps<T> = {
+          data: readonly T[];
+          kolom: readonly Kolom<T>[];
+          ambilId: (baris: T) => string;        // untuk key, bukan indeks
+          onPilih?: (baris: T) => void;
+          pesanKosong?: string;
+        };
+
+        export function Tabel<T>({
+          data,
+          kolom,
+          ambilId,
+          onPilih,
+          pesanKosong = 'Belum ada data',
+        }: TabelProps<T>) {
+          if (data.length === 0) return <p className="kosong">{pesanKosong}</p>;
+
+          return (
+            <table>
+              <thead>
+                <tr>
+                  {kolom.map((k) => (
+                    <th key={k.kunci} style={{ textAlign: k.rata ?? 'kiri' }}>{k.judul}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.map((baris) => (
+                  <tr key={ambilId(baris)} onClick={() => onPilih?.(baris)}>
+                    {kolom.map((k) => (
+                      <td key={k.kunci} style={{ textAlign: k.rata ?? 'kiri' }}>
+                        {k.gambar ? k.gambar(baris) : String(baris[k.kunci])}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          );
+        }
+        `,
+        { filename: 'src/komponen/Tabel.tsx' },
+      ),
+      code(
+        'tsx',
+        `
+        // Dipakai untuk Pesanan. Tipe T disimpulkan dari prop data.
+        <Tabel
+          data={pesanan}                              // Pesanan[]
+          ambilId={(p) => p.id}                       // p bertipe Pesanan, bukan any
+          kolom={[
+            { kunci: 'nomor', judul: 'Nomor' },
+            { kunci: 'status', judul: 'Status' },
+            {
+              kunci: 'totalSen',
+              judul: 'Total',
+              rata: 'kanan',
+              gambar: (p) => formatRupiah(p.totalSen),  // p juga bertipe Pesanan
+            },
+            { kunci: 'pembeli', judul: 'Pembeli' },     // ERROR kalau field ini tidak ada
+          ]}
+          onPilih={(p) => bukaDetail(p.id)}
+        />
+        `,
+        { caption: 'Tidak ada satu pun tipe yang dituliskan di tempat pemakaian.' },
+      ),
+      p(
+        'Yang membuat pola ini bekerja adalah TypeScript menyimpulkan `T` dari prop `data`, lalu memakainya untuk seluruh prop lain. Fungsi `ambilId` menerima parameter bertipe `Pesanan`, fungsi `gambar` juga, dan editor melengkapi field-nya saat kamu mengetik. Tidak ada satu pun `any`, dan tidak ada satu pun tipe yang perlu ditulis di tempat pemakaian.',
+      ),
+      p(
+        'Bagian `keyof T & string` pada `kunci` adalah yang paling menentukan. Ia membatasi nilai `kunci` hanya pada nama field yang benar-benar ada di `T`, sehingga salah ketik `nomer` alih-alih `nomor` ditolak sebelum dijalankan. Tambahan `& string` diperlukan karena `keyof` juga bisa menghasilkan `number` dan `symbol` untuk sebagian tipe, sedangkan `key` pada JSX butuh teks.',
+      ),
+      p(
+        'Prop `ambilId` menggantikan pendekatan yang biasa dipakai, yaitu mensyaratkan setiap data punya field bernama `id`. Menuntut nama field tertentu membuat komponen ini tidak bisa dipakai untuk data yang penandanya bernama lain, misalnya `kode` atau `nomorInduk`. Menerima fungsi pengambil membuat pemanggilnya yang memutuskan, dan itu lebih fleksibel tanpa kehilangan jaminan apa pun.',
+      ),
+      callout(
+        'tip',
+        'Jangan membuat generik sebelum ada dua pemakai nyata',
+        'Ini penerapan aturan tiga dari Bab 2 pada tipe. Komponen generik yang dirancang dari satu contoh hampir selalu salah bentuk, sebab kamu menebak apa yang akan berbeda. Tulis dua tabel yang konkret lebih dulu, lihat apa yang benar-benar berbeda di antaranya, baru angkat menjadi generik. Hasilnya hampir selalu lebih sederhana daripada yang kamu bayangkan di awal.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Generik menghasilkan pesan error yang lebih panjang daripada biasanya, dan kuncinya membaca dari baris paling dalam.',
+      ),
+      code(
+        'text',
+        `
+        <Tabel data={pesanan} kolom={[{ kunci: 'nomer', judul: 'Nomor' }]} ambilId={(p) => p.id} />
+
+        error TS2322: Type '"nomer"' is not assignable to type
+        '"id" | "nomor" | "status" | "totalSen"'.
+        `,
+        { caption: 'Nama field salah ketik, dan pilihannya disebut lengkap.' },
+      ),
+      p(
+        'Inilah manfaat `keyof T` yang paling langsung terasa. Pesannya bahkan menyebutkan seluruh nama field yang sah, sehingga kamu tidak perlu membuka berkas tipenya untuk mencari ejaan yang benar. Tanpa pembatasan itu, `kunci: string` akan menerima apa saja dan salah ketiknya menghasilkan kolom berisi `undefined` di layar.',
+      ),
+      code(
+        'text',
+        `
+        <Tabel data={pesanan} ambilId={(p) => p.kodeUnik} kolom={[...]} />
+
+        error TS2339: Property 'kodeUnik' does not exist on type 'Pesanan'.
+        `,
+        { caption: 'Parameter fungsi sudah bertipe, jadi field asing ditolak.' },
+      ),
+      p(
+        'Perhatikan kamu tidak menuliskan tipe `p` di mana pun, dan TypeScript tetap tahu ia `Pesanan`. Ini yang disebut penyimpulan generik, yaitu `T` ditentukan dari prop `data` lalu mengalir ke seluruh prop lain. Kalau kamu menemukan diri menuliskan tipe parameter di tempat pemakaian, biasanya itu tanda penyimpulannya gagal karena ada `any` di suatu tempat.',
+      ),
+      code(
+        'text',
+        `
+        <Tabel<Pesanan> data={produk} ambilId={(p) => p.id} kolom={[...]} />
+
+        error TS2322: Type 'Produk[]' is not assignable to type 'readonly Pesanan[]'.
+        `,
+        { caption: 'Tipe generik disebut manual, dan datanya tidak cocok.' },
+      ),
+      p(
+        'Menyebut tipe generiknya secara manual dengan kurung sudut memang bisa, dan hampir selalu tidak perlu. Ia berguna hanya saat penyimpulannya gagal atau saat kamu sengaja ingin membatasi. Pada kasus ini ia justru menangkap kesalahan, yaitu data yang diberikan bukan yang dinyatakan. Tanpa penyebutan manual, `T` akan disimpulkan sebagai `Produk` dan tidak ada error.',
+      ),
+      code(
+        'text',
+        `
+        export function Tabel<T>({ data }: { data: T[] }) {
+          return <div>{data.map((b) => b.nama)}</div>;
+        }
+
+        error TS2339: Property 'nama' does not exist on type 'T'.
+        `,
+        { caption: 'Generik tanpa batasan berarti bisa apa saja.' },
+      ),
+      p(
+        'Tipe `T` tanpa batasan berarti benar-benar apa saja, termasuk angka dan teks, sehingga tidak ada satu pun properti yang bisa dijamin ada. Kalau komponenmu memang membutuhkan field tertentu, nyatakan lewat batasan seperti `<T extends { nama: string }>`. Kalau tidak, terima fungsi pengambil seperti `ambilId` pada studi kasus, dan itu bentuk yang lebih fleksibel.',
+      ),
+      table(
+        ['Pesan error', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`Type \'"x"\' is not assignable to type \'"a" | "b"\'`',
+            'Nama field tidak ada, dibatasi `keyof T`',
+            'Perbaiki ejaannya, pilihannya disebut di pesan errornya',
+          ],
+          [
+            "`Property 'x' does not exist on type 'Pesanan'`",
+            'Field asing dipakai pada parameter yang sudah bertipe',
+            'Periksa nama fieldnya di tipe datanya',
+          ],
+          [
+            "`Type 'A[]' is not assignable to type 'readonly B[]'`",
+            'Tipe generik disebut manual dan tidak cocok dengan datanya',
+            'Hapus penyebutan manualnya, biarkan disimpulkan',
+          ],
+          [
+            "`Property 'x' does not exist on type 'T'`",
+            'Generik tanpa batasan dipakai seolah punya field tertentu',
+            'Tambahkan batasan `extends`, atau terima fungsi pengambil',
+          ],
+          [
+            'Seluruh parameter bertipe `any`',
+            'Ada `any` di rantai penyimpulannya',
+            'Telusuri dari mana `any` masuk, biasanya dari data yang tidak bertipe',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Generik adalah alat yang sangat berguna dan sangat mudah dipakai berlebihan. Sebagian besar baris di bawah adalah tentang menahan diri.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membuat komponen generik dari satu contoh',
+            'Nanti pasti dipakai untuk yang lain',
+            'Bentuknya hampir selalu salah, sebab kamu menebak apa yang akan berbeda. Tulis dua yang konkret dulu',
+          ],
+          [
+            'Memakai `any[]` supaya komponennya bisa untuk semua data',
+            'Lebih cepat daripada memikirkan generik',
+            'Seluruh jaminan hilang justru di komponen yang paling banyak menyentuh data. Generik memberi keluwesan yang sama tanpa kehilangan tipe',
+          ],
+          [
+            'Memakai `keyof T` tanpa `& string`',
+            '`keyof` sudah menghasilkan nama fieldnya',
+            'Ia juga bisa menghasilkan `number` dan `symbol`, dan itu tidak bisa dipakai sebagai `key` di JSX',
+          ],
+          [
+            'Menambahkan batasan yang lebih ketat daripada yang dibutuhkan',
+            'Lebih aman kalau dibatasi',
+            'Komponennya jadi tidak bisa dipakai untuk data yang sebenarnya cocok. Batasi hanya field yang benar-benar dipakai di dalamnya',
+          ],
+          [
+            'Menyebut tipe generik secara manual di setiap pemakaian',
+            'Lebih eksplisit',
+            'Penyimpulan biasanya sudah benar, dan penyebutan manual justru bisa menyembunyikan ketidakcocokan. Sebut manual hanya saat penyimpulannya gagal',
+          ],
+          [
+            'Memakai nama parameter tipe satu huruf untuk semuanya',
+            'Konvensinya memang begitu',
+            'Untuk satu parameter, `T` sudah jelas. Untuk tiga parameter, `T`, `U`, `V` tidak menjelaskan apa pun. Beri nama seperti `TData` dan `TKunci`',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama layak diingat sebagai aturan tetap, dan ia sama dengan aturan tiga untuk abstraksi di Bab 2. Komponen generik lebih sulit dibaca daripada komponen biasa, dan biaya itu hanya sepadan kalau memang ada beberapa pemakai dengan bentuk data berbeda. Menyalin komponen dua kali lalu menyatukannya setelah perbedaannya terlihat hampir selalu menghasilkan bentuk yang lebih baik daripada merancangnya di depan.',
+      ),
+      callout(
+        'info',
+        'Materi ini punya lanjutan tersendiri',
+        'Generik pada komponen adalah pintu masuk ke bagian TypeScript yang jauh lebih dalam, yaitu tipe kondisional, tipe pemetaan, dan tipe template literal. Ketiganya sangat berguna untuk pustaka dan jarang dibutuhkan untuk kode aplikasi biasa. Kalau kamu bertemu kebutuhan yang tidak bisa diselesaikan generik sederhana, itulah saat yang tepat mempelajarinya, bukan sebelum itu.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Generic membuat tipe data mengalir masuk ke callback render.',
@@ -2008,7 +3971,7 @@ export const lessons: LessonDraft[] = [
   written(
     'kapan-tsx',
     'Kapan JSX Cukup, Kapan TSX Wajib',
-    10,
+    17,
     'Keputusan yang sebaiknya diambil di awal project, bukan di tengah jalan.',
     [
       terms(
@@ -2120,6 +4083,198 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Dua project berjalan bersamaan di tim yang sama. Yang pertama adalah halaman arahan promosi yang berumur enam minggu, dikerjakan satu orang, berisi delapan komponen tanpa data dari server. Yang kedua adalah panel admin yang akan dirawat bertahun-tahun, dikerjakan enam orang, berisi dua ratus komponen dan tiga puluh endpoint. Menerapkan keputusan yang sama untuk keduanya akan salah pada salah satunya.',
+      ),
+      p(
+        'Pertanyaan yang menentukan bukan seberapa besar projectnya, melainkan tiga hal yang bisa dijawab sebelum satu baris kode ditulis.',
+      ),
+      table(
+        ['Pertanyaan', 'Halaman promosi', 'Panel admin'],
+        [
+          ['Berapa lama kodenya akan dirawat?', 'Enam minggu, lalu dimatikan', 'Bertahun-tahun'],
+          ['Berapa orang yang akan menyentuhnya?', 'Satu', 'Enam, dan berganti'],
+          ['Berapa banyak bentuk data dari luar?', 'Nyaris tidak ada', 'Tiga puluh endpoint'],
+          ['**Keputusan**', '**JSX cukup**', '**TSX, dengan mode ketat**'],
+        ],
+        'Yang menentukan adalah umur, jumlah orang, dan jumlah bentuk data dari luar.',
+      ),
+      p(
+        'Ketiga pertanyaan itu mengukur hal yang sama, yaitu seberapa besar kemungkinan seseorang akan mengubah kode ini tanpa mengingat seluruh asumsinya. Untuk halaman promosi yang ditulis dan dibuang oleh satu orang, jawabannya nyaris nol, dan biaya menuliskan tipe tidak terbayar. Untuk panel admin, jawabannya hampir pasti, dan tipe adalah cara termurah menuliskan asumsi itu supaya diperiksa mesin.',
+      ),
+      code(
+        'text',
+        `
+        Tanda bahwa project SUDAH melewati batas dan layak pindah ke TSX:
+
+        - Ada lebih dari satu orang yang menyentuh berkas yang sama
+        - Ada data dari server yang bentuknya tidak ditulis di kode ini
+        - Sudah pernah ada bug karena prop yang salah nama atau salah tipe
+        - Ada refactor yang ditunda karena takut merusak sesuatu
+        - Komponen yang sama dipakai di lebih dari tiga tempat
+        - Sudah ada test, sebab tipe dan test saling melengkapi bukan menggantikan
+        `,
+        { caption: 'Tiga tanda pertama biasanya sudah cukup untuk memutuskan.' },
+      ),
+      p(
+        'Tanda keempat sering diabaikan padahal ia yang paling mahal. Kode tanpa tipe membuat perubahan struktur terasa berisiko, sehingga orang memilih menambahkan cabang baru alih-alih merapikan yang ada. Setelah setahun, hasilnya bukan kode tanpa tipe melainkan kode tanpa tipe yang juga berantakan, dan keduanya saling memperkuat.',
+      ),
+      p(
+        'Ada satu jalan tengah yang sering terlupakan, yaitu memakai JavaScript dengan komentar tipe. Berkas `.js` yang diberi komentar bergaya JSDoc bisa diperiksa TypeScript lewat opsi `checkJs`, tanpa satu pun langkah build tambahan. Ini cocok untuk project menengah yang belum ingin menambah alat, dan sebagian besar manfaat pemeriksaan tetap didapat.',
+      ),
+      code(
+        'js',
+        `
+        /**
+         * @param {{ judul: string, jumlah: number, onKlik: (id: string) => void }} props
+         */
+        export function Kartu({ judul, jumlah, onKlik }) {
+          return <button onClick={() => onKlik(judul)}>{judul} ({jumlah})</button>;
+        }
+
+        // Dengan checkJs aktif, pemanggilan yang salah tetap ditolak,
+        // dan berkasnya tetap JavaScript biasa tanpa langkah build tambahan.
+        `,
+        { filename: 'src/komponen/Kartu.jsx' },
+      ),
+      p(
+        'Bentuk ini punya batasnya, yaitu sintaksnya jauh lebih panjang untuk tipe yang rumit, dan sebagian fitur TypeScript tidak tersedia. Untuk tipe props sederhana ia sudah cukup, dan yang lebih penting ia bisa ditambahkan berkas per berkas tanpa mengubah apa pun di konfigurasi build. Beberapa pustaka besar memilih jalur ini justru karena keluarannya tetap JavaScript murni.',
+      ),
+      callout(
+        'tip',
+        'Keputusan ini tidak permanen, dan itu bagian dari pertimbangannya',
+        'Pindah dari JSX ke TSX bisa dilakukan bertahap seperti dibahas di Sub-bab 6.6, jadi memilih JSX di awal bukan pintu yang tertutup. Yang sulit adalah kebalikannya, yaitu melepaskan tipe dari project yang sudah memakainya. Karena itu untuk project yang benar-benar meragukan, memulai tanpa tipe lalu menambahkannya saat terbukti perlu adalah pilihan yang wajar.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Bagian ini berbeda dari sub-bab lain, sebab yang dibahas adalah biaya yang muncul dari keputusan yang keliru, bukan pesan dari alat.',
+      ),
+      code(
+        'text',
+        `
+        # Project JSX, setelah delapan bulan dan empat orang:
+
+        $ grep -rn "onKlik\\|onClick\\|onPress" src/komponen/ | wc -l
+        47
+
+        # Tiga nama berbeda untuk hal yang sama, dan tidak ada yang tahu
+        # komponen mana memakai yang mana tanpa membukanya satu per satu.
+        `,
+        { caption: 'Biaya tanpa tipe berupa waktu, bukan pesan error.' },
+      ),
+      p(
+        'Inilah bentuk kerugian yang sebenarnya, dan ia tidak pernah muncul sebagai error. Tanpa tipe, tidak ada satu tempat pun yang menyatakan bentuk sebuah komponen, sehingga satu-satunya cara mengetahuinya adalah membaca isinya. Dikalikan dua ratus komponen dan enam orang, itu ratusan jam yang tidak pernah tercatat sebagai biaya.',
+      ),
+      code(
+        'text',
+        `
+        # Project TSX dengan strict dimatikan:
+
+        $ grep -rn ": any" src/ | wc -l
+        312
+
+        # Seluruh biaya TypeScript dibayar, dan sebagian besar manfaatnya tidak didapat.
+        `,
+        { caption: 'Keputusan setengah jalan yang paling merugikan.' },
+      ),
+      p(
+        'Ini kombinasi terburuk dari kedua pilihan, yaitu menanggung waktu build yang lebih lama dan sintaks yang lebih panjang tanpa mendapat jaminan apa pun. Kalau sebuah project memutuskan memakai TypeScript, mode ketat dan disiplin menghindari `any` adalah bagian dari keputusan itu. Tanpa keduanya, memilih JavaScript murni justru lebih jujur.',
+      ),
+      code(
+        'text',
+        `
+        # Halaman promosi yang seharusnya selesai dua minggu:
+
+        Minggu 1: menyiapkan tsconfig, eslint, dan tipe untuk tiga komponen
+        Minggu 2: memperbaiki error tipe pada pustaka animasi yang tipenya tidak lengkap
+        Minggu 3: mulai menulis halamannya
+        `,
+        { caption: 'Biaya yang tidak terbayar pada project berumur pendek.' },
+      ),
+      p(
+        'Kerugian arah sebaliknya juga nyata, dan ia paling terasa pada project kecil berumur pendek. Waktu penyiapan, waktu build yang lebih lama, dan pergulatan dengan tipe pustaka pihak ketiga semuanya biaya yang harus dibayar di depan. Untuk kode yang akan hidup enam minggu dan disentuh satu orang, biaya itu tidak pernah kembali.',
+      ),
+      table(
+        ['Gejala', 'Keputusan yang keliru', 'Jalan keluarnya'],
+        [
+          [
+            'Nama prop yang sama ditulis berbeda-beda di banyak komponen',
+            'JSX dipakai pada project yang sudah melewati batas',
+            'Pindah bertahap ke TSX, mulai dari komponen daun',
+          ],
+          [
+            'Ratusan `any` di project TypeScript',
+            'TypeScript dipakai tanpa mode ketat dan tanpa disiplin',
+            'Nyalakan `strict`, lalu kurangi `any` bertahap',
+          ],
+          [
+            'Dua minggu habis sebelum satu fitur pun jadi',
+            'TypeScript dipakai pada project berumur pendek',
+            'Pertimbangkan JSX, atau JSDoc dengan `checkJs`',
+          ],
+          [
+            'Refactor selalu ditunda karena takut merusak',
+            'Tidak ada tipe dan tidak ada test',
+            'Tambahkan salah satunya, dan tipe biasanya lebih murah untuk dimulai',
+          ],
+          [
+            'Bug berulang karena bentuk data dari server berubah',
+            'Tipe ditulis dari ingatan, tanpa validasi saat berjalan',
+            'Bangkitkan tipe dari skema API, dan validasi di batas',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Keputusan memakai TypeScript sering diambil sebagai soal identitas, bukan sebagai perhitungan. Baris di bawah adalah bentuk keduanya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai TypeScript untuk semua project tanpa kecuali',
+            'Lebih profesional',
+            'Untuk skrip sekali pakai dan halaman berumur pendek, biayanya tidak pernah kembali. Ukur umur dan jumlah orangnya',
+          ],
+          [
+            'Menghindari TypeScript karena terasa memperlambat',
+            'Menulis tipe memakan waktu',
+            'Waktu yang dihemat dari bug yang tidak terjadi jauh lebih besar pada project berumur panjang. Yang melambat hanya minggu pertama',
+          ],
+          [
+            'Memakai TypeScript dengan `strict` dimatikan',
+            'Supaya errornya sedikit',
+            'Kombinasi terburuk, yaitu seluruh biayanya dibayar dan sebagian besar manfaatnya tidak didapat',
+          ],
+          [
+            'Mengira tipe menggantikan test',
+            'Keduanya sama-sama menangkap kesalahan',
+            'Tipe memeriksa bentuk, dan test memeriksa perilaku. Fungsi yang tipenya benar tetap bisa menghitung salah',
+          ],
+          [
+            'Menunda keputusan sampai project besar',
+            'Nanti saja kalau sudah perlu',
+            'Memindahkan dua ratus berkas jauh lebih mahal daripada memulai dengan tipe. Putuskan di awal, dan putuskan sadar',
+          ],
+          [
+            'Menyalin keputusan dari project lain tanpa menimbangnya',
+            'Project itu berhasil',
+            'Umur, jumlah orang, dan jumlah bentuk data mereka bisa berbeda jauh. Jawab tiga pertanyaannya sendiri',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat perlu ditegaskan karena ia sering dipakai sebagai alasan meninggalkan salah satunya. Tipe menjamin bahwa `hitungOngkir` menerima berat dan mengembalikan angka, dan sama sekali tidak menjamin angkanya benar. Test menjamin angkanya benar untuk kasus yang diuji, dan sama sekali tidak menjamin pemanggilnya mengirim argumen yang tepat. Keduanya menutup celah yang berbeda, dan project yang serius memakai keduanya.',
+      ),
+      callout(
+        'info',
+        'Yang perlu kamu bawa ke kategori berikutnya',
+        'Seluruh materi React di Frontend Intermediate ditulis dengan TypeScript, sebab itu yang dipakai sebagian besar project React hari ini termasuk website ini sendiri. Kalau kamu memutuskan memakai JSX untuk project pribadimu, materinya tetap berlaku penuh. Yang perlu kamu lakukan hanya mengabaikan anotasi tipenya, dan sisa kodenya identik.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'JSX untuk belajar dan prototipe; TSX untuk apa pun yang akan hidup lama.',
@@ -2159,7 +4314,7 @@ export const lessons: LessonDraft[] = [
   written(
     'praktik-konversi-tsx',
     'Praktik: Konversi komponen JSX ke TSX',
-    14,
+    25,
     'Melihat sendiri error apa yang muncul, apa artinya, dan bug mana yang tertangkap sebelum dijalankan.',
     [
       p(
@@ -2369,6 +4524,227 @@ export const lessons: LessonDraft[] = [
       ),
       p('React akan terasa jauh lebih masuk akal karena kamu tahu apa yang ia otomatiskan.'),
 
+      divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Kamu diminta mengubah satu berkas `KartuProduk.jsx` yang sudah dipakai di tiga halaman menjadi TypeScript. Berkasnya seratus baris, tidak punya test, dan tiga pemanggilnya masih `.jsx`. Godaan pertama adalah mengganti ekstensinya lalu memperbaiki error sampai hijau. Cara itu bekerja untuk berkas sederhana, dan pada berkas seperti ini ia biasanya berakhir dengan sepuluh `any` yang menghilangkan seluruh manfaatnya.',
+      ),
+      p(
+        'Urutan di bawah menghasilkan berkas yang benar-benar bertipe, dan tiap langkahnya bisa dihentikan tanpa meninggalkan kode yang rusak.',
+      ),
+      steps(
+        {
+          title: 'Ganti ekstensi, jangan sentuh isinya',
+          body: 'Ubah `KartuProduk.jsx` menjadi `KartuProduk.tsx` lalu jalankan `tsc`. Baca seluruh errornya tanpa memperbaiki satu pun. Daftar itu adalah peta pekerjaan yang sebenarnya, dan membacanya lebih dulu mencegah kamu menambal satu per satu tanpa melihat polanya.',
+        },
+        {
+          title: 'Tulis tipe props lebih dulu',
+          body: 'Sebagian besar error biasanya berasal dari props yang bertipe implisit. Menuliskan satu tipe props sering menghilangkan separuh daftar errornya sekaligus. Baca pemanggilnya untuk tahu prop mana yang selalu diberikan dan mana yang kadang tidak.',
+        },
+        {
+          title: 'Tangani nilai yang mungkin tidak ada',
+          body: 'Error `possibly null` dan `possibly undefined` adalah bug nyata yang selama ini tidak terlihat. Perbaiki dengan pemeriksaan sungguhan, bukan dengan tanda seru. Kalau sebuah nilai memang tidak mungkin kosong, biasanya tipenya yang perlu diperbaiki bukan pemeriksaannya yang perlu dipaksa.',
+        },
+        {
+          title: 'Ketik data dari luar di batasnya',
+          body: 'Respons server, isi `localStorage`, dan parameter alamat semuanya bertipe tidak diketahui. Ketik di satu titik masuk, lalu seluruh kode setelahnya bekerja dengan tipe yang benar. Jangan menyebarkan penegasan tipe ke seluruh berkas.',
+        },
+        {
+          title: 'Hapus sisa `any` satu per satu',
+          body: 'Cari dengan `grep -n ": any" berkas.tsx`. Tiap `any` yang tersisa adalah janji yang belum ditepati. Kalau ada yang benar-benar sulit, tinggalkan komentar yang menyebut alasannya supaya orang berikutnya tahu itu disengaja.',
+        },
+        {
+          title: 'Ubah pemanggilnya, dan biarkan error memandu',
+          body: 'Setelah berkasnya bertipe, ubah satu pemanggil dan jalankan `tsc` lagi. Error yang muncul di pemanggil adalah bug yang selama ini diam. Inilah bagian yang paling sering menemukan sesuatu.',
+        },
+      ),
+      code(
+        'text',
+        `
+        # Langkah 1, keluaran tsc pertama pada KartuProduk.tsx:
+
+        error TS7031: Binding element 'produk' implicitly has an 'any' type.
+        error TS7031: Binding element 'onTambah' implicitly has an 'any' type.
+        error TS7006: Parameter 'e' implicitly has an 'any' type.
+        error TS18047: 'gambarRef.current' is possibly 'null'.
+        error TS2339: Property 'diskon' does not exist on type 'never'.
+
+        # Lima error, dan tiga di antaranya hilang setelah tipe props ditulis.
+        `,
+        { caption: 'Membaca seluruh daftar lebih dulu memperlihatkan polanya.' },
+      ),
+      p(
+        'Kode `TS7031` yang muncul dua kali menandakan props yang dibongkar tanpa tipe, dan keduanya selesai dengan satu tipe props. Kode `TS7006` untuk parameter `e` juga sering ikut selesai kalau penanganya ditulis di dalam JSX. Yang tersisa biasanya `TS18047` dan hal yang berhubungan dengan data dari luar, dan itulah bug yang sebenarnya.',
+      ),
+      code(
+        'tsx',
+        `
+        // Langkah 4: mengetik data dari luar DI BATASNYA, bukan disebar.
+        import { z } from 'zod';
+
+        const SkemaProduk = z.object({
+          id: z.string(),
+          nama: z.string(),
+          hargaSen: z.number().int().nonnegative(),
+          diskonPersen: z.number().min(0).max(100).default(0),
+          stok: z.number().int().nonnegative(),
+        });
+
+        export type Produk = z.infer<typeof SkemaProduk>;   // tipe DARI skema, sekali tulis
+
+        export async function ambilProduk(id: string): Promise<Produk> {
+          const respons = await klien.ambil(\`/produk/\${id}\`);
+          // Diperiksa saat BERJALAN, bukan hanya saat build.
+          return SkemaProduk.parse(respons);
+        }
+        `,
+        { filename: 'src/produk/api.ts' },
+      ),
+      p(
+        'Pola ini menutup lubang terbesar TypeScript, yaitu tipe hilang saat build sehingga data dari server tidak pernah benar-benar diperiksa. Skema divalidasi saat berjalan, dan tipenya diturunkan dari skema itu sehingga keduanya tidak mungkin menyimpang. Kalau server suatu hari mengirim `hargaSen` sebagai teks, kegagalannya muncul di satu tempat dengan pesan yang menyebut field-nya, bukan sebagai perhitungan salah di halaman lain.',
+      ),
+      p(
+        'Perhatikan `z.infer<typeof SkemaProduk>` menghasilkan tipe dari skema, bukan sebaliknya. Urutan itu penting. Kalau kamu menulis tipenya sendiri lalu menulis skema terpisah, keduanya akan menyimpang seiring waktu dan kamu kembali punya dua sumber kebenaran. Satu skema, dan tipenya ikut.',
+      ),
+      callout(
+        'danger',
+        'Tanda seru dan `as` adalah utang, bukan perbaikan',
+        'Keduanya memberi tahu TypeScript untuk berhenti memeriksa tanpa mengubah apa pun tentang nilainya. Kalau kamu memakainya untuk menyelesaikan konversi lebih cepat, kamu memindahkan kegagalan dari waktu build ke waktu berjalan, yaitu ke tempat yang lebih mahal. Kalau memang terpaksa, tulis komentar yang menyebut kenapa itu aman.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Empat pesan berikut adalah yang paling sering muncul selama konversi, dan seluruhnya diambil dari `tsc` sungguhan.',
+      ),
+      code(
+        'text',
+        `
+        export function Kartu({ produk, onTambah }) { /* ... */ }
+
+        error TS7031: Binding element 'produk' implicitly has an 'any' type.
+        `,
+        { caption: 'Props dibongkar tanpa tipe.' },
+      ),
+      p(
+        'Ini error pertama yang hampir selalu muncul, dan ia hilang begitu tipe props ditulis. Yang perlu dihindari adalah jalan pintas berupa `{ produk, onTambah }: any`, sebab itu menghilangkan seluruh manfaat konversinya. Baca pemanggilnya untuk tahu bentuk sesungguhnya, dan kalau ada prop yang kadang tidak diberikan, tandai opsional dengan tanda tanya.',
+      ),
+      code(
+        'text',
+        `
+        const [item, setItem] = useState([]);
+        item.map((i) => i.nama);
+
+        error TS2339: Property 'nama' does not exist on type 'never'.
+        `,
+        { caption: 'Array kosong sebagai nilai awal disimpulkan sebagai `never[]`.' },
+      ),
+      p(
+        'Tipe `never` muncul karena TypeScript tidak punya petunjuk apa pun tentang isi array kosong itu. Pesannya membingungkan pertama kali karena kata `never` tidak menjelaskan apa-apa. Perbaikannya menyebut tipenya di `useState`, yaitu `useState<Produk[]>([])`. Pola yang sama berlaku untuk `useState(null)` yang perlu ditulis `useState<Produk | null>(null)`.',
+      ),
+      code(
+        'text',
+        `
+        const data = await respons.json();
+        hitungTotal(data.item);
+
+        error TS18046: 'data' is of type 'unknown'.
+        `,
+        { caption: 'Hasil `json()` bertipe tidak diketahui pada TypeScript versi baru.' },
+      ),
+      p(
+        'Ini justru perubahan yang benar, sebab hasil `json()` memang bisa berbentuk apa saja. Godaan terbesarnya adalah menambahkan `as Produk` dan melanjutkan, dan itu berarti kamu berjanji tanpa memeriksa. Perbaikan yang sungguhan adalah memvalidasinya seperti pada studi kasus di atas. Kalau validasi penuh belum memungkinkan, minimal periksa field yang benar-benar dipakai.',
+      ),
+      code(
+        'text',
+        `
+        import { formatRupiah } from './format';
+
+        error TS2307: Cannot find module './format' or its corresponding
+        type declarations.
+        `,
+        { caption: 'Berkas tujuannya masih `.js` dan `allowJs` belum aktif.' },
+      ),
+      p(
+        'Selama konversi bertahap, berkas `.tsx` yang baru akan mengimpor berkas `.js` yang lama, dan itu perlu diizinkan lewat `allowJs` seperti dibahas di Sub-bab 6.6. Kalau opsi itu sudah aktif dan pesannya tetap muncul, periksa jalur impornya, sebab TypeScript juga menolak jalur yang salah dengan pesan yang sama.',
+      ),
+      table(
+        ['Pesan error', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            "`Binding element 'x' implicitly has an 'any' type`",
+            'Props dibongkar tanpa tipe',
+            'Tulis tipe props, jangan memakai `any`',
+          ],
+          [
+            "`Property 'x' does not exist on type 'never'`",
+            'Nilai awal array kosong tanpa tipe',
+            'Sebut tipenya, misalnya `useState<Produk[]>([])`',
+          ],
+          [
+            "`'data' is of type 'unknown'`",
+            'Hasil `json()` memang tidak diketahui bentuknya',
+            'Validasi dengan skema, jangan memakai `as`',
+          ],
+          [
+            "`Cannot find module './x'`",
+            'Berkas tujuannya masih `.js` tanpa `allowJs`',
+            'Nyalakan `allowJs`, dan periksa jalurnya',
+          ],
+          [
+            "`Object is possibly 'null'` pada `ref`",
+            '`ref` belum terisi sebelum digambar',
+            'Pakai `?.`, bukan tanda seru',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Konversi yang buruk menghasilkan berkas yang terlihat sudah bertipe padahal tidak memberi jaminan apa pun. Baris di bawah adalah bentuk-bentuknya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `any` untuk menghabiskan daftar error dengan cepat',
+            'Berkasnya jadi hijau',
+            'Berkas itu terlihat sudah dikonversi padahal tidak diperiksa sama sekali, dan tidak ada yang akan kembali memperbaikinya',
+          ],
+          [
+            'Memakai tanda seru untuk seluruh peringatan null',
+            'Kita tahu nilainya ada',
+            'Itu janji tanpa pemeriksaan. Errornya kembali sebagai kegagalan saat berjalan, di tempat yang lebih sulit ditelusuri',
+          ],
+          [
+            'Menulis tipe untuk respons server dari ingatan',
+            'Bentuknya kan sudah diketahui',
+            'Tipe yang tidak cocok dengan kenyataan lebih berbahaya daripada tanpa tipe, sebab pemeriksaan yang seharusnya ada justru dihapus. Validasi di batas',
+          ],
+          [
+            'Mengonversi berkas beserta seluruh pemanggilnya sekaligus',
+            'Sekalian selesai',
+            'Diff-nya menjadi terlalu besar untuk ditinjau, dan kalau ada yang rusak sulit tahu bagian mana. Satu berkas per perubahan',
+          ],
+          [
+            'Melewatkan langkah membaca seluruh error lebih dulu',
+            'Langsung perbaiki saja satu per satu',
+            'Kamu kehilangan polanya. Satu tipe props sering menghilangkan separuh daftar sekaligus',
+          ],
+          [
+            'Menganggap konversi selesai saat `tsc` hijau',
+            'Tidak ada error lagi',
+            'Hijau dengan sepuluh `any` bukan selesai. Cari sisa `any` dengan `grep`, dan pastikan tiap yang tersisa punya alasan tertulis',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir memberi ukuran keberhasilan yang bisa diperiksa. Setelah `tsc` hijau, jalankan `grep -n ": any" berkas.tsx` dan hitung hasilnya. Nol berarti konversinya sungguhan. Angka selain nol berarti masih ada janji yang belum ditepati, dan tiap satunya layak diberi komentar yang menyebut kenapa ia dibiarkan. Berkas yang hijau tanpa `any` adalah berkas yang benar-benar terlindungi.',
+      ),
+      callout(
+        'info',
+        'Ini penutup Frontend Basic, dan pintu masuk ke React',
+        'Enam bab kategori ini membangun fondasi yang seluruhnya akan dipakai lagi. Bahasa dan pantangan mutasi dari Bab 1, object dan prototype dari Bab 2, asinkron dan pembatalan dari Bab 3, pohon DOM dan rekonsiliasi manual dari Bab 4, konsumsi API beserta empat keadaannya dari Bab 5, dan JSX beserta tipe dari Bab 6. Frontend Intermediate tidak memperkenalkan gagasan baru sebanyak yang terlihat, melainkan menyediakan cara yang lebih rapi untuk hal yang sudah kamu tulis sendiri.',
+      ),
       divider,
       h2('Rangkuman'),
       ul(

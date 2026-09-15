@@ -1,4 +1,15 @@
-import { callout, code, compare, h2, ol, p, table, ul } from '@/lib/content/builders';
+import {
+  callout,
+  code,
+  compare,
+  h2,
+  ol,
+  p,
+  references,
+  table,
+  terms,
+  ul,
+} from '@/lib/content/builders';
 import { type LessonDraft, written } from '@/lib/curriculum/authoring';
 
 /**
@@ -12,11 +23,54 @@ export const lessons: LessonDraft[] = [
   written(
     'kenapa-container',
     'Kenapa Container',
-    9,
+    15,
     'Masalah yang ia selesaikan, dan biaya yang ia tambahkan.',
     [
       p(
         'Container membungkus aplikasi bersama seluruh yang ia butuhkan, mulai dari runtime, library sistem, sampai konfigurasi, menjadi satu artefak yang berjalan sama di mana pun.',
+      ),
+
+      terms(
+        {
+          term: 'container',
+          meaning:
+            'Proses yang berjalan terpisah dari sisa sistem, dengan sistem berkas, jaringan, dan daftar proses sendiri, tetapi tetap memakai kernel mesin induknya. Perbedaan itulah yang membuatnya ringan. Yang ia selesaikan adalah masalah "di komputer saya jalan", sebab yang dipindahkan bukan hanya kodemu melainkan seluruh lingkungan tempat ia berjalan.',
+        },
+        {
+          term: 'image',
+          meaning:
+            'Cetakan container yang berisi sistem berkas beserta metadata cara menjalankannya. Sifatnya hanya-baca dan tidak berubah. Satu image bisa menjalankan banyak container sekaligus, seperti satu kelas menghasilkan banyak objek.',
+        },
+        {
+          term: 'layer (lapisan)',
+          meaning:
+            'Potongan perubahan sistem berkas yang dihasilkan tiap instruksi di `Dockerfile`, ditumpuk membentuk image. Lapisan yang tidak berubah dipakai ulang dari cache, dan itulah kenapa urutan instruksi sangat menentukan lama build. Lapisan juga bersifat menumpuk, sehingga berkas yang dihapus di lapisan atas tetap ada di lapisan bawah dan tetap bisa diambil.',
+        },
+        {
+          term: 'virtual machine (VM)',
+          meaning:
+            'Mesin virtual lengkap yang menjalankan sistem operasinya sendiri di atas hypervisor. Berbeda dari container yang berbagi kernel induknya, VM memuat kernel sendiri, sehingga lebih berat dan lebih lambat menyala tetapi batas pemisahannya lebih tegas.',
+        },
+        {
+          term: 'registry',
+          meaning:
+            'Tempat penyimpanan image supaya bisa diambil mesin lain, misalnya Docker Hub atau GitHub Container Registry. `docker push` mengirim ke sana dan `docker pull` mengambilnya.',
+        },
+        {
+          term: 'tag',
+          meaning:
+            'Label versi pada sebuah image, ditulis sesudah titik dua seperti `node:22-alpine`. Tag `latest` bukan versi terbaru secara otomatis melainkan sekadar nama bawaan, dan memakainya di produksi membuat dua deploy pada waktu berbeda bisa menjalankan isi yang berbeda.',
+        },
+        {
+          term: 'volume',
+          meaning:
+            'Penyimpanan yang hidupnya terpisah dari container, dipakai untuk data yang harus bertahan saat container dibuat ulang. Tanpa volume, seluruh perubahan sistem berkas di dalam container hilang begitu ia dihapus.',
+        },
+        {
+          term: 'stateless',
+          meaning:
+            'Sifat proses yang tidak menyimpan keadaan penting di dalam dirinya, sehingga boleh dimatikan dan diganti kapan saja. Inilah yang membuat penskalaan mendatar dan rilis tanpa henti mungkin dilakukan, dan alasan sesi pengguna sebaiknya tidak disimpan di memori proses.',
+        },
       ),
 
       h2('Masalah yang ia selesaikan'),
@@ -69,15 +123,267 @@ export const lessons: LessonDraft[] = [
         'Container bersifat sementara — apa pun di dalamnya hilang saat ia diganti',
         'Berkas yang ditulis ke sistem berkas container lenyap saat container dibuat ulang, dan itu terjadi setiap deploy. Unggahan pengguna, log, dan data database **wajib** berada di volume atau di layanan eksternal.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Kalimat "jalan di laptop saya" terdengar seperti lelucon sampai selisihnya ditulis sebagai angka. Container menjawab masalah itu dengan cara yang sederhana, yaitu membawa serta sistem tempat kodenya berjalan.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada mesin ini dengan Docker 29.8.0:
+
+          Node di mesin         : v26.5.0
+          Node di dalam image   : v22.23.2
+          Sistem di mesin       : Linux Mint 22.3
+          Sistem di dalam image : Alpine Linux v3.24
+
+        Dua versi Node yang berbeda mayor, di atas dua distribusi
+        dengan pustaka sistem yang berbeda. Kode yang sama, dua
+        lingkungan yang sama sekali lain.
+        `,
+        {
+          caption:
+            'Itulah selisih yang selama ini ditanggung diam-diam oleh kalimat "jalan di laptop saya".',
+        },
+      ),
+      p(
+        'Yang dibawa container bukan hanya versi runtime. Ia membawa pustaka sistem, lokal, zona waktu, dan letak berkas, dan justru hal-hal itulah yang paling sering berbeda tanpa disadari.',
+      ),
+      code(
+        'text',
+        `
+        Yang ikut terbawa, dan sering menjadi penyebab selisih:
+
+          versi runtime            Node, PHP, Python
+          pustaka sistem           glibc versus musl di Alpine
+          lokal dan zona waktu     urutan sortir, format tanggal
+          alat baris perintah      versi openssl, curl, imagemagick
+          peka huruf besar kecil   macOS tidak, Linux ya
+          letak dan izin berkas
+
+        Yang TIDAK dibawa, dan tetap harus diurus terpisah:
+
+          data                     ada di volume atau basis data
+          rahasia                  disuntikkan saat menjalankan
+          konfigurasi per lingkungan
+          keadaan yang disimpan di memori proses
+        `,
+      ),
+      p(
+        'Perbedaan container dengan mesin virtual terletak pada apa yang dibagi, dan itu menjelaskan kenapa ukurannya jauh berbeda.',
+      ),
+      table(
+        ['', 'Mesin virtual', 'Container'],
+        [
+          [
+            'Yang dijalankan',
+            'Sistem operasi lengkap beserta kernelnya',
+            'Proses biasa, memakai kernel host',
+          ],
+          ['Ukuran khas', 'Beberapa gigabyte', 'Puluhan sampai ratusan megabyte'],
+          ['Waktu nyala', 'Puluhan detik', 'Di bawah satu detik'],
+          ['Pemisahan', 'Kuat, ada kernel sendiri', 'Lebih lemah, kernelnya bersama'],
+          [
+            'Cocok untuk',
+            'Sistem operasi yang berbeda dari host',
+            'Menjalankan aplikasi secara konsisten',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat penting dibaca jujur. Container **bukan** batas keamanan sekuat mesin virtual. Proses di dalamnya berjalan di atas kernel yang sama dengan host, sehingga celah di kernel berlaku untuk keduanya. Karena itu menjalankan proses sebagai bukan root di dalam container tetap penting.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kesalahpahaman yang paling sering di awal adalah menganggap container menyimpan keadaan, padahal ia sengaja dirancang tidak begitu.',
+      ),
+      code(
+        'text',
+        `
+        Gejala yang khas:
+
+          "Data saya hilang setiap kali container di-restart"
+            -> Perubahan pada lapisan tulis container hilang saat ia
+               dibuat ulang. Data harus berada di VOLUME atau di
+               layanan terpisah.
+
+          "Berkas yang diunggah kadang tidak ditemukan"
+            -> Berkas tersimpan di disk satu container, sementara
+               permintaan berikutnya mendarat di container lain.
+
+          "Log saya hilang"
+            -> Tulis log ke stdout, biarkan platform yang
+               mengumpulkannya. Jangan menulis ke berkas di dalam
+               container.
+        `,
+      ),
+      p(
+        'Kelas kedua muncul saat container berhenti, dan kode keluarnya memberi tahu penyebabnya bila dibaca.',
+      ),
+      code(
+        'text',
+        `
+        Diamati sungguhan saat menghentikan container uji:
+
+          api-1 exited with code 137
+
+        Kode keluar yang perlu dikenali:
+
+          0    berhenti normal
+          1    aplikasinya sendiri gagal, baca lognya
+          125  perintah docker-nya yang salah
+          126  berkasnya ada, tidak bisa dieksekusi (izin atau format)
+          127  perintahnya TIDAK ADA di dalam image
+          137  dihentikan SIGKILL — dimatikan paksa, atau kehabisan memori
+          139  segmentation fault
+          143  dihentikan SIGTERM — permintaan berhenti yang normal
+
+        127 dan 137 yang paling sering. 127 berarti perintah di CMD
+        tidak ada di image; 137 sering berarti batas memori terlampaui.
+        `,
+        {
+          caption:
+            'Kode 137 muncul baik saat docker stop memaksa maupun saat pembunuh OOM bekerja. Periksa lognya untuk membedakan.',
+        },
+      ),
+      code(
+        'text',
+        `
+        KESALAHAN LAIN yang gejalanya menyesatkan:
+
+          exec /app/start.sh: no such file or directory
+            -> sering BUKAN berkasnya yang hilang, melainkan barisnya
+               berakhiran CRLF. Kernel membaca "#!/bin/sh\\r" sebagai
+               nama penerjemah yang tidak ada.
+
+          standard_init_linux.go: exec user process caused: exec format error
+            -> arsitektur image tidak cocok. Image dibangun untuk
+               arm64 dijalankan di amd64, atau sebaliknya.
+
+          Aplikasi berjalan, tapi tidak bisa dihubungi dari luar
+            -> aplikasinya mendengarkan di 127.0.0.1 DI DALAM container.
+               Harus 0.0.0.0 supaya bisa dijangkau dari luar container.
+        `,
+      ),
+      p(
+        'Kesalahan terakhir itu sangat sering, dan gejalanya membingungkan karena lognya menunjukkan server berhasil menyala. Di dalam container, `127.0.0.1` berarti container itu sendiri, bukan mesinmu.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Container mengubah beberapa asumsi dasar sekaligus, dan kesalahannya hampir selalu berupa membawa asumsi lama ke lingkungan baru.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyimpan data di dalam container',
+            'Toh berkasnya ada di sana',
+            'Lapisan tulis container hilang saat dibuat ulang. Data harus di volume atau layanan terpisah',
+          ],
+          [
+            'Menjalankan aplikasi di `127.0.0.1` di dalam container',
+            'Itu yang dipakai di lokal',
+            'Di dalam container, itu berarti container itu sendiri. Harus `0.0.0.0` agar bisa dijangkau',
+          ],
+          [
+            'Menulis log ke berkas di dalam container',
+            'Supaya rapi',
+            'Lognya ikut hilang. Tulis ke stdout, biarkan platform yang mengumpulkan',
+          ],
+          [
+            'Menganggap container sekuat mesin virtual untuk isolasi',
+            'Kan sudah terpisah',
+            'Kernelnya bersama host. Jalankan sebagai bukan root, dan jangan andalkan ia sebagai batas keamanan',
+          ],
+          [
+            'Menyalin `.env` ke dalam image',
+            'Biar aplikasinya bisa baca',
+            'Siapa pun yang bisa menarik image itu memegang rahasianya. Suntikkan saat menjalankan',
+          ],
+          [
+            'Mengabaikan kode keluar saat container mati',
+            'Yang penting lognya dibaca',
+            'Diamati, `137` berarti dimatikan paksa atau kehabisan memori, dan `127` berarti perintahnya tidak ada di image',
+          ],
+        ],
+      ),
+      p(
+        'Satu pergeseran cara berpikir membuat sisanya jauh lebih mudah, yaitu memperlakukan container sebagai proses yang bisa dibuang dan dibuat ulang kapan saja. Segala sesuatu yang tidak boleh hilang harus berada di luar container, dan segala sesuatu yang dibutuhkan untuk menyala harus bisa diberikan dari luar. Bila kedua hal itu benar, membangun ulang container adalah tindakan yang murah, dan itulah yang membuat rilis, rollback, dan penskalaan menjadi mungkin.',
+      ),
+      references(
+        {
+          label: 'What is a container?',
+          href: 'https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-a-container/',
+          source: 'Docker Docs',
+          note: 'Beda container dan mesin virtual dijelaskan dari sisi mekanismenya',
+        },
+        {
+          label: 'Volumes',
+          href: 'https://docs.docker.com/engine/storage/volumes/',
+          source: 'Docker Docs',
+          note: 'Cara data bertahan melewati pembuatan ulang container',
+        },
+        {
+          label: 'Processes — Execute the app as stateless processes',
+          href: 'https://12factor.net/processes',
+          source: 'Twelve-Factor App',
+          note: 'Kenapa proses aplikasi sebaiknya tidak menyimpan keadaan di dalam dirinya',
+        },
+      ),
     ],
   ),
 
   written(
     'dockerfile',
     'Dockerfile untuk Node & PHP',
-    13,
+    20,
     'Membangun image yang kecil, cepat, dan tidak berjalan sebagai root.',
     [
+      terms(
+        {
+          term: 'Dockerfile',
+          meaning:
+            'Berkas teks berisi instruksi langkah demi langkah untuk membangun sebuah image. Namanya ditulis persis begitu tanpa ekstensi. Tiap instruksi menghasilkan satu lapisan, sehingga urutannya berpengaruh langsung pada seberapa sering cache bisa dipakai ulang.',
+        },
+        {
+          term: 'FROM',
+          meaning:
+            'Instruksi yang menyebut image dasar yang dipakai sebagai titik mulai, misalnya `FROM node:22-alpine`. Pilihan di sini menentukan ukuran akhir dan permukaan serangnya, sebab semua yang ada di image dasar ikut terbawa.',
+        },
+        {
+          term: 'RUN',
+          meaning:
+            'Instruksi yang menjalankan perintah saat build dan menyimpan hasilnya sebagai lapisan baru. Menggabungkan beberapa perintah dengan `&&` dalam satu `RUN` mengurangi jumlah lapisan, dan membersihkan cache paket di dalam `RUN` yang sama penting, sebab membersihkannya di `RUN` berikutnya tidak mengecilkan image.',
+        },
+        {
+          term: 'COPY',
+          meaning:
+            'Instruksi yang menyalin berkas dari konteks build ke dalam image. Menyalin `package.json` lebih dulu lalu memasang dependensi, baru menyalin sisa kode, membuat lapisan dependensi tetap tersimpan di cache selama daftar dependensinya tidak berubah.',
+        },
+        {
+          term: 'CMD dan ENTRYPOINT',
+          meaning:
+            'Dua instruksi yang menentukan apa yang dijalankan saat container menyala. `ENTRYPOINT` menetapkan program tetapnya, sementara `CMD` memberi argumen bawaan yang mudah ditimpa saat menjalankan. Bentuk daftar seperti `["node", "server.js"]` lebih disukai karena tidak melewati shell.',
+        },
+        {
+          term: 'multi-stage build',
+          meaning:
+            'Membangun dalam beberapa tahap di satu `Dockerfile`, lalu menyalin hanya hasil yang diperlukan ke tahap akhir. Alat build, kode sumber, dan dependensi pengembangan ditinggal di tahap sebelumnya sehingga tidak ikut ke image produksi.',
+        },
+        {
+          term: 'build context',
+          meaning:
+            'Kumpulan berkas yang dikirim ke proses build dan bisa disalin dengan `COPY`. Seluruh isinya dikirim lebih dulu, jadi folder besar yang tidak diperlukan memperlambat build meski tidak pernah disalin.',
+        },
+        {
+          term: 'ENV',
+          meaning:
+            'Instruksi yang menetapkan variabel lingkungan di dalam image. Nilainya ikut tersimpan di image dan terbaca siapa pun yang memeriksanya, sehingga rahasia tidak boleh ditaruh di sini. Menyetel `ENV NODE_ENV=production` terlalu awal juga membuat pemasangan dependensi melewatkan `devDependencies` yang masih dibutuhkan tahap build.',
+        },
+      ),
+
       h2('Node — multi-stage'),
       code(
         'text',
@@ -267,15 +573,280 @@ export const lessons: LessonDraft[] = [
         'Pin image dasar ke digest, bukan ke tag',
         'Tag seperti `node:22-alpine` berpindah ke image baru setiap ada pembaruan. Untuk build yang benar-benar bisa diulang, pakai `node:22-alpine@sha256:...`. Ini juga bagian dari integritas rantai pasok.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Dockerfile yang benar dan Dockerfile yang salah menghasilkan aplikasi yang sama-sama berjalan. Selisihnya baru terlihat pada dua hal, yaitu berapa lama build-nya dan berapa besar hasilnya, dan keduanya bisa diukur.',
+      ),
+      p('Yang paling menentukan adalah urutan baris, sebab Docker menyimpan cache per lapisan.'),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan Docker 29.8.0 dan node:22-alpine.
+
+        URUTAN BENAR — package.json disalin lebih dulu:
+
+          COPY package.json ./
+          RUN npm install
+          COPY . .
+
+          Setelah mengubah SATU baris kode sumber:
+            [2/5] WORKDIR /app                 CACHED
+            [3/5] COPY package.json ./         CACHED
+            [4/5] RUN npm install              CACHED   <- tidak diulang
+
+        URUTAN SALAH — seluruh isi disalin lebih dulu:
+
+          COPY . .
+          RUN npm install
+
+          Setelah mengubah SATU baris kode sumber:
+            [3/4] COPY . .                     dijalankan ulang
+            [4/4] RUN npm install              dijalankan ulang
+        `,
+        {
+          caption: 'Aturannya: yang jarang berubah ditaruh di atas, yang sering berubah di bawah.',
+        },
+      ),
+      code(
+        'text',
+        `
+        Dan ketika package.json memang berubah, cache-nya memang harus batal:
+
+          [3/5] COPY package.json ./           dijalankan ulang
+          [4/5] RUN npm install                dijalankan ulang, 0,5 detik
+
+        Itu perilaku yang benar. Yang ingin dihindari adalah membayar
+        biaya itu pada setiap perubahan kode.
+        `,
+      ),
+      p(
+        'Faktor kedua adalah apa yang ikut ke image akhir, dan di sinilah multi-stage membayar dirinya.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan, kedua versi memasang devDependency yang sama
+        (typescript 5.9.3):
+
+          node:22-alpine (dasar)        232 MB
+          satu tahap                    290 MB
+          multi tahap                   232 MB
+
+        Isi image satu tahap:
+          node_modules berisi typescript, 22,9 MB
+          berjalan sebagai uid 0 (root)
+
+        Isi image multi tahap:
+          dist, package.json
+          berjalan sebagai pengguna "app"
+        `,
+        {
+          caption: 'Selisih 58 MB hanya dari SATU devDependency. Project sungguhan punya ratusan.',
+        },
+      ),
+      code(
+        'text',
+        `
+        # Tahap 1: punya seluruh toolchain, boleh besar.
+        FROM node:22-alpine AS pembangun
+        WORKDIR /app
+        COPY package.json package-lock.json ./
+        RUN npm ci
+        COPY . .
+        RUN npm run build
+
+        # Tahap 2: HANYA yang dibutuhkan untuk berjalan.
+        FROM node:22-alpine AS produksi
+        WORKDIR /app
+        ENV NODE_ENV=production
+        RUN addgroup -S app && adduser -S app -G app
+        COPY package.json package-lock.json ./
+        RUN npm ci --omit=dev && npm cache clean --force
+        COPY --from=pembangun --chown=app:app /app/dist ./dist
+        USER app
+        EXPOSE 3000
+        CMD ["node", "dist/server.js"]
+        `,
+      ),
+      p(
+        'Dua detail pada tahap kedua pantas diperhatikan. `npm ci` dipakai alih-alih `npm install` supaya versinya persis mengikuti lockfile, dan `USER app` ditulis **sesudah** semua penyalinan, sebab perintah sesudahnya tidak lagi berjalan sebagai root.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Ada satu jebakan yang menghasilkan error yang membingungkan, dan ia berasal dari baris yang terlihat paling tidak berbahaya.',
+      ),
+      code(
+        'text',
+        `
+        Dockerfile:
+          ENV NODE_ENV=production
+          COPY package.json ./
+          RUN npm install
+          RUN npx tsc --version
+
+        Hasilnya, diukur sungguhan:
+
+          To get access to the TypeScript compiler, tsc, from the
+          command line either:
+          - Use npm install typescript to first add TypeScript to your
+            project before using npx
+
+          ERROR: failed to build: process "/bin/sh -c npx tsc --version"
+          did not complete successfully: exit code: 1
+
+        Sebabnya: NODE_ENV=production membuat npm install MELEWATI
+        devDependencies. Kompilernya memang tidak terpasang.
+
+        Menutupnya: setel NODE_ENV SESUDAH build selesai, atau pakai
+        multi-stage sehingga tahap build tidak pernah melihat nilai itu.
+        `,
+        { caption: 'Pesan errornya menyebut TypeScript, penyebabnya satu baris ENV di atasnya.' },
+      ),
+      code(
+        'text',
+        `
+        KESALAHAN LAIN yang khas:
+
+        1. exec /app/start.sh: no such file or directory
+
+           Berkasnya ADA. Yang salah biasanya akhiran baris CRLF,
+           atau bit eksekusinya belum dipasang.
+           Perbaikan: COPY --chmod=755, dan pastikan git tidak
+           mengubah akhiran baris untuk berkas .sh.
+
+        2. npm ci gagal: lockfile tidak sinkron
+
+           npm error \`npm ci\` can only install packages when your
+           package.json and package-lock.json are in sync
+
+           Ini pemeriksaan yang BEKERJA. Perbaiki dengan npm install
+           di luar Docker lalu commit lockfile-nya — jangan ganti
+           npm ci menjadi npm install.
+
+        3. Perintah CMD tidak ditemukan
+
+           Container keluar dengan kode 127. Bentuk CMD juga menentukan:
+             CMD node server.js        -> dijalankan lewat shell
+             CMD ["node", "server.js"] -> dijalankan LANGSUNG
+
+           Bentuk kedua yang benar untuk produksi, sebab sinyal
+           SIGTERM sampai ke prosesnya, bukan ke shell.
+        `,
+      ),
+      p(
+        'Poin terakhir punya akibat yang nyata saat rilis. Bila `SIGTERM` tidak sampai ke aplikasinya, ia tidak pernah punya kesempatan menyelesaikan permintaan yang sedang berjalan, dan container-nya akhirnya dimatikan paksa dengan kode 137.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Dockerfile mudah ditulis sampai berjalan, dan yang membedakan yang baik adalah hal-hal yang tidak terlihat sampai diukur.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menaruh `COPY . .` sebelum `RUN npm install`',
+            'Urutannya kan logis',
+            'Diukur, setiap perubahan kode membatalkan cache dan memasang ulang seluruh dependency',
+          ],
+          [
+            'Menyetel `ENV NODE_ENV=production` di baris awal',
+            'Ini kan image produksi',
+            'Diukur, `npm install` melewati devDependencies dan build gagal dengan pesan yang menyebut TypeScript',
+          ],
+          [
+            'Memakai `npm install` di dalam Dockerfile',
+            'Sama saja dengan `npm ci`',
+            '`npm install` boleh mengubah lockfile. `npm ci` memasang persis seperti lockfile, dan itu yang diinginkan',
+          ],
+          [
+            'Memakai satu tahap untuk build dan runtime',
+            'Lebih sederhana',
+            'Diukur, 290 MB melawan 232 MB hanya dari satu devDependency. Toolchain ikut terbawa ke produksi',
+          ],
+          [
+            'Menjalankan proses sebagai root',
+            'Bawaannya memang begitu',
+            'Container bukan batas keamanan sekuat VM. Buat pengguna biasa, dan `USER` ditulis sesudah penyalinan',
+          ],
+          [
+            'Memakai `CMD node server.js` bentuk shell',
+            'Lebih enak dibaca',
+            'SIGTERM sampai ke shell, bukan ke aplikasinya. Permintaan yang berjalan terputus, container mati kode 137',
+          ],
+        ],
+      ),
+      p(
+        'Satu pemeriksaan sederhana menangkap sebagian besar baris di tabel itu, yaitu mengubah satu karakter di satu berkas sumber lalu membangun ulang. Bila `RUN npm install` ikut berjalan lagi, urutan lapisannya belum benar. Bila hasilnya jauh lebih besar daripada image dasarnya, ada yang ikut terbawa dan tidak seharusnya. Kedua pemeriksaan itu memakan waktu satu menit dan menghemat menit-menit yang terbuang pada setiap build sesudahnya.',
+      ),
+      references(
+        {
+          label: 'Dockerfile reference',
+          href: 'https://docs.docker.com/reference/dockerfile/',
+          source: 'Docker Docs',
+          note: 'Rujukan lengkap seluruh instruksi beserta bentuk penulisannya',
+        },
+        {
+          label: 'Multi-stage builds',
+          href: 'https://docs.docker.com/build/building/multi-stage/',
+          source: 'Docker Docs',
+          note: 'Pola meninggalkan alat build di tahap sebelumnya',
+        },
+        {
+          label: 'Build context',
+          href: 'https://docs.docker.com/build/concepts/context/',
+          source: 'Docker Docs',
+          note: 'Apa yang sebenarnya dikirim ke proses build, dan biayanya',
+        },
+      ),
     ],
   ),
 
   written(
     'dockerignore',
     '`.dockerignore` & Ukuran Image',
-    10,
+    17,
     'Yang tidak ikut sama pentingnya dengan yang ikut.',
     [
+      terms(
+        {
+          term: '.dockerignore',
+          meaning:
+            'Berkas berisi pola nama yang dikecualikan dari konteks build. Bekerja mirip `.gitignore` tetapi untuk keperluan yang berbeda, dan keduanya perlu ada sendiri-sendiri sebab yang berbahaya di image belum tentu sama dengan yang tidak perlu masuk riwayat.',
+        },
+        {
+          term: 'konteks build',
+          meaning:
+            'Seluruh berkas yang dikirim ke daemon Docker sebelum instruksi pertama dijalankan. Karena pengirimannya terjadi lebih dulu, folder seperti `node_modules/` dan `.next/` memperlambat setiap build meski tidak pernah disalin ke image.',
+        },
+        {
+          term: 'pola glob',
+          meaning:
+            'Bentuk penulisan pola nama berkas, misalnya `*.log` untuk semua berkas log dan `**/tmp` untuk folder `tmp` di kedalaman mana pun. Tanda `!` di depan sebuah pola mengecualikan kembali berkas yang sudah terkena pola sebelumnya.',
+        },
+        {
+          term: 'kebocoran rahasia lewat image',
+          meaning:
+            'Masuknya berkas seperti `.env` atau kunci privat ke dalam image karena tidak dikecualikan. Yang membuatnya berbahaya, siapa pun yang bisa menarik image itu bisa membacanya, dan menghapus berkasnya di instruksi berikutnya tidak menolong sebab lapisan sebelumnya tetap menyimpannya.',
+        },
+        {
+          term: 'cache invalidation',
+          meaning:
+            'Batalnya cache sebuah lapisan karena masukannya berubah, sehingga lapisan itu dan seluruh lapisan sesudahnya dibangun ulang. Berkas yang sering berubah dan ikut tersalin lebih awal akan membatalkan cache hampir setiap build.',
+        },
+        {
+          term: 'image bloat',
+          meaning:
+            'Membengkaknya ukuran image oleh berkas yang tidak diperlukan saat menjalankan aplikasi, misalnya kode sumber, dependensi pengembangan, cache paket, dan folder `.git`. Akibatnya bukan hanya boros ruang, melainkan waktu tarik yang lebih lama pada setiap deploy dan setiap penskalaan.',
+        },
+        {
+          term: 'reproducible build',
+          meaning:
+            'Build yang menghasilkan isi sama bila masukannya sama. Konteks build yang rapi mendekatkan ke sifat ini, sebab berkas lokal yang tidak sengaja ikut membuat hasilnya bergantung pada keadaan mesin yang membangunnya.',
+        },
+      ),
+
       h2('`.dockerignore`'),
       code(
         'text',
@@ -411,17 +982,292 @@ export const lessons: LessonDraft[] = [
       p(
         'Image dasar juga punya kerentanan sistem operasi. Perbarui secara berkala — image yang dibangun enam bulan lalu hampir pasti memuat paket sistem yang sudah punya CVE.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Sebelum satu baris Dockerfile dijalankan, Docker mengirim seluruh isi direktori build ke mesin yang membangunnya. Isi itu disebut konteks, dan ukurannya dibayar pada setiap build.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan Docker 29.8.0. Direktori yang sama,
+        berisi node_modules 20 MB, .git 8 MB, dan coverage 5 MB.
+
+        TANPA .dockerignore:
+          transferring context: 33.01 MB
+          ukuran image        : 301 MB
+
+        DENGAN .dockerignore:
+          transferring context: 195 B
+          ukuran image        : 235 MB
+
+        Konteksnya turun dari 33 megabyte menjadi 195 byte, dan
+        image-nya 66 MB lebih kecil.
+        `,
+        {
+          caption:
+            'Isi node_modules dari mesin lokal ikut tersalin ke image, lalu ditimpa oleh npm install di dalamnya.',
+        },
+      ),
+      p(
+        'Baris terakhir itu menjelaskan kenapa masalahnya lebih dari sekadar ukuran. `node_modules` yang dibangun di macOS atau Windows berisi binary yang dikompilasi untuk sistem itu, dan menyalinnya ke image Linux menghasilkan kegagalan yang sulit ditelusuri.',
+      ),
+      code(
+        'text',
+        `
+        Gejalanya bila node_modules lokal ikut tersalin:
+
+          Error: /app/node_modules/sharp/build/Release/sharp.node:
+          invalid ELF header
+
+          Error: Cannot find module '@rollup/rollup-linux-x64-gnu'
+
+        Keduanya berarti hal yang sama: binary yang ada di sana
+        dibangun untuk sistem lain.
+        `,
+      ),
+      p(
+        'Isi `.dockerignore` yang lazim mengikuti satu pertanyaan, yaitu apakah berkas ini dibutuhkan **untuk membangun** image.',
+      ),
+      code(
+        'text',
+        `
+        # Dibangun ulang di dalam image
+        node_modules
+        .next
+        dist
+        build
+
+        # Riwayat versi, tidak dibutuhkan saat build
+        .git
+        .gitignore
+
+        # Hasil pengujian dan alat pengembangan
+        coverage
+        .vscode
+        .idea
+
+        # RAHASIA — ini alasan keamanannya, bukan sekadar ukuran
+        .env
+        .env.*
+        *.pem
+        *.key
+
+        # Dokumen
+        *.md
+        docs
+
+        # Docker itu sendiri
+        Dockerfile*
+        .dockerignore
+        compose*.yaml
+        `,
+        {
+          caption:
+            'Blok rahasia itu yang paling penting: berkas .env yang ikut ter-COPY tersimpan permanen di lapisan image.',
+        },
+      ),
+      p(
+        'Kata "permanen" di situ harus dibaca harfiah. Menghapus sebuah berkas pada lapisan berikutnya tidak menghapusnya dari lapisan sebelumnya, dan lapisan itu tetap ada di dalam image.',
+      ),
+      code(
+        'text',
+        `
+        Dockerfile yang TIDAK menghapus apa pun:
+
+          COPY . .              <- .env ikut, tersimpan di lapisan ini
+          RUN rm -f .env        <- lapisan BARU yang menandainya hilang
+
+        Berkasnya tidak terlihat saat container berjalan, dan ia tetap
+        ada di lapisan sebelumnya. Siapa pun yang bisa menarik image
+        itu bisa membacanya.
+
+        Yang menutupnya bukan rm, melainkan tidak pernah menyalinnya.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kesalahan pada `.dockerignore` jarang menghasilkan error langsung. Gejalanya berupa build yang lambat, image yang besar, dan sesekali kegagalan yang penyebabnya jauh dari tampilannya.',
+      ),
+      code(
+        'text',
+        `
+        1. Build lambat tanpa sebab yang jelas
+
+           transferring context: 412.7 MB
+
+           Baris itu muncul di awal setiap build. Bila angkanya
+           puluhan atau ratusan megabyte, .dockerignore-nya belum ada
+           atau belum lengkap.
+
+        2. Image jauh lebih besar daripada yang masuk akal
+
+           docker history <image>
+           menunjukkan ukuran TIAP lapisan. Lapisan COPY yang besar
+           hampir selalu berarti ada yang ikut dan tidak seharusnya.
+
+        3. Perubahan kecil selalu membatalkan cache
+
+           Bila .git tidak diabaikan, setiap commit mengubah isi
+           direktori .git, dan lapisan COPY ikut batal setiap kali —
+           meski tidak ada satu baris kode pun yang berubah.
+        `,
+      ),
+      p('Ada juga kesalahan arah sebaliknya, yaitu mengabaikan sesuatu yang ternyata dibutuhkan.'),
+      code(
+        'text',
+        `
+          Error: Cannot find module '/app/dist/server.js'
+
+            -> dist diabaikan di .dockerignore, dan Dockerfile-nya
+               mengharapkan hasil build dari luar. Salah satu harus
+               berubah: bangun di dalam image, atau jangan abaikan dist.
+
+          npm error \`npm ci\` can only install packages when your
+          package.json and package-lock.json are in sync
+
+            -> package-lock.json ikut terabaikan oleh pola yang terlalu
+               luas, misalnya *.json. Pola harus spesifik.
+        `,
+      ),
+      p(
+        'Aturan pencocokan `.dockerignore` juga punya satu perilaku yang sering mengejutkan, dan berbeda dari `.gitignore`.',
+      ),
+      code(
+        'text',
+        `
+        Pola dicocokkan terhadap JALUR LENGKAP dari akar konteks.
+
+          node_modules        <- hanya yang di AKAR
+          **/node_modules     <- di mana pun, termasuk di dalam paket
+
+        Dan pengecualian dengan tanda seru, urutannya menentukan:
+
+          *.md
+          !README.md          <- README tetap ikut
+
+          !README.md
+          *.md                <- README TIDAK ikut, sebab baris
+                                 terakhir yang cocok yang berlaku
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Berkas ini sering dianggap pelengkap yang bisa ditunda, padahal ia satu-satunya penghalang antara isi direktori kerjamu dan image yang akan didistribusikan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Tidak membuat `.dockerignore` sama sekali',
+            'Toh yang dipakai cuma sebagian',
+            'Diukur, konteksnya 33,01 MB melawan 195 byte, dan image-nya 66 MB lebih besar',
+          ],
+          [
+            'Membiarkan `node_modules` ikut ke konteks',
+            'Nanti ditimpa `npm install` juga',
+            'Binary di dalamnya dibangun untuk sistem lain. `invalid ELF header` adalah gejala khasnya',
+          ],
+          [
+            'Menyalin `.env` lalu menghapusnya dengan `RUN rm`',
+            'Sudah dihapus, aman',
+            'Lapisan sebelumnya tetap menyimpannya. Siapa pun yang menarik image itu bisa membacanya',
+          ],
+          [
+            'Membiarkan `.git` ikut',
+            'Cuma riwayat, tidak berbahaya',
+            'Riwayatnya memuat setiap berkas yang pernah ada, termasuk rahasia yang sudah dihapus. Dan cache batal tiap commit',
+          ],
+          [
+            'Memakai pola terlalu luas seperti `*.json`',
+            'Yang dibutuhkan cuma beberapa',
+            '`package-lock.json` ikut terabaikan, dan `npm ci` gagal karena lockfile-nya tidak ada',
+          ],
+          [
+            'Menyalin `.dockerignore` dari project lain tanpa memeriksa',
+            'Isinya kan mirip',
+            'Struktur direktori berbeda menghasilkan pola yang salah sasaran. Periksa angka konteksnya setelah dipasang',
+          ],
+        ],
+      ),
+      p(
+        'Cara memeriksanya ada di keluaran build itu sendiri dan hanya perlu dibaca sekali. Baris `transferring context` muncul di setiap build, dan angkanya adalah ukuran sebenarnya dari apa yang kamu kirim. Bila angka itu jauh lebih besar daripada jumlah kode sumbermu, sesuatu ikut terbawa, dan `.dockerignore` adalah tempat memperbaikinya.',
+      ),
+      references(
+        {
+          label: 'Build context',
+          href: 'https://docs.docker.com/build/concepts/context/',
+          source: 'Docker Docs',
+          note: 'Bagian `.dockerignore` beserta aturan polanya',
+        },
+        {
+          label: 'Dockerfile reference',
+          href: 'https://docs.docker.com/reference/dockerfile/',
+          source: 'Docker Docs',
+          note: 'Perilaku `COPY` terhadap konteks yang sudah disaring',
+        },
+        {
+          label: 'Multi-stage builds',
+          href: 'https://docs.docker.com/build/building/multi-stage/',
+          source: 'Docker Docs',
+          note: 'Cara kedua menekan ukuran akhir, melengkapi penyaringan konteks',
+        },
+      ),
     ],
   ),
 
   written(
     'compose',
     'Docker Compose untuk Pengembangan Lokal',
-    12,
+    20,
     'Seluruh lingkungan dengan satu perintah.',
     [
       p(
         'Ini manfaat Docker yang paling besar dan paling sering diremehkan: anggota baru bisa menjalankan seluruh sistem tanpa memasang Postgres, Redis, atau versi Node tertentu di laptopnya.',
+      ),
+
+      terms(
+        {
+          term: 'Docker Compose',
+          meaning:
+            'Alat untuk mendefinisikan dan menjalankan beberapa container sekaligus lewat satu berkas YAML. Dipakai saat aplikasimu butuh pendamping seperti basis data dan cache, supaya seluruhnya menyala dengan satu perintah dan konfigurasinya ikut masuk version control.',
+        },
+        {
+          term: 'compose.yaml',
+          meaning:
+            'Berkas konfigurasi Compose. Nama lamanya `docker-compose.yml` dan keduanya masih dikenali. Isinya mendeklarasikan `services`, `volumes`, dan `networks`.',
+        },
+        {
+          term: 'service',
+          meaning:
+            'Satu jenis container yang didefinisikan di Compose, misalnya `web`, `db`, atau `redis`. Namanya sekaligus menjadi nama host di jaringan internal, sehingga aplikasi cukup menghubungi `db` tanpa perlu tahu alamat IP-nya.',
+        },
+        {
+          term: 'depends_on',
+          meaning:
+            'Setelan yang menyatakan sebuah service dimulai sesudah service lain. Batasnya sering disalahpahami, secara bawaan ia hanya menunggu container **menyala**, bukan menunggu layanannya **siap menerima koneksi**, sehingga aplikasi masih bisa gagal menyambung kalau basis datanya belum selesai memulai.',
+        },
+        {
+          term: 'port mapping',
+          meaning:
+            'Pemetaan port mesin induk ke port di dalam container, ditulis `"3000:3000"`. Angka sebelah kiri adalah port yang terbuka di mesinmu. Menghilangkan bagian kiri membuat service hanya terjangkau dari dalam jaringan Compose, dan itu yang diinginkan untuk basis data.',
+        },
+        {
+          term: 'bind mount',
+          meaning:
+            'Pemetaan folder di mesinmu ke dalam container, sehingga perubahan berkas langsung terlihat tanpa membangun ulang image. Berguna saat pengembangan, dan justru dihindari di produksi karena membuat isi container bergantung pada isi mesin induk.',
+        },
+        {
+          term: 'profiles',
+          meaning:
+            'Cara menandai sebagian service supaya tidak ikut menyala kecuali diminta, misalnya alat bantu yang hanya dipakai sesekali. Menjaga perintah menyalakan sehari-hari tetap ringan.',
+        },
+        {
+          term: 'override',
+          meaning:
+            'Berkas tambahan yang menimpa sebagian konfigurasi, misalnya `compose.override.yaml` untuk pengembangan. Memungkinkan satu definisi dasar dipakai bersama sambil tiap lingkungan mengubah bagian yang perlu.',
+        },
       ),
 
       h2('Compose lengkap'),
@@ -591,15 +1437,292 @@ export const lessons: LessonDraft[] = [
       p(
         'Compose menggabungkan `compose.yaml` dengan `compose.override.yaml` secara otomatis. Ini cara memisahkan pengaturan pribadi tanpa mengubah berkas bersama.',
       ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Compose menjawab satu kebutuhan yang sangat konkret, yaitu menjalankan beberapa layanan sekaligus dengan satu perintah, dan membuat keduanya bisa saling menghubungi tanpa tahu alamat IP masing-masing.',
+      ),
+      p('Dua hal yang dilakukannya bisa dilihat langsung.'),
+      code(
+        'text',
+        `
+        Dijalankan sungguhan dengan Docker Compose:
+
+          Container ujicompose-api-1 Started
+          Container ujicompose-api-1 Waiting
+          Container ujicompose-api-1 Healthy
+          Container ujicompose-pemanggil-1 Started
+          pemanggil-1  | BERHASIL memanggil http://api:3000 ->
+                         {"halo":"dunia","versi":"2.0.0"}
+
+        Dua hal terbukti di situ:
+          1. layanan "pemanggil" MENUNGGU sampai "api" berstatus sehat,
+             bukan sekadar sampai proses api-nya berjalan
+          2. alamat http://api:3000 bekerja. Nama layanan menjadi
+             nama host di dalam jaringan compose
+        `,
+        { caption: 'Nomor 2 itu yang menghapus kebutuhan menghafal alamat IP container.' },
+      ),
+      code(
+        'text',
+        `
+        services:
+          api:
+            image: contoh/api:dev
+            healthcheck:
+              test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+              interval: 2s
+              timeout: 2s
+              retries: 5
+              start_period: 1s
+
+          pemanggil:
+            image: node:22-alpine
+            depends_on:
+              api:
+                condition: service_healthy
+        `,
+      ),
+      p(
+        'Bagian `condition: service_healthy` itu yang membedakannya dari `depends_on` biasa. Tanpa syarat itu, compose hanya menunggu container-nya **dimulai**, bukan sampai aplikasinya siap menerima permintaan.',
+      ),
+      p(
+        'Untuk pengembangan lokal, bentuk yang paling berguna menggabungkan basis data, penyimpanan, dan aplikasi dalam satu berkas.',
+      ),
+      code(
+        'text',
+        `
+        services:
+          db:
+            image: postgres:16-alpine
+            environment:
+              POSTGRES_PASSWORD: rahasia-lokal-saja
+              POSTGRES_DB: app
+            ports:
+              - "127.0.0.1:5432:5432"     # HANYA dari mesin ini
+            volumes:
+              - data-db:/var/lib/postgresql/data
+            healthcheck:
+              test: ["CMD-SHELL", "pg_isready -U postgres"]
+              interval: 2s
+              retries: 10
+
+          app:
+            build: .
+            environment:
+              DATABASE_URL: postgres://postgres:rahasia-lokal-saja@db:5432/app
+            ports:
+              - "127.0.0.1:3000:3000"
+            depends_on:
+              db:
+                condition: service_healthy
+            volumes:
+              - .:/app                    # kode ikut berubah tanpa build ulang
+              - /app/node_modules         # KECUALI node_modules
+
+        volumes:
+          data-db:
+        `,
+        {
+          caption:
+            'Baris /app/node_modules itu yang mencegah node_modules mesin lokal menimpa yang ada di dalam image.',
+        },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan compose yang paling sering punya tiga bentuk, dan ketiganya punya pesan yang cukup jelas bila dibaca sampai akhir.',
+      ),
+      code(
+        'text',
+        `
+        1. Aplikasi tidak bisa menghubungi basis data
+
+           Error: connect ECONNREFUSED 127.0.0.1:5432
+
+           127.0.0.1 di dalam container app berarti container APP itu
+           sendiri. Nama host-nya adalah nama LAYANAN, yaitu db.
+           Perbaikan: postgres://...@db:5432/app
+
+        2. Port bentrok
+
+           Error response from daemon: failed to bind host port for
+           0.0.0.0:5432: address already in use
+
+           Sudah ada yang memakai port itu di mesin — sering PostgreSQL
+           yang terpasang langsung, atau compose project lain yang
+           masih berjalan.
+           Perbaikan: ganti port host ("15432:5432"), atau hentikan
+           yang lain. Port di sisi container tidak perlu diubah.
+
+        3. Aplikasi menyala sebelum basis datanya siap
+
+           error: the database system is starting up
+
+           depends_on tanpa condition hanya menunggu container dimulai.
+           Perbaikan: healthcheck pada db + condition: service_healthy.
+        `,
+      ),
+      p(
+        'Masalah keempat khas pengembangan lokal dan gejalanya sangat membingungkan, sebab ia muncul sebagai modul yang hilang padahal sudah dipasang.',
+      ),
+      code(
+        'text',
+        `
+          Error: Cannot find module 'express'
+
+        Padahal npm install sudah dijalankan di dalam image saat build.
+
+        Sebabnya: volumes: - .:/app menimpa SELURUH isi /app dengan
+        isi direktori lokal, termasuk node_modules lokal yang mungkin
+        kosong atau dibangun untuk sistem lain.
+
+        Perbaikannya satu baris tambahan:
+          volumes:
+            - .:/app
+            - /app/node_modules     <- volume anonim, melindungi yang
+                                       ada di dalam image
+        `,
+      ),
+      code(
+        'text',
+        `
+        KESALAHAN LAIN yang perlu dikenali:
+
+          "Data saya hilang setiap docker compose down"
+            -> down -v MENGHAPUS volume. Tanpa -v, volumenya tetap ada.
+               Periksa dengan: docker volume ls
+
+          "Perubahan compose.yaml tidak berlaku"
+            -> compose up tanpa --build memakai image lama.
+               Untuk perubahan Dockerfile: docker compose up --build
+
+          "Layanan saya bisa dihubungi dari internet"
+            -> ports: "5432:5432" mengikat ke 0.0.0.0.
+               Untuk pengembangan lokal, tulis "127.0.0.1:5432:5432"
+        `,
+        {
+          caption:
+            'Yang terakhir sering terlewat, dan ia membuka basis data pengembangan ke seluruh jaringan tempat mesinmu berada.',
+        },
+      ),
+      p(
+        'Satu hal terakhir yang perlu dinyatakan terus terang, yaitu bahwa Compose dirancang untuk satu mesin. Ia sangat baik untuk pengembangan lokal dan untuk penyebaran kecil di satu server, dan ia bukan alat orkestrasi untuk beberapa mesin. Untuk itu ada Kubernetes dan yang sejenisnya, dan memakainya sebelum benar-benar dibutuhkan menambah kerumitan yang besar.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Compose menghapus banyak pekerjaan manual, dan kesalahannya hampir selalu berupa asumsi tentang jaringan dan penyimpanan yang terbawa dari cara kerja tanpa container.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `127.0.0.1` untuk menghubungi layanan lain',
+            'Semuanya kan di mesin yang sama',
+            'Di dalam container, itu berarti container itu sendiri. Pakai NAMA LAYANAN sebagai nama host',
+          ],
+          [
+            'Memakai `depends_on` tanpa `condition`',
+            'Urutannya sudah diatur',
+            'Ia hanya menunggu container DIMULAI. Diukur, `service_healthy` menunggu sampai benar-benar siap',
+          ],
+          [
+            'Memasang `volumes: - .:/app` tanpa pengecualian',
+            'Biar kode ikut berubah',
+            'Ia menimpa `node_modules` di dalam image. Tambahkan volume anonim `- /app/node_modules`',
+          ],
+          [
+            'Menulis `ports: "5432:5432"`',
+            'Biar bisa diakses dari alat lokal',
+            'Itu mengikat ke `0.0.0.0`. Pakai `"127.0.0.1:5432:5432"` untuk pengembangan',
+          ],
+          [
+            'Menjalankan `docker compose down -v` untuk membersihkan',
+            'Biar benar-benar bersih',
+            '`-v` menghapus volume beserta datanya. Tanpa `-v`, data basis data lokalmu tetap ada',
+          ],
+          [
+            'Menaruh kredensial produksi di `compose.yaml`',
+            'Biar satu berkas saja',
+            'Berkas itu ikut ke repositori. Pakai nilai lokal saja, dan baca rahasia produksi dari tempat lain',
+          ],
+        ],
+      ),
+      p(
+        'Nilai terbesar Compose sebenarnya bukan pada penyebaran melainkan pada hari pertama orang baru bergabung. Satu perintah yang menyalakan basis data, penyimpanan, dan aplikasi dengan versi yang persis sama menghapus satu hari penuh pemasangan manual, dan menghapus seluruh kelas pertanyaan yang berawal dari "versi PostgreSQL kamu berapa".',
+      ),
+      references(
+        {
+          label: 'Docker Compose',
+          href: 'https://docs.docker.com/compose/',
+          source: 'Docker Docs',
+          note: 'Gambaran utuh kapan Compose dipakai dan apa batasnya',
+        },
+        {
+          label: 'Compose file reference',
+          href: 'https://docs.docker.com/reference/compose-file/',
+          source: 'Docker Docs',
+          note: 'Rujukan seluruh kunci konfigurasi, termasuk perilaku sebenarnya `depends_on`',
+        },
+        {
+          label: 'Volumes',
+          href: 'https://docs.docker.com/engine/storage/volumes/',
+          source: 'Docker Docs',
+          note: 'Beda volume terkelola dan bind mount beserta kapan masing-masing cocok',
+        },
+      ),
     ],
   ),
 
   written(
     'produksi-healthcheck',
     'Menjalankan di Produksi & Healthcheck',
-    11,
+    18,
     'Container yang bisa dipercaya, dan yang tahu kapan dirinya tidak sehat.',
     [
+      terms(
+        {
+          term: 'health check',
+          meaning:
+            'Pemeriksaan berkala untuk menentukan apakah sebuah container atau instance masih layak menerima lalu lintas. Yang menentukan mutunya adalah apa yang ikut diperiksa, sebab pemeriksaan yang terlalu dangkal meluluskan proses yang sebenarnya sudah tidak berguna.',
+        },
+        {
+          term: 'HEALTHCHECK',
+          meaning:
+            'Instruksi di `Dockerfile` yang menyebut perintah untuk memeriksa kesehatan container, beserta jeda, batas waktu, dan berapa kali gagal sebelum dinyatakan tidak sehat. Statusnya terbaca lewat `docker ps` sebagai `starting`, `healthy`, atau `unhealthy`.',
+        },
+        {
+          term: 'liveness probe',
+          meaning:
+            'Pemeriksaan yang menjawab pertanyaan "apakah proses ini perlu dimatikan dan diganti". Bila gagal berulang, orkestratornya membunuh container itu. Karena akibatnya restart, pemeriksaan ini harus bergantung pada proses itu sendiri, bukan pada layanan luar.',
+        },
+        {
+          term: 'readiness probe',
+          meaning:
+            'Pemeriksaan yang menjawab pertanyaan "apakah instance ini siap menerima permintaan sekarang". Bila gagal, ia dikeluarkan dari rotasi tanpa dimatikan. Di sinilah ketergantungan wajib seperti basis data pantas diperiksa, sementara ketergantungan yang hanya mempercepat seperti cache justru tidak boleh, sebab matinya cache akan mengeluarkan semua instance sekaligus.',
+        },
+        {
+          term: 'startup probe',
+          meaning:
+            'Pemeriksaan khusus masa menyala, dipakai untuk aplikasi yang butuh waktu lama sebelum siap. Selama ia belum lulus, liveness ditahan, sehingga aplikasi yang lambat menyala tidak dibunuh berulang kali sebelum sempat siap.',
+        },
+        {
+          term: 'graceful shutdown',
+          meaning:
+            'Mematikan proses dengan tertib setelah menerima sinyal `SIGTERM`, yaitu berhenti menerima permintaan baru, menyelesaikan yang sedang berjalan, menutup koneksi, lalu keluar. Tanpa ini, rilis atau penskalaan memutus permintaan pengguna di tengah jalan.',
+        },
+        {
+          term: 'restart policy',
+          meaning:
+            'Aturan kapan container dinyalakan ulang otomatis, misalnya `unless-stopped` atau `on-failure`. Perlu dipasangkan dengan jeda mundur, sebab proses yang gagal menyala lalu dinyalakan ulang terus-menerus hanya memindahkan kegagalannya menjadi perulangan.',
+        },
+        {
+          term: 'resource limit',
+          meaning:
+            'Batas CPU dan memori yang diberikan kepada satu container. Tanpa batas, satu proses yang bocor memorinya bisa menghabiskan mesin dan menjatuhkan container lain di mesin yang sama.',
+        },
+      ),
+
       h2('Healthcheck di image'),
       code(
         'text',
@@ -789,6 +1912,265 @@ export const lessons: LessonDraft[] = [
         'tip',
         'Empat baris terakhir menutup banyak jalur eskalasi sekaligus',
         'Sistem berkas read-only mencegah penyerang menulis berkas; `no-new-privileges` mencegah eskalasi lewat binary setuid; `cap_drop: ALL` mencabut kemampuan kernel yang hampir tidak pernah dibutuhkan aplikasi web. Semuanya murah dipasang.',
+      ),
+      h2('Studi kasus di project nyata'),
+      p(
+        'Healthcheck menjawab pertanyaan yang tidak bisa dijawab oleh "apakah prosesnya berjalan", yaitu apakah aplikasinya benar-benar siap melayani. Selisih di antara keduanya bisa diukur.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dengan Docker 29.8.0. Aplikasi sengaja
+        membutuhkan 3 detik untuk siap.
+
+          t+1s  health=starting  /healthz=000   <- belum menerima koneksi
+          t+2s  health=starting  /healthz=503
+          t+3s  health=starting  /healthz=503
+          t+4s  health=healthy   /healthz=200
+          t+5s  health=healthy   /healthz=200
+
+        Riwayat pemeriksaan yang dicatat Docker:
+          exit=1  exit=0  exit=0  exit=0
+
+        Selama tiga detik pertama, prosesnya BERJALAN dan aplikasinya
+        BELUM SIAP. Tanpa healthcheck, penyeimbang beban sudah
+        mengirimkan lalu lintas ke sana.
+        `,
+        { caption: 'Status "starting" adalah keadaan tersendiri, bukan sekadar belum sehat.' },
+      ),
+      p(
+        'Yang membuat healthcheck berguna bukan keberadaannya melainkan **apa yang diperiksanya**, dan di sini ada keputusan yang sering salah diambil.',
+      ),
+      table(
+        ['Jenis', 'Yang diperiksa', 'Dipakai untuk'],
+        [
+          [
+            'Liveness',
+            'Apakah prosesnya masih waras dan perlu direstart',
+            'Memutuskan restart. Harus SANGAT sederhana',
+          ],
+          [
+            'Readiness',
+            'Apakah siap menerima lalu lintas sekarang',
+            'Memutuskan apakah dikirimi permintaan',
+          ],
+          [
+            'Startup',
+            'Apakah warm-up awalnya sudah selesai',
+            'Menunda liveness supaya tidak restart saat masih menyala',
+          ],
+        ],
+      ),
+      code(
+        'ts',
+        `
+        // LIVENESS: jangan periksa dependency di sini.
+        // Basis data yang sedang tumbang bukan alasan merestart aplikasi,
+        // dan restart massal justru memperburuk keadaan.
+        app.get('/healthz', (req, res) => res.json({ ok: true }));
+
+        // READINESS: di sinilah dependency diperiksa.
+        app.get('/readyz', async (req, res) => {
+          const cek = await Promise.allSettled([
+            db.query('SELECT 1'),
+            antrean.ping(),
+          ]);
+          const gagal = cek
+            .map((h, i) => (h.status === 'rejected' ? ['db', 'antrean'][i] : null))
+            .filter(Boolean);
+
+          if (gagal.length) return res.status(503).json({ siap: false, gagal });
+          res.json({ siap: true });
+        });
+        `,
+        {
+          caption:
+            'Memakai pemeriksaan dependency untuk liveness adalah cara paling cepat mengubah gangguan kecil menjadi pemadaman total.',
+        },
+      ),
+      p(
+        'Sisi kedua dari menjalankan di produksi adalah berhenti dengan rapi, dan ini yang menentukan apakah rilis menyebabkan error bagi pengguna.',
+      ),
+      code(
+        'text',
+        `
+        Urutan yang benar saat container diminta berhenti:
+
+          1. Docker mengirim SIGTERM
+          2. Aplikasi BERHENTI menjawab /readyz dengan 200
+             -> penyeimbang beban berhenti mengirim permintaan baru
+          3. Aplikasi menyelesaikan permintaan yang SEDANG berjalan
+          4. Koneksi basis data dan antrean ditutup
+          5. Proses keluar dengan kode 0
+
+        Bila langkah 1 tidak pernah sampai ke aplikasinya, Docker
+        menunggu (bawaannya 10 detik) lalu mengirim SIGKILL, dan
+        container keluar dengan kode 137 — persis seperti yang teramati
+        pada percobaan compose sebelumnya.
+        `,
+      ),
+      code(
+        'ts',
+        `
+        let siap = true;
+        const server = app.listen(3000);
+
+        for (const sinyal of ['SIGTERM', 'SIGINT']) {
+          process.on(sinyal, async () => {
+            siap = false;                       // /readyz mulai menjawab 503
+            // Beri penyeimbang beban waktu MELIHAT perubahan itu
+            // sebelum berhenti menerima koneksi.
+            await new Promise((r) => setTimeout(r, 5000));
+            server.close(async () => {
+              await db.end();
+              process.exit(0);
+            });
+            // Jaring pengaman: jangan menggantung selamanya.
+            setTimeout(() => process.exit(1), 25000).unref();
+          });
+        }
+        `,
+      ),
+      p(
+        'Jeda lima detik itu sering dianggap berlebihan dan justru bagian yang paling menentukan. Penyeimbang beban memerlukan waktu untuk melihat bahwa sebuah instance tidak lagi siap, dan tanpa jeda itu, permintaan tetap dikirim ke proses yang sudah menutup pendengarnya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan healthcheck punya bentuk yang khas, dan yang paling merugikan adalah healthcheck yang terlalu bersemangat.',
+      ),
+      code(
+        'text',
+        `
+        1. Container di-restart terus-menerus
+
+           STATUS: Restarting (1) 4 seconds ago
+
+           Sering karena start_period terlalu pendek. Aplikasi yang
+           butuh 20 detik untuk menyala dinyatakan tidak sehat pada
+           detik ke-5, dibunuh, lalu menyala lagi dari nol. Selamanya.
+
+           Perbaikan: start_period yang realistis, atau pakai startup
+           probe terpisah.
+
+        2. Seluruh armada mati bersamaan
+
+           Liveness memeriksa basis data. Basis data tersendat 30 detik.
+           SEMUA instance dinyatakan tidak sehat dan direstart bersamaan.
+           Saat menyala, semuanya membuka koneksi baru sekaligus, dan
+           basis datanya makin tersendat.
+
+           Perbaikan: liveness TIDAK memeriksa dependency.
+
+        3. Healthcheck-nya sendiri yang membebani
+
+           interval: 1s dengan pemeriksaan yang menjalankan query
+           agregasi berarti satu query berat setiap detik per instance.
+
+           Perbaikan: pemeriksaan harus murah, dan interval yang wajar
+           dimulai dari 10 detik untuk produksi.
+        `,
+      ),
+      p('Ada juga bentuk yang tidak memeriksa apa pun, dan ini yang paling sering ditemukan.'),
+      code(
+        'text',
+        `
+          HEALTHCHECK CMD curl -f http://localhost:3000/ || exit 1
+
+        Masalahnya berlapis:
+
+          - curl sering TIDAK ADA di image alpine atau distroless,
+            sehingga pemeriksaannya selalu gagal dengan kode 127
+          - halaman / bisa saja dilayani dari cache statis dan
+            menjawab 200 meski aplikasinya tidak berfungsi
+          - tanpa --max-time, pemeriksaan yang menggantung menghabiskan
+            timeout dan menandai container tidak sehat
+
+        Bentuk yang lebih aman memakai runtime yang SUDAH PASTI ada
+        di image:
+
+          HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=3 \\
+            CMD node -e "fetch('http://127.0.0.1:3000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        `,
+      ),
+      code(
+        'text',
+        `
+        DAN YANG PALING BERBAHAYA: endpoint kesehatan yang terbuka
+        dan terlalu informatif.
+
+          GET /healthz
+          {"ok":true,"versi":"2.4.1","db":"postgres://app:rahasia@db:5432",
+           "commit":"a1b2c3d","env":{"NODE_ENV":"production",...}}
+
+        Endpoint ini biasanya tidak dilindungi, sebab penyeimbang beban
+        harus bisa memanggilnya. Ia tidak boleh memuat apa pun selain
+        status. Rincian diagnostik ditaruh di endpoint terpisah yang
+        memerlukan autentikasi.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Menjalankan container di produksi menuntut beberapa hal yang tidak pernah terasa penting saat pengembangan lokal.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memeriksa dependency di dalam liveness',
+            'Kalau basis data mati, aplikasinya kan tidak berguna',
+            'Seluruh armada direstart bersamaan saat basis data tersendat, dan itu memperburuk keadaan',
+          ],
+          [
+            'Memakai `start_period` yang terlalu pendek',
+            'Aplikasinya kan cepat menyala',
+            'Diukur, aplikasi butuh 3 detik dan statusnya `starting` sampai detik ke-4. Yang lebih berat butuh puluhan detik',
+          ],
+          [
+            'Memakai `curl` di dalam `HEALTHCHECK`',
+            'Perintah yang paling umum',
+            '`curl` sering tidak ada di image alpine. Pemeriksaannya selalu gagal dengan kode 127',
+          ],
+          [
+            'Tidak menangani `SIGTERM`',
+            'Container-nya kan tinggal dimatikan',
+            'Permintaan yang sedang berjalan terputus, dan container keluar dengan kode 137 setelah batas waktu',
+          ],
+          [
+            'Menutup server seketika saat `SIGTERM` tiba',
+            'Itu kan yang diminta',
+            'Penyeimbang beban belum sempat tahu. Tandai tidak siap dulu, beri jeda, baru tutup',
+          ],
+          [
+            'Membuat `/healthz` yang memuat rincian konfigurasi',
+            'Biar gampang mendiagnosis',
+            'Endpoint itu biasanya tidak dilindungi. Ia hanya boleh memuat status, tanpa versi dan tanpa kredensial',
+          ],
+        ],
+      ),
+      p(
+        'Cara memeriksa apakah seluruh rangkaian ini benar tidak memerlukan produksi. Jalankan container secara lokal, kirim permintaan yang sengaja lambat, lalu jalankan `docker stop` di tengah-tengah. Permintaan itu harus selesai dengan benar, dan container-nya harus keluar dengan kode `0`, bukan `137`. Bila hasilnya `137`, berarti sinyalnya tidak pernah sampai atau tidak pernah ditangani, dan setiap rilis yang kamu lakukan sedang memutus permintaan pengguna.',
+      ),
+      references(
+        {
+          label: 'HEALTHCHECK',
+          href: 'https://docs.docker.com/reference/dockerfile/#healthcheck',
+          source: 'Docker Docs',
+          note: 'Bentuk instruksi beserta arti tiap status yang muncul di `docker ps`',
+        },
+        {
+          label: 'Configure Liveness, Readiness and Startup Probes',
+          href: 'https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/',
+          source: 'Kubernetes Docs',
+          note: 'Pemisahan tiga jenis probe dan akibat berbeda dari masing-masing kegagalan',
+        },
+        {
+          label: 'Disposability',
+          href: 'https://12factor.net/disposability',
+          source: 'Twelve-Factor App',
+          note: 'Kenapa proses harus cepat menyala dan tertib saat dimatikan',
+        },
       ),
     ],
   ),

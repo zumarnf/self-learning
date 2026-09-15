@@ -32,7 +32,10 @@ const chapter2 = defineChapter({
   // menunjuk halaman dokumentasi resminya.
   // 2026-08-05: revisi kedalaman narasi (plans/revisi-kedalaman-narasi/) — sub-bab
   // `polymorphism` mendapat paragraf penghubung di transisi kode yang sebelumnya kosong.
-  reviewedAt: '2026-08-05',
+  // 2026-09-05: revisi studi kasus, error, dan kesalahan umum
+  // (plans/revisi-studi-kasus-error-kesalahan/) — ketiga bagian berjudul tetap ditambahkan di
+  // seluruh 12 sub-bab, dan tiap pesan error di dalamnya dijalankan lebih dulu di Node.js.
+  reviewedAt: '2026-09-05',
   lessons: lessonsOop,
   quiz: [
     q(
@@ -101,7 +104,11 @@ const chapter3 = defineChapter({
   // menunjuk halaman dokumentasi resminya.
   // 2026-08-05: revisi kedalaman narasi (plans/revisi-kedalaman-narasi/) — paragraf penghubung
   // ditambahkan di titik transisi kode yang sebelumnya kosong.
-  reviewedAt: '2026-08-05',
+  // 2026-09-05: revisi studi kasus, error, dan kesalahan umum
+  // (plans/revisi-studi-kasus-error-kesalahan/) — ketiga bagian berjudul tetap ditambahkan di
+  // seluruh 12 sub-bab. Angka 562 ms melawan 200 ms pada sub-bab paralel diukur sungguhan,
+  // bukan diperkirakan.
+  reviewedAt: '2026-09-05',
   lessons: lessonsAsync,
   quiz: [
     q(
@@ -165,7 +172,12 @@ const chapter4 = defineChapter({
   // menunjuk halaman dokumentasi resminya.
   // 2026-08-05: revisi kedalaman narasi (plans/revisi-kedalaman-narasi/) — paragraf penghubung
   // ditambahkan di titik transisi kode yang sebelumnya kosong.
-  reviewedAt: '2026-08-05',
+  // 2026-09-06: revisi studi kasus, error, dan kesalahan umum
+  // (plans/revisi-studi-kasus-error-kesalahan/) — ketiga bagian berjudul tetap ditambahkan
+  // di seluruh 13 sub-bab. Seluruh pesan error DOM dan angka performa di dalamnya
+  // dijalankan lebih dulu di Chromium sungguhan, termasuk 2147 ms melawan 4 ms pada
+  // layout thrashing di sub-bab performa.
+  reviewedAt: '2026-09-06',
   lessons: lessonsDom,
   quiz: [
     q(
@@ -237,7 +249,11 @@ const chapter5 = defineChapter({
   // menunjuk halaman dokumentasi resminya.
   // 2026-08-05: revisi kedalaman narasi (plans/revisi-kedalaman-narasi/) — paragraf penghubung
   // ditambahkan di titik transisi kode yang sebelumnya kosong.
-  reviewedAt: '2026-08-05',
+  // 2026-09-06: revisi studi kasus, error, dan kesalahan umum
+  // (plans/revisi-studi-kasus-error-kesalahan/) — ketiga bagian berjudul tetap ditambahkan
+  // di seluruh 12 sub-bab. Pesan error diuji terhadap server HTTP sungguhan dan Chromium,
+  // termasuk pesan CORS lengkap dan QuotaExceededError pada localStorage.
+  reviewedAt: '2026-09-06',
   lessons: lessonsAjax,
   quiz: [
     q(
@@ -310,7 +326,12 @@ const chapter6 = defineChapter({
   // 2026-08-05: revisi kedalaman narasi (plans/revisi-kedalaman-narasi/) — paragraf penghubung
   // ditambahkan di titik transisi kode yang sebelumnya kosong. Dengan bab ini, seluruh
   // Frontend Basic tuntas untuk pass kedalaman narasi juga.
-  reviewedAt: '2026-08-05',
+  // 2026-09-06: revisi studi kasus, error, dan kesalahan umum
+  // (plans/revisi-studi-kasus-error-kesalahan/) — ketiga bagian berjudul tetap ditambahkan
+  // di seluruh 11 sub-bab. Pesan error TypeScript diambil dari `tsc` 5.9.3 sungguhan
+  // dengan tipe React asli, dan peringatan runtime React diuji lewat renderToStaticMarkup.
+  // Frontend Basic TUNTAS, 76 sub-bab.
+  reviewedAt: '2026-09-06',
   lessons: lessonsJsxTsx,
   quiz: [
     q(

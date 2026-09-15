@@ -16,7 +16,7 @@ export const lessons: LessonDraft[] = [
   written(
     'array-dan-method',
     'Array & Method Penting',
-    15,
+    23,
     '`map`, `filter`, `reduce`, dan kawan-kawannya — cara mengolah data tanpa menulis loop manual.',
     [
       p(
@@ -312,6 +312,205 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Kamu diminta membuat kartu ringkasan di dashboard admin toko. Isinya tiga angka, yaitu omzet bulan ini, rincian omzet per produk, dan tiga produk terlaris. Datanya datang dari API sebagai satu array pesanan mentah, lengkap dengan pesanan yang dibatalkan dan yang belum dibayar. Tidak ada satu pun angka yang sudah dihitung dari server, jadi seluruhnya kamu olah di sisi klien.',
+      ),
+      p(
+        'Inilah bentuk paling khas pemakaian array method di pekerjaan sehari-hari. Yang membedakannya dari contoh di atas bukan method-nya, melainkan bahwa lima method berbeda dirangkai berurutan dan tiap tahap menghasilkan bentuk data yang berbeda dari tahap sebelumnya.',
+      ),
+      code(
+        'js',
+        `
+        const pesanan = [
+          { id: 'INV-001', status: 'lunas',   produk: 'Kaos', jumlah: 2, hargaSatuan: 89000 },
+          { id: 'INV-002', status: 'batal',   produk: 'Topi', jumlah: 1, hargaSatuan: 55000 },
+          { id: 'INV-003', status: 'lunas',   produk: 'Kaos', jumlah: 5, hargaSatuan: 89000 },
+          { id: 'INV-004', status: 'lunas',   produk: 'Tas',  jumlah: 1, hargaSatuan: 240000 },
+          { id: 'INV-005', status: 'pending', produk: 'Kaos', jumlah: 3, hargaSatuan: 89000 },
+        ];
+
+        // 1. Buang yang belum jadi uang.
+        const lunas = pesanan.filter((p) => p.status === 'lunas');
+
+        // 2. Tambahkan field turunan tanpa merusak data aslinya.
+        const denganTotal = lunas.map((p) => ({ ...p, total: p.jumlah * p.hargaSatuan }));
+
+        // 3. Ringkas jadi satu angka.
+        const omzet = denganTotal.reduce((jumlah, p) => jumlah + p.total, 0);
+
+        // 4. Ringkas jadi satu object, dikelompokkan per produk.
+        const perProduk = denganTotal.reduce((peta, p) => {
+          peta[p.produk] = (peta[p.produk] ?? 0) + p.total;
+          return peta;
+        }, {});
+
+        // 5. Ubah object menjadi array supaya bisa diurutkan, lalu ambil tiga teratas.
+        const terlaris = Object.entries(perProduk)
+          .map(([produk, total]) => ({ produk, total }))
+          .sort((a, b) => b.total - a.total)
+          .slice(0, 3);
+
+        console.log(omzet);      // 863000
+        console.log(perProduk);  // { Kaos: 623000, Tas: 240000 }
+        console.log(terlaris);   // [ { produk: 'Kaos', total: 623000 }, { produk: 'Tas', total: 240000 } ]
+        `,
+        { filename: 'src/ringkasan-dashboard.js' },
+      ),
+      p(
+        'Urutan lima tahap itu bukan selera melainkan keharusan, dan alasannya efisiensi sekaligus kebenaran. `filter` sengaja dijalankan paling awal supaya empat tahap sesudahnya bekerja pada data yang lebih sedikit, dan yang lebih penting supaya pesanan batal tidak pernah ikut terhitung. Kalau `map` dijalankan lebih dulu, kamu menghitung total untuk pesanan yang tidak akan pernah dibayar, dan itu pekerjaan yang terbuang.',
+      ),
+      p(
+        'Perhatikan bentuk `({ ...p, total: ... })` di tahap dua, dan khususnya tanda kurung yang membungkus kurung kurawal. Tanpa tanda kurung itu, JavaScript membaca `{` sebagai awal badan fungsi bukan awal object, dan fungsinya mengembalikan `undefined`. Ini kesalahan yang hampir semua orang buat sekali. Pola tiga titik di dalamnya juga penting, sebab ia menyalin seluruh field lama lalu menambah satu field baru, sehingga array `lunas` yang asli tidak berubah sama sekali.',
+      ),
+      p(
+        'Tahap empat memakai `reduce` dengan `{}` sebagai nilai awal, dan inilah bentuk `reduce` yang paling sering dipakai di luar penjumlahan. Yang dikumpulkan bukan angka melainkan object, dan `(peta[p.produk] ?? 0)` menangani kasus produk yang baru pertama kali muncul. Tanda `??` dipakai bukan `||` karena keduanya berbeda saat nilainya nol, dan omzet nol adalah nilai yang sah. Jangan lupa `return peta` di akhir, sebab fungsi panah dengan kurung kurawal tidak mengembalikan apa pun kalau tidak diminta.',
+      ),
+      p(
+        'Tahap lima memperlihatkan pola bolak-balik yang sangat sering dipakai, yaitu object diubah menjadi array dengan `Object.entries`, diolah dengan method array, lalu dipotong dengan `slice`. `Object.entries` menghasilkan array berisi pasangan, dan `([produk, total]) =>` di dalam `map` membongkar tiap pasangan itu langsung di parameter. Comparator `(a, b) => b.total - a.total` mengurutkan dari besar ke kecil, dan urutannya terbalik dari yang biasa karena `b` ditulis lebih dulu.',
+      ),
+      callout(
+        'tip',
+        'Sejak ES2024 ada jalan yang lebih pendek untuk tahap empat',
+        '`Object.groupBy(denganTotal, (p) => p.produk)` langsung mengelompokkan array menjadi object berisi array. Ia belum menjumlahkan, jadi kamu tetap butuh satu `reduce` setelahnya, tapi maksudnya jauh lebih terbaca daripada `reduce` yang mengurus pengelompokan dan penjumlahan sekaligus.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Dua error di bawah muncul dari method array itu sendiri, dan dua sisanya adalah kesalahan yang tidak melempar error sama sekali. Yang terakhir itu justru yang paling perlu diwaspadai.',
+      ),
+      code(
+        'text',
+        `
+        const omzet = kosong.reduce((jumlah, p) => jumlah + p.total);
+                             ^
+
+        TypeError: Reduce of empty array with no initial value
+        `,
+        { caption: '`reduce` dipanggil tanpa nilai awal pada array kosong.' },
+      ),
+      p(
+        'Pesan ini menyebut penyebabnya lengkap dengan solusinya, yaitu tidak ada nilai awal. Kalau `reduce` dipanggil tanpa argumen kedua, ia memakai elemen pertama sebagai titik mula, dan pada array kosong tidak ada elemen pertama untuk dipakai. Di dashboard tadi array kosong bukan kasus aneh melainkan kasus normal, sebab toko yang baru buka memang belum punya pesanan lunas. Selalu tulis nilai awalnya, dan sebagai bonus nilai awal itu juga menyatakan bentuk hasil yang kamu harapkan.',
+      ),
+      code(
+        'text',
+        `
+        const nama = pesanan.map((p) => p.pelanggan.nama);
+                                                   ^
+
+        TypeError: Cannot read properties of undefined (reading 'nama')
+        `,
+        { caption: 'Satu elemen di tengah array tidak punya field yang diharapkan.' },
+      ),
+      p(
+        'Error ini menyesatkan karena ia tidak menyebut elemen ke berapa yang bermasalah. Sembilan puluh sembilan elemen bisa saja lengkap dan satu elemen tidak, dan `map` berhenti pada elemen yang tidak lengkap itu. Cara tercepat menemukannya adalah menambahkan indeks ke parameter kedua lalu mencetaknya, misalnya `map((p, i) => { if (!p.pelanggan) console.log(i, p); ... })`. Perbaikan sebenarnya biasanya di tahap sebelumnya, yaitu menyaring elemen yang tidak lengkap dengan `filter` sebelum `map` menyentuhnya.',
+      ),
+      code(
+        'text',
+        `
+        console.log([10, 9, 100, 2].sort());
+
+        [ 10, 100, 2, 9 ]
+        `,
+        { caption: 'Tidak ada error, tapi urutannya salah.' },
+      ),
+      p(
+        'Inilah perilaku `sort` yang paling sering mengejutkan. Tanpa fungsi pembanding, `sort` mengubah tiap elemen menjadi teks lebih dulu lalu mengurutkannya seperti kata dalam kamus. Dalam urutan kamus, teks `100` datang sebelum `2` karena karakter pertamanya `1` lebih kecil daripada `2`. Program tidak melempar apa pun, angka tetap keluar, dan laporan yang dihasilkan tetap terlihat masuk akal sampai ada yang memeriksanya. Untuk angka, selalu tulis `sort((a, b) => a - b)`.',
+      ),
+      code(
+        'text',
+        `
+        const asli = [3, 1, 2];
+        const urut = asli.sort();
+
+        console.log(asli);        // [ 1, 2, 3 ]  <- ikut berubah
+        console.log(asli === urut); // true       <- keduanya array yang sama
+        `,
+        { caption: '`sort` mengubah array aslinya, bukan membuat yang baru.' },
+      ),
+      p(
+        'Sebagian besar method array mengembalikan array baru dan meninggalkan aslinya utuh, tapi `sort`, `reverse`, `splice`, `push`, dan `pop` justru mengubah aslinya. Di dashboard, ini berarti mengurutkan daftar untuk ditampilkan sekaligus mengacak urutan data sumber yang dipakai bagian lain halaman. Sejak ES2023 ada `toSorted`, `toReversed`, dan `toSpliced` yang mengembalikan salinan baru, dan ketiganya lebih aman dipakai sebagai kebiasaan.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`Reduce of empty array with no initial value`',
+            '`reduce` tanpa nilai awal dipanggil pada array kosong',
+            'Selalu beri nilai awal, misalnya `0` untuk angka dan `{}` untuk object',
+          ],
+          [
+            '`Cannot read properties of undefined` di dalam `map`',
+            'Ada satu elemen yang bentuknya berbeda dari elemen lain',
+            'Saring dengan `filter` lebih dulu, atau pakai `?.` dan nilai cadangan',
+          ],
+          [
+            'Angka terurut menjadi `10, 100, 2, 9`',
+            '`sort` tanpa pembanding mengurutkan sebagai teks',
+            'Tulis `sort((a, b) => a - b)` untuk angka',
+          ],
+          [
+            'Data sumber ikut berubah setelah diurutkan',
+            '`sort` dan `reverse` mengubah array aslinya',
+            'Pakai `toSorted` dan `toReversed`, atau salin dulu dengan `[...arr].sort()`',
+          ],
+          [
+            '`Maximum call stack size exceeded` pada `Math.max(...arr)`',
+            'Spread mengubah tiap elemen menjadi satu argumen, dan jumlahnya melebihi batas',
+            'Pakai `arr.reduce((a, b) => Math.max(a, b), -Infinity)` untuk array besar',
+          ],
+        ],
+        'Tiga baris pertama muncul saat kode berjalan, dua baris terakhir hanya terlihat dari hasilnya.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Array method paling sering disalahpahami dalam satu hal, yaitu mana yang mengembalikan nilai dan mana yang tidak. Empat baris pertama tabel di bawah semuanya berakar di situ.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `forEach` lalu berharap hasilnya bisa ditampung',
+            'Ia juga berjalan untuk tiap elemen, sama seperti `map`',
+            '`forEach` selalu mengembalikan `undefined`. Kalau kamu butuh hasilnya, yang dicari adalah `map`',
+          ],
+          [
+            'Menulis `map((p) => { p.total = ... })` tanpa `return`',
+            'Kurung kurawal terasa lebih rapi untuk beberapa baris',
+            'Fungsi panah berkurung kurawal tidak mengembalikan apa pun tanpa `return`, jadi hasilnya array berisi `undefined`. Ia juga mengubah object aslinya',
+          ],
+          [
+            'Menulis `map((p) => { ...p, total: 1 })`',
+            'Bentuknya sama dengan yang biasa dipakai di dalam object',
+            'Kurung kurawalnya dibaca sebagai badan fungsi, bukan object. Bungkus dengan tanda kurung menjadi `({ ...p, total: 1 })`',
+          ],
+          [
+            'Memakai `filter` untuk mencari satu elemen',
+            'Ia memang menemukan elemennya',
+            '`filter` selalu mengembalikan array, jadi kamu harus menulis `[0]` sesudahnya. `find` langsung mengembalikan elemennya, atau `undefined` bila tidak ketemu',
+          ],
+          [
+            'Merangkai `filter` lalu `map` lalu `filter` lagi berulang kali',
+            'Tiap baris jadi mudah dibaca sendiri-sendiri',
+            'Tiap tahap membuat array baru, jadi enam rangkaian berarti enam kali menelusuri data. Untuk ribuan baris ini terasa, dan biasanya cukup digabung menjadi satu `reduce`',
+          ],
+          [
+            'Memakai `includes` pada array object untuk mencari berdasarkan id',
+            '`includes` bekerja sempurna untuk array angka dan teks',
+            '`includes` membandingkan rujukan, jadi dua object dengan isi sama tetap dianggap berbeda. Pakai `some((p) => p.id === id)`',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua dan ketiga bersama-sama adalah kesalahan paling sering di seluruh sub-bab ini, dan keduanya berasal dari satu aturan sintaks yang sama. Fungsi panah tanpa kurung kurawal mengembalikan nilai ekspresinya secara otomatis, sedangkan fungsi panah dengan kurung kurawal membutuhkan `return` yang ditulis sendiri. Kalau `map` mengembalikan array berisi `undefined`, tersangka pertamanya selalu `return` yang hilang.',
+      ),
+      callout(
+        'warning',
+        'Method yang mengubah aslinya perlu dihafal',
+        'Yang mengubah array aslinya adalah `push`, `pop`, `shift`, `unshift`, `splice`, `sort`, `reverse`, dan `fill`. Sisanya mengembalikan array baru. Di React, mengubah array aslinya adalah penyebab langsung tampilan yang tidak ikut berubah, dan itu bug yang akan kamu temui lagi di Bab 4.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Bedakan method yang mengubah asli dari yang mengembalikan baru — ini penentu di React.',
@@ -359,7 +558,7 @@ export const lessons: LessonDraft[] = [
   written(
     'object',
     'Object: literal, nested, `?.`, `??`',
-    12,
+    20,
     'Membuat dan membaca object, termasuk mengakses data bersarang tanpa risiko error.',
     [
       p(
@@ -581,6 +780,199 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Aplikasi yang kamu kerjakan punya halaman pengaturan. Ada nilai bawaan yang berlaku untuk semua orang, dan tiap pengguna boleh menimpa sebagian saja dari nilai itu. Pengguna yang belum pernah membuka halaman pengaturan harus tetap mendapat seluruh nilai bawaan, dan pengguna yang hanya mengubah satu hal tidak boleh kehilangan sisanya. Kedengarannya sepele, dan justru di sinilah bug yang sangat sering terjadi.',
+      ),
+      code(
+        'js',
+        `
+        const bawaan = {
+          tema: 'terang',
+          notifikasi: { email: true, push: false },
+          perHalaman: 20,
+        };
+
+        // Yang tersimpan di database untuk pengguna ini, hanya sebagian.
+        const dariPengguna = {
+          tema: 'gelap',
+          notifikasi: { push: true },
+        };
+
+        const gabungan = { ...bawaan, ...dariPengguna };
+
+        console.log(gabungan.tema);         // 'gelap'                  <- benar
+        console.log(gabungan.perHalaman);   // 20                       <- benar
+        console.log(gabungan.notifikasi);   // { push: true }           <- SALAH
+        `,
+        { filename: 'src/pengaturan.js — versi yang bermasalah' },
+      ),
+      p(
+        'Dua baris pertama benar dan baris ketiga salah, dan pola itulah yang membuat bug ini lolos dari pengujian. Spread menggabungkan **satu lapis**. Untuk `tema` dan `perHalaman`, satu lapis memang cukup, sehingga nilai pengguna menimpa bawaan dan yang tidak diisi tetap terbawa. Untuk `notifikasi`, nilai pengguna adalah object utuh yang menimpa object bawaan secara keseluruhan, sehingga `email: true` yang tidak pernah pengguna sentuh justru lenyap. Akibat nyatanya pengguna berhenti menerima email pemberitahuan tanpa pernah mematikannya.',
+      ),
+      code(
+        'js',
+        `
+        const gabungan = {
+          ...bawaan,
+          ...dariPengguna,
+          // Lapisan bersarang digabung sendiri, satu per satu.
+          notifikasi: { ...bawaan.notifikasi, ...dariPengguna.notifikasi },
+        };
+
+        console.log(gabungan.notifikasi);   // { email: true, push: true }
+        `,
+        { filename: 'src/pengaturan.js — perbaikannya' },
+      ),
+      p(
+        'Perbaikannya menyebut lapisan bersarang secara eksplisit setelah kedua spread. Urutannya penting, sebab kunci yang ditulis belakangan menang, jadi `notifikasi` yang kamu tulis sendiri menimpa `notifikasi` yang datang dari `...dariPengguna`. Di dalamnya pola yang sama diulang satu tingkat lebih dalam. Cara ini terlihat bertele-tele, dan itu memang harga yang dibayar untuk kejelasan. Kalau struktur pengaturanmu punya empat atau lima lapis, itu justru pertanda strukturnya perlu diratakan, bukan pertanda kamu butuh library penggabung.',
+      ),
+      p(
+        'Bagian kedua studi kasus ini soal membaca data yang bentuknya tidak kamu kendalikan. Respons API sering punya lapisan pembungkus, dan sebagian field boleh kosong.',
+      ),
+      code(
+        'js',
+        `
+        const respons = { data: { pengguna: { profil: null } } };
+
+        // Tanpa penjaga, baris ini melempar TypeError.
+        // const kota = respons.data.pengguna.profil.kota;
+
+        const kota = respons.data?.pengguna?.profil?.kota ?? 'belum diisi';
+        console.log(kota);   // 'belum diisi'
+        `,
+      ),
+      p(
+        'Tanda `?.` berhenti dengan aman begitu bertemu `null` atau `undefined` lalu menghasilkan `undefined`, alih-alih melanjutkan dan melempar error. Tanda `??` di belakangnya menyediakan nilai pengganti. Yang perlu diperhatikan adalah `??` sengaja dipakai bukan `||`, sebab `||` juga akan mengganti nilai yang sah seperti angka nol dan teks kosong. Kalau kota pengguna sungguhan bernama kosong karena ia belum mengisinya, `||` dan `??` sama saja, tapi untuk field angka seperti `perHalaman` yang boleh bernilai nol, perbedaannya menentukan.',
+      ),
+      callout(
+        'warning',
+        'Jangan pasang `?.` di seluruh rantai tanpa berpikir',
+        'Kalau `respons.data` seharusnya selalu ada, menulis `respons.data?.` justru menyembunyikan kesalahan yang seharusnya kamu ketahui. Pakai `?.` hanya pada bagian yang memang boleh kosong menurut kontrak API-nya, dan biarkan sisanya melempar error kalau ternyata kosong.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Tiga error di bawah semuanya muncul saat sebuah nilai diperlakukan sebagai object padahal bukan.',
+      ),
+      code(
+        'text',
+        `
+        Object.keys(pengaturan);
+               ^
+
+        TypeError: Cannot convert undefined or null to object
+        `,
+        { caption: '`Object.keys` menerima `null` atau `undefined`.' },
+      ),
+      p(
+        'Pesan ini muncul dari `Object.keys`, `Object.values`, dan `Object.entries` ketika argumennya kosong. Kasus paling sering adalah data dari server yang belum sampai, sehingga variabelnya masih `undefined` saat komponen pertama kali dirender. Perbaikannya memberi nilai cadangan di tempat, misalnya `Object.keys(pengaturan ?? {})`, yang menghasilkan array kosong alih-alih error. Perhatikan `Object.keys({})` sendiri sah dan menghasilkan `[]`, jadi object kosong bukan masalah, hanya ketiadaan object yang masalah.',
+      ),
+      code(
+        'text',
+        `
+        console.log(profil.nama.toUpperCase());
+                                ^
+
+        TypeError: Cannot read properties of null (reading 'toUpperCase')
+        `,
+        { caption: 'Field ada di database tapi isinya `null`.' },
+      ),
+      p(
+        'Bedakan pesan ini dari versi `undefined`-nya, sebab keduanya menunjuk penyebab yang berbeda. `null` berarti field-nya memang ada dan sengaja dikosongkan, dan itu biasanya berarti kolom di database memang boleh kosong. `undefined` berarti field-nya tidak dikirim sama sekali, dan itu biasanya berarti API-nya tidak menyertakannya atau nama field-nya berbeda dari dugaanmu. Perbaikan untuk `null` adalah menyediakan nilai tampilan cadangan, sedangkan perbaikan untuk `undefined` biasanya memeriksa ulang bentuk responsnya.',
+      ),
+      code(
+        'text',
+        `
+        const total = { a: 1 } + { b: 2 };
+        console.log(total);
+
+        [object Object][object Object]
+        `,
+        { caption: 'Tidak ada error, dan itu justru masalahnya.' },
+      ),
+      p(
+        'Teks `[object Object]` adalah hasil ketika sebuah object dipaksa menjadi teks, dan ia sangat sering muncul di layar pengguna sungguhan. Penyebabnya biasanya object ikut masuk ke dalam template literal atau ke `textContent` tanpa dipilih field-nya lebih dulu. Kalau kamu melihat teks itu di halaman, cari tempat sebuah object dipakai di posisi yang seharusnya diisi teks, lalu ganti dengan field yang benar. Untuk keperluan debug, `console.log(JSON.stringify(obj, null, 2))` menampilkan isinya dengan rapi.',
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            '`Cannot convert undefined or null to object`',
+            '`Object.keys`, `values`, atau `entries` menerima nilai kosong',
+            'Beri cadangan di tempat, misalnya `Object.keys(x ?? {})`',
+          ],
+          [
+            "`Cannot read properties of null (reading 'x')`",
+            'Field-nya ada tapi isinya sengaja dikosongkan',
+            'Pakai `?.` lalu `??` untuk menyediakan nilai tampilan',
+          ],
+          [
+            '`[object Object]` muncul di halaman',
+            'Object dipakai di posisi yang seharusnya teks',
+            'Pilih field-nya, atau pakai `JSON.stringify` bila memang perlu seluruh isinya',
+          ],
+          [
+            'Nilai bawaan hilang setelah digabung',
+            'Spread hanya menggabung satu lapis',
+            'Gabung lapisan bersarangnya sendiri, atau ratakan struktur pengaturannya',
+          ],
+          [
+            'Kunci angka muncul lebih dulu saat ditelusuri',
+            'Kunci berupa angka selalu diurutkan naik dan ditaruh di depan',
+            'Kalau urutan penting, simpan sebagai array atau `Map`, bukan object',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Object terlihat sederhana, dan justru karena itu sebagian besar kesalahan di bawah tidak menghasilkan error apa pun. Programnya jalan, dan nilainya salah.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `||` untuk memberi nilai bawaan',
+            'Bentuknya pendek dan sudah dipakai di mana-mana',
+            'Angka `0`, teks kosong, dan `false` ikut tergantikan padahal ketiganya nilai yang sah. Pakai `??` yang hanya bereaksi pada `null` dan `undefined`',
+          ],
+          [
+            'Memakai `obj.hasOwnProperty(k)` langsung',
+            'Namanya jelas dan sudah lama ada',
+            'Kalau object-nya punya kunci bernama `hasOwnProperty`, pemanggilannya gagal. `Object.hasOwn(obj, k)` aman untuk semua kasus',
+          ],
+          [
+            'Memeriksa keberadaan kunci dengan `if (obj.k)`',
+            'Terlihat ringkas dan biasanya benar',
+            "Kunci yang ada tapi bernilai `0`, `''`, atau `false` dianggap tidak ada. Untuk memeriksa keberadaan, pakai `Object.hasOwn` atau `k in obj`",
+          ],
+          [
+            'Memakai `in` untuk memeriksa kunci milik object itu sendiri',
+            "`'nama' in obj` terbaca sangat alami",
+            "`in` juga menemukan kunci warisan seperti `toString`, sehingga `'toString' in {}` bernilai `true`",
+          ],
+          [
+            'Menyimpan urutan data di dalam object',
+            'Saat dicetak urutannya memang sesuai',
+            'Kunci berupa angka selalu naik ke depan dan diurutkan menaik, jadi urutan penulisanmu tidak dijaga untuk kunci angka',
+          ],
+          [
+            'Memakai object sebagai penampung yang kuncinya datang dari pengguna',
+            'Object memang penampung pasangan kunci dan nilai',
+            'Kunci seperti `__proto__` bisa mengubah perilaku object. Untuk kunci yang tidak kamu kendalikan, pakai `Map` atau `Object.create(null)`',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama adalah yang paling sering merugikan di aplikasi nyata, dan contohnya mudah dibayangkan. Bayangkan `perHalaman` bisa diisi nol untuk berarti tampilkan semua. Dengan `pengaturan.perHalaman || 20`, pilihan pengguna diam-diam berubah menjadi 20 setiap kali ia memilih nol. Tidak ada error, tidak ada peringatan, dan pengguna hanya merasa tombolnya tidak berfungsi.',
+      ),
+      callout(
+        'tip',
+        'Kapan memilih `Map` alih-alih object biasa',
+        'Pakai `Map` kalau kuncinya datang dari pengguna atau dari data luar, kalau kamu butuh urutan penyisipan dijaga apa adanya, atau kalau kuncinya bukan teks. Pakai object biasa untuk struktur yang bentuknya kamu tulis sendiri di kode, sebab bentuk itulah yang paling enak dibaca dan paling mudah diketik.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Kunci dari variabel wajib memakai kurung siku, bukan titik.',
@@ -628,7 +1020,7 @@ export const lessons: LessonDraft[] = [
   written(
     'destructuring-spread',
     'Destructuring, Spread & Rest',
-    11,
+    18,
     'Sintaks yang akan kamu lihat di hampir setiap baris kode React modern.',
     [
       p(
@@ -827,6 +1219,187 @@ export const lessons: LessonDraft[] = [
       ),
 
       divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Ada satu tugas yang muncul di hampir semua project yang punya login, yaitu mengirim data pengguna ke browser tanpa ikut mengirim hal yang tidak boleh dilihat. Baris pengguna di database berisi hash kata sandi, id peran internal, dan mungkin catatan admin. Semua itu tidak boleh ikut terkirim, dan menghapusnya satu per satu dengan `delete` mudah terlewat begitu ada kolom baru ditambahkan.',
+      ),
+      code(
+        'js',
+        `
+        const pengguna = {
+          id: 7,
+          nama: 'Sari',
+          email: 's@x.id',
+          kataSandiHash: '$2b$10$x',
+          peranId: 3,
+        };
+
+        // Ambil yang berbahaya ke variabelnya sendiri, kumpulkan sisanya ke 'aman'.
+        const { kataSandiHash, peranId, ...aman } = pengguna;
+
+        console.log(aman);   // { id: 7, nama: 'Sari', email: 's@x.id' }
+        res.json(aman);
+        `,
+        { filename: 'Membuang field sensitif dengan rest' },
+      ),
+      p(
+        'Pola ini disebut membuang lewat rest, dan yang membuatnya lebih aman daripada `delete` adalah ia bekerja dengan cara memilih apa yang **ikut** bukan apa yang **dibuang**. Dua nama di depan diambil keluar, dan `...aman` mengumpulkan seluruh sisanya ke object baru. Object `pengguna` yang asli tidak berubah sama sekali, jadi kode lain yang masih membutuhkan `peranId` tetap bisa memakainya. Kalau nanti ada kolom baru bernama `catatanAdmin`, ia akan ikut ke `aman` secara otomatis, dan itu sisi lemahnya yang perlu kamu sadari.',
+      ),
+      callout(
+        'danger',
+        'Untuk data yang benar-benar sensitif, pilih yang ikut bukan yang dibuang',
+        'Bentuk `const { kataSandiHash, ...aman } = pengguna` gagal secara diam-diam begitu ada kolom rahasia baru ditambahkan ke tabel, sebab kolom baru itu otomatis ikut terkirim. Untuk endpoint yang mengeluarkan data pengguna, lebih aman menyusun objectnya secara eksplisit dengan `{ id, nama, email }`. Aturan ini bagian dari prinsip mengirim data seminimal mungkin yang dibahas di Kategori Keamanan Fullstack.',
+      ),
+      p(
+        'Bagian kedua studi kasus ini adalah bentuk yang akan kamu tulis berkali-kali sepanjang belajar React, yaitu fungsi yang menerima satu object berisi banyak pilihan.',
+      ),
+      code(
+        'js',
+        `
+        function buatTabel({
+          data,                       // wajib
+          perHalaman = 20,            // ada nilai bawaan
+          urutan: kolomUrut = 'id',   // diganti nama sekaligus diberi bawaan
+          ...sisa                     // pilihan lain diteruskan apa adanya
+        } = {}) {                     // seluruh argumennya sendiri punya bawaan
+          return { jumlah: data.length, perHalaman, kolomUrut, sisa };
+        }
+
+        buatTabel({ data: [1, 2, 3], urutan: 'nama', ketat: true });
+        // { jumlah: 3, perHalaman: 20, kolomUrut: 'nama', sisa: { ketat: true } }
+        `,
+        { filename: 'src/tabel.js' },
+      ),
+      p(
+        "Empat teknik berbeda dipakai bersamaan di satu tanda kurung, dan tiap barisnya menyelesaikan masalah yang berbeda. `data` diambil apa adanya dan tidak diberi bawaan, sehingga ketiadaannya akan ketahuan. `perHalaman = 20` memberi nilai bawaan yang hanya berlaku saat nilainya `undefined`. Baris `urutan: kolomUrut = 'id'` melakukan dua hal sekaligus, yaitu mengambil kunci bernama `urutan` lalu menaruhnya di variabel bernama `kolomUrut`, sambil menyediakan bawaan. Penggantian nama seperti ini berguna saat nama dari luar bentrok dengan nama yang sudah ada di dalam fungsi.",
+      ),
+      p(
+        'Tanda `= {}` di akhir adalah bagian yang paling sering dilupakan, dan tanpanya `buatTabel()` tanpa argumen langsung melempar error. Dengan `= {}`, memanggil tanpa argumen menghasilkan object kosong yang kemudian dibongkar seperti biasa, sehingga seluruh nilai bawaan berlaku. Perlu dicatat pada contoh ini `data` tetap tidak punya bawaan, jadi `buatTabel()` masih akan gagal saat `data.length` dibaca, dan itu memang disengaja karena tabel tanpa data memang tidak masuk akal.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Destructuring menghasilkan dua jenis error yang bentuknya sangat khas, sehingga begitu kamu mengenalinya sekali kamu akan langsung tahu penyebabnya.',
+      ),
+      code(
+        'text',
+        `
+        const { nama } = pengguna;
+              ^
+
+        TypeError: Cannot destructure property 'nama' of 'undefined'
+        as it is undefined.
+        `,
+        { caption: 'Yang dibongkar ternyata tidak ada.' },
+      ),
+      p(
+        'Pesan ini menyebut nama propertinya di depan, dan itu sering membuat orang mengira `nama` yang bermasalah. Bacalah bagian setelah `of`, sebab di situlah penyebab sebenarnya disebut. Yang `undefined` adalah `pengguna`, bukan `nama`. Di React, penyebab paling sering adalah komponen dirender sebelum datanya sampai. Perbaikan cepatnya menambahkan `= {}` seperti pada studi kasus di atas, dan perbaikan sebenarnya menampilkan keadaan memuat sampai datanya benar-benar ada.',
+      ),
+      code(
+        'text',
+        `
+        const [...awal, terakhir] = daftar;
+                        ^
+
+        SyntaxError: Rest element must be last element
+        `,
+        { caption: 'Rest ditaruh bukan di posisi terakhir.' },
+      ),
+      p(
+        'Ini `SyntaxError` dan bukan `TypeError`, dan bedanya penting. `SyntaxError` berarti berkasnya bahkan tidak dijalankan sama sekali, sehingga seluruh halaman atau seluruh skrip mati bukan hanya bagian ini. Alasan aturannya masuk akal kalau dipikirkan sebentar, sebab rest berarti kumpulkan sisanya, dan tidak ada yang bisa disebut sisa kalau masih ada yang datang sesudahnya. Untuk mengambil elemen terakhir, pakai `daftar.at(-1)`.',
+      ),
+      code(
+        'text',
+        `
+        const { alamat: { kota } } = pengguna;
+                          ^
+
+        TypeError: Cannot read properties of undefined (reading 'kota')
+        `,
+        { caption: 'Membongkar dua lapis padahal lapisan pertamanya kosong.' },
+      ),
+      p(
+        'Membongkar bersarang hanya aman kalau seluruh lapisan di atasnya dijamin ada. Kalau `alamat` boleh kosong, bentuk yang aman adalah `const { alamat: { kota } = {} } = pengguna`, yang memberi bawaan pada lapisan tengahnya. Sebagian besar waktu, membongkar dua lapis sekaligus justru membuat kode lebih sulit dibaca dan lebih rapuh, jadi pertimbangkan menulis `pengguna.alamat?.kota` yang lebih jelas maksudnya.',
+      ),
+      table(
+        ['Pesan error', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            "`Cannot destructure property 'x' of 'undefined'`",
+            'Object yang dibongkar tidak ada, bukan propertinya',
+            'Beri bawaan `= {}`, atau tunda pembongkarannya sampai datanya ada',
+          ],
+          [
+            '`Rest element must be last element`',
+            'Rest ditulis sebelum elemen lain',
+            'Pindahkan ke posisi terakhir, atau pakai `at(-1)` untuk elemen terakhir',
+          ],
+          [
+            '`Cannot read properties of undefined` saat membongkar bersarang',
+            'Lapisan tengahnya kosong',
+            'Beri bawaan pada lapisan tengah, atau pakai `?.` alih-alih membongkar',
+          ],
+          [
+            '`Invalid destructuring assignment target`',
+            'Membongkar ke variabel yang sudah ada tanpa membungkusnya dengan tanda kurung',
+            'Tulis `({ a } = obj)` dengan tanda kurung mengelilingi seluruh baris',
+          ],
+          [
+            'Nilai bawaan tidak berlaku padahal field-nya kosong',
+            'Isinya `null`, dan bawaan hanya berlaku untuk `undefined`',
+            "Pakai `??` setelah membongkar, misalnya `const kota = obj.kota ?? '-'`",
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Sebagian besar kesalahan di bawah berasal dari mengira destructuring adalah penyalinan. Ia bukan penyalinan melainkan pengambilan, dan perbedaannya baru terasa saat nilainya berupa object.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Mengira nilai bawaan berlaku juga untuk `null`',
+            'Keduanya sama-sama berarti kosong',
+            'Bawaan hanya berlaku untuk `undefined`. Untuk `null` kamu tetap mendapat `null`, jadi tambahkan `??` sesudahnya',
+          ],
+          [
+            'Mengira `const { a } = obj` membuat salinan `a`',
+            'Ia memang variabel baru',
+            'Kalau `a` berupa object, variabel barunya menunjuk object yang sama. Mengubah isinya tetap mengubah `obj.a`',
+          ],
+          [
+            'Memakai spread untuk menyalin object bersarang',
+            'Untuk object satu lapis memang benar-benar menyalin',
+            'Lapisan dalamnya tetap dibagi bersama. Untuk salinan penuh pakai `structuredClone`',
+          ],
+          [
+            'Membongkar terlalu banyak sekaligus di satu baris',
+            'Terlihat efisien dan hemat baris',
+            'Baris yang membongkar delapan nama sulit dibaca dan sulit diubah. Bongkar yang dipakai saja, sisanya baca langsung',
+          ],
+          [
+            'Menulis `{ a } = obj` tanpa tanda kurung di baris tersendiri',
+            'Bentuknya sama dengan yang biasa dipakai setelah `const`',
+            'Tanpa `const`, kurung kurawal di awal baris dibaca sebagai blok kode. Bungkus seluruh baris dengan tanda kurung',
+          ],
+          [
+            'Memakai rest untuk membuang field rahasia dari respons API',
+            'Field yang tidak diinginkan memang hilang',
+            'Kolom rahasia baru yang ditambahkan nanti akan ikut terkirim tanpa ada yang sadar. Susun object keluarannya secara eksplisit',
+          ],
+        ],
+      ),
+      p(
+        "Baris pertama layak diingat baik-baik karena ia sangat sering muncul saat membaca data dari database. Kolom yang boleh kosong biasanya bernilai `null`, bukan `undefined`, sehingga `const { kota = '-' } = alamat` tetap menghasilkan `null` dan bukan tanda hubung. Bentuk yang benar untuk kasus itu adalah membongkar dulu lalu memberi cadangan dengan `??`, atau langsung menulis `alamat.kota ?? '-'`.",
+      ),
+      callout(
+        'tip',
+        'Kapan destructuring justru merugikan keterbacaan',
+        'Kalau sebuah nama hanya dipakai satu kali, membacanya langsung dengan `pengguna.email` lebih jelas daripada membongkarnya lebih dulu. Destructuring paling menguntungkan saat sebuah nama dipakai berkali-kali dalam satu fungsi, atau saat kamu ingin menyatakan di baris pertama fungsi bahwa inilah bagian yang dibutuhkan fungsi ini.',
+      ),
+      divider,
       h2('Rangkuman'),
       ul(
         'Destructuring object berbasis **nama**; destructuring array berbasis **posisi**.',
@@ -868,7 +1441,7 @@ export const lessons: LessonDraft[] = [
   written(
     'string-dan-template-literal',
     'Template Literal & Method String',
-    9,
+    15,
     'Merangkai teks dengan rapi, plus method string yang paling sering dipakai.',
     [
       p(
@@ -1066,6 +1639,204 @@ export const lessons: LessonDraft[] = [
         'Semua method di atas mengembalikan string **baru**; tidak ada satu pun yang mengubah aslinya. `s.trim()` tanpa menyimpan hasilnya tidak melakukan apa-apa — kesalahan yang mudah terlewat.',
       ),
 
+      divider,
+      h2('Studi kasus di project nyata'),
+      p(
+        'Blog toko yang kamu kerjakan butuh alamat halaman yang enak dibaca. Judul artikel ditulis bebas oleh penulisnya, lengkap dengan huruf besar, tanda baca, huruf beraksen, dan spasi berlebih di sana-sini. Dari judul itu harus lahir satu potongan alamat yang hanya berisi huruf kecil, angka, dan tanda hubung. Potongan itu disebut slug, dan membuatnya adalah salah satu tugas pengolahan teks yang paling sering muncul.',
+      ),
+      code(
+        'js',
+        `
+        function buatSlug(judul) {
+          return judul
+            .normalize('NFD')                  // pisahkan huruf dari tanda aksennya
+            .replace(/[\\u0300-\\u036f]/g, '')   // buang tanda aksennya
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9\\s-]/g, '')      // buang selain huruf, angka, spasi, tanda hubung
+            .replace(/\\s+/g, '-')              // spasi berapa pun jadi satu tanda hubung
+            .replace(/-+/g, '-');              // tanda hubung beruntun jadi satu
+        }
+
+        buatSlug('  Café & Resto   Terbaik di Bandung! ');
+        // 'cafe-resto-terbaik-di-bandung'
+        `,
+        { filename: 'src/slug.js' },
+      ),
+      p(
+        "Tujuh method dirangkai berurutan, dan tiap satu menyelesaikan satu masalah yang tidak bisa diselesaikan yang lain. `normalize('NFD')` adalah bagian yang paling jarang diketahui, dan ia memecah satu huruf beraksen seperti `é` menjadi dua bagian terpisah, yaitu huruf `e` biasa dan tanda aksennya. Setelah dipecah, tanda aksennya bisa dibuang lewat penyaringan berikutnya, dan yang tersisa huruf `e` yang aman untuk alamat. Tanpa langkah ini, `é` akan ikut terbuang seluruhnya dan kata `café` berubah menjadi `caf`.",
+      ),
+      p(
+        'Perhatikan urutan `toLowerCase` sebelum penyaringan huruf, dan itu bukan kebetulan. Pola `[^a-z0-9\\s-]` hanya menyebut huruf kecil, jadi kalau huruf besar belum diubah lebih dulu, seluruh huruf besar akan ikut terbuang dan `Bandung` menjadi `andung`. Dua `replace` terakhir juga berpasangan, sebab yang pertama mengubah setiap kelompok spasi menjadi satu tanda hubung sedangkan yang kedua merapikan tanda hubung yang sudah ada di judul asli agar tidak menumpuk.',
+      ),
+      p(
+        'Semua `replace` di atas memakai tanda `g` di akhir polanya, dan tanpa itu hanya kemunculan pertama yang diganti. Ini kesalahan yang sangat sering terjadi, dan bagian error di bawah membahasnya lebih jauh.',
+      ),
+      p(
+        'Bagian kedua studi kasus ini adalah membangun satu baris faktur yang siap ditampilkan, dan di sinilah pemformatan berbahasa Indonesia dipakai sungguhan.',
+      ),
+      code(
+        'js',
+        `
+        const tanggal = new Intl.DateTimeFormat('id-ID', { dateStyle: 'long' })
+          .format(new Date('2026-08-19'));
+
+        const rupiah = new Intl.NumberFormat('id-ID', {
+          style: 'currency',
+          currency: 'IDR',
+          maximumFractionDigits: 0,
+        }).format(240000);
+
+        const nomor = \`INV-\${String(4).padStart(3, '0')}\`;
+
+        console.log(\`\${nomor} | \${tanggal} | \${rupiah}\`);
+        // INV-004 | 19 Agustus 2026 | Rp 240.000
+        `,
+        { filename: 'src/faktur.js' },
+      ),
+      p(
+        "Tiga pemformat berbeda dipakai untuk tiga jenis nilai, dan tidak satu pun ditulis manual. `Intl.DateTimeFormat` dengan `id-ID` menghasilkan nama bulan berbahasa Indonesia tanpa kamu perlu menyediakan daftar nama bulan sendiri. `Intl.NumberFormat` dengan `currency: 'IDR'` memberi awalan `Rp` dan pemisah ribuan berupa titik, sesuai kebiasaan penulisan Indonesia. `padStart(3, '0')` mengubah angka 4 menjadi teks `004`, dan `String(4)` di depannya diperlukan karena `padStart` hanya ada pada teks bukan pada angka.",
+      ),
+      callout(
+        'warning',
+        'Pemisah setelah `Rp` bukan spasi biasa',
+        "Karakter yang disisipkan `Intl.NumberFormat` di antara `Rp` dan angkanya adalah spasi non-breaking, yaitu `U+00A0`. Ia terlihat persis seperti spasi biasa di layar, tapi `hasil === 'Rp 240.000'` yang kamu ketik dengan spasi biasa akan bernilai `false`. Kalau sebuah test gagal padahal dua teksnya terlihat identik, inilah tersangka pertamanya.",
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Dua error pertama di bawah menghentikan program, dan dua sisanya berjalan mulus dengan hasil yang salah.',
+      ),
+      code(
+        'text',
+        `
+        const awal = pengguna.nama.toUpperCase();
+                                  ^
+
+        TypeError: Cannot read properties of undefined (reading 'toUpperCase')
+        `,
+        { caption: 'Method teks dipanggil pada nilai yang bukan teks.' },
+      ),
+      p(
+        "Seluruh method teks hanya ada pada teks, sehingga memanggilnya pada `undefined` atau `null` selalu gagal. Ini sangat sering terjadi pada field yang boleh kosong di database, misalnya nama tengah atau nomor telepon. Perbaikan cepatnya `pengguna.nama?.toUpperCase()`, yang menghasilkan `undefined` alih-alih error. Kalau kamu butuh teks kosong sebagai hasilnya, tulis `(pengguna.nama ?? '').toUpperCase()`, dan bentuk kedua ini lebih aman kalau hasilnya langsung ditampilkan.",
+      ),
+      code(
+        'text',
+        `
+        new Intl.DateTimeFormat('id-ID').format(new Date('19-08-2026'));
+                                        ^
+
+        RangeError: Invalid time value
+        `,
+        { caption: 'Teks tanggal tidak dikenali sebagai tanggal.' },
+      ),
+      p(
+        'Penyebabnya hampir selalu format tanggal yang dibalik. JavaScript membaca teks tanggal dengan andal hanya dalam bentuk tahun bulan hari yang dipisah tanda hubung, yaitu `2026-08-19`. Format yang biasa ditulis orang Indonesia seperti `19-08-2026` menghasilkan tanggal tidak sah, dan yang lebih berbahaya adalah `08/19/2026` justru diterima karena dibaca sebagai format Amerika. Kalau datanya datang dari formulir, ubah ke bentuk baku lebih dulu sebelum diserahkan ke `new Date`.',
+      ),
+      code(
+        'text',
+        `
+        console.log('a-b-c'.replace('-', '_'));
+
+        a_b-c
+        `,
+        { caption: 'Tidak ada error, tapi hanya yang pertama diganti.' },
+      ),
+      p(
+        "Ini perilaku bawaan `replace` yang paling sering menjebak, dan ia tidak memberi peringatan apa pun. Dengan pola berupa teks biasa, `replace` hanya mengganti kemunculan pertama. Ada dua jalan keluar, yaitu memakai `replaceAll('-', '_')` yang namanya sudah menjelaskan dirinya, atau memakai pola bertanda `g` seperti `replace(/-/g, '_')`. Untuk penggantian teks sederhana, `replaceAll` lebih terbaca dan tidak menuntut pembacanya paham regex.",
+      ),
+      code(
+        'text',
+        `
+        'a-b'.replaceAll(/-/, '_');
+              ^
+
+        TypeError: String.prototype.replaceAll called with a
+        non-global RegExp argument
+        `,
+        { caption: 'Pola regex diberikan ke `replaceAll` tanpa tanda `g`.' },
+      ),
+      p(
+        "Aturan ini terlihat rewel, dan sebenarnya ia sedang menolak perintah yang bertentangan dengan dirinya sendiri. Nama `replaceAll` berarti ganti semuanya, sedangkan regex tanpa `g` berarti berhenti setelah yang pertama. Alih-alih diam-diam memilih salah satu, JavaScript menolak. Perbaikannya menambahkan `g` menjadi `replaceAll(/-/g, '_')`, atau lebih sederhana lagi memakai teks biasa sebagai polanya.",
+      ),
+      table(
+        ['Pesan atau gejala', 'Penyebab sebenarnya', 'Perbaikannya'],
+        [
+          [
+            "`Cannot read properties of undefined (reading 'toUpperCase')`",
+            'Nilainya bukan teks, biasanya field yang boleh kosong',
+            "Pakai `?.`, atau beri cadangan dengan `(nilai ?? '')`",
+          ],
+          [
+            '`Invalid time value`',
+            'Teks tanggalnya tidak dalam bentuk `YYYY-MM-DD`',
+            'Ubah ke bentuk baku sebelum diserahkan ke `new Date`',
+          ],
+          [
+            'Hanya kemunculan pertama yang terganti',
+            '`replace` dengan pola teks biasa hanya mengganti sekali',
+            'Pakai `replaceAll`, atau tambahkan `g` pada polanya',
+          ],
+          [
+            '`replaceAll called with a non-global RegExp argument`',
+            'Regex tanpa `g` diberikan ke `replaceAll`',
+            'Tambahkan `g`, atau ganti polanya menjadi teks biasa',
+          ],
+          [
+            '`Invalid count value: -1`',
+            '`repeat` menerima angka negatif, biasanya hasil pengurangan',
+            'Batasi dengan `Math.max(0, n)` sebelum dipakai',
+          ],
+        ],
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Teks di JavaScript punya dua sifat yang sering dilupakan, yaitu ia tidak bisa diubah di tempat dan ia dihitung per unit kode bukan per huruf yang terlihat. Sebagian besar kesalahan di bawah berasal dari salah satu dari dua sifat itu.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis `judul.trim()` lalu berharap `judul` ikut bersih',
+            'Method-nya jelas dipanggil pada `judul`',
+            'Teks tidak bisa diubah di tempat, jadi seluruh method teks mengembalikan teks baru. Tampung hasilnya dengan `judul = judul.trim()`',
+          ],
+          [
+            'Menghitung jumlah karakter dengan `.length`',
+            'Untuk teks biasa angkanya memang tepat',
+            'Emoji dan sebagian huruf dihitung dua, sebab `.length` menghitung unit kode. Untuk jumlah karakter yang terlihat, pakai `[...teks].length`',
+          ],
+          [
+            'Menggabung teks panjang dengan tanda tambah beruntun',
+            'Cara ini paling awal dipelajari dan selalu bekerja',
+            'Sulit dibaca dan mudah salah spasi. Template literal dengan backtick menampung baris baru apa adanya dan menyisipkan nilai lewat penanda dolar',
+          ],
+          [
+            'Memakai `==` untuk membandingkan teks dari formulir',
+            'Isinya sama-sama teks jadi tipenya pasti cocok',
+            "Nilai dari formulir selalu teks, jadi `'5' == 5` bernilai `true` dan bisa menyembunyikan kesalahan. Pakai `===` selalu",
+          ],
+          [
+            'Mengurutkan nama Indonesia dengan `sort()` biasa',
+            'Hasilnya terlihat urut secara abjad',
+            "Urutannya memakai nomor karakter, sehingga seluruh huruf besar mendahului huruf kecil. Pakai `sort((a, b) => a.localeCompare(b, 'id'))`",
+          ],
+          [
+            'Membandingkan teks hasil `Intl` dengan teks yang diketik tangan',
+            'Keduanya terlihat sama persis di layar',
+            'Pemisah ribuan dan spasi setelah `Rp` bisa berupa karakter khusus. Bandingkan angka sebelum diformat, bukan teks sesudahnya',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama adalah kesalahan yang paling sering dibuat orang yang baru pindah dari bahasa lain. Di JavaScript, tidak ada satu pun method teks yang mengubah teks aslinya, jadi `judul.toUpperCase()` yang berdiri sendiri di satu baris tidak melakukan apa-apa yang terlihat. Kalau kamu memanggil method teks lalu tidak menampung hasilnya, hampir pasti itu baris yang sia-sia.',
+      ),
+      callout(
+        'tip',
+        'Jangan menyusun HTML dengan menggabung teks',
+        'Template literal sangat nyaman untuk menyusun potongan HTML, dan di situlah bahayanya. Kalau nilai yang disisipkan berasal dari pengguna, ia bisa berisi tag yang ikut dijalankan browser, dan itu celah keamanan bernama XSS. Untuk teks yang berasal dari pengguna, isi lewat `textContent` bukan lewat `innerHTML`. Pembahasan lengkapnya ada di Bab 6 dan di Kategori Keamanan Fullstack.',
+      ),
       divider,
       h2('Rangkuman'),
       ul(

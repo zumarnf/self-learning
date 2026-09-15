@@ -24,7 +24,7 @@ export const lessons: LessonDraft[] = [
   written(
     'filosofi-utility-first',
     'Filosofi Utility-First & kritik yang sering muncul',
-    10,
+    17,
     'Kenapa class sebanyak itu justru mengurangi masalah — dan jawaban jujur atas keberatan yang wajar.',
     [
       p(
@@ -166,6 +166,159 @@ export const lessons: LessonDraft[] = [
         'Palet Ink & Amber dikunci sebagai token di `globals.css`, dan tidak ada satu pun nilai warna atau spacing yang ditulis langsung di komponen. Itu justru lebih mudah ditegakkan dengan utility-first daripada dengan CSS bernama.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Argumen utility-first paling mudah dinilai bukan lewat perdebatan, melainkan lewat angka sebuah project yang sudah jalan. Website yang sedang kamu baca ini punya 440 halaman materi yang dibangun dari 38 berkas komponen. Pertanyaan yang menarik adalah berapa banyak CSS yang harus ditulis dan dirawat manusia untuk semua itu.',
+      ),
+      code(
+        'text',
+        `
+        Diukur pada project ini, September 2026:
+
+        Halaman yang dihasilkan          : 440
+        Berkas komponen .tsx             : 38
+        Berkas CSS tulis tangan          : 1  (globals.css, 489 baris)
+        Isi globals.css                  : hampir seluruhnya definisi token
+
+        CSS akhir yang dikirim ke pengguna:
+          mentah                         : 63,6 KB
+          setelah gzip                   : 11,1 KB
+          jumlah aturan di layer utilities: 689
+        `,
+        {
+          caption: 'Diukur dengan mengompilasi globals.css memakai Tailwind 4.3.3 yang terpasang.',
+        },
+      ),
+      p(
+        'Angka yang paling layak diperhatikan bukan 11,1 KB melainkan **satu berkas CSS untuk 440 halaman**, dan isinya pun bukan style melainkan daftar token. Tidak ada `.kartu`, tidak ada `.navbar-item-active`, tidak ada `.hero-section-wrapper`. Akibat langsungnya, tidak pernah ada momen seseorang membuka berkas CSS dan bertanya "aturan ini masih dipakai atau tidak", sebab tidak ada aturan yang bisa ditanyakan.',
+      ),
+      p(
+        'Bandingkan dengan cara CSS bernama pada project sebesar ini. Setiap halaman baru menambah beberapa class, class itu menumpuk, dan setelah beberapa bulan tidak ada yang berani menghapusnya. Berkas CSS-nya tumbuh **seiring jumlah halaman**. Dengan utility, 689 aturan itu adalah seluruh kosakata yang dipakai 440 halaman, dan halaman ke-441 hampir pasti tidak menambah satu pun aturan baru karena ia memakai kosakata yang sudah ada.',
+      ),
+      table(
+        ['Pertanyaan yang muncul di project nyata', 'CSS bernama', 'Utility-first'],
+        [
+          [
+            'Class ini masih dipakai atau tidak?',
+            'Harus dicari manual ke seluruh repo, dan tetap tidak yakin',
+            'Tidak pernah muncul — style ikut terhapus bersama elemennya',
+          ],
+          [
+            'Kalau saya ubah nilai ini, apa yang ikut berubah?',
+            'Tidak diketahui sampai dicoba',
+            'Hanya elemen yang sedang kamu sunting',
+          ],
+          [
+            'Berapa besar CSS-nya tahun depan?',
+            'Lebih besar, hampir pasti',
+            'Kurang lebih sama, karena kosakatanya terbatas',
+          ],
+          [
+            'Bagaimana menjaga spacing tetap konsisten?',
+            'Butuh disiplin setiap orang, setiap kali',
+            'Skalanya yang menghalangi — `p-13` tidak ada',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir itu yang paling sering diremehkan. Konsistensi yang bergantung pada disiplin manusia akan bocor, dan bocornya pelan sehingga tidak terasa sampai desainnya sudah berantakan. Konsistensi yang ditegakkan oleh bentuk alatnya tidak butuh siapa pun mengingatnya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan paling membingungkan di Tailwind versi 4 justru **bukan error**. Tidak ada pesan merah, buildnya sukses, tapi utility yang kamu tulis tidak berpengaruh sama sekali. Penyebabnya hampir selalu satu, yaitu CSS lama yang ditulis di luar cascade layer mana pun.',
+      ),
+      code(
+        'text',
+        `
+        /* lama.css — warisan dari sebelum Tailwind masuk, DI LUAR layer mana pun */
+        .kartu { padding: 8px; }
+
+        /* versi yang sama, tapi ditaruh di dalam layer */
+        @layer components {
+          .kartu-berlapis { padding: 8px; }
+        }
+
+        <div class="kartu p-6">satu</div>
+        <div class="kartu-berlapis p-6">dua</div>
+
+        Diukur di Chrome 151:
+          .kartu          + p-6  ->  padding = 8px    <-- p-6 KALAH, diam-diam
+          .kartu-berlapis + p-6  ->  padding = 24px   <-- p-6 menang
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan: Tailwind 4.3.3 dikompilasi, lalu dibaca lewat getComputedStyle di Chrome 151.',
+        },
+      ),
+      p(
+        'Perbedaan keduanya sama sekali bukan specificity, sebab `.kartu` dan `.p-6` sama-sama satu class. Yang menentukan adalah **cascade layer**. Tailwind versi 4 menaruh seluruh utility-nya di dalam `@layer utilities`, dan aturan CSS lama yang tidak berada di layer mana pun secara aturan CSS resmi **selalu mengalahkan aturan yang berlayer**, berapa pun specificity-nya. Jadi satu berkas CSS warisan bisa membuat semua utility-mu tampak tidak berfungsi.',
+      ),
+      p(
+        'Ini juga alasan kenapa naluri pertama banyak orang, yaitu menambahkan `!important`, justru menyesatkan. Masalahnya bukan kekuatan aturan melainkan urutan layer, dan `!important` di sisi utility hanya menutupi gejalanya sampai suatu hari ada `!important` kedua di sisi lawan.',
+      ),
+      code(
+        'text',
+        `
+        Perbaikannya satu baris, bukan !important:
+
+        /* lama.css */
+        @layer components {
+          .kartu { padding: 8px; }
+        }
+
+        Sekarang .kartu berada di layer yang lebih rendah daripada utilities,
+        jadi p-6 kembali menang dan hasilnya 24px.
+        `,
+      ),
+      callout(
+        'warning',
+        'Kalau utility-mu "tidak berfungsi", periksa layer sebelum yang lain',
+        'Buka DevTools, klik elemennya, dan lihat panel Styles. Chrome menampilkan nama layer di sebelah setiap aturan. Aturan tanpa keterangan layer adalah aturan tak berlayer, dan ia mengalahkan seluruh utility Tailwind tanpa terkecuali. Ini penyebab nomor satu keluhan "Tailwind saya rusak" pada project yang bermigrasi dari CSS lama.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Sebagian besar kesalahan di tahap ini bukan soal salah mengetik nama utility, melainkan soal membawa kebiasaan CSS bernama ke dalam pendekatan yang cara kerjanya berbeda.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membuat `.kartu` sendiri agar markup lebih pendek',
+            'Markup jadi bersih seperti dulu',
+            'Kembali membawa keempat masalah CSS bernama, dan aturannya bisa mengalahkan utility bila tidak berlayer',
+          ],
+          [
+            'Menambah `!important` ketika utility tampak tidak berfungsi',
+            'Ia biasanya menyelesaikan konflik CSS',
+            'Diuji sungguhan, penyebabnya adalah cascade layer. `!important` menutupi gejala dan memulai perang yang tidak ada pemenangnya',
+          ],
+          [
+            'Menyamakan utility dengan style inline',
+            'Sama-sama menempel di elemen',
+            'Style inline tidak bisa `hover:`, tidak bisa media query, dan menerima nilai bebas apa pun',
+          ],
+          [
+            'Khawatir HTML jadi besar karena class berulang',
+            'Terlihat banyak sekali',
+            'Class yang berulang justru sangat mudah dikompresi. Yang berhenti tumbuh adalah CSS-nya, dan itu bagian yang lebih mahal',
+          ],
+          [
+            'Memakai Tailwind untuk belajar CSS',
+            'Sekalian dua-duanya',
+            'Utility menyembunyikan nama properti aslinya. Pahami dulu `display`, `flex`, dan `position`, baru pakai singkatannya',
+          ],
+          [
+            'Memakainya pada halaman statis tanpa build step',
+            'Tinggal pasang saja',
+            'Tailwind perlu memindai kode untuk tahu class mana yang dipakai. Tanpa build, tidak ada yang memindai',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama layak diperjelas karena ia bukan larangan mutlak. Mengekstrak sesuatu memang perlu ketika sebuah pola berulang di banyak tempat, tapi bentuk ekstraksinya adalah **komponen**, bukan class CSS baru. Satu komponen `<Kartu>` menyimpan deretan utility-nya di satu tempat, tetap terhapus otomatis ketika komponennya dihapus, dan tetap tidak bisa merusak apa pun di luar dirinya.',
+      ),
       divider,
       h2('Rangkuman'),
       ul(
@@ -206,7 +359,7 @@ export const lessons: LessonDraft[] = [
   written(
     'instalasi-v4',
     'Instalasi Tailwind v4 (CSS-first)',
-    9,
+    17,
     'Setup versi 4 yang berbeda jauh dari v3 — dan kenapa perubahannya masuk akal.',
     [
       terms(
@@ -339,6 +492,170 @@ export const lessons: LessonDraft[] = [
         'Penyebabnya disebut di kotak peringatan dan layak diulang karena tidak terduga, yaitu **Tailwind memindai teks berkas sumbermu, ia tidak menjalankan kodemu.** Jadi ia mencari kemunculan `bg-red-500` sebagai rangkaian karakter utuh. Pada versi SALAH, yang ada di berkas hanyalah `bg-` dan `-500` yang dipisah interpolasi, sehingga string `bg-red-500` tidak pernah muncul. Akibatnya class itu tidak pernah dihasilkan dan elemennya tampil tanpa warna sama sekali. Versi BENAR membalik arahnya dengan menulis **seluruh nama class secara lengkap** di objek `KELAS`, sehingga pemindai menemukannya dan yang dinamis tinggal pemilihan kuncinya saat program berjalan. Pola yang sama berlaku untuk semua utility dan bukan hanya warna, sebab `text-${ukuran}` dan `grid-cols-${n}` gagal karena alasan yang persis sama.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Kasus pemasangan yang paling sering ditemui di dunia kerja bukan project baru, melainkan project lama versi 3 yang harus dinaikkan ke versi 4. Bayangkan sebuah dashboard internal dengan 60 komponen yang sudah jalan dua tahun. Perintah `npm install tailwindcss@4` berhasil, buildnya sukses, tidak ada satu pun pesan error, lalu halamannya dibuka dan tampilannya rusak setengah.',
+      ),
+      p(
+        'Yang membuat kasus ini pantas dipelajari adalah **kegagalannya senyap**. Tombolnya masih memakai `flex` dan tetap sejajar, tapi jarak antarnya hilang. Kartunya masih sejajar, tapi tidak lagi punya sudut membulat. Teksnya semua jadi seukuran. Pola yang tampak acak itu sebenarnya punya satu aturan yang sangat rapi, dan begitu aturannya terlihat, penyebabnya langsung jelas.',
+      ),
+      code(
+        'text',
+        `
+        Berkas CSS-nya masih memakai sintaks versi 3:
+
+          @tailwind base;
+          @tailwind components;
+          @tailwind utilities;
+
+        Diukur dengan Tailwind 4.3.3 yang terpasang di project ini:
+
+          keluaran CSS               : 20.086 byte
+          box-sizing (preflight)     : TIDAK ADA
+          -webkit-text-size-adjust   : TIDAK ADA
+          .flex                      : ADA
+          .grid                      : ADA
+          .items-center              : ADA
+          .p-4                       : TIDAK ADA
+          .gap-4                     : TIDAK ADA
+          .text-sm                   : TIDAK ADA
+          .rounded-lg                : TIDAK ADA
+          --spacing                  : TIDAK ADA
+
+        Berkas yang sama, diganti satu baris menjadi @import 'tailwindcss':
+
+          keluaran CSS               : 51.240 byte
+          semua yang di atas         : ADA
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan lewat @tailwindcss/postcss 4.3.3. Buildnya sukses pada kedua kasus.',
+        },
+      ),
+      p(
+        'Aturannya sekarang terbaca. Utility yang **tidak butuh nilai dari tema** tetap dihasilkan, sebab `display: flex` tidak perlu membaca apa pun. Utility yang **membaca nilai dari tema** hilang seluruhnya, sebab tanpa `@import "tailwindcss"` tidak ada tema yang dimuat, jadi `--spacing` tidak pernah ada dan `p-4` yang isinya `calc(var(--spacing) * 4)` tidak bisa dibentuk. Preflight juga bagian dari yang diimpor, jadi ia ikut hilang.',
+      ),
+      p(
+        'Pelajarannya melampaui Tailwind. Ketika sebuah upgrade menghasilkan kerusakan yang tampak acak, carilah **satu aturan yang menjelaskan pola acak itu**, jangan memperbaiki gejalanya satu per satu. Di kasus ini, memperbaiki satu baris `@import` menyelesaikan enam puluh komponen sekaligus.',
+      ),
+      code(
+        'ts',
+        `
+        // Urutan langkah upgrade yang paling sedikit menimbulkan kejutan.
+        //
+        // 1. Ganti pintu masuk CSS-nya lebih dulu, sebelum menyentuh apa pun yang lain,
+        //    karena tanpa langkah ini semua pengujian berikutnya membaca hasil yang salah.
+        //
+        //    - @tailwind base;        }
+        //    - @tailwind components;  }  ketiganya dihapus
+        //    - @tailwind utilities;   }
+        //    + @import 'tailwindcss';
+        //
+        // 2. Ganti plugin PostCSS-nya. Di versi 4 paketnya terpisah.
+        //
+        //    postcss.config.mjs
+        //    - plugins: { tailwindcss: {}, autoprefixer: {} }
+        //    + plugins: { '@tailwindcss/postcss': {} }
+        //
+        //    autoprefixer tidak lagi diperlukan sebab Lightning CSS sudah menanganinya.
+        //
+        // 3. Baru setelah dua langkah di atas, jalankan build dan catat apa yang masih rusak.
+        //    Yang tersisa biasanya perubahan nama utility antar-major, bukan kegagalan setup.
+        `,
+        { caption: 'Dua langkah pertama harus selesai sebelum menilai apa pun.' },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Pemasangan Tailwind versi 4 punya satu sifat yang perlu diketahui sejak awal, yaitu ia **jauh lebih sering gagal diam-diam daripada berteriak**. Dua contoh di bawah dijalankan sungguhan, dan yang pertama tidak menghasilkan pesan apa pun.',
+      ),
+      code(
+        'text',
+        `
+        @import 'tailwindcss' source(none);
+        @source "./folder-yang-tidak-ada";
+
+        Hasilnya:
+          === OK ===
+          /*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+          ...
+
+        Tidak ada error. Tidak ada peringatan. Folder yang salah tulis
+        diabaikan begitu saja, dan seluruh class di dalamnya tidak pernah dihasilkan.
+        `,
+        { caption: 'Dijalankan sungguhan dengan Tailwind 4.3.3.' },
+      ),
+      p(
+        'Perilaku ini masuk akal dari sisi alatnya, sebab sebuah folder yang belum ada hari ini bisa saja ada besok. Tapi bagi orang yang memasangnya, akibatnya adalah gejala "class saya tidak jalan" tanpa satu pun petunjuk. Cara memastikannya bukan dengan membaca ulang konfigurasi melainkan dengan **memeriksa keluarannya**, misalnya mencari satu nama class yang kamu yakin dipakai di dalam berkas CSS hasil build.',
+      ),
+      code(
+        'text',
+        `
+        @import 'tailwindcss' source(none);
+        @config "./tailwind.config.js";
+
+        CssSyntaxError: tailwindcss: /home/.../_twtest/w2.css:1:1:
+        Can't resolve './tailwind.config.js' in '/home/.../_twtest'
+
+        > 1 | @import "tailwindcss" source(none);
+            | ^
+          2 | @config "./tailwind.config.js";
+        `,
+        {
+          caption: 'Dijalankan sungguhan. @config yang menunjuk berkas tidak ada memang berteriak.',
+        },
+      ),
+      p(
+        'Bandingkan keduanya. `@source` yang salah diam, `@config` yang salah berteriak. Bedanya karena `@config` adalah janji eksplisit bahwa sebuah berkas konfigurasi ada dan harus dibaca, sedangkan `@source` hanya menambah tempat yang layak dipindai. Kalau kamu memang masih memakai `tailwind.config.js` warisan versi 3, `@config` justru sahabatmu, sebab kesalahan jalur akan langsung terlihat.',
+      ),
+      callout(
+        'tip',
+        'Satu perintah untuk memastikan pemasangan benar-benar hidup',
+        'Setelah setup, tulis satu elemen dengan class yang mustahil dipakai kebetulan, misalnya `bg-fuchsia-700`, buka halamannya, lalu periksa apakah warnanya muncul. Kalau muncul, rantai pemindaian sampai penulisan CSS sudah utuh. Cara ini menguji seluruh jalur sekaligus, jauh lebih cepat daripada membaca ulang konfigurasi baris demi baris.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Hampir semua kesalahan pemasangan berasal dari tutorial atau jawaban forum yang ditulis untuk versi 3, dan tulisan seperti itu masih jauh lebih banyak di internet daripada tulisan versi 4.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyalin `@tailwind base/components/utilities` dari tutorial',
+            'Itu yang tertulis di hampir semua panduan',
+            'Diuji sungguhan, buildnya sukses tapi preflight dan seluruh utility bertema hilang. Pakai `@import` satu baris',
+          ],
+          [
+            'Menjalankan `npx tailwindcss init` lalu bingung berkasnya tidak terpakai',
+            'Itu langkah wajib di versi 3',
+            'Versi 4 tidak butuh berkas konfigurasi. Kalau memang ada yang mau dipakai, tunjuk dengan `@config`',
+          ],
+          [
+            'Memasang `autoprefixer` sekalian',
+            'Selalu berpasangan di versi 3',
+            'Lightning CSS di dalam versi 4 sudah menambahkan prefix sendiri. Menambahnya hanya memperlambat build',
+          ],
+          [
+            'Memakai plugin PostCSS bernama `tailwindcss`',
+            'Nama paketnya memang itu',
+            'Di versi 4 plugin PostCSS-nya paket terpisah, `@tailwindcss/postcss`. Nama lama tidak lagi berfungsi sebagai plugin',
+          ],
+          [
+            'Menambah `@source` untuk setiap folder agar aman',
+            'Lebih banyak lebih pasti',
+            'Pendeteksian isi sudah otomatis. Diuji sungguhan, jalur yang salah tulis diabaikan tanpa peringatan, jadi tambahan itu bisa menyesatkan',
+          ],
+          [
+            'Menyimpulkan setup gagal karena satu class tidak jalan',
+            'Gejalanya memang begitu',
+            'Periksa dulu apakah nama classnya dirangkai dari variabel. Pemindai membaca teks, bukan menjalankan kode',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir adalah jebakan yang akan kembali muncul di beberapa sub-bab berikutnya, dan pantas diingat sekarang. Pemindaian Tailwind bekerja pada **teks berkas sumbermu**, bukan pada hasil jalannya program. Apa pun yang nama classnya baru terbentuk saat kode berjalan tidak akan pernah terlihat olehnya, dan itu bukan kerusakan pemasangan.',
+      ),
       divider,
       h2('Rangkuman'),
       ul(
@@ -379,7 +696,7 @@ export const lessons: LessonDraft[] = [
   written(
     'spacing-warna-tipografi',
     'Sistem Spacing, Warna & Tipografi',
-    11,
+    18,
     'Skala bawaan, cara membacanya, dan kenapa memakai skala mengalahkan angka bebas.',
     [
       terms(
@@ -527,6 +844,161 @@ export const lessons: LessonDraft[] = [
         'Plugin `prettier-plugin-tailwindcss` mengurutkan class secara otomatis dan konsisten. Project ini memakainya — jadi urutannya tidak pernah jadi bahan perdebatan.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Situasi yang hampir pasti kamu temui, desainer mengirim rancangan dari Figma, dan angkanya tidak jatuh di skala. Padding kartunya 18px, jarak antarbaris 13px, dan ukuran huruf judulnya 22px. Skala Tailwind tidak punya satu pun dari ketiganya. Pertanyaannya bukan "bagaimana memaksakan angka ini" melainkan **angka mana yang benar-benar penting**.',
+      ),
+      p(
+        'Untuk menjawabnya, ada baiknya tahu dulu bagaimana skala spacing itu sebenarnya dibentuk. Ia bukan tabel berisi puluhan nilai, melainkan satu variabel dan satu perkalian.',
+      ),
+      code(
+        'text',
+        `
+        Isi sebenarnya dari CSS yang dihasilkan Tailwind 4.3.3:
+
+          :root {
+            --spacing: 0.25rem;
+          }
+          .p-4 {
+            padding: calc(var(--spacing) * 4);
+          }
+          .gap-4 {
+            gap: calc(var(--spacing) * 4);
+          }
+
+        Jadi p-4 = 0.25rem x 4 = 1rem = 16px pada ukuran huruf akar bawaan.
+        Dan angka di belakang nama utility adalah pengalinya, bukan pikselnya.
+        `,
+        { caption: 'Dibaca langsung dari keluaran @tailwindcss/postcss 4.3.3.' },
+      ),
+      p(
+        'Karena bentuknya perkalian, angka apa pun bisa dipakai tanpa perlu terdaftar, termasuk `p-4.5` yang menghasilkan 18px. Jadi angka 18px dari desainer sebenarnya bukan masalah. Yang layak dipertanyakan adalah apakah 18px itu keputusan atau kebetulan, dan pertanyaan itu hanya bisa dijawab desainernya.',
+      ),
+      table(
+        ['Angka dari rancangan', 'Pertanyaan yang tepat', 'Keputusan yang biasanya benar'],
+        [
+          [
+            'Padding 18px, sekali muncul',
+            'Apakah 16px terasa berbeda?',
+            'Pakai `p-4`. Selisih 2px tidak dilihat siapa pun, dan konsistensi lebih berharga',
+          ],
+          [
+            'Padding 18px, muncul di semua kartu',
+            'Apakah ini memang ritme desainnya?',
+            'Pakai `p-4.5`, atau lebih baik ubah `--spacing` supaya seluruh skalanya ikut',
+          ],
+          [
+            'Judul 22px',
+            'Apakah ia bagian dari tangga tipografi?',
+            'Daftarkan sebagai token `--text-judul`, jangan tulis `text-[22px]` berulang kali',
+          ],
+          [
+            'Lebar sidebar 268px',
+            'Apakah angkanya bermakna atau hasil menggeser?',
+            'Nilai sembarang `w-[268px]` justru pas di sini — ia memang satu tempat, bukan ritme',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir penting supaya nilai sembarang tidak dianggap dosa. Ia dosa ketika dipakai untuk sesuatu yang **berulang**, sebab di situ ia menghancurkan sistem. Untuk satu ukuran yang memang hanya ada di satu tempat, menulis `w-[268px]` jauh lebih jujur daripada memaksakan `w-64` lalu tampilannya meleset.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Bagian nilai sembarang punya sifat yang perlu diketahui sebelum dipakai, yaitu **Tailwind tidak memvalidasi isinya sama sekali**. Apa pun yang kamu tulis di dalam kurung siku diteruskan apa adanya ke CSS, dan penilaian benar-salahnya diserahkan sepenuhnya ke peramban.',
+      ),
+      code(
+        'text',
+        `
+        <div class="bg-[#gggggg] w-[10qq] p-4">nilai tak valid</div>
+
+        CSS yang dihasilkan Tailwind 4.3.3 — buildnya SUKSES, tanpa peringatan:
+
+          .w-\\[10qq\\]        { width: 10qq; }
+          .bg-\\[\\#gggggg\\]   { background-color: #gggggg; }
+
+        Yang dibaca Chrome 151 lewat getComputedStyle:
+
+          background-color = rgba(0, 0, 0, 0)   <-- dibuang, elemennya transparan
+          width            = 1024px             <-- dibuang, kembali ke auto
+          padding          = 16px               <-- p-4 valid, tetap jalan
+        `,
+        { caption: 'Dijalankan sungguhan: dikompilasi Tailwind 4.3.3, lalu diukur di Chrome 151.' },
+      ),
+      p(
+        'Jadi ada dua lapis yang sama-sama diam. Tailwind diam karena ia memang tidak menilai isi kurung siku, dan peramban diam karena membuang deklarasi yang tidak bisa diurai adalah perilaku CSS yang benar sejak dulu. Hasilnya, satu huruf salah ketik menghasilkan elemen transparan tanpa satu pun petunjuk di terminal.',
+      ),
+      p('Ada satu jebakan lagi di nilai sembarang yang lebih halus, yaitu spasi.'),
+      code(
+        'text',
+        `
+        <div class="w-[calc(100% - 2rem)]"></div>   <-- spasi asli di dalam kurung
+        <div class="w-[calc(100%-2rem)]"></div>
+        <div class="w-[calc(100%_-_2rem)]"></div>
+
+        Utility yang benar-benar dihasilkan:
+
+          .w-\\[calc\\(100\\%-2rem\\)\\]     { width: calc(100% - 2rem); }
+          .w-\\[calc\\(100\\%_-_2rem\\)\\]   { width: calc(100% - 2rem); }
+
+        Yang pertama TIDAK dihasilkan sama sekali.
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Tailwind 4.3.3 menyisipkan sendiri spasi di sekitar tanda minus.',
+        },
+      ),
+      p(
+        'Alasannya sederhana begitu diingat bahwa atribut `class` memisahkan nama class dengan spasi. Begitu ada spasi asli di dalam kurung siku, pemindai membaca `w-[calc(100%` sebagai satu class dan `2rem)]` sebagai class lain, dan tidak satu pun dari keduanya berarti apa-apa. Pakai garis bawah bila memang butuh spasi, dan Tailwind akan menerjemahkannya kembali.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan di bagian ini jarang membuat halaman rusak total. Ia membuat halaman **pelan-pelan tidak konsisten**, dan itu jenis kerusakan yang baru terasa setelah beberapa bulan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Mengira `p-4` berarti 4px',
+            'Angkanya kan 4',
+            'Angkanya pengali `--spacing`. Diuji sungguhan, `p-4` menghasilkan `calc(0.25rem * 4)` alias 16px',
+          ],
+          [
+            'Memakai `text-[15px]` di banyak tempat',
+            'Ukurannya memang pas',
+            'Tangga tipografi jadi punya anak tangga tak resmi yang tidak ikut berubah saat tema diubah. Daftarkan sebagai token',
+          ],
+          [
+            'Menulis nilai sembarang lalu tidak memeriksanya di peramban',
+            'Buildnya sukses',
+            'Diuji sungguhan, isi kurung siku tidak divalidasi siapa pun. `bg-[#gggggg]` menghasilkan elemen transparan tanpa error',
+          ],
+          [
+            'Menulis spasi di dalam kurung siku',
+            'Begitulah CSS ditulis',
+            'Diuji sungguhan, classnya terpecah di spasi dan tidak dihasilkan sama sekali. Pakai garis bawah',
+          ],
+          [
+            'Memakai `text-gray-400` untuk teks pendukung',
+            'Terlihat lembut dan rapi',
+            'Diukur, kontrasnya 2,60:1 di atas putih. Minimum WCAG untuk teks biasa 4,5:1, dan `text-gray-500` sudah 4,84:1',
+          ],
+          [
+            'Mengubah satu nilai spacing langsung di komponen',
+            'Cuma satu tempat ini',
+            'Ia jadi pengecualian yang tidak terdokumentasi. Kalau memang perlu berbeda, jadikan token agar niatnya terbaca',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima adalah kesalahan yang paling sering lolos review, sebab hasilnya memang terlihat enak dipandang oleh mata yang sehat di layar yang bagus. Angkanya sudah diukur langsung dari palet bawaan Tailwind 4.3.3, dan tiga tingkat abu yang berdekatan memberi hasil yang sangat berbeda: `text-gray-400` 2,60:1, `text-gray-500` 4,84:1, dan `text-gray-600` 7,56:1. Naik satu tingkat saja sudah memindahkan teksmu dari gagal ke lolos.',
+      ),
+      callout(
+        'tip',
+        'Cara membaca skala tanpa menghafalnya',
+        'Untuk spacing, kalikan angkanya dengan 4 untuk mendapat piksel. `p-2` jadi 8px, `p-6` jadi 24px, `p-12` jadi 48px. Untuk warna, angka kecil berarti terang dan angka besar berarti gelap, sehingga `bg-red-50` adalah latar lembut dan `text-red-900` adalah teks pekat. Dua aturan itu sudah menutup sebagian besar kebutuhan sehari-hari.',
+      ),
       divider,
       h2('Rangkuman'),
       ul(
@@ -568,7 +1040,7 @@ export const lessons: LessonDraft[] = [
   written(
     'flexbox-grid',
     'Layout dengan Flexbox & Grid',
-    13,
+    22,
     'Dua sistem layout, kapan memilih yang mana, dan pola yang paling sering dipakai.',
     [
       terms(
@@ -753,6 +1225,156 @@ export const lessons: LessonDraft[] = [
         ],
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Ambil satu susunan yang muncul di hampir semua aplikasi, yaitu baris daftar berkas. Sebelah kiri ada ikon, tengahnya nama berkas beserta keterangan kecil, dan kanannya tombol aksi. Bentuknya sepele, dan justru baris seperti inilah yang paling sering rusak di produksi, sebab nama berkas yang dipakai saat mengembangkan selalu pendek sedangkan nama berkas milik pengguna tidak.',
+      ),
+      code(
+        'tsx',
+        `
+        // Susunan yang terlihat benar, dan memang berfungsi sampai namanya panjang.
+        function BarisBerkas({ nama, keterangan }: { nama: string; keterangan: string }) {
+          return (
+            <div className="flex w-64 items-center gap-2 border">
+              <IkonBerkas className="size-5 shrink-0" />
+              <div className="flex-1">
+                <p className="truncate font-medium">{nama}</p>
+                <p className="truncate text-sm">{keterangan}</p>
+              </div>
+              <button className="shrink-0 border px-2">Hapus</button>
+            </div>
+          );
+        }
+        `,
+        { caption: 'Tiga bagian, dua di antaranya shrink-0, tengahnya flex-1. Terlihat lengkap.' },
+      ),
+      p(
+        'Susunan itu sudah memakai `truncate` pada kedua teksnya, dan `shrink-0` pada ikon serta tombolnya. Semua yang biasanya disebut di tutorial sudah ada. Berikut hasil pengukurannya ketika nama berkasnya panjang.',
+      ),
+      code(
+        'text',
+        `
+        Nama berkas yang diuji:
+          laporan-keuangan-kuartal-ketiga-2026-final-revisi.pdf
+
+        Diukur di Chrome 151, wadah w-64 = 256px:
+
+          TANPA min-w-0
+            lebar kolom teks        : 400,66px      <-- lebih lebar dari wadahnya
+            min-width yang dihitung : auto
+            isi baris melebar ke    : 475px
+            tepi kanan tombol Hapus : 476px         <-- 220px di luar wadah
+
+          DENGAN min-w-0
+            lebar kolom teks        : 179,77px
+            min-width yang dihitung : 0px
+            isi baris melebar ke    : 254px         <-- muat
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan: Tailwind 4.3.3 dikompilasi, geometri dibaca lewat getBoundingClientRect di Chrome 151.',
+        },
+      ),
+      p(
+        'Penyebabnya satu aturan CSS yang jarang disebut. Sebuah flex item punya `min-width: auto` secara bawaan, dan `auto` di situ berarti **tidak boleh lebih kecil daripada isi terkecilnya**. Isi terkecil dari kolom tengah itu adalah kata terpanjang di dalamnya, dan nama berkas tanpa spasi seluruhnya adalah satu kata. Jadi kolom itu menolak menyempit, `flex-1` tidak bisa menahannya, dan tombolnya terdorong keluar.',
+      ),
+      p(
+        '`truncate` tidak menyelamatkannya karena `truncate` menempel pada `<p>`, sedangkan yang menolak menyempit adalah `<div>` pembungkusnya. Aturan `min-width: auto` menjadi nol hanya pada elemen yang **dirinya sendiri** punya `overflow` selain `visible`, dan pembungkus itu tidak punya. Karena itu `min-w-0` harus dipasang pada flex item, bukan pada teksnya.',
+      ),
+      callout(
+        'tip',
+        'Aturan yang cukup diingat satu kali',
+        'Setiap kali sebuah flex item berisi teks yang bisa panjang, pasang `min-w-0` padanya. Kalau item itu adalah pembungkus, `min-w-0` di pembungkus dan `truncate` di teksnya, dua-duanya diperlukan. Gejala yang harus memicu ingatan ini adalah tombol atau ikon yang terdorong keluar dari kotaknya ketika datanya panjang.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Layout tidak pernah melempar error. Ia hanya menghasilkan tampilan yang salah, dan itu membuatnya lebih sulit ditelusuri daripada kode yang gagal berjalan. Kegagalan senyap kedua yang paling sering muncul adalah `space-x-*` yang bertemu `flex-wrap`.',
+      ),
+      code(
+        'text',
+        `
+        Empat item selebar w-24 di dalam wadah w-64, dengan flex-wrap:
+
+          <div class="flex w-64 flex-wrap space-x-4">...</div>
+          <div class="flex w-64 flex-wrap gap-4">...</div>
+
+        Diukur di Chrome 151:
+
+          space-x-4 + flex-wrap
+            tinggi wadah         : 54px
+            jarak antar baris    : 2,00px      <-- hanya setebal border
+            margin item ke-2     : 0px / 16px
+            margin item terakhir : 0px
+
+          gap-4 + flex-wrap
+            tinggi wadah         : 70px
+            jarak antar baris    : 18,00px     <-- sesuai harapan
+        `,
+        { caption: 'Dijalankan sungguhan dan diukur di Chrome 151.' },
+      ),
+      p(
+        'Sebabnya terlihat begitu CSS yang dihasilkannya dibaca. `space-x-4` bukan properti jarak, melainkan margin yang dipasang ke saudara-saudara tertentu.',
+      ),
+      code(
+        'text',
+        `
+        Keluaran Tailwind 4.3.3 untuk space-x-4:
+
+          :where(.space-x-4 > :not(:last-child)) {
+            margin-inline-end: calc(calc(var(--spacing) * 4) * calc(1 - var(--tw-space-x-reverse)));
+          }
+        `,
+      ),
+      p(
+        'Tiga akibat langsung yang perlu diketahui. Pertama, ia hanya mengatur jarak **horizontal**, jadi baris yang membungkus ke bawah tidak mendapat jarak sama sekali. Kedua, `:not(:last-child)` menghitung urutan di DOM, bukan posisi visual, sehingga item terakhir di setiap baris tampak tetap punya margin di kanannya. Ketiga, `:where()` membuat specificity aturan itu nol, sehingga `mr-*` atau `ml-*` milik anaknya sendiri akan mengalahkannya tanpa perlu apa pun.',
+      ),
+      p(
+        'Kesimpulan praktisnya, pakai `gap` untuk hampir semua kebutuhan jarak di flex dan grid. `space-x-*` masih berguna pada satu kasus yang cukup sempit, yaitu ketika kamu butuh jarak antaranak tapi wadahnya bukan flex maupun grid, misalnya deretan elemen inline biasa.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan layout di Tailwind hampir selalu kesalahan CSS yang dibawa masuk, bukan kesalahan utility. Nama utility-nya benar, aturan CSS di belakangnya yang belum dipahami.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `truncate` tanpa `min-w-0` di flex',
+            '`truncate` memang untuk memotong teks',
+            'Diukur, kolomnya membengkak jadi 400,66px di wadah 256px dan tombolnya terdorong 220px ke luar. `min-w-0` wajib di flex item-nya',
+          ],
+          [
+            'Memakai `space-x-*` bersama `flex-wrap`',
+            'Keduanya soal jarak dan pembungkusan',
+            'Diukur, jarak antarbaris jadi 2px. `space-x-*` adalah margin horizontal, bukan jarak dua arah. Pakai `gap`',
+          ],
+          [
+            'Memakai grid untuk semua susunan',
+            'Ia lebih modern dan lebih kuat',
+            'Untuk satu baris berisi beberapa item, flex lebih pendek dan lebih terbaca. Grid unggul saat ada dua sumbu',
+          ],
+          [
+            'Menganggap `flex-1` menjamin item tidak melebar',
+            'Namanya kan mengisi ruang',
+            '`flex-1` mengatur pembagian ruang, sedangkan batas minimalnya diatur `min-width`. Keduanya urusan berbeda',
+          ],
+          [
+            'Memakai `w-full` pada flex item, bukan `flex-1`',
+            'Sama-sama mengisi',
+            '`w-full` bernilai 100% dari induknya sehingga saudara-saudaranya terdesak. `flex-1` membagi ruang yang tersisa',
+          ],
+          [
+            'Menyusun grid responsif dengan tumpukan breakpoint',
+            'Itu cara yang diajarkan',
+            '`grid-cols-[repeat(auto-fit,minmax(16rem,1fr))]` menyesuaikan diri tanpa satu pun breakpoint, dan tidak salah ketika wadahnya sempit di layar lebar',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir mengandung sesuatu yang halus dan layak diperjelas. Breakpoint mengukur **lebar jendela**, bukan lebar wadah tempat gridmu berada. Kalau grid itu diletakkan di dalam sidebar sempit pada layar 1440px, `lg:grid-cols-3` akan tetap memecahnya menjadi tiga kolom sempit, sebab jendelanya memang lebar. Pola `auto-fit` mengukur ruang yang sebenarnya tersedia, jadi ia benar di kedua situasi.',
+      ),
       divider,
       h2('Rangkuman'),
       ul(
@@ -800,7 +1422,7 @@ export const lessons: LessonDraft[] = [
   written(
     'responsif',
     'Responsif: breakpoint & mobile-first',
-    11,
+    18,
     'Menulis dari layar kecil ke besar — dan kenapa arah itu penting.',
     [
       terms(
@@ -945,6 +1567,171 @@ export const lessons: LessonDraft[] = [
         '**Hover bukan satu-satunya jalan** — apa pun yang muncul saat hover harus punya padanan sentuh dan keyboard.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Sebuah komponen ringkasan statistik dibuat untuk halaman utama dashboard, dan di sana ia sempurna. Beberapa minggu kemudian komponen yang sama dipakai ulang di dalam panel samping selebar 288px, dan bentuknya hancur. Kolomnya jadi tiga meski panelnya sempit, angkanya terpotong, dan labelnya menumpuk. Tidak ada yang salah tulis, dan tidak ada yang berubah pada komponennya.',
+      ),
+      code(
+        'text',
+        `
+        Komponen yang sama, wadah yang sama-sama 286px,
+        hanya lebar jendelanya yang berbeda. Diukur di Chrome 151:
+
+          <div class="w-72">                       <-- 288px
+            <div class="grid grid-cols-1 sm:grid-cols-3">...</div>
+          </div>
+
+          jendela 1400px
+            lebar wadah      : 286px
+            grid-template    : 95,33px 95,33px 95,34px   <-- tiga kolom di ruang 286px
+
+          jendela 500px
+            lebar wadah      : 286px                     <-- sama persis
+            grid-template    : 286px                     <-- satu kolom
+        `,
+        { caption: 'Dijalankan sungguhan dan diukur di Chrome 151 pada dua ukuran jendela.' },
+      ),
+      p(
+        'Inilah batas mendasar breakpoint yang perlu dipahami sebelum menyalahkan komponennya. `sm:` bertanya **"seberapa lebar jendelanya"**, bukan "seberapa lebar ruang yang saya punya". Komponen yang ditulis dengan breakpoint karena itu tidak bisa dipakai ulang di wadah berukuran berbeda, sebab ia mengambil keputusan berdasarkan informasi yang salah.',
+      ),
+      p(
+        'Container query menjawab tepat pada titik itu. Ia mengukur wadah terdekat yang menyatakan diri sebagai container, sehingga keputusannya benar di mana pun komponennya diletakkan.',
+      ),
+      compare(
+        {
+          title: 'Breakpoint — mengukur jendela',
+          lang: 'tsx',
+          code: `
+            <div className="grid grid-cols-1 sm:grid-cols-3">
+              <Statistik ... />
+            </div>
+
+            // Benar di halaman utama.
+            // Salah di panel samping selebar 288px.
+          `,
+          notes: ['Komponen jadi terikat tempatnya', 'Harus ditulis ulang untuk wadah lain'],
+        },
+        {
+          title: 'Container query — mengukur wadah',
+          lang: 'tsx',
+          code: `
+            <div className="@container">
+              <div className="@md:grid-cols-3 grid grid-cols-1">
+                <Statistik ... />
+              </div>
+            </div>
+
+            // Benar di kedua tempat, tanpa perubahan.
+          `,
+          notes: ['Komponen bisa dipakai ulang di mana saja', 'Keputusannya berdasar ruang nyata'],
+        },
+      ),
+      p(
+        'Ada satu hal yang wajib diketahui sebelum menukar `sm:` dengan `@sm:`, yaitu **angkanya berbeda jauh**. Keduanya memakai nama yang sama tapi merujuk skala yang sama sekali lain, dan menukarnya begitu saja adalah cara tercepat mendapat hasil yang membingungkan.',
+      ),
+      table(
+        ['Nama', 'Breakpoint jendela', 'Container query'],
+        [
+          ['`sm`', '40rem (640px)', '24rem (384px)'],
+          ['`md`', '48rem (768px)', '28rem (448px)'],
+          ['`lg`', '64rem (1024px)', '32rem (512px)'],
+          ['`xl`', '80rem (1280px)', '36rem (576px)'],
+        ],
+      ),
+      p(
+        'Empat baris pertama diambil langsung dari CSS yang dihasilkan Tailwind 4.3.3. Perhatikan bahwa `@sm` lebih kecil daripada `sm`, dan itu memang masuk akal, sebab sebuah wadah hampir selalu lebih sempit daripada jendela yang memuatnya.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Responsif tidak pernah gagal dengan pesan error. Ia gagal dengan tampilan yang benar di layar pengembangnya dan salah di layar orang lain. Dua pengukuran di bawah menunjukkan batas breakpoint dan akibat menulisnya dari arah yang salah.',
+      ),
+      code(
+        'text',
+        `
+        <div class="grid grid-cols-1 gap-2 p-2 md:grid-cols-3 md:gap-6 md:p-8">
+        <div class="p-8 md:p-2">tertukar</div>
+
+        Diukur di Chrome 151:
+
+          jendela 767px
+            grid-template-columns : 751px                          <-- satu kolom
+            gap                   : 8px
+            padding               : 8px
+            kotak "tertukar"      : 32px
+
+          jendela 768px
+            grid-template-columns : 218,66px 218,67px 218,67px     <-- tiga kolom
+            gap                   : 24px
+            padding               : 32px
+            kotak "tertukar"      : 8px
+        `,
+        { caption: 'Dijalankan sungguhan. Selisih satu piksel memindahkan seluruh susunan.' },
+      ),
+      p(
+        'Angka 768px itu bukan kebetulan, sebab `md:` diterjemahkan menjadi `@media (width >= 48rem)` dan 48rem sama dengan 768px. Batasnya **inklusif**, jadi 768px sudah masuk sedangkan 767px belum. Kalau ada bug yang hanya muncul di satu ukuran tablet tertentu, batas inilah yang pertama patut dicurigai.',
+      ),
+      p(
+        'Kotak bernama "tertukar" menunjukkan akibat menulis dari arah yang salah. `p-8 md:p-2` memberi padding besar di ponsel dan padding kecil di desktop, tepat kebalikan dari yang hampir selalu diinginkan. Tidak ada error, dan di layar pengembang yang lebar hasilnya bahkan terlihat wajar, sebab yang aktif di sana adalah `md:p-2`.',
+      ),
+      code(
+        'text',
+        `
+        Yang perlu diingat tentang arah:
+
+          class tanpa awalan   -> berlaku di SEMUA ukuran, termasuk yang besar
+          md:                  -> berlaku dari 768px KE ATAS, tidak pernah ke bawah
+
+        Jadi p-2 md:p-8 berarti "padding 8, kecuali di layar lebar jadi 32".
+        Dan p-8 md:p-2 berarti "padding 32, kecuali di layar lebar jadi 8".
+
+        Tidak ada max-md: dalam pola mobile-first, dan itu bukan kekurangan —
+        kebutuhan akan max-* hampir selalu tanda arahnya terbalik.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Semua kesalahan di bawah punya satu akar yang sama, yaitu menguji di layar sendiri dan menyimpulkan dari situ.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis desktop dulu lalu memperkecil dengan breakpoint',
+            'Rancangan desktop biasanya datang lebih dulu',
+            'Butuh `max-*` di mana-mana, dan bawaan halaman jadi versi paling berat. Mulai dari layar kecil',
+          ],
+          [
+            'Mengira `md:` berlaku hanya di ukuran tablet',
+            'Namanya medium',
+            '`md:` berlaku dari 768px ke atas tanpa batas, jadi ia juga aktif di layar 4K',
+          ],
+          [
+            'Menukar `sm:` dengan `@sm:` begitu saja',
+            'Namanya sama',
+            'Diukur, `sm` bernilai 640px sedangkan `@sm` bernilai 384px. Nilainya beda hampir dua kali',
+          ],
+          [
+            'Memakai `@sm:` tanpa `@container` di induknya',
+            'Sudah menulis variannya',
+            'Tanpa wadah yang menyatakan diri container, tidak ada yang bisa diukur dan variannya tidak pernah aktif',
+          ],
+          [
+            'Menyembunyikan menu dengan `hidden md:block`',
+            'Rapi dan singkat',
+            'Isinya tetap dikirim dan tetap ada di DOM. Untuk konten berat, ia tetap diunduh meski tak terlihat',
+          ],
+          [
+            'Menguji responsif hanya dengan mengecilkan jendela peramban',
+            'Terlihat sama saja',
+            'Jendela sempit di desktop tetap melaporkan `hover: hover` dan tidak punya papan ketik virtual maupun safe area',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir yang paling sering menyisakan bug sampai produksi. Mengecilkan jendela menguji **lebar**, dan lebar hanyalah satu dari beberapa hal yang berbeda di ponsel. Ukuran target sentuh, papan ketik yang menutupi setengah layar, tinggi viewport yang berubah saat bilah alamat menyembunyikan diri, serta ketiadaan hover semuanya tidak ikut teruji. Untuk empat hal itu, tidak ada gantinya selain membuka halamannya di ponsel sungguhan.',
+      ),
       divider,
       h2('Rangkuman'),
       ul(
@@ -986,7 +1773,7 @@ export const lessons: LessonDraft[] = [
   written(
     'variant-status',
     'Variant Status: hover, focus, group, peer',
-    12,
+    20,
     'Menangani state tanpa menulis satu baris JavaScript.',
     [
       terms(
@@ -1154,6 +1941,180 @@ export const lessons: LessonDraft[] = [
         `,
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Dua pola berikut muncul di hampir setiap aplikasi, dan keduanya biasanya dibangun dengan state React padahal tidak perlu satu baris pun JavaScript. Yang pertama adalah kartu dengan tombol aksi yang baru muncul saat kartunya disentuh kursor. Yang kedua adalah formulir yang menampilkan pesan kesalahan di bawah kolomnya begitu isinya tidak valid.',
+      ),
+      code(
+        'tsx',
+        `
+        // Pola 1 — aksi yang muncul saat kartu dihampiri kursor.
+        // Tanpa useState, tanpa onMouseEnter, tanpa re-render.
+        function KartuCatatan({ judul, isi }: { judul: string; isi: string }) {
+          return (
+            <article className="group relative rounded-lg border p-4">
+              <h3 className="font-medium">{judul}</h3>
+              <p className="text-sm">{isi}</p>
+
+              {/* Muncul saat kursor di atas .group, dan JUGA saat tombolnya
+                  mendapat fokus papan ketik — itu bagian yang sering terlewat. */}
+              <div className="absolute top-2 right-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                <button className="rounded border px-2 text-sm">Ubah</button>
+                <button className="rounded border px-2 text-sm">Hapus</button>
+              </div>
+            </article>
+          );
+        }
+        `,
+        { caption: 'group-focus-within menjaga tombolnya tetap terjangkau papan ketik.' },
+      ),
+      p(
+        'Bagian `group-focus-within:opacity-100` adalah yang membedakan pola ini dari versi yang tidak bisa dipakai. Tanpanya, tombol Ubah dan Hapus tetap ada di urutan Tab tapi tetap tidak terlihat, sehingga pengguna papan ketik memfokuskan sesuatu yang tak tampak. Dengan `group-focus-within`, kartunya menyala begitu salah satu tombol di dalamnya difokuskan.',
+      ),
+      code(
+        'tsx',
+        `
+        // Pola 2 — validasi formulir yang dibaca dari keadaan input itu sendiri.
+        // Urutan elemennya menentukan, dan itu bukan selera.
+        function KolomEmail() {
+          return (
+            <div>
+              <label htmlFor="email" className="block text-sm">Email</label>
+
+              {/* .peer harus ditulis SEBELUM elemen yang bereaksi padanya. */}
+              <input
+                id="email"
+                type="email"
+                required
+                placeholder=" "
+                className="peer w-full rounded border px-3 py-2"
+              />
+
+              {/* peer-invalid butuh input di atasnya. peer-placeholder-shown
+                  menahan pesannya sampai pengguna benar-benar mengetik sesuatu. */}
+              <p className="mt-1 hidden text-sm text-red-700 peer-invalid:block peer-placeholder-shown:hidden">
+                Formatnya belum seperti alamat email.
+              </p>
+            </div>
+          );
+        }
+        `,
+        {
+          caption:
+            'Dua varian digabung supaya pesannya tidak muncul pada kolom yang belum disentuh.',
+        },
+      ),
+      p(
+        'Kombinasi `peer-invalid:block` dengan `peer-placeholder-shown:hidden` menyelesaikan masalah yang muncul pada hampir semua validasi tanpa JavaScript, yaitu kolom yang wajib diisi otomatis dianggap tidak valid sejak halaman terbuka. Selama placeholder masih terlihat, artinya pengguna belum mengetik apa pun, dan pesannya ditahan. Perlu ditegaskan bahwa ini murni lapisan pengalaman pengguna, sedangkan validasi yang mengikat tetap harus dijalankan di server.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Varian status tidak melempar error. Ia gagal dengan cara yang jauh lebih menjebak, yaitu bekerja sempurna di komputer yang dipakai menulisnya dan tidak bekerja sama sekali di tempat lain. Dua kegagalan di bawah diukur sungguhan.',
+      ),
+      code(
+        'text',
+        `
+        CSS yang sebenarnya dihasilkan Tailwind 4.3.3 untuk group-hover:
+
+          @media (hover: hover) {
+            .group-hover\\:opacity-100:is(:where(.group):hover *) {
+              opacity: 1;
+            }
+          }
+
+        Perhatikan @media (hover: hover) yang membungkusnya.
+
+        Diukur di Chrome 151 pada perangkat yang melaporkan hover: none,
+        dengan kursor benar-benar berada di atas .group:
+
+          matchMedia("(hover: hover)")                = false
+          .group cocok dengan :hover                  = true
+          opacity dari group-hover:opacity-100        = 0        <-- tidak aktif
+          opacity dari .group:hover {opacity:1} manual = 1        <-- aktif
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Baris terakhir membuktikan penyebabnya media query, bukan keadaan hover-nya.',
+        },
+      ),
+      p(
+        'Dua baris terakhir itu yang menutup kemungkinan salah tafsir. Keadaan `:hover` benar-benar aktif, dibuktikan oleh aturan CSS tulis tangan yang berhasil berlaku. Yang membuat versi Tailwind tidak aktif adalah `@media (hover: hover)`, dan pembungkus itu memang disengaja, sebab peramban di perangkat sentuh dulu mempertahankan keadaan hover setelah disentuh sehingga menu melekat terbuka.',
+      ),
+      p(
+        'Akibat praktisnya keras dan sering diabaikan. **Apa pun yang hanya bisa dicapai lewat `hover:` tidak akan pernah bisa dicapai di ponsel dan tablet.** Tombol Hapus yang hanya muncul saat kursor mendekat berarti tombol Hapus yang tidak ada di separuh perangkat penggunamu.',
+      ),
+      code(
+        'text',
+        `
+        <span class="peer-invalid:text-red-500">Email tidak valid</span>
+        <input class="peer" type="email" value="bukan-email" />
+
+        <input class="peer" type="email" value="bukan-email" />
+        <span class="peer-invalid:text-red-500">Email tidak valid</span>
+
+        Diukur di Chrome 151:
+
+          label ditulis SEBELUM input  -> color = rgb(0, 0, 0)              <-- tidak aktif
+          label ditulis SETELAH input  -> color = oklch(0.637 0.237 25.331) <-- red-500
+
+        Sebabnya ada di selector yang dihasilkan:
+
+          .peer-invalid\\:text-red-500:is(:where(.peer):invalid ~ *)
+                                                              ^
+                            kombinator ~ hanya menjangkau saudara SESUDAHNYA
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan. Urutan DOM menentukan, dan CSS tidak punya kombinator ke arah sebaliknya.',
+        },
+      ),
+      p(
+        'Ini bukan keterbatasan Tailwind melainkan keterbatasan CSS itu sendiri. Tidak ada kombinator yang menunjuk saudara sebelumnya, jadi `peer-*` mustahil bekerja ke atas. Kalau rancangannya menuntut pesan berada di atas kolomnya, susun DOM-nya dengan input lebih dulu lalu tukar posisi visualnya memakai `flex flex-col-reverse`.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Varian status adalah bagian Tailwind yang paling terasa seperti sihir, dan itu tepat menjadi alasan kenapa perlu tahu CSS apa yang sebenarnya dihasilkannya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menaruh aksi penting hanya di balik `hover:`',
+            'Bersih, muncul saat dibutuhkan',
+            'Diukur, `hover:` dibungkus `@media (hover: hover)` sehingga tidak pernah aktif di perangkat sentuh. Aksinya hilang total di ponsel',
+          ],
+          [
+            'Memakai `focus:ring` untuk cincin fokus',
+            'Namanya paling langsung',
+            'Diukur, cincinnya juga muncul saat diklik mouse dan itu terlihat seperti cacat. `focus-visible:ring` hanya muncul saat papan ketik',
+          ],
+          [
+            'Menulis `peer` di elemen yang bereaksi',
+            'Ia yang jadi fokus perhatian',
+            '`peer` menandai **sumbernya**, bukan yang bereaksi. Yang bereaksi memakai `peer-*`',
+          ],
+          [
+            'Menaruh pesan `peer-invalid` di atas inputnya',
+            'Rancangannya begitu',
+            'Diukur, selectornya memakai `~` yang hanya menjangkau ke bawah. Susun DOM-nya terbalik lalu pakai `flex-col-reverse`',
+          ],
+          [
+            'Menghapus outline dengan `outline-none` lalu berhenti',
+            'Outline bawaan memang jelek',
+            'Fokus jadi tidak terlihat sama sekali dan halamannya tak bisa dipakai tanpa mouse. Selalu ada penggantinya',
+          ],
+          [
+            'Menumpuk `group` di beberapa tingkat',
+            'Perlu bereaksi ke dua induk',
+            'Tanpa nama, `group-hover:` menunjuk `.group` terdekat mana pun. Beri nama dengan `group/kartu` lalu pakai `group-hover/kartu:`',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama dan baris keempat sama-sama punya jalan keluar yang murah, dan keduanya layak jadi kebiasaan. Untuk aksi di kartu, tambahkan `group-focus-within:` di samping `group-hover:` dan biarkan tombolnya selalu terlihat di layar sempit dengan `md:opacity-0` sebagai gantinya. Untuk cincin fokus, biasakan menulis `focus-visible:` sebagai bawaan dan hanya turun ke `focus:` bila memang ada alasan yang bisa dijelaskan.',
+      ),
       divider,
       h2('Rangkuman'),
       ul(
@@ -1195,7 +2156,7 @@ export const lessons: LessonDraft[] = [
   written(
     'dark-mode',
     'Dark Mode',
-    10,
+    19,
     'Dua tema tanpa menggandakan style — dan kenapa dark mode bukan sekadar membalik warna.',
     [
       terms(
@@ -1356,6 +2317,209 @@ export const lessons: LessonDraft[] = [
         'Ini yang membuat scrollbar, kotak input bawaan, dan menu `<select>` ikut gelap. Tanpanya, elemen bawaan browser tetap putih dan terlihat janggal.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Dark mode dipasang di sebuah aplikasi berisi banyak formulir. Seluruh kartu, tombol, dan teksnya sudah dibalik dengan `dark:` dan hasilnya terlihat rapi. Lalu laporan masuk dari pengguna, dan bunyinya membingungkan, "kotak isian saya hitam di atas hitam". Padahal tidak ada satu pun `dark:` yang terlewat pada kotak isian itu.',
+      ),
+      p(
+        'Yang terlewat bukan utility melainkan sebuah properti CSS yang tidak punya utility, dan pengaruhnya justru pada bagian yang tidak bisa disentuh CSS biasa.',
+      ),
+      code(
+        'text',
+        `
+        <div class="bg-white text-black dark:bg-neutral-900 dark:text-white">kartu</div>
+        <input />
+
+        Diukur di Chrome 151, membaca getComputedStyle:
+
+          TANPA .dark
+            kartu  background = rgb(255, 255, 255)
+            kartu  color      = rgb(0, 0, 0)
+            input  color      = rgb(0, 0, 0)
+            input  border     = rgb(0, 0, 0)
+
+          DENGAN .dark, tanpa color-scheme
+            kartu  background = oklch(0.205 0 none)     <-- gelap, benar
+            kartu  color      = rgb(255, 255, 255)      <-- terang, benar
+            input  color      = rgb(0, 0, 0)            <-- MASIH HITAM
+            input  border     = rgb(0, 0, 0)            <-- MASIH HITAM
+
+          DENGAN .dark + color-scheme: dark
+            input  color      = rgb(255, 255, 255)      <-- ikut berubah
+            input  border     = rgb(255, 255, 255)
+        `,
+        { caption: 'Dijalankan sungguhan dan diukur di Chrome 151.' },
+      ),
+      p(
+        'Penjelasannya, teks yang diketik pengguna di dalam `<input>` diwarnai oleh peramban, bukan oleh stylesheet-mu, selama kamu tidak menyetel warnanya secara eksplisit. Cara memberi tahu peramban bahwa halamannya sedang gelap bukan lewat class melainkan lewat `color-scheme`. Properti itu juga yang menentukan warna batang penggulung, tampilan pemilih tanggal, kotak centang, dan menu `<select>` bawaan.',
+      ),
+      code(
+        'css',
+        `
+        /* globals.css — dua baris yang harus ada di project mana pun berdark mode. */
+
+        :root {
+          color-scheme: light;
+        }
+
+        .dark {
+          color-scheme: dark;
+        }
+
+        /* Tanpa keduanya, seluruh kontrol bawaan peramban tetap bermode terang
+           meski setiap elemen milikmu sendiri sudah gelap. Ini juga alasan
+           website ini menuliskannya di globals.css, bukan di komponen. */
+        `,
+        { caption: 'Diambil dari pola yang dipakai globals.css project ini.' },
+      ),
+      p(
+        'Ada satu daftar yang layak diperiksa satu per satu ketika dark mode dinyatakan selesai, sebab semuanya termasuk yang tidak terlihat pada halaman contoh sederhana.',
+      ),
+      table(
+        ['Yang sering terlewat', 'Gejalanya', 'Perbaikannya'],
+        [
+          [
+            'Teks yang diketik di `<input>`',
+            'Hitam di atas latar gelap',
+            '`color-scheme: dark` pada `.dark`',
+          ],
+          [
+            'Batang penggulung',
+            'Terang menyilaukan di sisi halaman gelap',
+            'Sama, `color-scheme` yang menanganinya',
+          ],
+          [
+            'Bayangan `shadow-*`',
+            'Tidak terlihat sama sekali',
+            'Di mode gelap, ganti bayangan dengan border yang lebih terang',
+          ],
+          [
+            'Gambar dan logo berlatar putih',
+            'Kotak putih menyala di tengah halaman gelap',
+            'Sediakan versi kedua, atau beri `dark:bg-white/90` pada wadahnya',
+          ],
+          [
+            'Warna aksen yang sama untuk dua tema',
+            'Kontrasnya jatuh di salah satu tema',
+            'Aksen mode gelap hampir selalu perlu lebih terang',
+          ],
+        ],
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan dark mode yang paling terlihat pengguna bukan warna yang salah melainkan **kilatan tema** saat halaman dibuka. Halaman tampil terang sekejap, lalu berubah gelap. Penyebabnya selalu sama, yaitu keputusan tema diambil setelah halaman pertama digambar.',
+      ),
+      code(
+        'tsx',
+        `
+        // Yang menghasilkan kilatan. Tidak ada error, dan tidak terlihat
+        // di jaringan cepat dengan cache hangat.
+        'use client';
+        export function PenyediaTema({ children }: { children: React.ReactNode }) {
+          useEffect(() => {
+            const tersimpan = localStorage.getItem('tema');
+            if (tersimpan === 'dark') document.documentElement.classList.add('dark');
+          }, []);
+          return <>{children}</>;
+        }
+
+        // Urutan yang sebenarnya terjadi:
+        //   1. HTML tiba tanpa class dark        -> halaman digambar TERANG
+        //   2. React dimuat dan dijalankan
+        //   3. useEffect berjalan, class dark ditambahkan
+        //   4. halaman digambar ulang            -> GELAP
+        //
+        // Selisih antara langkah 1 dan 4 adalah kilatannya. Ia terasa
+        // seperti cacat aplikasi, dan pada koneksi lambat bisa lebih dari satu detik.
+        `,
+        {
+          caption:
+            'useEffect selalu berjalan setelah gambar pertama, jadi kilatannya tidak bisa dihindari dari sini.',
+        },
+      ),
+      p(
+        'Satu-satunya cara menghilangkannya adalah mengambil keputusan tema **sebelum** halaman digambar, dan itu berarti sebuah skrip yang berjalan sinkron di dalam `<head>`. Skrip sinkron biasanya dihindari karena memblokir, dan di sini pemblokiran itu justru yang dibutuhkan, sebab ia harus selesai lebih dulu.',
+      ),
+      code(
+        'tsx',
+        `
+        // app/layout.tsx — skrip ini sengaja sinkron dan sengaja kecil.
+        export default function RootLayout({ children }: { children: React.ReactNode }) {
+          return (
+            <html lang="id" suppressHydrationWarning>
+              <head>
+                <script
+                  dangerouslySetInnerHTML={{
+                    __html: \`(function(){try{
+                      var t=localStorage.getItem('tema');
+                      var g=t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches);
+                      if(g)document.documentElement.classList.add('dark');
+                    }catch(e){}})();\`,
+                  }}
+                />
+              </head>
+              <body>{children}</body>
+            </html>
+          );
+        }
+
+        // Tiga hal yang membuatnya aman:
+        //   - try/catch, sebab localStorage bisa dilarang di mode privat
+        //   - suppressHydrationWarning, sebab class html berubah sebelum React melihatnya
+        //   - isinya sangat kecil, sehingga pemblokirannya tidak terukur
+        `,
+        {
+          caption:
+            'Satu-satunya tempat dangerouslySetInnerHTML pantas dipakai di sini, sebab isinya kita tulis sendiri dan tidak berasal dari pengguna.',
+        },
+      ),
+      p(
+        'Penggunaan `dangerouslySetInnerHTML` di sini perlu dijelaskan supaya tidak ditiru di tempat yang salah. Ia berbahaya ketika isinya berasal dari pengguna atau dari sumber luar. Di sini isinya adalah teks tetap yang ditulis di dalam repo, tidak ada satu pun bagiannya yang berasal dari input, jadi tidak ada jalan bagi siapa pun untuk menyisipkan kode. Aturan larangannya tetap berlaku penuh untuk semua kasus lain.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Dark mode terlihat seperti pekerjaan mekanis, yaitu menambahkan `dark:` di setiap tempat. Justru cara berpikir itu yang menghasilkan hasil paling banyak masalah.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menambahkan `dark:` pada setiap utility warna',
+            'Setiap warna kan perlu pasangannya',
+            'Jumlah classnya berlipat dan tiap warna baru harus diingat dua kali. Pakai token semantik yang nilainya berubah',
+          ],
+          [
+            'Lupa `color-scheme`',
+            'Semua elemen sudah punya `dark:`',
+            'Diukur, teks di dalam `<input>` tetap `rgb(0, 0, 0)` dan batang penggulung tetap terang',
+          ],
+          [
+            'Membalik warna secara harfiah, putih jadi hitam',
+            'Itu definisi membalik',
+            'Hitam pekat di atas putih pekat melelahkan mata. Mode gelap yang baik memakai abu sangat gelap, bukan `#000`',
+          ],
+          [
+            'Menentukan tema di `useEffect`',
+            'Itu tempat efek sisi klien',
+            'Diuji, ia selalu berjalan setelah gambar pertama sehingga kilatan temanya tidak bisa dihindari dari sana',
+          ],
+          [
+            'Memakai `@media (prefers-color-scheme: dark)` padahal ada tombol pilihan',
+            'Ia mengikuti sistem, terasa pintar',
+            'Pilihan pengguna tidak bisa mengalahkan sistem. Untuk tombol pilihan, `dark` harus berbasis class',
+          ],
+          [
+            'Mempertahankan `shadow-lg` di mode gelap',
+            'Bayangan memberi kedalaman',
+            'Bayangan hitam di atas latar hampir hitam tidak terlihat. Kedalaman di mode gelap dibentuk dengan perbedaan terang permukaan',
+          ],
+        ],
+      ),
+      p(
+        'Baris kelima menjelaskan kenapa website ini menuliskan `@custom-variant dark (&:where(.dark, .dark *))` di `globals.css` alih-alih memakai perilaku bawaan. Diperiksa pada keluaran Tailwind 4.3.3, deklarasi itu menghasilkan selector `.dark\\:bg-neutral-900:where(.dark, .dark *)`, sedangkan tanpa deklarasi itu `dark:` diterjemahkan menjadi `@media (prefers-color-scheme: dark)`. Bentuk pertama bisa dikalahkan oleh pilihan pengguna, bentuk kedua tidak bisa.',
+      ),
       divider,
       h2('Rangkuman'),
       ul(
@@ -1403,7 +2567,7 @@ export const lessons: LessonDraft[] = [
   written(
     'design-token-theme',
     'Design Token dengan `@theme`',
-    13,
+    21,
     'Fitur inti Tailwind v4 — dan cara project ini mengunci paletnya.',
     [
       terms(
@@ -1568,6 +2732,168 @@ export const lessons: LessonDraft[] = [
         'Inilah keuntungan terbesar pendekatan CSS-first v4: satu source of truth yang dibaca semua lapisan — utility, CSS biasa, JavaScript, dan DevTools.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Uji paling jujur untuk sebuah sistem token adalah permintaan yang pasti datang cepat atau lambat, yaitu klien mengganti warna mereknya. Pertanyaannya sederhana dan jawabannya menyingkap segalanya, **berapa berkas yang harus disunting**. Pada project yang menulis warna langsung di komponen, jawabannya puluhan sampai ratusan. Pada project yang mengunci token, jawabannya satu baris.',
+      ),
+      p(
+        'Website ini menempuh jalur kedua, dan tulisan di `globals.css`-nya menyebutkan alasannya dengan tegas, bahwa tidak ada satu pun nilai warna atau spacing yang boleh ditulis langsung di komponen. Yang membuat aturan itu bisa ditegakkan adalah `@theme inline`, dan perbedaan antara memakainya dan tidak memakainya jauh lebih besar daripada yang terlihat.',
+      ),
+      code(
+        'text',
+        `
+        Dua versi yang isinya sama, hanya berbeda satu kata:
+
+          :root  { --merek: #8f5314; }
+          .dark  { --merek: #e5a13c; }
+
+          @theme        { --color-primary: var(--merek); }
+          @theme inline { --color-primary: var(--merek); }
+
+        CSS yang dihasilkan Tailwind 4.3.3:
+
+          @theme (biasa)
+            :root { --color-primary: var(--merek); }
+            .bg-primary { background-color: var(--color-primary); }   <-- dua lompatan
+
+          @theme inline
+            (tidak ada variabel --color-primary sama sekali)
+            .bg-primary { background-color: var(--merek); }           <-- langsung
+        `,
+        { caption: 'Dibaca langsung dari keluaran @tailwindcss/postcss 4.3.3.' },
+      ),
+      p(
+        'Selisih satu lompatan itu tidak berarti apa-apa sampai ada tema gelap yang tidak dipasang di elemen akar. Situasinya nyata dan sering, misalnya satu bagian halaman terang yang sengaja dibuat gelap, seperti bilah alat editor atau blok kode.',
+      ),
+      code(
+        'text',
+        `
+        <div class="bg-primary">terang</div>
+        <div class="dark">
+          <div class="bg-primary">pulau gelap di dalam halaman terang</div>
+        </div>
+
+        Diukur di Chrome 151:
+
+          @theme (biasa)
+            #terang = rgb(143, 83, 20)
+            #pulau  = rgb(143, 83, 20)     <-- TIDAK ikut gelap
+
+          @theme inline
+            #terang = rgb(143, 83, 20)
+            #pulau  = rgb(229, 161, 60)    <-- ikut gelap, benar
+        `,
+        { caption: 'Dijalankan sungguhan dan diukur di Chrome 151.' },
+      ),
+      p(
+        'Sebabnya ada pada cara CSS menyelesaikan variabel. Pada `@theme` biasa, `--color-primary` dideklarasikan di `:root`, jadi nilai `var(--merek)` di dalamnya diselesaikan di `:root` juga. Nilai hasil penyelesaian itulah yang diwariskan ke seluruh keturunan, sehingga `--merek` yang berbeda di dalam `.dark` datang terlambat dan tidak berpengaruh. `@theme inline` menghapus perantaranya, sehingga `var(--merek)` baru diselesaikan di elemen yang memakainya, dan di sana `.dark` sudah berlaku.',
+      ),
+      p(
+        'Karena itu urutan menulis tokennya adalah menaruh nilai mentah di `:root` dan `.dark`, lalu memetakannya ke namespace Tailwind di dalam `@theme inline`. Nilai warnanya hidup di satu tempat, dan mengganti merek benar-benar berarti mengganti beberapa baris.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Bagian `@theme` termasuk yang paling sering menimbulkan error, dan itu kabar baik, sebab error jauh lebih mudah diperbaiki daripada kegagalan senyap. Tiga di bawah dijalankan sungguhan.',
+      ),
+      code(
+        'text',
+        `
+        @import 'tailwindcss';
+
+        :root {
+          --primary: #8f5314;
+        }
+
+        .tombol {
+          @apply bg-primary;
+        }
+
+        CssSyntaxError: tailwindcss: .../b.css:1:1:
+        Cannot apply unknown utility class \`bg-primary\`
+        `,
+        { caption: 'Dijalankan sungguhan dengan Tailwind 4.3.3.' },
+      ),
+      p(
+        'Ini kesalahpahaman yang paling sering muncul, dan pesannya sendiri tidak menjelaskannya. Sebuah CSS variable biasa di `:root` **tidak pernah** menghasilkan utility. Yang menghasilkan utility hanyalah variabel yang dideklarasikan di dalam `@theme`, dan itu memang disengaja, sebab kalau tidak, setiap variabel apa pun di project akan diam-diam menjadi nama class.',
+      ),
+      code(
+        'text',
+        `
+        @theme {
+          --primary: #8f5314;
+        }
+
+        CssSyntaxError: Cannot apply unknown utility class \`bg-primary\`
+        `,
+        { caption: 'Dijalankan sungguhan. Sudah di dalam @theme, dan tetap gagal.' },
+      ),
+      p(
+        'Kali ini variabelnya sudah berada di tempat yang benar, tapi namanya belum. Tailwind memakai **awalan namespace** untuk memutuskan utility mana yang dibentuk, jadi `--color-primary` menghasilkan `bg-primary`, `text-primary`, dan `border-primary`, sedangkan `--primary` tidak menghasilkan apa pun. Namespace lain bekerja sama, misalnya `--spacing-*`, `--radius-*`, `--font-*`, dan `--breakpoint-*`.',
+      ),
+      code(
+        'text',
+        `
+        @theme {
+          .kartu { padding: 1rem; }
+        }
+
+        CssSyntaxError: tailwindcss: .../o.css:1:1:
+        \`@theme\` blocks must only contain custom properties or \`@keyframes\`.
+
+          @theme {
+        >   .kartu {
+        >     padding: 1rem;
+          }
+        `,
+        { caption: 'Dijalankan sungguhan. @theme bukan tempat menulis aturan CSS.' },
+      ),
+      p(
+        'Pesan ini menegaskan peran `@theme` dengan tepat. Ia adalah **daftar nilai**, bukan tempat menulis style. Satu pengecualian yang disebutkannya adalah `@keyframes`, sebab definisi animasi memang bagian dari tema dan dirujuk oleh token `--animate-*`.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan di bagian ini bertahan lama, sebab token yang salah bentuk tetap bekerja untuk kasus sederhana dan baru gagal ketika temanya bertambah.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis token di `:root` lalu berharap ada utility-nya',
+            'Ia sudah jadi variabel CSS',
+            'Diuji sungguhan, hasilnya `Cannot apply unknown utility class`. Hanya `@theme` yang membentuk utility',
+          ],
+          [
+            'Menamai token `--primary`, bukan `--color-primary`',
+            'Lebih pendek dan jelas',
+            'Diuji sungguhan, tanpa awalan namespace tidak ada utility yang dibentuk sama sekali',
+          ],
+          [
+            'Memakai `@theme` biasa untuk token yang berubah menurut tema',
+            'Itu bentuk yang standar',
+            'Diukur, pulau gelap di dalam halaman terang tidak ikut berubah. Untuk token bertema, `@theme inline` yang benar',
+          ],
+          [
+            'Menamai token berdasarkan warnanya, misalnya `--color-biru`',
+            'Nama warna paling mudah diingat',
+            'Ketika mereknya berganti jadi hijau, namanya berdusta. Namai berdasarkan perannya, misalnya `--color-primary`',
+          ],
+          [
+            'Mengganti seluruh palet bawaan tanpa sengaja',
+            'Hanya menambahkan warna sendiri',
+            '`--color-*: initial` di dalam `@theme` menghapus seluruh palet. Tanpa baris itu, tokenmu hanya menambah',
+          ],
+          [
+            'Mengunci warna tanpa menghitung kontrasnya',
+            'Warnanya sudah disetujui desainer',
+            'Diukur pada palet project ini, amber `#E5A13C` di atas latar terang hanya 2,07:1. Ia dipakai sebagai isian, tidak pernah sebagai teks',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir adalah keputusan nyata yang tercatat di project ini, dan angkanya berasal dari pengukuran, bukan dari perkiraan. Warna aksen `#8F5314` mencapai 6,15:1 di atas putih sehingga aman sebagai teks, sedangkan amber `#E5A13C` hanya 2,07:1 di atas latar terang sehingga hanya boleh menjadi bidang isian dengan teks gelap di atasnya. Dua warna yang sama-sama berasal dari satu keluarga merek bisa berakhir dengan peran yang sepenuhnya berbeda, dan yang memutuskan adalah angkanya.',
+      ),
       divider,
       h2('Rangkuman'),
       ul(
@@ -1609,7 +2935,7 @@ export const lessons: LessonDraft[] = [
   written(
     'menyusun-komponen',
     'Menyusun Komponen: `@apply`, `cva`, `tailwind-merge`',
-    12,
+    21,
     'Menghindari class yang berulang di dua puluh tempat — tanpa kembali ke CSS bernama.',
     [
       terms(
@@ -1796,6 +3122,234 @@ export const lessons: LessonDraft[] = [
         '**`@apply`** — hanya untuk HTML yang bukan milikmu.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Sebuah komponen `<Tombol>` dipakai di empat puluh tempat. Suatu hari muncul satu layar yang butuh tombol dengan latar merah, dan yang dilakukan pemakainya paling wajar, yaitu mengoper class tambahan lewat prop `className`. Hasilnya tidak berubah sama sekali, atau lebih tepatnya berubah pada sebagian tombol dan tidak pada sebagian lain, dan itu membuatnya tampak seperti bug hantu.',
+      ),
+      code(
+        'tsx',
+        `
+        function Tombol({ className, ...sisanya }: React.ComponentProps<'button'>) {
+          return <button className={\`rounded bg-blue-500 px-4 py-2 \${className ?? ''}\`} {...sisanya} />;
+        }
+
+        // Di tempat pemakaian:
+        <Tombol className="bg-red-500">Hapus</Tombol>
+        `,
+        {
+          caption:
+            'Terlihat benar: class tambahan ditulis paling belakang, jadi seharusnya menang.',
+        },
+      ),
+      p(
+        'Anggapan bahwa class yang ditulis paling belakang menang adalah kesalahpahaman yang perlu diluruskan lebih dulu, sebab dari sinilah seluruh kebutuhan akan `tailwind-merge` berasal.',
+      ),
+      code(
+        'text',
+        `
+        <div class="p-4 p-2 bg-red-500 bg-blue-500"></div>
+                    ^^^  ^^^  ^^^^^^^^^^  ^^^^^^^^^^^
+                    urutan yang ditulis di markup
+
+        Urutan sebenarnya di dalam CSS hasil Tailwind 4.3.3:
+
+          .bg-blue-500 { background-color: var(--color-blue-500); }
+          .bg-red-500  { background-color: var(--color-red-500); }
+          .p-2         { padding: calc(var(--spacing) * 2); }
+          .p-4         { padding: calc(var(--spacing) * 4); }
+
+        Yang menang adalah yang berada paling bawah di CSS:
+          background -> bg-red-500     (padahal ditulis lebih DULU di markup)
+          padding    -> p-4            (padahal ditulis lebih DULU di markup)
+        `,
+        { caption: 'Dibaca langsung dari keluaran @tailwindcss/postcss 4.3.3.' },
+      ),
+      p(
+        'Jadi urutan di atribut `class` sama sekali tidak berpengaruh. Yang menentukan adalah urutan aturan di dalam berkas CSS, dan urutan itu ditetapkan Tailwind sendiri secara tetap. Pada contoh di atas urutannya kebetulan menurut abjad, sehingga `bg-red-500` jatuh di bawah `bg-blue-500` dan memenangi pertarungan tanpa peduli siapa yang ditulis belakangan di markup.',
+      ),
+      p(
+        'Inilah yang diselesaikan `tailwind-merge`. Ia tidak mengandalkan urutan CSS melainkan **membuang class yang bertabrakan** sebelum sampai ke atribut, sehingga hanya satu yang tersisa dan hasilnya bisa diprediksi.',
+      ),
+      code(
+        'tsx',
+        `
+        import { twMerge } from 'tailwind-merge';
+        import { cva, type VariantProps } from 'class-variance-authority';
+
+        const gayaTombol = cva('inline-flex items-center rounded font-medium transition-colors', {
+          variants: {
+            tampilan: {
+              utama: 'bg-blue-600 text-white hover:bg-blue-700',
+              sekunder: 'border border-neutral-300 hover:bg-neutral-50',
+              bahaya: 'bg-red-600 text-white hover:bg-red-700',
+            },
+            ukuran: { kecil: 'px-2 py-1 text-sm', sedang: 'px-4 py-2', besar: 'px-6 py-3 text-lg' },
+          },
+          defaultVariants: { tampilan: 'utama', ukuran: 'sedang' },
+        });
+
+        type PropsTombol = React.ComponentProps<'button'> & VariantProps<typeof gayaTombol>;
+
+        export function Tombol({ className, tampilan, ukuran, ...sisanya }: PropsTombol) {
+          // twMerge membuang class yang bertabrakan, yang datang belakangan menang.
+          return <button className={twMerge(gayaTombol({ tampilan, ukuran }), className)} {...sisanya} />;
+        }
+
+        // Sekarang hasilnya bisa diprediksi:
+        // <Tombol className="bg-red-500" />  -> bg-blue-600 dibuang, bg-red-500 dipakai
+        `,
+        {
+          caption:
+            'cva mengurus varian, twMerge mengurus tabrakan. Keduanya menyelesaikan masalah yang berbeda.',
+        },
+      ),
+      callout(
+        'warning',
+        'Contoh cva dan tailwind-merge di atas TIDAK dijalankan',
+        'Ketiga paketnya, yaitu `class-variance-authority`, `tailwind-merge`, dan `clsx`, tidak terpasang di project ini, dan aturan project melarang menambah dependency tanpa persetujuan lebih dulu. Kodenya disusun mengikuti dokumentasi resmi masing-masing, tapi berbeda dengan seluruh pengukuran lain di sub-bab ini, ia tidak dieksekusi. Yang dijalankan sungguhan adalah masalah yang mendasarinya, yaitu urutan CSS yang mengalahkan urutan markup.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Menyusun komponen adalah bagian Tailwind yang paling banyak menghasilkan error sungguhan, dan dua di bawah ini termasuk yang paling sering ditemui.',
+      ),
+      code(
+        'text',
+        `
+        /* Tombol.module.css — atau <style> di dalam komponen Vue/Svelte */
+        .tombol {
+          @apply px-4 py-2;
+        }
+
+        CssSyntaxError: tailwindcss: .../f.css:1:1:
+        Cannot apply unknown utility class \`px-4\`. Are you using CSS modules or
+        similar and missing \`@reference\`?
+        https://tailwindcss.com/docs/functions-and-directives#reference-directive
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan dengan Tailwind 4.3.3. Pesannya bahkan menyebutkan perbaikannya.',
+        },
+      ),
+      p(
+        'Penyebabnya, setiap berkas CSS Module dikompilasi **sendiri-sendiri**, terpisah dari berkas utamamu. Berkas itu karena itu tidak tahu apa pun tentang tema dan utility yang ada, sehingga `px-4` benar-benar tidak dikenalnya. Perbaikannya adalah `@reference "../app/globals.css";` di puncak berkas, yang membuat Tailwind membaca tema dari sana tanpa ikut menyalin isinya.',
+      ),
+      code(
+        'text',
+        `
+        .tombol {
+          @apply px-4 py-2 rounded-mdd bg-primary;
+        }
+
+        CssSyntaxError: tailwindcss: .../a.css:1:1:
+        Cannot apply unknown utility class \`rounded-mdd\`
+
+        > 1 | @import 'tailwindcss';
+            | ^
+          2 |
+          3 | .tombol {
+        `,
+        { caption: 'Dijalankan sungguhan. Salah ketik satu huruf, dan seluruh build berhenti.' },
+      ),
+      p(
+        'Perhatikan perbedaan penting antara dua tempat. Salah ketik di dalam `@apply` **menghentikan build**, sedangkan salah ketik di atribut `class` pada markup tidak menghasilkan apa pun, tidak error dan tidak juga style. Sifat berteriak itu sebenarnya keuntungan `@apply` yang jarang disebut, sebab ia menangkap salah ketik yang di markup akan lolos diam-diam.',
+      ),
+      p(
+        'Ada satu perbedaan lagi antara dua cara mengekstrak class yang tidak menghasilkan error apa pun tapi menentukan sekali, yaitu apakah class hasilnya bisa dipakai bersama varian.',
+      ),
+      code(
+        'text',
+        `
+        @utility tombol-utama {
+          @apply rounded-md px-4 py-2 font-medium;
+        }
+
+        @layer components {
+          .kartu-lama {
+            @apply rounded-md p-4;
+          }
+        }
+
+        Class yang dipakai di markup:
+          <div class="tombol-utama md:tombol-utama hover:tombol-utama"></div>
+          <div class="kartu-lama md:kartu-lama"></div>
+
+        Yang benar-benar dihasilkan Tailwind 4.3.3:
+
+          .tombol-utama                       ADA
+          .md\\:tombol-utama                   ADA
+          .hover\\:tombol-utama                ADA
+          .md\\:kartu-lama                     TIDAK ADA     <-- diam-diam hilang
+        `,
+        { caption: 'Dijalankan sungguhan. @utility mendukung varian, @layer components tidak.' },
+      ),
+      p(
+        'Karena itu versi 4 menganjurkan `@utility` ketika kamu memang perlu membuat class sendiri di CSS. Class dari `@layer components` tetap berfungsi, tapi ia berhenti di situ, dan `md:` maupun `hover:` di depannya akan hilang tanpa peringatan apa pun.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Kesalahan di bagian ini hampir selalu berasal dari niat baik, yaitu ingin markup lebih rapi. Yang keliru bukan niatnya melainkan alat yang dipilih untuk mencapainya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menjadikan `@apply` cara utama merapikan markup',
+            'Markup jadi bersih seperti dulu',
+            'Kembali membangun berkas CSS bernama yang tidak bisa dihapus dengan yakin, hanya dengan sintaks berbeda',
+          ],
+          [
+            'Menyambung class tambahan dengan template literal',
+            'Yang ditulis belakangan menang',
+            'Diukur, urutan di markup tidak berpengaruh sama sekali. Urutan CSS yang menentukan, dan itu ditetapkan Tailwind',
+          ],
+          [
+            'Memakai `@apply` di CSS Module tanpa `@reference`',
+            'Sintaksnya sama saja',
+            'Diuji sungguhan, buildnya gagal. Setiap CSS Module dikompilasi terpisah dan tidak mengenal temamu',
+          ],
+          [
+            'Membuat class sendiri dengan `@layer components`',
+            'Itu cara yang diajarkan di versi 3',
+            'Diuji sungguhan, `md:` dan `hover:` di depan classnya tidak dihasilkan. Pakai `@utility`',
+          ],
+          [
+            'Membuat prop boolean untuk setiap tampilan tombol',
+            'Paling mudah ditulis',
+            '`<Tombol primary danger small />` membuka kombinasi yang tidak masuk akal. Satu prop `tampilan` menutupnya',
+          ],
+          [
+            'Mengurutkan class dengan tangan agar rapi',
+            'Terlihat lebih terbaca',
+            'Waktu yang terbuang, dan hasilnya tidak konsisten antarorang. `prettier-plugin-tailwindcss` melakukannya otomatis',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir bisa dilihat hasilnya langsung, sebab project ini memasang plugin tersebut. Class yang ditulis berantakan akan disusun ulang oleh Prettier ke urutan yang selalu sama.',
+      ),
+      code(
+        'text',
+        `
+        Sebelum prettier --write:
+
+          <div className="text-white p-4 md:p-6 flex hover:bg-red-600 bg-red-500
+                          rounded-lg items-center dark:bg-red-700 gap-2">
+
+        Sesudahnya:
+
+          <div className="flex items-center gap-2 rounded-lg bg-red-500 p-4
+                          text-white hover:bg-red-600 md:p-6 dark:bg-red-700">
+
+        Urutannya bukan abjad melainkan menurut peran:
+          tata letak -> kotak -> tampilan -> tipografi -> varian status -> responsif -> tema
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan dengan prettier 3.9.6 dan prettier-plugin-tailwindcss 0.8.1 yang terpasang di project ini.',
+        },
+      ),
       divider,
       h2('Rangkuman'),
       ul(
@@ -1837,7 +3391,7 @@ export const lessons: LessonDraft[] = [
   written(
     'transisi-animasi',
     'Transisi & Animasi + reduced motion',
-    11,
+    19,
     'Gerak yang membantu, bukan yang memamerkan.',
     [
       terms(
@@ -2022,6 +3576,187 @@ export const lessons: LessonDraft[] = [
         'Sidebar di website ini sengaja **tidak** dianimasikan saat dibuka-tutup — ia dipakai puluhan kali per sesi, dan animasi apa pun akan membuatnya terasa lambat.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Panel samping yang muncul dari kanan adalah salah satu animasi yang paling sering diminta, dan juga salah satu yang paling sering dibuat dengan cara yang membuat aplikasinya terasa berat. Dua versi di bawah menghasilkan gerak yang secara visual mirip, dan biaya jalannya berbeda enam kali.',
+      ),
+      compare(
+        {
+          title: 'Menganimasikan lebar',
+          lang: 'tsx',
+          code: `
+            <aside
+              className={
+                'overflow-hidden transition-all duration-300 ' +
+                (terbuka ? 'w-80' : 'w-0')
+              }
+            >
+              <DaftarNotifikasi />
+            </aside>
+          `,
+          notes: [
+            'Setiap frame memaksa hitung ulang tata letak',
+            'Seluruh isinya ikut dihitung ulang',
+          ],
+        },
+        {
+          title: 'Menganimasikan transform',
+          lang: 'tsx',
+          code: `
+            <aside
+              className={
+                'w-80 transition-transform duration-300 ' +
+                (terbuka ? 'translate-x-0' : 'translate-x-full')
+              }
+            >
+              <DaftarNotifikasi />
+            </aside>
+          `,
+          notes: [
+            'Lebarnya tetap, tata letak tidak berubah',
+            'Isinya dihitung sekali, lalu digeser',
+          ],
+        },
+      ),
+      code(
+        'text',
+        `
+        Diukur di Chrome 151, 200 paragraf berteks, 60 frame, tiga kali jalan:
+
+          menganimasikan width      : 117ms, 123ms, 125ms
+          menganimasikan transform  :  21ms,  22ms,  21ms
+
+        Selisihnya kurang lebih enam kali.
+        `,
+        {
+          caption: 'Dijalankan sungguhan di Chrome 151. Angkanya konsisten pada tiga pengulangan.',
+        },
+      ),
+      p(
+        'Sumber selisihnya bukan kerumitan `transform` melainkan **apa yang harus dihitung ulang peramban setiap frame**. Mengubah lebar sebuah wadah berarti setiap teks di dalamnya harus dipatahkan ulang jadi baris baru, dan itu pekerjaan yang berulang enam puluh kali per detik. Mengubah `transform` tidak mengubah ukuran apa pun, sehingga hasil perhitungan tata letak yang sudah ada tetap berlaku dan yang berubah hanya posisi gambarnya.',
+      ),
+      p(
+        'Karena itu ukuran keputusannya bukan "mana yang lebih cepat" melainkan **"apakah properti ini mengubah tata letak"**. Yang mengubah tata letak antara lain `width`, `height`, `padding`, `margin`, `top`, `left`, dan `font-size`. Yang tidak mengubahnya hanya dua, yaitu `transform` dan `opacity`.',
+      ),
+      table(
+        ['Yang ingin dianimasikan', 'Cara yang murah', 'Kenapa'],
+        [
+          [
+            'Panel muncul dari samping',
+            '`translate-x-full` ke `translate-x-0`',
+            'Lebarnya tidak pernah berubah',
+          ],
+          [
+            'Menu turun dari atas',
+            '`-translate-y-2 opacity-0` ke `translate-y-0 opacity-100`',
+            'Dua properti termurah sekaligus',
+          ],
+          [
+            'Kartu membesar saat dihampiri',
+            '`hover:scale-105`',
+            'Tidak mendorong kartu tetangganya',
+          ],
+          [
+            'Akordion membuka isinya',
+            '`grid-rows-[0fr]` ke `grid-rows-[1fr]`',
+            'Satu-satunya cara animasi tinggi otomatis tanpa mengukur dengan JavaScript',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir perlu penjelasan karena ia satu-satunya pengecualian yang wajar. Tinggi isi akordion tidak diketahui sebelumnya, dan `height: auto` tidak bisa dianimasikan. Trik grid dengan satuan `fr` bekerja karena `grid-template-rows` bisa dianimasikan sedangkan `auto` tidak, dan hasilnya masih mengubah tata letak sehingga tetap lebih mahal daripada `transform`. Bedanya, di sini tidak ada alternatif yang lebih murah.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Animasi tidak pernah gagal dengan pesan error. Yang gagal adalah orangnya, dan gejalanya bisa berupa gerak yang tersendat atau gerak yang tetap berjalan padahal penggunanya sudah minta dihentikan. Yang kedua lebih serius, sebab bagi sebagian orang ia menimbulkan mual dan pusing sungguhan.',
+      ),
+      code(
+        'text',
+        `
+        <div class="transition-transform duration-300 motion-reduce:transition-none">
+        <div class="animate-spin motion-reduce:animate-none">
+
+        Diukur di Chrome 151 dengan Emulation.setEmulatedMedia:
+
+          prefers-reduced-motion: no-preference
+            transition-duration = 0.3s
+            animation-name      = spin
+
+          prefers-reduced-motion: reduce
+            transition-duration = 0.3s      <-- tetap 0.3s, dan itu tidak masalah
+            transition-property = none      <-- tidak ada properti yang ditransisikan
+            animation-name      = none      <-- animasinya benar-benar mati
+        `,
+        { caption: 'Dijalankan sungguhan di Chrome 151 lewat protokol DevTools.' },
+      ),
+      p(
+        'Angka `0.3s` yang tetap bertahan itu sering membuat orang mengira `motion-reduce:transition-none` tidak bekerja. Sebenarnya ia bekerja dengan benar. Yang diubahnya adalah `transition-property` menjadi `none`, dan begitu tidak ada properti yang ditransisikan, durasi berapa pun tidak berlaku pada apa pun. Jadi periksa `transition-property`, bukan durasinya.',
+      ),
+      p(
+        'Kegagalan kedua lebih halus dan tidak bisa diukur dengan alat, yaitu animasi yang menahan pengguna. Ia tetap "berhasil" secara teknis.',
+      ),
+      code(
+        'text',
+        `
+        Tiga durasi yang sama-sama berjalan tanpa error,
+        dengan akibat yang sangat berbeda:
+
+          duration-150   umpan balik seketika, terasa seperti aplikasi asli
+          duration-300   batas atas yang masih terasa responsif
+          duration-700   pengguna sudah selesai membaca sebelum geraknya berhenti
+          duration-1000  terasa seperti aplikasi yang lambat, bukan aplikasi yang halus
+
+        Yang perlu diingat, animasi terjadi SETELAH pengguna memutuskan.
+        Setiap milidetik sesudah itu adalah menunggu.
+        `,
+      ),
+      p(
+        'Angka acuan yang biasa dipakai, gerak yang merespons tindakan langsung sebaiknya 150 sampai 200 milidetik, dan gerak yang memperkenalkan sesuatu yang baru muncul boleh sampai 300. Di atas 400, hampir selalu ada yang keliru pada niatnya, sebab animasi yang panjang hanya masuk akal untuk sesuatu yang tidak menghalangi apa pun.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Animasi adalah bagian yang paling menyenangkan dikerjakan, dan justru karena itu paling mudah berlebihan.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memakai `transition-all`',
+            'Satu class untuk semuanya',
+            'Peramban mengawasi setiap properti yang berubah, termasuk yang mengubah tata letak. Sebut propertinya dengan tepat',
+          ],
+          [
+            'Menganimasikan `width` atau `height`',
+            'Itu yang memang berubah',
+            'Diukur, 117ms melawan 21ms untuk gerak yang mirip. Pakai `transform` bila bisa',
+          ],
+          [
+            'Melewatkan `prefers-reduced-motion`',
+            'Animasinya halus dan tidak mengganggu',
+            'Bagi sebagian orang ia menimbulkan mual sungguhan. Ini baseline aksesibilitas, bukan pilihan gaya',
+          ],
+          [
+            'Memakai `duration-1000` agar terlihat halus',
+            'Lambat terasa mahal',
+            'Animasi terjadi setelah pengguna memutuskan, jadi setiap milidetiknya adalah menunggu',
+          ],
+          [
+            'Menganimasikan sesuatu yang muncul saat halaman dimuat',
+            'Kesan pertama jadi bagus',
+            'Ia menunda saat isinya bisa dibaca. Konten utama sebaiknya sudah ada sejak frame pertama',
+          ],
+          [
+            'Menyimpulkan `motion-reduce` tidak jalan karena durasinya tetap',
+            'Angkanya masih 0.3s',
+            'Diukur, yang berubah adalah `transition-property` menjadi `none`. Periksa properti, bukan durasi',
+          ],
+        ],
+      ),
+      p(
+        'Baris pertama layak diperjelas karena `transition-all` terlihat sangat praktis. Masalahnya bukan biaya menuliskannya melainkan bahwa ia menyalakan transisi pada properti yang tidak kamu sadari sedang berubah, misalnya `height` yang bergeser karena isinya bertambah. Akibatnya muncul gerak yang tidak pernah kamu rancang, dan gerak seperti itu adalah yang paling sulit dilacak asalnya.',
+      ),
       divider,
       h2('Rangkuman'),
       ul(
@@ -2070,7 +3805,7 @@ export const lessons: LessonDraft[] = [
   written(
     'aksesibilitas-tailwind',
     'Aksesibilitas: `focus-visible`, `sr-only`, kontras',
-    12,
+    22,
     'Utility yang menjaga baseline tetap terpenuhi — dan yang tidak bisa ditawar.',
     [
       p(
@@ -2238,6 +3973,212 @@ export const lessons: LessonDraft[] = [
         'Apakah ada informasi yang hanya disampaikan lewat warna?',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Sebuah tabel data di panel admin diaudit aksesibilitasnya, dan tiga temuan muncul yang semuanya berasal dari keputusan yang terlihat wajar. Bilah alatnya berisi tombol beriikon tanpa teks. Kolom statusnya dibedakan hanya dengan warna titik. Dan teks keterangan di bawah setiap barisnya memakai abu lembut supaya tidak mencuri perhatian.',
+      ),
+      code(
+        'tsx',
+        `
+        // Versi yang gagal audit. Tidak ada yang salah tulis di sini.
+        function BarisPesanan({ pesanan }: { pesanan: Pesanan }) {
+          return (
+            <tr>
+              <td>{pesanan.nomor}</td>
+              <td>
+                <span className={pesanan.lunas ? 'text-green-500' : 'text-red-500'}>●</span>
+              </td>
+              <td className="text-gray-400 text-sm">{pesanan.catatan}</td>
+              <td>
+                <button className="focus:ring-2"><IkonUbah /></button>
+                <button className="focus:ring-2"><IkonHapus /></button>
+              </td>
+            </tr>
+          );
+        }
+        `,
+        {
+          caption:
+            'Tiga masalah sekaligus: nama tombol, warna sebagai satu-satunya penanda, dan kontras.',
+        },
+      ),
+      p(
+        'Temuan ketiga bisa diukur, dan angkanya menutup perdebatan selera. Berikut kontras beberapa warna teks bawaan Tailwind di atas latar putih, dihitung dari nilai sRGB yang sebenarnya dipakai peramban.',
+      ),
+      code(
+        'text',
+        `
+        Diukur di Chrome 151 dari palet bawaan Tailwind 4.3.3,
+        di atas latar #ffffff, memakai rumus kontras WCAG:
+
+          text-gray-400     #99a1af    2,60:1     GAGAL   (minimum teks biasa 4,5:1)
+          text-gray-500     #6a7282    4,84:1     lolos
+          text-gray-600     #4a5565    7,56:1     lolos dengan lapang
+          text-blue-500     #2b7fff    3,76:1     GAGAL untuk teks, lolos untuk ikon/border
+          text-yellow-400   #fdc700    1,57:1     GAGAL total
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan: warna dibaca dari getComputedStyle, dikonversi ke sRGB lewat canvas, lalu dihitung.',
+        },
+      ),
+      p(
+        'Perhatikan bahwa `text-gray-400` dan `text-gray-500` hanya berselisih satu tingkat, tapi yang satu gagal dan yang lain lolos. Ini yang membuat masalah kontras begitu sering lolos review, sebab kedua warnanya terlihat sangat mirip bagi mata yang sehat di layar yang bagus dan di ruangan yang teduh. Yang membedakan bukan penilaian mata melainkan angkanya.',
+      ),
+      code(
+        'tsx',
+        `
+        // Versi yang lolos audit. Perubahannya kecil dan semuanya bisa dijelaskan.
+        function BarisPesanan({ pesanan }: { pesanan: Pesanan }) {
+          return (
+            <tr>
+              <td>{pesanan.nomor}</td>
+              <td>
+                {/* Warna TAMBAHAN, bukan pembawa makna. Yang membawa makna adalah teksnya. */}
+                <span
+                  className={
+                    'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-sm ' +
+                    (pesanan.lunas
+                      ? 'bg-green-50 text-green-800'
+                      : 'bg-red-50 text-red-800')
+                  }
+                >
+                  <span aria-hidden="true">{pesanan.lunas ? '✓' : '!'}</span>
+                  {pesanan.lunas ? 'Lunas' : 'Belum lunas'}
+                </span>
+              </td>
+
+              {/* gray-600 menggantikan gray-400: 7,56:1 melawan 2,60:1. */}
+              <td className="text-sm text-gray-600">{pesanan.catatan}</td>
+
+              <td>
+                {/* Nama tombol dibawa sr-only, dan cincin fokusnya focus-visible. */}
+                <button className="rounded p-2 focus-visible:ring-2">
+                  <IkonUbah aria-hidden="true" className="size-4" />
+                  <span className="sr-only">Ubah pesanan {pesanan.nomor}</span>
+                </button>
+                <button className="rounded p-2 focus-visible:ring-2">
+                  <IkonHapus aria-hidden="true" className="size-4" />
+                  <span className="sr-only">Hapus pesanan {pesanan.nomor}</span>
+                </button>
+              </td>
+            </tr>
+          );
+        }
+        `,
+        {
+          caption:
+            'Nama tombolnya menyertakan nomor pesanan, sebab "Hapus" saja tidak memberi tahu menghapus apa.',
+        },
+      ),
+      p(
+        'Bagian `sr-only` yang menyertakan nomor pesanan patut diperhatikan. Pengguna pembaca layar biasanya menelusuri halaman dengan meminta daftar seluruh tombol, dan daftar berisi dua puluh tombol bernama "Hapus" tidak berguna sama sekali. Menyertakan nomornya membuat setiap tombol punya identitas.',
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Aksesibilitas tidak pernah menghasilkan error, dan itu justru masalahnya. Halaman yang tidak bisa dipakai tanpa mouse tetap lolos build, lolos test, dan terlihat sempurna bagi orang yang membuatnya. Dua pengukuran di bawah menunjukkan hal-hal yang biasanya baru disadari kalau memang diukur.',
+      ),
+      code(
+        'text',
+        `
+        <button class="focus:ring-2">A</button>
+        <button class="focus-visible:ring-2">B</button>
+
+        Diukur di Chrome 151 dengan peristiwa masukan asli
+        lewat protokol DevTools, bukan dengan .focus() dari skrip:
+
+          KLIK MOUSE pada A     :focus = true   :focus-visible = false   -> ADA cincin
+          KLIK MOUSE pada B     :focus = true   :focus-visible = false   -> tidak ada cincin
+
+          TEKAN TAB ke A        :focus = true   :focus-visible = true    -> ADA cincin
+          TEKAN TAB ke B        :focus = true   :focus-visible = true    -> ADA cincin
+        `,
+        {
+          caption:
+            'Dijalankan sungguhan lewat Input.dispatchMouseEvent dan Input.dispatchKeyEvent di Chrome 151.',
+        },
+      ),
+      p(
+        'Tabel itu menjelaskan seluruh persoalan dalam empat baris. `focus:` dan `focus-visible:` berperilaku **sama** ketika pengguna menekan Tab, dan berbeda **hanya** ketika pengguna mengeklik dengan mouse. Jadi memilih `focus-visible:` tidak mengurangi apa pun bagi pengguna papan ketik, dan menghilangkan cincin yang tampak seperti cacat bagi pengguna mouse. Tidak ada pertukaran di sini, hanya satu pilihan yang lebih baik.',
+      ),
+      p(
+        'Pengukuran kedua menyangkut perbedaan yang sering dianggap sama, yaitu antara menyembunyikan sesuatu secara visual dan menghilangkannya sama sekali.',
+      ),
+      code(
+        'text',
+        `
+        <span class="sr-only">Hapus catatan</span>
+        <span class="hidden">Hapus catatan</span>
+
+        Diukur di Chrome 151:
+
+          sr-only
+            position    = absolute
+            width       = 1px
+            height      = 1px
+            clip-path   = inset(50%)
+            overflow    = hidden
+            white-space = nowrap
+            kotak       = 1x1px          <-- ada di halaman, dibacakan pembaca layar
+
+          hidden
+            display     = none
+            kotak       = 0x0px          <-- tidak ada, TIDAK dibacakan
+        `,
+        { caption: 'Dijalankan sungguhan dan diukur di Chrome 151.' },
+      ),
+      p(
+        'Rangkaian properti `sr-only` itu bukan kumpulan trik sembarangan. `position: absolute` mengeluarkannya dari alur sehingga tidak menyisakan ruang, ukuran 1x1 piksel dengan `clip-path: inset(50%)` membuatnya tidak tergambar, dan `white-space: nowrap` mencegah teks panjang di dalamnya mengubah tata letak sekitarnya. Yang penting, elemennya **tetap ada**, dan itu satu-satunya alasan pembaca layar masih membacakannya. `display: none` menghapusnya dari pohon aksesibilitas, sehingga memakainya untuk memberi nama tombol berarti tombolnya tetap tanpa nama.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Hampir semua kesalahan aksesibilitas berasal dari satu kebiasaan, yaitu menguji halaman hanya dengan cara yang dipakai sendiri.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menulis `outline-none` tanpa penggantinya',
+            'Outline bawaan memang tidak rapi',
+            'Halamannya jadi tidak bisa ditelusuri tanpa mouse. Kalau outline dihapus, `focus-visible:ring-2` wajib ada',
+          ],
+          [
+            'Memakai `focus:ring` untuk cincin fokus',
+            'Namanya paling langsung',
+            'Diukur, cincinnya juga muncul saat diklik mouse. `focus-visible:` memberi hasil identik bagi pengguna papan ketik',
+          ],
+          [
+            'Memakai `hidden` untuk menyembunyikan label tombol',
+            'Sama-sama tidak terlihat',
+            'Diukur, `hidden` bernilai `display: none` dan hilang dari pohon aksesibilitas. Tombolnya jadi tanpa nama. Pakai `sr-only`',
+          ],
+          [
+            'Membedakan status hanya dengan warna',
+            'Warna paling cepat dibaca',
+            'Sekitar satu dari dua belas laki-laki tidak bisa membedakan merah dan hijau. Sertakan teks atau bentuk',
+          ],
+          [
+            'Memakai `text-gray-400` untuk teks pendukung',
+            'Terlihat lembut dan berkelas',
+            'Diukur, 2,60:1 di atas putih dan minimumnya 4,5:1. `text-gray-600` mencapai 7,56:1 tanpa terlihat kasar',
+          ],
+          [
+            'Memberi tombol ikon padding `p-1`',
+            'Ikonnya kecil, kotaknya cukup',
+            'Target sentuh jadi sekitar 24px, sedangkan acuannya 44px. Pakai `p-2` beserta `size-5` atau lebih besar',
+          ],
+        ],
+      ),
+      p(
+        'Baris keempat punya satu tolok ukur yang mudah diingat dan mudah diterapkan, yaitu **cetak halamanmu hitam-putih dalam kepala**. Kalau setelah semua warnanya hilang masih terbaca mana yang sudah lunas dan mana yang belum, penanda selain warna sudah cukup. Kalau tidak, ada informasi yang hanya bisa diakses sebagian penggunamu.',
+      ),
+      callout(
+        'tip',
+        'Uji sepuluh detik yang menemukan lebih banyak masalah daripada alat mana pun',
+        'Letakkan mouse jauh dari jangkauan, lalu jelajahi halamanmu hanya dengan Tab, Enter, Spasi, dan Esc. Kalau ada satu saja hal yang tidak bisa dicapai, atau kamu kehilangan jejak posisi fokus, di situlah masalahnya. Uji ini tidak butuh alat apa pun dan menemukan lebih banyak daripada pemeriksa otomatis, sebab yang diukurnya adalah bisa atau tidaknya halaman itu dipakai.',
+      ),
       divider,
       h2('Rangkuman'),
       ul(
@@ -2285,7 +4226,7 @@ export const lessons: LessonDraft[] = [
   written(
     'praktik-navbar-card',
     'Praktik: Navbar + Card responsif dari nol',
-    15,
+    23,
     'Membangun dua komponen nyata dengan token sendiri — dan mengujinya terhadap baseline.',
     [
       p(
@@ -2548,6 +4489,202 @@ export const lessons: LessonDraft[] = [
         'Judul dan ringkasan sangat panjang tidak merusak layout (`line-clamp` + `min-w-0`)',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Navbar dan card yang baru saja dibangun akan bertemu satu hal yang tidak ada di halaman latihan, yaitu **data sungguhan**. Data latihan selalu rapi, judulnya pendek, dan jumlahnya tepat tiga. Data sungguhan punya judul sepanjang dua baris, nama berkas tanpa spasi, kategori kosong, dan kadang berjumlah satu.',
+      ),
+      p(
+        'Empat kegagalan berikut adalah yang paling sering muncul ketika komponen seperti ini dipasang ke halaman nyata, dan semuanya sudah punya jawabannya di sub-bab sebelumnya.',
+      ),
+      table(
+        ['Yang terjadi dengan data sungguhan', 'Penyebabnya', 'Perbaikannya'],
+        [
+          [
+            'Tombol di kanan card terdorong keluar',
+            'Flex item berisi teks panjang punya `min-width: auto`',
+            '`min-w-0` pada flex item-nya, `truncate` pada teksnya',
+          ],
+          [
+            'Grid kartu jadi tiga kolom sempit di dalam sidebar',
+            'Breakpoint mengukur jendela, bukan wadah',
+            '`@container` pada wadah, `@md:` pada gridnya',
+          ],
+          [
+            'Baris kedua kartu menempel ke baris pertama',
+            '`space-x-*` hanya mengatur jarak horizontal',
+            'Ganti dengan `gap`',
+          ],
+          [
+            'Satu kartu sendirian melebar penuh dan terlihat aneh',
+            '`1fr` membagi seluruh ruang yang ada',
+            '`minmax(16rem, 24rem)` memberi batas atas',
+          ],
+        ],
+      ),
+      p(
+        'Baris kedua yang paling sering luput, sebab gejalanya baru muncul setelah komponennya dipakai ulang di tempat lain. Berikut pengukurannya pada kartu yang lebarnya persis sama di dua ukuran jendela berbeda.',
+      ),
+      code(
+        'text',
+        `
+        <div class="w-72">                                  <-- 288px, sama di kedua uji
+          <div class="grid grid-cols-1 sm:grid-cols-3">...</div>
+        </div>
+
+        Diukur di Chrome 151:
+
+          jendela 1400px   lebar wadah 286px   ->  95,33px  95,33px  95,34px
+          jendela  500px   lebar wadah 286px   ->  286px
+
+        Wadahnya identik, hasilnya berbeda. Yang berubah cuma jendelanya.
+        `,
+        { caption: 'Dijalankan sungguhan dan diukur di Chrome 151.' },
+      ),
+      code(
+        'tsx',
+        `
+        // Grid kartu yang benar di mana pun ia diletakkan.
+        function GridKartu({ daftar }: { daftar: Catatan[] }) {
+          return (
+            <div className="@container">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(16rem,24rem))] gap-4">
+                {daftar.map((c) => (
+                  <Kartu key={c.id} catatan={c} />
+                ))}
+              </div>
+            </div>
+          );
+        }
+
+        // auto-fit  : jumlah kolomnya dihitung dari ruang yang benar-benar ada
+        // minmax    : batas bawah menjaga kartu tidak terlalu sempit,
+        //             batas atas menjaga satu kartu sendirian tidak melebar penuh
+        // gap       : jarak dua arah, jadi baris yang membungkus tetap berjarak
+        //
+        // Tidak ada satu pun breakpoint di sini, dan justru itu yang membuatnya
+        // benar baik di halaman utama maupun di sidebar selebar 288px.
+        `,
+        { caption: 'Satu baris grid-cols menggantikan tiga breakpoint, dan lebih benar.' },
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Drawer sudah punya `Esc` dan pengembalian fokus di langkah tiga, dan itu menutup dua dari tiga kewajiban overlay. Yang ketiga tidak pernah menghasilkan pesan apa pun dan hampir selalu terlewat, yaitu **isi drawer yang tertutup masih bisa dicapai dengan Tab**.',
+      ),
+      p(
+        'Masalahnya muncul justru karena keinginan yang baik. Supaya drawer bisa bergeser masuk dan keluar dengan mulus, ia tidak dihapus dari halaman melainkan digeser keluar layar dengan `translate-x-full` lalu diredupkan dengan `opacity-0`. Keduanya properti visual, dan tidak satu pun dari keduanya menghapus elemen dari urutan Tab.',
+      ),
+      code(
+        'text',
+        `
+        <button id="pemicu">Buka menu</button>
+
+        <!-- Drawer TERTUTUP, disembunyikan dengan translate + opacity -->
+        <div class="pointer-events-none fixed inset-y-0 right-0 w-80 translate-x-full opacity-0">
+          <a id="t1">Beranda</a>
+          <a id="t2">Materi</a>
+          <button id="t3">Tutup</button>
+        </div>
+
+        <a id="akhir">Tautan terakhir halaman</a>
+
+        Menekan Tab berulang kali di Chrome 151:
+
+          Tab ke-1  ->  #pemicu
+          Tab ke-2  ->  #t1        <-- di dalam drawer yang TERTUTUP
+          Tab ke-3  ->  #t2        <-- fokusnya tidak terlihat di mana pun
+          Tab ke-4  ->  #t3
+          Tab ke-5  ->  #akhir
+
+        Keadaan #t1 saat itu:
+          kotaknya = 63x22 piksel pada x = 1024   (di luar layar)
+          opacity induknya = 0
+        `,
+        { caption: 'Dijalankan sungguhan lewat Input.dispatchKeyEvent di Chrome 151.' },
+      ),
+      p(
+        'Bagi pengguna papan ketik, tiga tekanan Tab itu adalah tiga kali fokus menghilang entah ke mana. Tidak ada yang menyorot, tidak ada yang bergulir, dan halamannya tampak berhenti merespons. `pointer-events-none` tidak menolong sama sekali, sebab ia hanya mengurusi mouse.',
+      ),
+      p(
+        'Ada dua perbaikan yang sama-sama terukur, dan pilihannya bergantung pada apakah kamu butuh animasi masuk-keluar.',
+      ),
+      code(
+        'text',
+        `
+        Perbaikan 1 — jangan render isinya saat tertutup
+
+          {terbuka && <IsiDrawer />}
+
+          atau dengan class hidden, yang bernilai display: none.
+          Diukur pada halaman yang sama, tautan di dalamnya
+          TIDAK PERNAH muncul di urutan Tab sama sekali.
+
+          Kekurangannya, tidak ada elemen yang bisa dianimasikan keluar.
+
+        Perbaikan 2 — pertahankan elemennya, tambahkan atribut inert
+
+          <div inert class="... translate-x-full opacity-0">
+
+          Diukur di Chrome 151 pada halaman yang sama persis:
+
+            Tab ke-1  ->  #pemicu
+            Tab ke-2  ->  #akhir     <-- drawer dilewati seluruhnya
+
+          Animasinya tetap bisa berjalan, sebab elemennya masih ada.
+        `,
+        { caption: 'Kedua perbaikan dijalankan sungguhan dan diukur di Chrome 151.' },
+      ),
+      p(
+        'Atribut `inert` mengeluarkan sebuah cabang dari urutan Tab sekaligus dari pohon aksesibilitas, jadi pembaca layar juga berhenti membacakannya. Ia satu atribut tanpa nilai, didukung seluruh peramban arus utama, dan menyelesaikan persoalan yang sebelumnya butuh menambah `tabindex="-1"` ke setiap elemen di dalamnya satu per satu.',
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Praktik menggabungkan seluruh materi bab ini, jadi kesalahan yang muncul di sini biasanya adalah kesalahan yang sudah dibahas terpisah dan baru bertemu sekarang.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menguji dengan judul pendek buatan sendiri',
+            'Datanya untuk contoh saja',
+            'Judul panjang, nama tanpa spasi, dan kolom kosong adalah yang merusak susunan. Uji dengan yang terburuk',
+          ],
+          [
+            'Menyusun grid kartu dengan tumpukan breakpoint',
+            'Itu cara yang paling sering dicontohkan',
+            'Diukur, komponennya jadi salah di sidebar sempit pada layar lebar. `auto-fit` atau `@container` yang benar',
+          ],
+          [
+            'Menyembunyikan drawer dengan `opacity-0`',
+            'Transisinya jadi mulus',
+            'Diukur, tiga tekanan Tab mendarat di dalam drawer yang tertutup. Tambahkan `inert`, atau jangan render isinya',
+          ],
+          [
+            'Lupa mengembalikan fokus setelah drawer ditutup',
+            'Drawer-nya sudah hilang',
+            'Tab berikutnya melompat ke awal halaman. Pengguna papan ketik kehilangan tempatnya',
+          ],
+          [
+            'Menulis warna langsung, bukan token',
+            'Cuma satu komponen ini',
+            'Satu pengecualian membuka pintu untuk yang berikutnya, dan tema jadi mustahil diganti belakangan',
+          ],
+          [
+            'Menyatakan selesai setelah terlihat benar',
+            'Semua sudah sesuai rancangan',
+            'Terlihat benar diuji dengan mouse, di layar sendiri, dengan data sendiri. Tiga-tiganya bukan keadaan pengguna',
+          ],
+        ],
+      ),
+      p(
+        'Baris terakhir pantas jadi penutup bab ini. Sebuah komponen dinyatakan selesai bukan ketika ia terlihat sesuai rancangan, melainkan ketika ia sudah diuji pada keadaan yang tidak nyaman, yaitu data terburuk, hanya papan ketik, layar sempit, dan tema gelap. Empat pengujian itu tidak butuh alat apa pun dan memakan waktu beberapa menit.',
+      ),
+      callout(
+        'tip',
+        'Urutan memeriksa yang paling cepat menemukan masalah',
+        'Pertama, ganti seluruh teks contoh dengan teks yang jauh lebih panjang dan lihat apa yang terdorong keluar. Kedua, letakkan mouse jauh lalu jelajahi dengan Tab saja. Ketiga, kecilkan jendela sampai 360px. Keempat, nyalakan tema gelapnya. Urutan ini menemukan sebagian besar masalah sebelum satu pun alat otomatis dijalankan, dan tiga di antaranya sudah menjadi pengukuran nyata di sub-bab sebelumnya.',
+      ),
       divider,
       h2('Rangkuman'),
       ul(

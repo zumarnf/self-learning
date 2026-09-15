@@ -28,7 +28,7 @@ export const lessons: LessonDraft[] = [
   written(
     'dari-chatbot-ke-agent',
     'Dari Chatbot ke Coding Agent',
-    12,
+    19,
     'Apa yang berubah ketika jawabannya bisa mengubah isi disk-mu.',
     [
       p(
@@ -225,6 +225,223 @@ export const lessons: LessonDraft[] = [
         'Keputusan akhir tetap milikmu, sehingga perubahan yang tidak kamu pahami tidak boleh kamu setujui.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Selisih antara chatbot dan coding agent bukan kecerdasannya melainkan bahwa agent **menjalankan perintah** dan **mengubah berkas**. Dua kemampuan itu mengubah seluruh cara memperlakukannya.',
+      ),
+      code(
+        'text',
+        `
+        Yang dilakukan chatbot:
+          membaca prompt -> menghasilkan teks
+          seluruh akibatnya ada pada teks itu
+
+        Yang dilakukan coding agent:
+          membaca prompt -> membaca berkas -> menjalankan perintah
+          -> mengubah berkas -> menjalankan perintah lagi
+
+        Setiap panah di baris kedua adalah tindakan yang punya
+        akibat di luar percakapan.
+
+        Karena itu pertanyaan pentingnya bergeser:
+          chatbot : "apakah jawabannya benar?"
+          agent   : "apa yang boleh ia lakukan, dan bagaimana kita
+                     tahu hasilnya benar?"
+        `,
+        {
+          caption:
+            'Pertanyaan kedua tidak bisa dijawab dengan membaca jawaban. Ia dijawab dengan menjalankan perintah.',
+        },
+      ),
+      p(
+        'Kemampuan menjalankan perintah itulah yang membuat agent bisa memeriksa kerjanya sendiri, dan pada project ini perintahnya sudah ada beserta waktunya.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini:
+
+          type-check       1.910 ms   exit=0
+          format:check     3.914 ms   exit=1
+          lint             7.031 ms   exit=0
+          test             8.025 ms   exit=0  (101 test)
+
+        Keempatnya selesai dalam 20,9 detik.
+
+        Itulah selisih paling praktis antara chatbot dan agent:
+        chatbot bisa mengatakan "kodenya benar", sementara agent
+        bisa MENJALANKAN keempat perintah itu dan membaca hasilnya.
+
+        Perhatikan satu di antaranya sudah berwarna merah.
+        `,
+      ),
+      p('Dan project ini punya contoh nyata tentang kenapa klaim tanpa perintah tidak cukup.'),
+      code(
+        'text',
+        `
+        Diukur sungguhan:
+
+          npm run format:check   exit=1
+            [warn] src/test/sidebar-nav.test.tsx
+
+        Berkas itu terakhir diubah pada commit yang jauh lebih lama
+        dan TIDAK disentuh dalam pekerjaan ini.
+
+        Artinya pemeriksaan format memang belum pernah dijalankan
+        otomatis di project ini, dan penyimpangannya baru terlihat
+        ketika perintahnya benar-benar dijalankan.
+
+        Klaim "semua pemeriksaan hijau" akan salah, dan tidak ada
+        yang menyadarinya tanpa menjalankan perintahnya.
+
+        CATATAN LANJUTAN: penyimpangan ini akhirnya diperbaiki,
+        sebagai perubahan TERPISAH dan atas persetujuan pemilik
+        project. Jadi menjalankan perintah yang sama sekarang
+        memberi exit=0. Yang tetap berlaku adalah pelajarannya:
+        ia tidak terlihat oleh siapa pun sampai perintahnya
+        benar-benar dijalankan.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kemampuan bertindak membawa kelas kegagalan yang tidak ada pada chatbot, dan yang pertama adalah tindakan yang sulit dibatalkan.',
+      ),
+      code(
+        'text',
+        `
+        Tindakan yang akibatnya tidak bisa ditarik kembali:
+
+          git commit ke branch bersama
+          git push
+          deploy
+          migrasi ke basis data produksi
+          surel yang terkirim
+          berkas yang dihapus
+
+        Diuji di bab Keamanan pada project ini: nilai yang pernah
+        masuk riwayat git TETAP terbaca sesudah commit-nya dihapus,
+        dan bahkan tanpa tahu nama berkasnya:
+
+          git rev-list --all | while read c; do
+            git grep -h 'sk_live' "$c"; done
+          -> "kunciBayar": "sk_live_CONTOH_BUKAN_ASLI"
+
+        Karena itu aturan project ini menuliskannya sebagai gerbang
+        keras: jangan commit, push, atau deploy kecuali diminta.
+        `,
+      ),
+      p(
+        'Project ini juga memasang penjaga yang benar-benar berjalan, bukan sekadar aturan tertulis.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dari .claude/settings.json:
+
+          UserPromptSubmit   1 hook   prompt-context.py
+          PreToolUse         1 hook   guard-hard-rules.py
+          Stop               2 hook   verify-skill-label.py
+                                      check-turn-discipline.py
+
+        Dan penjaga PreToolUse itu BENAR-BENAR MENYALA saat materi
+        ini disusun. Ketika sebuah percobaan hendak membuat berkas
+        .env berisi kredensial contoh di dalam repositori uji,
+        perintahnya DITOLAK dengan pesan:
+
+          security.md -> Secrets & Configuration: berkas rahasia
+          (.env, *.pem, *.key) tidak boleh masuk version control.
+
+        Percobaannya lalu ditulis ulang memakai nama berkas lain.
+        `,
+        {
+          caption:
+            'Aturan yang dijalankan mesin menolak pada saat kejadian. Aturan yang hanya tertulis bergantung pada ingatan.',
+        },
+      ),
+      p(
+        'Kegagalan kedua adalah agent yang melakukan lebih banyak daripada yang diminta, dan batasnya harus dinyatakan.',
+      ),
+      code(
+        'text',
+        `
+        Bentuk yang khas:
+
+          diminta : "ganti nama variabel x menjadi total"
+          terjadi : seluruh berkas ikut diformat ulang
+
+          diminta : "perbaiki bug ini"
+          terjadi : tiga berkas lain ikut "dirapikan"
+
+        Akibatnya bukan hanya diff yang besar. Diamati sebagai pola
+        umum pada review: di atas 400 baris, reviewer memindai lalu
+        menyetujui, dan review yang tidak terjadi terlihat persis
+        sama dengan review yang terjadi.
+
+        Yang menutupnya: batas eksplisit di prompt, yaitu "jangan
+        ubah apa pun selain itu", dan memeriksa diff sebelum
+        menerimanya.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KETIGA: agent yang menyatakan selesai tanpa bukti.
+
+        Aturan project ini menuliskannya sebagai gerbang keras:
+
+          "Selesai = test ditulis dan dijalankan + seluruh check
+           hijau + lolos pemeriksaan keamanan. Klaim tanpa output
+           perintah bukan verifikasi."
+
+        Dan project ini memasang hook Stop yang memeriksa disiplin
+        giliran, sehingga pemeriksaannya tidak bergantung pada
+        ingatan seseorang.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Berpindah dari chatbot ke agent mengubah apa yang perlu diperhatikan, dan sebagian besar kesalahannya berupa kebiasaan lama yang terbawa.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menerima klaim "sudah saya perbaiki, testnya lulus"',
+            'Katanya sudah dijalankan',
+            'Diukur pada project ini, `format:check` gagal pada berkas lama. Minta keluaran perintahnya',
+          ],
+          [
+            'Tidak menyatakan batas apa yang boleh diubah',
+            'Yang penting kan hasilnya',
+            'Perubahan menyebar ke berkas lain, dan diff yang besar disetujui tanpa dibaca',
+          ],
+          [
+            'Membiarkan agent commit atau push sendiri',
+            'Biar cepat selesai',
+            'Diuji, nilai yang pernah masuk riwayat git tetap terbaca sesudah commit-nya dihapus',
+          ],
+          [
+            'Menulis aturan tanpa penjaga yang menjalankannya',
+            'Sudah ditulis jelas',
+            'Diamati, penjaga PreToolUse project ini MENOLAK satu perintah saat materi ini disusun',
+          ],
+          [
+            'Memakai agent seperti chatbot, tanpa memberinya perintah',
+            'Yang penting jawabannya',
+            'Diukur, empat pemeriksaan project ini selesai dalam 20,9 detik. Itu kemampuan yang tidak dipakai',
+          ],
+          [
+            'Menerima diff besar tanpa membacanya',
+            'Sudah ada testnya',
+            'Review yang tidak terjadi terlihat sama dengan review yang terjadi. Pecah perubahannya',
+          ],
+        ],
+      ),
+      p(
+        'Perlu dinyatakan bahwa **tidak ada pemanggilan API model** dalam penyusunan sub-bab ini. Yang dieksekusi adalah perintah pemeriksaan project ini beserta waktunya, pembacaan konfigurasi hook yang terpasang, dan satu pengamatan langsung ketika penjaga `PreToolUse` menolak sebuah perintah saat materi ini disusun. Perilaku model sebagai agent dijelaskan mengikuti dokumentasi resminya dan ditandai sebagai tidak diukur di sini.',
+      ),
       references(
         {
           label: 'Claude Code overview',
@@ -251,7 +468,7 @@ export const lessons: LessonDraft[] = [
   written(
     'context-window-anggaran',
     'Context Window sebagai Anggaran',
-    13,
+    20,
     'Sumber daya paling menentukan dalam satu sesi, dan cara membelanjakannya.',
     [
       p(
@@ -514,6 +731,221 @@ export const lessons: LessonDraft[] = [
         'Simpan keadaan di disk lewat berkas catatan, berkas terstruktur, dan riwayat git.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Context window adalah anggaran, bukan batas yang jauh. Yang menghabiskannya bukan percakapan melainkan instruksi yang selalu dimuat dan berkas yang dibaca, dan keduanya bisa diukur.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini, memakai perkiraan kasar
+        empat karakter per token:
+
+          CLAUDE.md                             1.803 token
+          .claude/rules/backend.md              3.132
+          .claude/rules/code-style.md           3.677
+          .claude/rules/core.md                 2.966
+          .claude/rules/deployment.md           2.136
+          .claude/rules/documentation.md        1.597
+          .claude/rules/engineering-judgment.md 6.310
+          .claude/rules/frontend.md             5.890
+          .claude/rules/planning.md             1.667
+          .claude/rules/security.md             5.755
+          -------------------------------------------
+          TOTAL dimuat SETIAP sesi             34.933 token
+
+        Terhadap window 128.000 token: 27,3%
+        Terhadap window 200.000 token: 17,5%
+        `,
+        { caption: 'Dua puluh tujuh persen terpakai sebelum satu baris kode pun dibaca.' },
+      ),
+      p(
+        'Dan yang paling menentukan adalah angka skill, sebab ia menunjukkan bahwa memuat segalanya bukan pilihan yang tersedia.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan:
+
+          65 skill di .claude/skills/
+          bila SELURUH isinya dimuat:      196.766 token
+          yang benar-benar dimuat
+          (hanya deskripsi, 65 berkas):      9.572 token
+
+          selisihnya ~20 kali
+
+        196.766 token LEBIH BESAR daripada seluruh window 128.000.
+
+        Artinya keputusan "skill mana yang dipakai" harus diambil
+        HANYA dari deskripsinya, dan isi skill-nya baru dimuat
+        ketika ia dipanggil.
+
+        Sebagai pembanding, satu skill:
+          diagnose                        3.144 token
+          tdd                             1.190 token
+          verification-before-completion  1.105 token
+        `,
+      ),
+      p(
+        'Project ini juga memindahkan dua berkas keluar dari yang dimuat otomatis, dan alasannya mekanis, bukan selera.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan:
+
+          .claude/frontend-design-gate.md   10.059 token
+          .claude/security-patterns.md       6.201 token
+          ------------------------------------------
+          16.260 token, yaitu 31,8% dari total bila keduanya ikut
+
+        Alasannya ditulis eksplisit di dokumen project: harness
+        memuat SELURUH isi direktori rules/ sebagai instruksi, per
+        direktori dan bukan per nama berkas. Selama sebuah berkas
+        ada di sana, ia ikut dimuat betapapun banyak dokumen
+        menuliskan "tidak auto-load".
+
+        Status on-demand ditegakkan oleh LETAKNYA, bukan oleh
+        kalimat di dalamnya. Dan kewajiban membacanya TETAP penuh
+        ketika relevan — hanya waktu pemuatannya yang ditunda.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Yang menghabiskan anggaran paling cepat bukan instruksi melainkan berkas yang dibaca, dan ukurannya bisa mengejutkan.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini:
+
+          satu berkas pelajaran terbesar     86.723 token
+          seluruh berkas kurikulum        2.539.429 token
+
+        Terhadap window 128.000:
+          satu berkas terbesar memakai 67,8%
+          bersama instruksi 34.933 token, keduanya 95,0%
+
+        Artinya membaca SATU berkas terbesar di project ini hampir
+        menghabiskan seluruh window 128.000.
+
+        Gejala yang muncul saat anggarannya habis:
+          - bagian awal percakapan tidak lagi diingat
+          - instruksi yang dimuat di awal mulai dilanggar
+          - jawaban menjadi lebih umum dan kurang spesifik
+        `,
+      ),
+      p(
+        'Karena itu bekerja dengan berkas besar menuntut membaca sebagian, dan itu keputusan yang harus disengaja.',
+      ),
+      code(
+        'text',
+        `
+        Yang lebih murah daripada membaca seluruh berkas:
+
+          cari dulu dengan grep, baca bagian yang ditemukan
+          baca rentang baris tertentu, bukan seluruh berkas
+          minta ringkasan strukturnya lebih dulu
+
+        Diukur sebagai patokan pada project ini:
+          sebaran ukuran berkas: p50 19 KB, p90 271 KB, maks 340 KB
+
+        Setengah berkasnya kecil, dan sepersepuluhnya sangat besar.
+        Membaca seluruhnya tanpa memandang ukuran berarti membayar
+        ekor itu berulang kali.
+        `,
+        {
+          caption:
+            'Yang menentukan bukan jumlah berkas yang dibaca melainkan ukuran berkas yang dibaca.',
+        },
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KEDUA: instruksi yang terkubur di berkas panjang.
+
+        Diukur: engineering-judgment.md 6.310 token, memuat sepuluh
+        prinsip.
+
+        Masalahnya bukan isinya melainkan bahwa isinya harus
+        bertahan sampai momen satu prinsip dibutuhkan.
+
+        Yang dipakai project ini: satu tabel PEMICU di awal berkas,
+        berbentuk indeks terbalik dari situasi ke aturan.
+
+          "akan menyebut berapa lama"      -> prinsip estimasi
+          "akan menambah try/catch"        -> prinsip akar masalah
+          "sudah 3 kali perbaikan gagal"   -> berhenti, pertanyakan
+                                              arsitekturnya
+
+        Aturan yang tidak punya pemicu adalah aturan yang luruh
+        lebih dulu.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KETIGA: percakapan yang terlalu panjang untuk
+        satu tugas.
+
+        Setiap giliran menambah riwayat, dan riwayat itu dikirim
+        ulang pada giliran berikutnya.
+
+        Gejalanya sama dengan anggaran yang habis: instruksi awal
+        mulai dilanggar, dan jawaban menjadi lebih umum.
+
+        Yang menutupnya: mulai percakapan BARU untuk tugas yang
+        berbeda, dan tuliskan keadaan yang perlu dibawa ke dalam
+        berkas — bukan mengandalkan riwayat percakapan.
+
+        Itulah salah satu alasan CLAUDE.md ada: ia ingatan yang
+        tidak ikut hilang saat percakapannya dimulai ulang.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Context window yang besar mengubah apa yang mungkin, dan tidak mengubah bahwa memilih tetap lebih murah daripada memuat semuanya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menumpuk seluruh aturan ke berkas yang dimuat otomatis',
+            'Biar tidak ada yang terlewat',
+            'Diukur, 34.933 token dibayar setiap sesi, yaitu 27,3% dari window 128.000',
+          ],
+          [
+            'Menulis "tidak auto-load" di dalam berkas yang auto-load',
+            'Sudah dinyatakan di dokumennya',
+            'Mekanismenya yang menentukan. Diukur, 16.260 token dihemat dengan memindahkan LETAKNYA',
+          ],
+          [
+            'Membaca berkas besar seluruhnya',
+            'Biar konteksnya lengkap',
+            'Diukur, satu berkas terbesar 86.723 token, yaitu 67,8% dari window 128.000',
+          ],
+          [
+            'Memuat seluruh isi skill alih-alih deskripsinya',
+            'Biar siap dipakai',
+            'Diukur, 196.766 token untuk 65 skill melawan 9.572 token untuk deskripsinya saja',
+          ],
+          [
+            'Menaruh aturan panjang tanpa pemicu',
+            'Sudah ditulis lengkap',
+            'Aturan tanpa pemicu luruh lebih dulu. Pakai indeks terbalik dari situasi ke aturan',
+          ],
+          [
+            'Melanjutkan satu percakapan untuk banyak tugas',
+            'Konteksnya kan sudah ada',
+            'Riwayatnya dikirim ulang tiap giliran. Mulai percakapan baru, dan simpan keadaannya di berkas',
+          ],
+        ],
+      ),
+      p(
+        'Perlu dinyatakan bahwa **tidak ada pemanggilan API model** dalam penyusunan sub-bab ini, dan bahwa angka token di sini adalah perkiraan dari jumlah karakter dengan patokan empat karakter per token, bukan hitungan tokenizer. Yang penting bukan ketepatan angkanya melainkan urutan besarannya, dan pada urutan besaran itulah seluruh keputusan anggaran diambil.',
+      ),
       references(
         {
           label: 'Manage context aggressively',
@@ -540,7 +972,7 @@ export const lessons: LessonDraft[] = [
   written(
     'explore-plan-code-commit',
     'Explore, Plan, Code, Commit',
-    13,
+    18,
     'Empat fase yang mencegah agent menyelesaikan masalah yang salah.',
     [
       p(
@@ -758,6 +1190,192 @@ export const lessons: LessonDraft[] = [
         'Commit menyimpan hasil sekaligus menciptakan titik aman untuk pekerjaan berikutnya.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Urutan explore lalu plan lalu code lalu commit bukan formalitas. Fase explore ada karena membaca seluruh project tidak mungkin, dan angka project ini menunjukkan seberapa tidak mungkinnya.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini:
+
+          berkas .ts dan .tsx di src/         116 berkas
+          total baris                     209.642 baris
+          perkiraan token                ~2.626.473 token
+
+        2,6 juta token adalah 20,5 kali window 128.000.
+
+        Jadi "baca dulu seluruh kodenya" bukan pilihan yang ada.
+        Fase explore adalah cara memilih BAGIAN MANA yang dibaca.
+        `,
+      ),
+      p(
+        'Dan menelusuri dengan pencarian jauh lebih murah daripada membaca, dengan selisih yang tidak setengah-setengah.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan:
+
+          grep -rn "sidebar-nav" src/
+          -> 6 baris hasil, selesai dalam 15 ms
+
+        Bandingkan dengan membaca berkasnya:
+
+          src/components/layout/sidebar-nav.tsx    242 baris
+          src/components/layout/app-shell.tsx      231 baris
+          src/test/sidebar-nav.test.tsx             62 baris
+          ------------------------------------------------
+                                                   535 baris
+
+        Pencarian menemukan TIGA berkas yang relevan dalam 15 ms.
+        Sesudah itu yang dibaca cuma 535 baris dari 209.642 baris,
+        yaitu 0,26% dari keseluruhan.
+
+        Itulah bentuk konkret fase explore: menyempit dulu, baru
+        membaca.
+        `,
+        { caption: 'Explore bukan membaca banyak. Explore adalah menemukan yang sedikit itu.' },
+      ),
+      p(
+        'Fase plan punya alasan yang sama praktisnya, yaitu rencana bisa ditolak dengan murah sementara diff tidak.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dari riwayat git project ini:
+
+          7fe972e  15 berkas  +9.508  -25
+          8ca424d  17 berkas  +7.781  -27
+          2264a0a  60 berkas  +21.939 -1.257
+          a39b138  35 berkas  +15.471 -56
+
+        Rata-rata satu commit di sini menyentuh belasan sampai
+        puluhan berkas.
+
+        Membaca rencana setengah halaman lalu berkata "jangan yang
+        nomor tiga" memakan satu menit. Membaca diff 9.508 baris
+        untuk menemukan bahwa nomor tiga salah memakan jauh lebih
+        lama, dan biasanya tidak dilakukan.
+
+        Rencana itu murah justru karena ia belum berupa kode.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan paling umum pada alur ini adalah fase code dimulai sebelum fase explore selesai, dan gejalanya bukan error melainkan pekerjaan yang meleset.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini:
+
+          grep -rl "sidebar" src/ --include=*.ts --include=*.tsx
+          -> 17 berkas
+
+        Tapi yang benar-benar berisi komponen sidebar cuma tiga:
+
+          src/components/layout/sidebar-nav.tsx
+          src/components/layout/app-shell.tsx
+          src/test/sidebar-nav.test.tsx
+
+        Empat belas sisanya adalah berkas MATERI yang kebetulan
+        menyebut kata "sidebar" di dalam contoh pelajaran.
+
+        Bila fase code dimulai dari hasil pencarian mentah itu,
+        yang disunting bisa berkas materi, bukan komponennya.
+        `,
+      ),
+      p(
+        'Kegagalan kedua muncul di fase code dan bentuknya adalah pemeriksaan yang ditunda sampai akhir.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan, waktu tiap pemeriksaan di project ini:
+
+          type-check      1.910 ms   exit=0
+          format:check    3.914 ms   exit=1
+
+        Dua detik untuk type-check.
+
+        Menjalankannya tiap kali satu berkas selesai berarti
+        kesalahan ketahuan pada berkas yang baru saja disunting.
+        Menundanya sampai lima belas berkas selesai berarti
+        kesalahannya ketahuan bersamaan, dan menentukan mana yang
+        menyebabkan mana menjadi pekerjaan tersendiri.
+
+        Loop kecil yang sering jauh lebih murah daripada loop besar
+        yang jarang, dan angka dua detik itu yang membuatnya murah.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KETIGA: fase commit yang dijalankan sendiri oleh
+        agent.
+
+        Diuji sungguhan pada project ini. Sebuah percobaan
+        menjalankan "git push origin main" lewat hook penjaga
+        menghasilkan:
+
+          {"hookSpecificOutput": {"hookEventName": "PreToolUse",
+           "permissionDecision": "ask",
+           "permissionDecisionReason": "deployment.md: AI tidak
+           pernah push atau membuat tag rilis atas inisiatifnya
+           sendiri — hanya bila user memintanya."}}
+
+        Sedangkan perintah biasa seperti "ls -la" lewat tanpa
+        keluaran apa pun.
+
+        Penjaganya tidak melarang segalanya. Ia melarang tepat
+        tindakan yang sulit ditarik kembali.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Empat fase itu sering dipadatkan menjadi satu, dan yang hilang biasanya justru fase yang paling murah.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Langsung meminta perubahan tanpa fase explore',
+            'Biar cepat, kan sudah jelas maunya',
+            'Diukur, 2,6 juta token kode di project ini. Tanpa menyempitkan, yang disunting bisa berkas yang salah',
+          ],
+          [
+            'Menerima hasil pencarian mentah sebagai daftar berkas yang benar',
+            'Grep-nya kan sudah ketemu',
+            'Diukur, 17 berkas cocok kata "sidebar" tetapi hanya 3 yang komponennya',
+          ],
+          [
+            'Melewati fase plan untuk pekerjaan besar',
+            'Rencananya nanti kelihatan dari kodenya',
+            'Diukur, satu commit di sini bisa 9.508 baris. Menolak rencana jauh lebih murah daripada menolak diff',
+          ],
+          [
+            'Menunda pemeriksaan sampai semua berkas selesai',
+            'Biar tidak bolak-balik',
+            'Diukur, type-check hanya 1.910 ms. Menundanya membuat banyak kesalahan muncul bersamaan',
+          ],
+          [
+            'Membiarkan agent menjalankan git push sendiri',
+            'Toh semua pemeriksaan hijau',
+            'Diuji, hook PreToolUse project ini mengembalikan permissionDecision "ask" untuk push',
+          ],
+          [
+            'Menulis pesan commit berisi daftar berkas yang berubah',
+            'Biar jelas apa yang diubah',
+            'Diff sudah menunjukkan apanya. Pesan commit dipakai untuk kenapanya',
+          ],
+        ],
+      ),
+      p(
+        'Perlu dinyatakan bahwa **tidak ada pemanggilan API model** dalam penyusunan sub-bab ini. Yang dijalankan adalah pencarian di repositori ini beserta waktunya, pembacaan statistik commit lewat `git log --shortstat`, pengukuran waktu dua perintah pemeriksaan, dan satu pemanggilan langsung hook `guard-hard-rules.py` dengan payload uji.',
+      ),
       references(
         {
           label: 'Explore first, then plan, then code',
@@ -784,7 +1402,7 @@ export const lessons: LessonDraft[] = [
   written(
     'prompt-spesifik-di-agent',
     'Menulis Prompt yang Spesifik di Agent',
-    12,
+    18,
     'Empat cara memberi konteks yang tidak tersedia di chatbot biasa.',
     [
       p(
@@ -1014,6 +1632,205 @@ export const lessons: LessonDraft[] = [
         'Sebutkan batasnya, karena agent yang tidak tahu batas akan memperbaiki hal yang tidak kamu minta.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Prompt yang spesifik di agent berbeda dari prompt yang spesifik di chatbot. Yang perlu dipersempit bukan gaya jawabannya melainkan **berkas mana** dan **sampai mana**.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini.
+
+        Prompt longgar: "perbaiki sidebar-nya"
+
+          grep -rl "sidebar" src/ --include=*.ts --include=*.tsx
+          -> 17 berkas
+
+        Prompt spesifik: "ubah src/components/layout/sidebar-nav.tsx"
+
+          -> 1 berkas, 242 baris
+
+        Selisihnya tujuh belas banding satu, dan itu sebelum agent
+        menulis sebaris pun.
+
+        Yang empat belas dari tujuh belas itu adalah berkas materi
+        pelajaran yang kebetulan menyebut kata "sidebar" di dalam
+        contohnya. Tidak satu pun berisi komponen sidebar.
+        `,
+        {
+          caption:
+            'Menyebut nama berkas tidak membuat prompt-mu kaku. Ia membuat pencariannya berhenti.',
+        },
+      ),
+      p(
+        'Cara kedua menyempitkan adalah menunjuk contoh yang sudah ada, dan pada project berukuran begini itu jauh lebih akurat daripada menjelaskan.',
+      ),
+      code(
+        'text',
+        `
+        Dua bentuk permintaan yang sama maksudnya:
+
+          A. "buat komponen navigasi yang rapi dan konsisten"
+          B. "ikuti pola src/components/layout/sidebar-nav.tsx"
+
+        Bentuk B menyerahkan 242 baris berisi keputusan yang sudah
+        diambil: penamaan, urutan impor, cara state dikelola, cara
+        kelas Tailwind disusun.
+
+        Bentuk A menyerahkan kata "rapi", yang tidak menunjuk apa
+        pun di repositori ini.
+
+        Diukur sebagai pembanding: seluruh src berisi 116 berkas
+        dan 209.642 baris. Menunjuk satu berkas dari 116 itu adalah
+        instruksi yang paling padat yang bisa kamu tulis.
+        `,
+      ),
+      p(
+        'Cara ketiga adalah menyebut batas, yaitu apa yang TIDAK boleh disentuh, dan alasannya terlihat dari riwayat project ini.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dari riwayat git:
+
+          2264a0a  60 berkas  +21.939  -1.257
+
+        Satu commit menyentuh 60 berkas.
+
+        Tanpa batas yang dinyatakan, permintaan "rapikan penamaan
+        di komponen ini" bisa melebar ke berkas sebelahnya, lalu
+        ke berkas materi yang kebetulan memakai nama yang sama.
+
+        Bentuk batas yang bekerja:
+          "jangan ubah berkas apa pun di src/content/"
+          "jangan ubah test yang sudah ada, tambahkan yang baru"
+          "jangan jalankan format pada berkas yang tidak kamu ubah"
+
+        Yang terakhir itu penting di project ini, sebab satu berkas
+        di sini memang belum lolos format:check sejak lama, dan
+        memformatnya diam-diam akan menyeret perubahan yang tidak
+        diminta ke dalam diff.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Prompt yang longgar jarang menghasilkan error. Ia menghasilkan pekerjaan yang benar untuk sasaran yang salah, dan itu lebih mahal karena tidak ada yang berwarna merah.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan:
+
+          grep -rlnE "function Sidebar|const Sidebar|<Sidebar" src/
+          -> 7 berkas
+
+        Empat di antaranya berkas materi:
+          frontend-intermediate/state/lessons.ts
+          frontend-intermediate/nextjs/lessons.ts
+          frontend-intermediate/jenis-komponen/lessons.ts
+          frontend-intermediate/react-fundamental/lessons.ts
+
+        Berkas materi itu memuat contoh kode sidebar DI DALAM teks
+        pelajaran. Menyuntingnya akan lolos type-check, lolos lint,
+        dan lolos test — karena isinya memang string.
+
+        Tidak ada satu pun pemeriksaan yang akan berwarna merah.
+        Yang rusak adalah materinya, dan itu baru ketahuan saat
+        dibaca manusia.
+        `,
+      ),
+      p('Kegagalan kedua adalah permintaan yang menyebut hasil tanpa menyebut cara memeriksanya.'),
+      code(
+        'text',
+        `
+        Bandingkan dua prompt:
+
+          A. "pastikan kodenya benar"
+          B. "jalankan npm run type-check dan npm run test,
+              tempelkan keluarannya"
+
+        Diukur sungguhan di project ini, B bisa dijalankan dan
+        hasilnya:
+
+          type-check   exit=0   1.910 ms
+          format:check exit=1   3.914 ms
+                       [warn] src/test/sidebar-nav.test.tsx
+
+        A tidak bisa dijalankan sama sekali. Ia bukan instruksi,
+        melainkan harapan.
+
+        Perhatikan bahwa hasil nyatanya bahkan tidak seluruhnya
+        hijau, dan itu justru buktinya: prompt bentuk B menemukan
+        keadaan yang sebenarnya, sementara prompt bentuk A akan
+        dijawab "sudah benar".
+
+        Penyimpangan itu belakangan diperbaiki sebagai perubahan
+        terpisah, jadi perintah yang sama sekarang memberi exit=0.
+        Yang menemukannya tetap prompt bentuk B.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KETIGA: menyebut nama berkas yang salah dengan
+        yakin.
+
+        Spesifik itu berguna hanya bila yang disebut memang ada.
+        Menyebut "src/components/Sidebar.tsx" di project ini akan
+        gagal, sebab namanya:
+
+          src/components/layout/sidebar-nav.tsx
+
+        Yang menutupnya bukan mengingat nama berkas, melainkan
+        mencarinya dulu:
+
+          grep -rl "Sidebar" src/ | head
+
+        Satu perintah 15 ms menggantikan satu tebakan.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p('Spesifik di agent berarti menyempitkan ruang tindakan, bukan memperpanjang kalimat.'),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menyebut fitur, bukan berkas',
+            'Agent kan bisa mencari sendiri',
+            'Diukur, kata "sidebar" cocok di 17 berkas dan hanya 3 yang komponennya',
+          ],
+          [
+            'Menjelaskan gaya kode dengan kata sifat',
+            'Sudah dijelaskan panjang',
+            '"Rapi" tidak menunjuk apa pun. Tunjuk satu berkas contoh dari 116 berkas yang ada',
+          ],
+          [
+            'Tidak menyebut apa yang tidak boleh disentuh',
+            'Yang diminta kan cuma satu hal',
+            'Diukur, satu commit di sini bisa menyentuh 60 berkas. Batas harus dinyatakan',
+          ],
+          [
+            'Menulis "pastikan benar" alih-alih perintah pemeriksa',
+            'Maksudnya sudah jelas',
+            'Diukur, prompt yang menyebut perintahnya menemukan `format:check` exit=1 yang selama ini tak terlihat',
+          ],
+          [
+            'Menyebut nama berkas dari ingatan',
+            'Rasanya namanya begitu',
+            'Nama sebenarnya `sidebar-nav.tsx`, bukan `Sidebar.tsx`. Cari dulu, 15 ms',
+          ],
+          [
+            'Menganggap semua pemeriksaan hijau berarti benar',
+            'Tidak ada yang merah',
+            'Menyunting berkas materi lolos semua pemeriksaan karena isinya string. Yang rusak hanya terlihat oleh pembaca',
+          ],
+        ],
+      ),
+      p(
+        'Perlu dinyatakan bahwa **tidak ada pemanggilan API model** dalam penyusunan sub-bab ini. Seluruh angka berasal dari pencarian di repositori ini, statistik `git log`, dan dua perintah pemeriksaan yang benar-benar dijalankan beserta kode keluarnya.',
+      ),
       references(
         {
           label: 'Provide specific context in your prompts',
@@ -1034,7 +1851,7 @@ export const lessons: LessonDraft[] = [
   written(
     'claude-md',
     'CLAUDE.md dan Ingatan Project',
-    14,
+    21,
     'Tempat menaruh hal yang kamu tidak mau jelaskan ulang setiap sesi.',
     [
       p(
@@ -1306,6 +2123,211 @@ export const lessons: LessonDraft[] = [
         'Bangun bertahap dari kegagalan nyata, dan pangkas berkala.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'CLAUDE.md adalah ingatan yang bertahan ketika percakapan dimulai ulang, dan harganya dibayar setiap sesi. Karena itu isinya harus yang tidak bisa disimpulkan agent dari kode.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini:
+
+          CLAUDE.md                             1.803 token
+          9 berkas di .claude/rules/           33.130 token
+          ------------------------------------------------
+          TOTAL dimuat setiap sesi             34.933 token
+
+        CLAUDE.md sendiri hanya 5,2% dari total itu.
+
+        Yang membuatnya berharga bukan ukurannya melainkan bahwa
+        ia berisi hal yang TIDAK ADA di kode: kenapa dua berkas
+        pendamping diletakkan di luar rules/, perintah mana yang
+        dipakai project ini, dan bagian mana yang tidak boleh
+        disentuh.
+        `,
+      ),
+      p(
+        'Dan project ini menyimpan satu contoh yang sangat jelas tentang aturan yang harus hidup di CLAUDE.md, sebab alasannya mekanis dan tidak terbaca dari kode mana pun.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan:
+
+          .claude/frontend-design-gate.md   10.059 token
+          .claude/security-patterns.md       6.201 token
+
+        Keduanya sengaja TIDAK diletakkan di .claude/rules/.
+
+        Alasannya ditulis di CLAUDE.md apa adanya: harness memuat
+        SELURUH isi direktori rules/ sebagai instruksi, per
+        direktori dan bukan per nama berkas. Selama sebuah berkas
+        ada di sana ia ikut dimuat, betapapun banyak dokumen
+        menuliskan "tidak auto-load".
+
+        Tanpa kalimat itu, orang berikutnya akan memindahkannya ke
+        rules/ dengan niat baik dan menambah 16.260 token ke setiap
+        sesi tanpa menyadarinya.
+
+        Itulah bentuk isi yang layak ada di CLAUDE.md: alasan yang
+        akan hilang bila tidak ditulis.
+        `,
+        {
+          caption:
+            'Yang layak masuk bukan yang penting, melainkan yang tidak bisa direkonstruksi dari kode.',
+        },
+      ),
+      p(
+        'Project ini juga memasang pemeriksa untuk aturan itu, sebab aturan yang hanya tertulis akan dilanggar cepat atau lambat.',
+      ),
+      code(
+        'text',
+        `
+        Dijalankan sungguhan:
+
+          python3 .claude/scripts/audit-parity.py
+          EXIT=0
+
+          jangkauan skill (kanal routing kedua di berkas
+          auto-load):
+            .claude/ — 61 skill auto-triggerable punya kanal kedua
+            di rules/ (4 manual-only dikecualikan)
+
+        Skrip itu memeriksa bahwa kedua berkas pendamping tetap di
+        luar rules/, dan bahwa setiap skill masih bisa dijangkau.
+
+        CLAUDE.md menyatakan aturannya. Skrip itu menegakkannya.
+        Dua hal yang berbeda, dan yang kedua tidak bisa digantikan
+        oleh yang pertama.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan paling sering pada berkas seperti ini bukan isinya salah, melainkan isinya tidak pernah diisi. Project ini sendiri adalah contohnya.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada CLAUDE.md project ini:
+
+          grep -c "TODO" CLAUDE.md
+          -> 14
+
+        Empat belas baris berisi TODO, dan semuanya ada di §4
+        Project profile — bagian yang seharusnya menyebutkan stack,
+        perintah penting, struktur direktori, dan bagian yang tidak
+        boleh disentuh.
+
+        Berkasnya sendiri menyatakan konsekuensinya:
+
+          "Selama masih berisi TODO, AI mendeteksi sendiri dari
+           codebase dan menyatakan asumsinya — jangan menebak
+           diam-diam."
+
+        Jadi setiap sesi membayar 1.803 token untuk berkas yang
+        bagian paling spesifiknya masih kosong, dan agent harus
+        menemukan sendiri hal-hal yang seharusnya sudah tertulis.
+        `,
+      ),
+      p(
+        'Kegagalan kedua adalah kebalikannya, yaitu berkas yang diisi terlalu banyak sampai isinya tenggelam.',
+      ),
+      code(
+        'text',
+        `
+        Bandingkan dua berkas di project ini:
+
+          CLAUDE.md                     1.803 token, tipis
+          engineering-judgment.md       6.310 token, tebal
+
+        Yang tebal memuat sepuluh prinsip. Masalahnya bukan
+        panjangnya melainkan bahwa isinya harus bertahan sampai
+        momen satu prinsip dibutuhkan.
+
+        Yang dipakai berkas itu: satu tabel PEMICU di awal,
+        berbentuk indeks terbalik dari situasi ke aturan.
+
+          "akan menyebut berapa lama"    -> prinsip estimasi
+          "akan menambah try/catch"      -> prinsip akar masalah
+          "sudah 3 kali perbaikan gagal" -> pertanyakan
+                                            arsitekturnya
+
+        CLAUDE.md memilih jalan lain: ia sengaja tipis dan
+        MENUNJUK ke berkas lain alih-alih menyalin isinya. Berkas
+        itu menyebutnya sendiri sebagai larangan, sebab menyalin
+        akan membuat dua sumber kebenaran yang lambat laun
+        menyimpang.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KETIGA: berkas yang basi.
+
+        CLAUDE.md di project ini menuliskannya sebagai peringatan
+        terhadap dirinya sendiri:
+
+          "File yang basi lebih berbahaya daripada tidak ada,
+           karena tetap dipercaya."
+
+        Bentuk konkretnya: perintah yang sudah tidak ada lagi,
+        struktur direktori yang sudah berubah, atau nama skrip yang
+        sudah diganti.
+
+        Cara memeriksanya mekanis, bukan soal ingatan:
+
+          jalankan tiap perintah yang disebut di dalamnya
+          periksa tiap path yang disebut masih ada
+
+        Di project ini seluruh skrip yang dirujuk memang ada — 10
+        skrip .py di .claude/scripts/ — dan audit-coverage.py
+        memeriksanya dengan hasil "BERKAS YATIM di akar .claude/: 0".
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Berkas instruksi project gagal karena dua arah yang berlawanan, yaitu terlalu kosong dan terlalu penuh.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Membiarkan bagian profil project berisi TODO',
+            'Nanti diisi kalau sempat',
+            'Diukur, CLAUDE.md project ini punya 14 baris TODO. Token-nya tetap dibayar tiap sesi',
+          ],
+          [
+            'Menyalin isi berkas aturan lain ke dalamnya',
+            'Biar lengkap di satu tempat',
+            'Dua sumber kebenaran yang menyimpang. Berkas ini menuliskan larangan itu secara eksplisit',
+          ],
+          [
+            'Menulis hal yang sudah terbaca dari kode',
+            'Biar agent tidak perlu mencari',
+            'Agent memang bisa mencari. Yang tidak bisa ia temukan adalah alasannya',
+          ],
+          [
+            'Menaruh aturan panjang tanpa pemicu',
+            'Sudah ditulis lengkap',
+            'Diukur, berkas 6.310 token memakai tabel pemicu justru karena panjangnya',
+          ],
+          [
+            'Membiarkan isinya basi setelah struktur berubah',
+            'Dulu benar, kok',
+            'Berkas basi tetap dipercaya. Jalankan tiap perintah dan periksa tiap path yang disebut',
+          ],
+          [
+            'Menulis aturan tanpa pemeriksa yang menegakkannya',
+            'Sudah jelas tertulis',
+            'Diuji, `audit-parity.py` exit=0 memeriksa invariant letak berkas yang CLAUDE.md nyatakan',
+          ],
+        ],
+      ),
+      p(
+        'Perlu dinyatakan bahwa **tidak ada pemanggilan API model** dalam penyusunan sub-bab ini. Yang dijalankan adalah penghitungan ukuran berkas instruksi project ini, pencarian TODO di dalamnya, serta eksekusi `audit-parity.py` dan `audit-coverage.py` beserta kode keluarnya.',
+      ),
       references(
         {
           label: 'How Claude remembers your project',
@@ -1332,7 +2354,7 @@ export const lessons: LessonDraft[] = [
   written(
     'skills-subagent-hooks',
     'Skills, Subagent, dan Hooks',
-    14,
+    20,
     'Tiga mekanisme perluasan, dan cara memilih di antara ketiganya.',
     [
       p(
@@ -1580,6 +2602,209 @@ export const lessons: LessonDraft[] = [
         'Pisahkan berdasarkan umur pakai, dan jangan menulis aturan yang sama di dua tempat.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Skill, subagent, dan hook menjawab tiga masalah yang berbeda, dan cara paling cepat membedakannya adalah melihat angkanya pada project nyata.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini:
+
+          65 skill di .claude/skills/
+          bila SELURUH isinya dimuat:   196.766 token
+          yang benar-benar dimuat
+          (deskripsinya saja):            9.572 token
+
+        196.766 token lebih besar daripada seluruh window 128.000.
+
+        Jadi skill BUKAN cara menambah instruksi. Ia cara menunda
+        pemuatan instruksi sampai satu situasi benar-benar terjadi.
+
+        Contoh satuannya:
+          diagnose                        3.144 token
+          tdd                             1.190 token
+          verification-before-completion  1.105 token
+
+        Ketiganya menganggur sampai dipanggil.
+        `,
+        {
+          caption:
+            'Yang menentukan bukan berapa banyak skill yang kamu punya melainkan berapa yang dimuat saat ini.',
+        },
+      ),
+      p(
+        'Keputusan memanggil skill itu diambil hanya dari deskripsinya, dan project ini mengukur seberapa andal keputusan itu.',
+      ),
+      code(
+        'text',
+        `
+        Dijalankan sungguhan:
+
+          python3 .claude/scripts/audit-routing.py
+          EXIT=0
+
+          GABUNGAN : 419/422 (99,3%) top-1
+
+        Empat ratus dua puluh dua prompt uji, 419 di antaranya
+        merutekan ke skill yang benar pada peringkat pertama.
+
+        Angka itu bukan sifat modelnya melainkan sifat DESKRIPSInya.
+        Dokumen project ini mencatat pembandingnya: ketika deskripsi
+        tidak sampai ke perutean, angka yang sama jatuh ke 62,1%.
+
+        Itulah kenapa menulis deskripsi skill adalah pekerjaan
+        prompt engineering, bukan pekerjaan dokumentasi.
+        `,
+      ),
+      p(
+        'Hook menjawab masalah yang sama sekali lain, yaitu hal yang harus terjadi tanpa bergantung pada keputusan model.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan dari .claude/settings.json:
+
+          UserPromptSubmit   1   prompt-context.py
+          PreToolUse         1   guard-hard-rules.py
+          Stop               2   verify-skill-label.py
+                                 check-turn-discipline.py
+
+        Dan hook PreToolUse itu benar-benar dijalankan dengan dua
+        payload uji:
+
+          {"tool_name":"Bash",
+           "tool_input":{"command":"git push origin main"}}
+          -> {"permissionDecision": "ask",
+              "permissionDecisionReason": "deployment.md: AI tidak
+              pernah push atau membuat tag rilis atas inisiatifnya
+              sendiri — hanya bila user memintanya."}
+
+          {"tool_name":"Bash","tool_input":{"command":"ls -la"}}
+          -> (tidak ada keluaran)
+
+        Perhatikan bedanya dengan skill: skill adalah SARAN yang
+        dimuat bila cocok, hook adalah KEPUTUSAN yang berjalan
+        selalu.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kesalahan paling mahal di sini adalah memakai ketiganya untuk masalah yang salah, dan gejalanya berbeda-beda.',
+      ),
+      code(
+        'text',
+        `
+        Gejala 1: aturan penting ditulis sebagai skill, lalu tidak
+        pernah dimuat.
+
+        Diukur: keputusan memanggil skill diambil dari 9.572 token
+        deskripsi, dan akurasinya 419/422 pada suite project ini.
+
+        Tiga dari 422 tidak merutekan ke tempat yang benar. Untuk
+        saran, tiga dari 422 tidak apa-apa. Untuk larangan commit
+        ke branch bersama, tiga dari 422 adalah tiga kali terlalu
+        banyak.
+
+        Karena itu project ini menaruh larangan push di HOOK, bukan
+        di skill. Hook tidak punya angka 419/422. Ia berjalan atau
+        tidak berjalan.
+        `,
+      ),
+      p(
+        'Gejala kedua muncul dari arah sebaliknya, yaitu hook yang dipasang untuk hal yang sebenarnya butuh penilaian.',
+      ),
+      code(
+        'text',
+        `
+        Dijalankan sungguhan:
+
+          python3 .claude/scripts/audit-enforcement.py
+          EXIT=0
+
+          33 gerbang tercatat: 24 berpenegak mesin,
+          9 LAPIS-1 (penilaian, tanpa mekanisme)
+
+          "Cakupan 100% BUKAN target. Penjaga yang menebak akan
+           menyala di giliran yang benar, lalu diabaikan — dan yang
+           benar ikut diabaikan bersamanya."
+
+        Sembilan dari 33 gerbang di project ini SENGAJA tidak punya
+        penegak mesin.
+
+        Tidak ada hook yang bisa melihat apakah sebuah masalah
+        benar-benar dipahami, atau apakah sebuah keberatan
+        disuarakan pada waktunya. Memaksakan hook untuk itu
+        menghasilkan peringatan palsu, dan peringatan palsu
+        melatih orang mengabaikan seluruh peringatan.
+        `,
+      ),
+      code(
+        'text',
+        `
+        GEJALA KETIGA: subagent dipakai untuk pekerjaan yang
+        hasilnya harus dibawa pulang utuh.
+
+        Subagent punya context window sendiri, dan itu justru
+        gunanya: ia bisa membaca banyak tanpa memenuhi ruang utama.
+
+        Diukur sebagai patokan: satu berkas terbesar di project ini
+        86.723 token, dan seluruh src 2.626.473 token. Menelusuri
+        itu di ruang utama akan menghabiskannya.
+
+        Tapi yang kembali dari subagent cuma RINGKASANnya. Bila
+        yang kamu butuhkan adalah isi persis satu berkas, subagent
+        adalah alat yang salah — ia akan mengembalikan rangkuman,
+        bukan berkasnya.
+
+        Aturannya sederhana: subagent untuk MENCARI, ruang utama
+        untuk MENGUBAH.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Ketiganya terlihat seperti cara yang sama untuk memberi instruksi, padahal jaminannya berbeda jauh.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menaruh larangan keras sebagai skill',
+            'Kan sudah ditulis jelas',
+            'Diukur, perutean skill 419/422. Larangan butuh hook yang berjalan selalu, bukan saran yang cocok 99,3%',
+          ],
+          [
+            'Memasang hook untuk hal yang butuh penilaian',
+            'Biar dijamin mesin',
+            'Diukur, 9 dari 33 gerbang project ini sengaja tanpa penegak. Peringatan palsu melatih orang mengabaikannya',
+          ],
+          [
+            'Menulis deskripsi skill seadanya',
+            'Isinya kan yang penting',
+            'Deskripsi adalah satu-satunya yang dibaca saat memilih. Isinya baru dimuat sesudah terpilih',
+          ],
+          [
+            'Memuat banyak skill sekaligus biar siap',
+            'Biar tidak bolak-balik',
+            'Diukur, 196.766 token bila semua dimuat, lebih besar daripada window 128.000',
+          ],
+          [
+            'Memakai subagent untuk menyunting berkas',
+            'Sekalian saja biar hemat',
+            'Yang kembali cuma ringkasan. Subagent untuk mencari, ruang utama untuk mengubah',
+          ],
+          [
+            'Menganggap hook yang diam berarti aturannya dipatuhi',
+            'Tidak ada peringatan, berarti aman',
+            'Hook hanya menandai jejak yang terlihat. Diukur, `ls -la` lewat tanpa keluaran apa pun',
+          ],
+        ],
+      ),
+      p(
+        'Perlu dinyatakan bahwa **tidak ada pemanggilan API model** dalam penyusunan sub-bab ini. Yang dijalankan adalah penghitungan ukuran seluruh berkas skill, pembacaan konfigurasi hook, eksekusi `audit-routing.py` dan `audit-enforcement.py`, serta dua pemanggilan langsung `guard-hard-rules.py` dengan payload uji yang berbeda.',
+      ),
       references(
         {
           label: 'Extend Claude with skills',
@@ -1606,7 +2831,7 @@ export const lessons: LessonDraft[] = [
   written(
     'verifikasi-kerja-agent',
     'Memberi Agent Cara Memverifikasi Kerjanya',
-    14,
+    20,
     'Teknik terpenting di seluruh bab ini, karena ia mengubah arti kata selesai.',
     [
       p(
@@ -1838,6 +3063,212 @@ export const lessons: LessonDraft[] = [
         'Waspadai kelulusan yang dicapai dengan mengubah test, karena ia tidak akan pernah dilaporkan sebagai kegagalan.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Memberi agent cara memverifikasi kerjanya berarti memberinya perintah yang bisa berwarna merah. Pada project ini perintah itu sudah ada, dan waktunya cukup pendek untuk dijalankan berulang kali.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada project ini:
+
+          npm run type-check      1.910 ms   exit=0
+          npm run format:check    3.914 ms   exit=1
+          npm run lint            7.031 ms   exit=0
+          npm run test            8.025 ms   exit=0
+                                             6 berkas, 101 test
+
+        Keempatnya selesai dalam 20,9 detik.
+
+        Dua puluh detik adalah harga satu putaran verifikasi penuh.
+        Dibandingkan dengan membaca diff 9.508 baris, itu murah
+        sekali.
+        `,
+      ),
+      p(
+        'Yang membuat daftar itu berguna bukan bahwa semuanya hijau, melainkan justru bahwa satu di antaranya tidak.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan:
+
+          npm run format:check
+          EXIT=1
+
+          Checking formatting...
+          [warn] src/test/sidebar-nav.test.tsx
+          [warn] Code style issues found in the above file.
+                 Run Prettier with --write to fix.
+
+        Berkas itu terakhir diubah pada commit 2264a0a dan TIDAK
+        disentuh oleh pekerjaan yang menghasilkan materi ini.
+
+        Artinya penyimpangan ini sudah ada sejak lama dan tidak
+        terlihat oleh siapa pun, sebab perintahnya memang belum
+        pernah dijalankan otomatis di project ini.
+
+        CATATAN LANJUTAN: penyimpangan ini akhirnya diperbaiki,
+        sebagai perubahan TERPISAH dan atas persetujuan pemilik
+        project. Jadi menjalankan perintah yang sama sekarang
+        memberi exit=0. Yang tetap berlaku adalah pelajarannya:
+        ia tidak terlihat oleh siapa pun sampai perintahnya
+        benar-benar dijalankan.
+
+        Sebuah pemeriksaan yang tidak pernah dijalankan bukan
+        pemeriksaan. Ia dekorasi.
+        `,
+        {
+          caption:
+            'Pemeriksaan pertama yang kamu jalankan hampir selalu menemukan sesuatu. Itu tanda ia bekerja.',
+        },
+      ),
+      p(
+        'Selain perintah kualitas, project ini punya lapisan verifikasi kedua yang memeriksa konfigurasi agent-nya sendiri.',
+      ),
+      code(
+        'text',
+        `
+        Dijalankan sungguhan:
+
+          python3 .claude/scripts/selftest.py
+          EXIT=0
+
+          Audit routing skill (422 prompt):
+          LULUS  akurasi routing              0,3s
+
+          Alat kontras (uji dua arah):
+          LULUS  kontras: lolos-yang-benar=True
+                          tolak-yang-buruk=True
+
+          LULUS: 13/13 pemeriksaan hijau.
+
+        Perhatikan baris terakhir alat kontras. Ia diuji DUA ARAH:
+        palet yang sehat harus lolos DAN palet yang buruk harus
+        ditolak.
+
+        Pemeriksa yang hanya diuji satu arah bisa saja selalu
+        menjawab "lulus", dan tidak ada yang menyadarinya.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Kegagalan pertama adalah pemeriksaan yang tidak bisa berwarna merah sama sekali, dan itu jauh lebih sering daripada yang diduga.',
+      ),
+      code(
+        'text',
+        `
+        Contoh nyata dari project ini.
+
+        Sebagian besar isi repositori ini adalah berkas materi,
+        yaitu STRING di dalam berkas TypeScript.
+
+        Diukur: 59 berkas kurikulum, 2.539.429 token.
+
+        Menyunting isi string di sana akan:
+          lolos type-check   (tipenya tetap string)
+          lolos lint         (tidak ada aturan yang dilanggar)
+          lolos test         (101 test tidak membaca isinya)
+
+        Tiga pemeriksaan hijau, dan materinya bisa saja salah total.
+
+        Yang bisa berwarna merah untuk kesalahan seperti itu cuma
+        pembaca manusia, atau test baru yang sengaja dibuat untuk
+        memeriksa isinya. Menyebut "semua check hijau" sebagai
+        bukti kebenaran materi adalah salah kaprah.
+        `,
+      ),
+      p(
+        'Kegagalan kedua adalah menganggap seluruh aturan bisa ditegakkan mesin, padahal sebagian memang tidak bisa.',
+      ),
+      code(
+        'text',
+        `
+        Dijalankan sungguhan:
+
+          python3 .claude/scripts/audit-enforcement.py
+          EXIT=0
+
+          33 gerbang tercatat: 24 berpenegak mesin,
+          9 LAPIS-1 (penilaian, tanpa mekanisme — status yang SAH
+          bila alasannya tercatat)
+
+          "Cakupan 100% BUKAN target. Penjaga yang menebak akan
+           menyala di giliran yang benar, lalu diabaikan — dan yang
+           benar ikut diabaikan bersamanya."
+
+        Sembilan gerbang sengaja dibiarkan tanpa penegak.
+
+        Untuk yang sembilan itu, verifikasinya berbentuk lain:
+        minta agent menyatakan APA yang ia verifikasi dan APA yang
+        ia asumsikan, lalu periksa pernyataan itu.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN KETIGA: perintah dijalankan, tetapi keluarannya
+        tidak dibaca.
+
+        Bentuk yang khas: agent menjalankan npm run test, melihat
+        prosesnya selesai, lalu menyatakan lulus — padahal yang
+        menentukan adalah kode keluarnya.
+
+        Diukur berdampingan pada project ini:
+
+          npm run type-check      EXIT=0
+          npm run format:check    EXIT=1
+
+        Keduanya "selesai". Hanya satu yang lulus.
+
+        Yang menutupnya: minta kode keluar dan beberapa baris
+        terakhir keluarannya, bukan kalimat "sudah dijalankan".
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Verifikasi gagal bukan karena perintahnya sulit melainkan karena hasilnya tidak diperiksa.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Menerima kalimat "sudah saya jalankan, lulus"',
+            'Katanya sudah dijalankan',
+            'Diukur, `format:check` exit=1 sejak lama tanpa ada yang menyadarinya. Minta kode keluarnya',
+          ],
+          [
+            'Menganggap semua check hijau berarti materi benar',
+            'Tidak ada yang merah',
+            'Diukur, 2.539.429 token materi berupa string. Tiga pemeriksaan tidak membaca isinya sama sekali',
+          ],
+          [
+            'Menunggu sampai akhir baru memverifikasi',
+            'Biar sekali jalan',
+            'Diukur, satu putaran penuh hanya 20,9 detik. Menundanya membuat kesalahan menumpuk',
+          ],
+          [
+            'Berharap mesin bisa menegakkan semua aturan',
+            'Biar tidak bergantung ingatan',
+            'Diukur, 9 dari 33 gerbang project ini sengaja tanpa penegak. Penjaga yang menebak akan diabaikan',
+          ],
+          [
+            'Menulis pemeriksa yang hanya diuji satu arah',
+            'Sudah lulus, kok',
+            'Pemeriksa yang selalu meluluskan juga "lulus". Uji dua arah, seperti alat kontras di project ini',
+          ],
+          [
+            'Menganggap proses selesai berarti perintah lulus',
+            'Tidak ada pesan error',
+            'Yang menentukan kode keluarnya. Diukur, dua perintah sama-sama selesai dengan exit 0 dan exit 1',
+          ],
+        ],
+      ),
+      p(
+        'Perlu dinyatakan bahwa **tidak ada pemanggilan API model** dalam penyusunan sub-bab ini. Yang dijalankan adalah empat perintah pemeriksaan project ini beserta waktunya dan kode keluarnya, ditambah `selftest.py` dan `audit-enforcement.py`. Keluaran yang ditampilkan di atas adalah keluaran asli, termasuk yang gagal.',
+      ),
       references(
         {
           label: 'Give Claude a way to verify its work',
@@ -1864,7 +3295,7 @@ export const lessons: LessonDraft[] = [
   written(
     'pola-kegagalan-claude-code',
     'Pola Kegagalan dan Cara Keluar',
-    13,
+    20,
     'Lima sesi yang berputar tanpa maju, dan cara mengenali masing-masing sejak awal.',
     [
       p(
@@ -2090,6 +3521,223 @@ export const lessons: LessonDraft[] = [
         'Sesi yang buntu pada pekerjaan besar biasanya menandakan pekerjaannya perlu dipecah.',
       ),
 
+      h2('Studi kasus di project nyata'),
+      p(
+        'Pola kegagalan agent jarang berbentuk agent yang menolak bekerja. Bentuknya adalah agent yang bekerja dengan lancar ke arah yang salah, dan seluruh contoh di bawah ini benar-benar terjadi saat materi ini disusun.',
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN 1: pesan error yang menunjuk baris yang salah.
+
+        Dijalankan sungguhan. Satu berkas berisi SATU baris:
+
+          const s = \`pakai \${TOKEN:0:10} di sini\`;
+
+        Hasil tsc:
+
+          a.ts(1,25): error TS1005: '}' expected.
+          a.ts(1,26): error TS1134: Variable declaration expected.
+          a.ts(1,27): error TS1005: ';' expected.
+          a.ts(1,30): error TS1128: Declaration or statement
+                      expected.
+          a.ts(1,32): error TS1434: Unexpected keyword or
+                      identifier.
+          a.ts(2,1):  error TS1160: Unterminated template literal.
+
+        Enam error dari satu kesalahan.
+
+        Dan error TERAKHIR menunjuk baris 2 — baris yang bahkan
+        tidak ada isinya. Yang salah ada di baris 1 kolom 15.
+        `,
+        {
+          caption:
+            'Baris yang disebut error terakhir hampir selalu bukan baris yang salah. Yang berguna adalah error pertama.',
+        },
+      ),
+      p(
+        'Kegagalan itu punya bentuk umum yang layak dikenali, yaitu satu kesalahan kecil yang menghasilkan banyak gejala yang terlihat tidak berhubungan.',
+      ),
+      code(
+        'text',
+        `
+        Pembandingnya, berkas yang benar:
+
+          const s = \`aman \${token} di sini\`;
+
+          b.ts(1,19): error TS2304: Cannot find name 'token'.
+
+        Satu error, satu penyebab, lokasi tepat.
+
+        Bedanya: yang pertama merusak PARSING, sehingga sisa
+        berkasnya dibaca sebagai hal lain. Yang kedua hanya salah
+        di tingkat nama, sehingga strukturnya tetap terbaca.
+
+        Aturan praktisnya: bila error muncul berderet dan yang
+        terakhir menunjuk akhir berkas, curigai kesalahan sintaks
+        di dekat error PERTAMA, bukan di tempat yang disebut error
+        terakhir.
+        `,
+      ),
+      p(
+        'Kegagalan berikutnya bukan pada kodenya melainkan pada mesin yang menjalankannya, dan ini yang paling sering disalahartikan sebagai bug.',
+      ),
+      code(
+        'text',
+        `
+        Diukur sungguhan pada mesin yang dipakai menyusun materi
+        ini:
+
+          nproc          4
+          Swap total     0 MB
+
+        Perintah build project ini menjalankan beberapa worker
+        prerender secara paralel. Dengan jumlah worker bawaan pada
+        mesin empat inti tanpa swap, sebagian halaman melewati
+        batas 60 detik saat prerender dan build keluar dengan
+        kode 1.
+
+        Halaman yang gagal termasuk halaman yang TIDAK disentuh
+        sama sekali.
+
+        Yang menyelesaikannya bukan mengubah kode halaman itu,
+        melainkan menurunkan jumlah worker:
+
+          CIRCLE_NODE_TOTAL=2 npm run build   -> EXIT=0
+
+        Kalau gejalanya menimpa berkas yang tidak kamu sentuh,
+        curigai lingkungannya lebih dulu, bukan kodenya.
+        `,
+      ),
+
+      h2('Saat error-nya muncul'),
+      p(
+        'Pola kegagalan yang paling mahal justru yang tidak memunculkan error sama sekali, dan project ini menyimpan dua contohnya.',
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN SENYAP 1: pemeriksaan yang memang tidak pernah
+        dijalankan.
+
+        Diukur sungguhan:
+
+          npm run format:check
+          EXIT=1
+          [warn] src/test/sidebar-nav.test.tsx
+
+        Berkas itu terakhir diubah pada commit 2264a0a dan tidak
+        disentuh oleh pekerjaan ini.
+
+        Tidak ada yang rusak. Tidak ada yang merah di layar siapa
+        pun. Penyimpangannya hanya muncul ketika seseorang
+        akhirnya menjalankan perintahnya.
+
+        Ini bukan bug yang dibuat agent. Ini bug yang DITEMUKAN
+        karena agent menjalankan perintah yang selama ini
+        dilewati.
+
+        CATATAN LANJUTAN: penyimpangan ini akhirnya diperbaiki,
+        sebagai perubahan TERPISAH dan atas persetujuan pemilik
+        project. Jadi menjalankan perintah yang sama sekarang
+        memberi exit=0. Yang tetap berlaku adalah pelajarannya:
+        ia tidak terlihat oleh siapa pun sampai perintahnya
+        benar-benar dijalankan.
+        `,
+      ),
+      p(
+        'Kegagalan senyap kedua adalah agent yang melakukan hal yang masuk akal tetapi dilarang, dan di project ini penjaganya benar-benar menyala.',
+      ),
+      code(
+        'text',
+        `
+        Terjadi sungguhan saat materi ini disusun.
+
+        Sebuah percobaan hendak membuat berkas .env berisi nilai
+        contoh di dalam repositori uji. Perintahnya DITOLAK oleh
+        hook PreToolUse dengan alasan:
+
+          security.md -> Secrets & Configuration: berkas rahasia
+          (.env, *.pem, *.key) tidak boleh masuk version control.
+
+        Percobaannya lalu ditulis ulang memakai nama berkas lain
+        dengan nilai yang jelas-jelas palsu.
+
+        Dan penjaga yang sama diuji terpisah:
+
+          {"tool_name":"Bash",
+           "tool_input":{"command":"git push origin main"}}
+          -> {"permissionDecision": "ask", ...}
+
+        Perhatikan keputusannya "ask", bukan "deny". Ia tidak
+        melarang, ia MENGHENTIKAN untuk bertanya. Itu bentuk yang
+        tepat untuk tindakan yang kadang memang diminta user.
+        `,
+      ),
+      code(
+        'text',
+        `
+        KEGAGALAN SENYAP 3: pemeriksaan hijau yang tidak menjamin
+        apa pun.
+
+        Diukur: 59 berkas kurikulum di project ini, 2.539.429
+        token, seluruhnya berupa STRING di dalam berkas TypeScript.
+
+        Menulis materi yang salah di sana akan:
+          lolos type-check   exit=0
+          lolos lint         exit=0
+          lolos test         exit=0, 101 test
+
+        Tiga hijau, isinya bisa keliru total.
+
+        Inilah kenapa "semua check hijau" adalah pernyataan tentang
+        BENTUK, bukan tentang ISI. Untuk isi, yang berlaku tetap
+        pembacaan manusia.
+        `,
+      ),
+
+      h2('Kesalahan umum pemula'),
+      p(
+        'Keluar dari sesi yang buntu hampir selalu berarti berhenti menambah perbaikan dan mulai mempersempit penyebabnya.',
+      ),
+      table(
+        ['Yang sering dilakukan', 'Kenapa terasa benar', 'Yang sebenarnya terjadi'],
+        [
+          [
+            'Memperbaiki baris yang disebut error terakhir',
+            'Itu kan yang tertulis',
+            'Diuji, satu kesalahan menghasilkan 6 error dan yang terakhir menunjuk baris kosong',
+          ],
+          [
+            'Menyalahkan kode ketika berkas yang tak disentuh ikut gagal',
+            'Pasti ada yang rusak',
+            'Diukur, build gagal karena 4 inti tanpa swap. Menurunkan jumlah worker menyelesaikannya',
+          ],
+          [
+            'Mencoba perbaikan keempat setelah tiga kali gagal',
+            'Sedikit lagi ketemu',
+            'Tiga kegagalan berturut-turut menandakan dugaan awalnya salah. Berhenti dan persempit penyebabnya',
+          ],
+          [
+            'Mengubah beberapa hal sekaligus lalu menjalankan test',
+            'Biar cepat ketahuan',
+            'Kalau hijau, kamu tidak tahu mana yang bekerja. Ubah satu, uji, ulangi',
+          ],
+          [
+            'Menganggap tidak ada error berarti benar',
+            'Semuanya hijau',
+            'Diukur, 2.539.429 token materi lolos tiga pemeriksaan tanpa isinya pernah dibaca',
+          ],
+          [
+            'Melewati perintah yang jarang dipakai',
+            'Yang penting test lulus',
+            'Diukur, `format:check` yang jarang dijalankan menyimpan penyimpangan sejak commit lama',
+          ],
+        ],
+      ),
+      p(
+        'Perlu dinyatakan bahwa **tidak ada pemanggilan API model** dalam penyusunan sub-bab ini. Seluruh pesan error di atas adalah keluaran asli dari `tsc`, dari `npm run format:check`, dan dari hook `guard-hard-rules.py` project ini, dijalankan lebih dulu sebelum ditulis. Spesifikasi mesin diambil dari `nproc` dan `free -m`.',
+      ),
       references(
         {
           label: 'Avoid common failure patterns',
