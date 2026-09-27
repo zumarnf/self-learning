@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  MAX_DRAFT_CHARS,
   MAX_IMPORT_BYTES,
   SCHEMA_VERSION,
   emptyData,
@@ -152,5 +153,129 @@ describe('round-trip ekspor → impor', () => {
     expect(result.data.activity).toEqual(original.activity);
     expect(result.data.lastVisited).toBe(original.lastVisited);
     expect(result.data.preferences.theme).toBe('dark');
+  });
+});
+
+/**
+ * Taman Bermain state, added in schema version 2.
+ *
+ * The draft field is the only thing in the whole schema whose length the learner controls, so it
+ * is the only thing that can fill `localStorage` on its own. It is truncated rather than rejected:
+ * losing one oversized draft is a nuisance, but rejecting the whole file over it would cost the
+ * learner every solved exercise they had (`security.md` — input limits, fail safe).
+ */
+
+describe('skema v2 — state Taman Bermain', () => {
+  it('menaikkan versi skema ke 2', () => {
+    expect(SCHEMA_VERSION).toBe(2);
+  });
+
+  it('data kosong punya peta soal kosong, bukan undefined', () => {
+    expect(emptyData().exercises).toEqual({});
+  });
+
+  it('menerima state soal yang sah', () => {
+    const result = parseLearningData({
+      schemaVersion: 2,
+      exercises: {
+        'balik-urutan': { status: 'benar', attempts: 3, solvedAt: '2026-09-17T10:00:00.000Z' },
+      },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.exercises['balik-urutan']?.status).toBe('benar');
+    expect(result.data.exercises['balik-urutan']?.attempts).toBe(3);
+  });
+
+  it('membuang entri dengan status yang tidak dikenal', () => {
+    const result = parseLearningData({
+      schemaVersion: 2,
+      exercises: { a: { status: 'sempurna', attempts: 1 }, b: { status: 'dicoba', attempts: 1 } },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.exercises.a).toBeUndefined();
+    expect(result.data.exercises.b).toBeDefined();
+  });
+
+  it('menormalkan attempts yang negatif atau pecahan', () => {
+    const result = parseLearningData({
+      schemaVersion: 2,
+      exercises: {
+        a: { status: 'dicoba', attempts: -5 },
+        b: { status: 'dicoba', attempts: 2.9 },
+        c: { status: 'dicoba', attempts: 'banyak' },
+      },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.exercises.a?.attempts).toBe(0);
+    expect(result.data.exercises.b?.attempts).toBe(2);
+    expect(result.data.exercises.c?.attempts).toBe(0);
+  });
+
+  it('MEMOTONG draf yang kelewat panjang, bukan menolak seluruh berkasnya', () => {
+    const result = parseLearningData({
+      schemaVersion: 2,
+      exercises: {
+        a: { status: 'dicoba', attempts: 1, code: 'x'.repeat(MAX_DRAFT_CHARS + 5000) },
+        b: { status: 'benar', attempts: 1 },
+      },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.exercises.a?.code).toHaveLength(MAX_DRAFT_CHARS);
+    expect(result.data.exercises.b?.status).toBe('benar');
+  });
+
+  it('hanya menyimpan revealed bernilai true', () => {
+    const result = parseLearningData({
+      schemaVersion: 2,
+      exercises: {
+        a: { status: 'benar', attempts: 1, revealed: true },
+        b: { status: 'benar', attempts: 1, revealed: false },
+      },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.exercises.a?.revealed).toBe(true);
+    expect(result.data.exercises.b?.revealed).toBeUndefined();
+  });
+
+  it('membuang entri yang bukan objek tanpa menjatuhkan sisanya', () => {
+    const result = parseLearningData({
+      schemaVersion: 2,
+      exercises: { a: 'benar', b: { status: 'benar', attempts: 1 } },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.exercises.a).toBeUndefined();
+    expect(result.data.exercises.b).toBeDefined();
+  });
+});
+
+describe('migrasi v1 → v2', () => {
+  it('menerima ekspor v1 dan memberinya peta soal kosong', () => {
+    const v1 = {
+      schemaVersion: 1,
+      lessons: { 'a/b/c': { completedAt: '2026-08-01T09:00:00.000Z' } },
+      chapters: {},
+      activity: { '2026-08-01': 2 },
+      lastVisited: 'a/b/c',
+      preferences: { theme: 'dark' },
+    };
+    const result = parseLearningData(v1);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.schemaVersion).toBe(2);
+    expect(result.data.exercises).toEqual({});
+    // Migrasi ini aditif murni — tidak boleh ada progres lama yang hilang karenanya.
+    expect(result.data.lessons['a/b/c']?.completedAt).toBe('2026-08-01T09:00:00.000Z');
+    expect(result.data.activity['2026-08-01']).toBe(2);
+  });
+
+  it('tetap menolak ekspor dari versi yang lebih baru lagi', () => {
+    const result = parseLearningData({ schemaVersion: 3 });
+    expect(result.ok).toBe(false);
   });
 });

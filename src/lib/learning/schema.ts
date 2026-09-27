@@ -9,10 +9,19 @@
 
 export const STORAGE_KEY = 'rbf.learning-data';
 export const BACKUP_KEY = 'rbf.learning-data.corrupt-backup';
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 /** Guard against a pathological import; real data is a few tens of kilobytes. */
 export const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Cap on a saved Taman Bermain draft.
+ *
+ * This is the only field in the schema whose length the learner controls, and therefore the only
+ * one that can fill `localStorage` by itself. Forty exercises at this cap is roughly 800 KB,
+ * comfortably inside a 5 MB budget (`security.md` — enforce limits).
+ */
+export const MAX_DRAFT_CHARS = 20_000;
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 
@@ -30,6 +39,18 @@ export type QuizState = {
   lastAttemptAt: string;
 };
 
+/** One Taman Bermain exercise, keyed by its slug. Untouched exercises have no entry at all. */
+export type ExerciseState = {
+  /** 'benar' means every rule and every scenario passed. It is never downgraded afterwards. */
+  status: 'dicoba' | 'benar';
+  attempts: number;
+  solvedAt?: string;
+  /** Last draft, so a reload never costs the learner what they typed. Truncated on read. */
+  code?: string;
+  /** Whether the answer key was opened. Recorded plainly; it does not undo 'benar'. */
+  revealed?: boolean;
+};
+
 export type ChapterState = {
   quiz?: QuizState;
   /** Checklist item index → checked. Sparse: unchecked items are simply absent. */
@@ -43,6 +64,8 @@ export type LearningData = {
   lessons: Record<string, LessonState>;
   /** Keyed by `category/chapter`. */
   chapters: Record<string, ChapterState>;
+  /** Keyed by exercise slug (schema 2). */
+  exercises: Record<string, ExerciseState>;
   /** `YYYY-MM-DD` (local date) → number of activities that day. */
   activity: Record<string, number>;
   lastVisited: string | null;
@@ -55,6 +78,7 @@ export function emptyData(): LearningData {
     updatedAt: new Date().toISOString(),
     lessons: {},
     chapters: {},
+    exercises: {},
     activity: {},
     lastVisited: null,
     preferences: { theme: 'system' },
@@ -67,6 +91,7 @@ export const EMPTY_SNAPSHOT: LearningData = Object.freeze({
   updatedAt: '1970-01-01T00:00:00.000Z',
   lessons: Object.freeze({}) as Record<string, LessonState>,
   chapters: Object.freeze({}) as Record<string, ChapterState>,
+  exercises: Object.freeze({}) as Record<string, ExerciseState>,
   activity: Object.freeze({}) as Record<string, number>,
   lastVisited: null,
   preferences: Object.freeze({ theme: 'system' as ThemePreference }),
@@ -119,6 +144,28 @@ function parseChapterState(value: unknown): ChapterState | undefined {
   return state;
 }
 
+function parseExerciseState(value: unknown): ExerciseState | undefined {
+  if (!isRecord(value)) return undefined;
+
+  // Status is the one field with no safe fallback: an entry whose status cannot be read tells us
+  // nothing about whether the exercise was solved, so the entry is dropped rather than guessed.
+  if (value.status !== 'dicoba' && value.status !== 'benar') return undefined;
+
+  const attempts =
+    typeof value.attempts === 'number' && Number.isFinite(value.attempts)
+      ? Math.max(0, Math.floor(value.attempts))
+      : 0;
+
+  const state: ExerciseState = { status: value.status, attempts };
+  if (typeof value.solvedAt === 'string') state.solvedAt = value.solvedAt;
+  // Truncate rather than reject: one oversized draft must not cost the learner every other
+  // exercise they have solved.
+  if (typeof value.code === 'string') state.code = value.code.slice(0, MAX_DRAFT_CHARS);
+  if (value.revealed === true) state.revealed = true;
+
+  return state;
+}
+
 /**
  * Parse stored or imported JSON into `LearningData`.
  *
@@ -158,6 +205,13 @@ export function parseLearningData(raw: unknown): ParseResult {
     }
   }
 
+  if (isRecord(raw.exercises)) {
+    for (const [key, value] of Object.entries(raw.exercises)) {
+      const state = parseExerciseState(value);
+      if (state) data.exercises[key] = state;
+    }
+  }
+
   if (isRecord(raw.activity)) {
     for (const [day, count] of Object.entries(raw.activity)) {
       if (typeof count === 'number' && Number.isFinite(count) && count > 0) {
@@ -174,9 +228,13 @@ export function parseLearningData(raw: unknown): ParseResult {
 
   if (typeof raw.updatedAt === 'string') data.updatedAt = raw.updatedAt;
 
-  // Migration point. Version 1 is the first schema, so there is nothing to migrate yet; when
-  // version 2 arrives, the transform for `raw.schemaVersion < 2` goes here rather than in a
-  // scattered set of defensive reads.
+  // Migration point.
+  //
+  // v1 -> v2 added `exercises` and nothing else, so the transform is the absence of one: a v1
+  // file simply has no `exercises` key, and `emptyData()` already supplied an empty map above.
+  // Purely additive, which is why an old export still imports without losing anything.
+  //
+  // A v3 transform belongs here too, rather than in a scattered set of defensive reads.
   data.schemaVersion = SCHEMA_VERSION;
 
   return { ok: true, data };

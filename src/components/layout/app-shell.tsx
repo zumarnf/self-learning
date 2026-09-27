@@ -24,10 +24,15 @@ const NAV = [
   { href: '/kelas', label: 'Kelas' },
   { href: '/roadmap', label: 'Roadmap' },
   { href: '/latihan', label: 'Latihan' },
+  // Taman Bermain sits next to Latihan because both are "do something"; the rest are "manage
+  // something". The old Playground is relabelled "Coret-coret" — its own Eyebrow already called
+  // it that, and two adjacent menu items meaning the same word is avoidable confusion. The route
+  // is unchanged, so existing bookmarks still work.
+  { href: '/taman-bermain', label: 'Taman Bermain' },
   { href: '/catatan', label: 'Catatan' },
   { href: '/glosarium', label: 'Glosarium' },
   { href: '/cheatsheet', label: 'Cheatsheet' },
-  { href: '/playground', label: 'Playground' },
+  { href: '/playground', label: 'Coret-coret' },
 ];
 
 export function AppShell({

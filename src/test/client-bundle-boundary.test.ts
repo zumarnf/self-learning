@@ -24,6 +24,11 @@ const FORBIDDEN_IN_CLIENT = [
   "from '@/content/curriculum",
   "from '@/lib/curriculum/queries'",
   "from '@/lib/curriculum/authoring'",
+  // Taman Bermain's bank carries every answer key, every alternative answer, every answer that
+  // must be rejected, and every check spec. The index page needs seven fields per exercise; a
+  // Client Component reaching for the bank would ship all of it instead (SDD §2.2).
+  "from '@/content/taman-bermain'",
+  "from '@/lib/taman-bermain/queries'",
 ];
 
 /*

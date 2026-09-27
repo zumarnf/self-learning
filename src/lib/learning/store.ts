@@ -2,7 +2,13 @@
 
 import { useSyncExternalStore } from 'react';
 import { toLocalDay } from './derive';
-import { EMPTY_SNAPSHOT, SCHEMA_VERSION, type LearningData, type ThemePreference } from './schema';
+import {
+  EMPTY_SNAPSHOT,
+  MAX_DRAFT_CHARS,
+  SCHEMA_VERSION,
+  type LearningData,
+  type ThemePreference,
+} from './schema';
 import { clear as clearStorage, load, save, type StorageStatus } from './storage';
 
 /**
@@ -194,6 +200,63 @@ export function togglePracticeItem(chapter: string, itemIndex: number): void {
   });
 }
 
+/**
+ * Record one press of "Periksa jawaban".
+ *
+ * Activity is bumped only on the transition into `'benar'`, never on a repeat. The streak exists
+ * to reward coming back on another day; bumping it per attempt would instead reward pressing the
+ * button, which is the opposite of the point (SDD §6.4).
+ *
+ * Status is never downgraded either. Having solved it once is a fact about the learner, not about
+ * whatever is currently sitting in the editor.
+ */
+export function recordExerciseAttempt(slug: string, passed: boolean): void {
+  update((data) => {
+    const exercises = { ...data.exercises };
+    const existing = exercises[slug];
+    const alreadySolved = existing?.status === 'benar';
+
+    exercises[slug] = {
+      ...existing,
+      status: alreadySolved || passed ? 'benar' : 'dicoba',
+      attempts: (existing?.attempts ?? 0) + 1,
+      ...(passed && !alreadySolved ? { solvedAt: new Date().toISOString() } : {}),
+    };
+
+    const next = { ...data, exercises };
+    return passed && !alreadySolved ? withActivity(next) : next;
+  });
+}
+
+/** Persist the editor draft. Losing what the learner typed is the one unforgivable UX failure. */
+export function setExerciseDraft(slug: string, code: string): void {
+  update((data) => {
+    const exercises = { ...data.exercises };
+    const existing = exercises[slug] ?? { status: 'dicoba' as const, attempts: 0 };
+
+    if (code.trim().length === 0) {
+      const { code: _dropped, ...rest } = existing;
+      exercises[slug] = rest;
+    } else {
+      // Truncate rather than refuse: the cap protects storage, and silently dropping a long
+      // draft would be the very data loss this function exists to prevent.
+      exercises[slug] = { ...existing, code: code.slice(0, MAX_DRAFT_CHARS) };
+    }
+
+    return { ...data, exercises };
+  });
+}
+
+/** Note that the answer key was opened. Recorded honestly; it does not undo a solved status. */
+export function revealExerciseSolution(slug: string): void {
+  update((data) => {
+    const exercises = { ...data.exercises };
+    const existing = exercises[slug] ?? { status: 'dicoba' as const, attempts: 0 };
+    exercises[slug] = { ...existing, revealed: true };
+    return { ...data, exercises };
+  });
+}
+
 export function setTheme(theme: ThemePreference): void {
   update((data) => ({ ...data, preferences: { ...data.preferences, theme } }));
 }
@@ -210,6 +273,7 @@ export function resetAll(): void {
     updatedAt: new Date().toISOString(),
     lessons: {},
     chapters: {},
+    exercises: {},
     activity: {},
     lastVisited: null,
     // Theme is a display preference, not progress — resetting progress must not flip the theme.
